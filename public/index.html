@@ -1,0 +1,193 @@
+﻿<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini - Full-Stack AI Portfolio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20fill='%2366f'%20/%3E%3Ctext%20x='50%25'%20y='55%25'%20font-size='10'%20text-anchor='middle'%20fill='white'%20font-family='Arial'%3EG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- 左側 Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="logo-text">✨ Gemini</span>
+      </div>
+
+      <!-- 主題切換 -->
+      <div class="theme-switcher">
+        <button class="theme-btn active" data-theme="light" title="Light"><i class="fa-solid fa-sun"></i></button>
+        <button class="theme-btn" data-theme="dark" title="Dark"><i class="fa-solid fa-moon"></i></button>
+        <button class="theme-btn" data-theme="ocean" title="Ocean"><i class="fa-solid fa-water"></i></button>
+      </div>
+      <div id="theme-color-picker-container" class="theme-color-picker-container" style="display:none;">
+        <label for="theme-color-input">Ocean accent:</label>
+        <input id="theme-color-input" type="color" value="#0ea5e9" title="Choose accent color">
+      </div>
+
+      <!-- 目錄導航 -->
+            <nav class="sidebar-nav">
+              <a href="#section-home" class="nav-item active">
+                <i class="fa-solid fa-house"></i> <span>HOME</span>
+              </a>
+              <a href="#section-chat" class="nav-item">
+                <i class="fa-solid fa-robot"></i> <span>AI Playground</span>
+              </a>
+              <a href="#section-skills" class="nav-item">
+                <i class="fa-solid fa-code"></i> <span>Capabilities</span>
+              </a>
+              <a href="#section-contour" class="nav-item">
+                <i class="fa-solid fa-mountain-city"></i> <span>Contour</span>
+              </a>
+              <a href="#section-guestbook" class="nav-item">
+                <i class="fa-solid fa-comments"></i> <span>Guestbook</span>
+              </a>
+            </nav>
+
+      <div class="sidebar-footer">
+        <span>v1.0 · SQLite</span>
+      </div>
+    </aside>
+
+    <!-- 右側主內容 -->
+    <main class="main-content">
+            <!-- HOME 主頁 -->
+      <section id="section-home" class="content-section">
+        <header class="hero-header">
+        <div class="logo-glow">✨</div>
+        <h1>Hello, I'm <span class="gradient-text">Gemini</span></h1>
+        <p class="subtitle">Google's Multimodal AI Assistant & Intelligent Collaborator</p>
+        <div class="status-badge">
+          <span class="status-dot"></span> System Live & Connected to SQLite
+        </div>
+              </header>
+      </section>
+
+      <!-- AI Playground 頁面 -->
+      <section id="section-chat" class="content-section">
+        <div class="card chat-card">
+          <h2><i class="fa-solid fa-robot"></i> Live AI Playground</h2>
+          <p class="card-desc">Experience dynamic responses powered by the backend express server.</p>
+          <div class="chat-box" id="chat-box">
+            <div class="chat-message bot">
+              <div class="avatar">✨</div>
+              <div class="msg-bubble">Hi! Ask me anything about my capabilities or stack.</div>
+            </div>
+          </div>
+          <form id="chat-form" class="chat-input-wrapper">
+            <input type="text" id="chat-input" placeholder="Ask Gemini something..." required />
+            <button type="submit" id="chat-send"><i class="fa-solid fa-paper-plane"></i></button>
+                    </form>
+        </div>
+      </section>
+
+            <!-- Capabilities 頁面 -->
+      <section id="section-skills" class="content-section">
+        <div class="card skills-card">
+          <div class="card-header-flex">
+            <h2><i class="fa-solid fa-code"></i> Dynamic Capabilities</h2>
+            <div class="filter-pills" id="skills-filter">
+              <button class="pill active" data-filter="all">All</button>
+              <button class="pill" data-filter="核心能力">Core</button>
+              <button class="pill" data-filter="長處">Strengths</button>
+            </div>
+          </div>
+          <div id="skills-list" class="skills-list">
+            <div class="loading-spinner"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contour 搜尋頁面 -->
+      <section id="section-contour" class="content-section">
+        <div class="card contour-card">
+          <div class="card-header-flex">
+            <h2><i class="fa-solid fa-mountain-city"></i> Contour</h2>
+            <div class="contour-controls">
+              <form id="contour-search-form" class="contour-search-form">
+                <input id="contour-search-input" list="contour-suggestions" type="search" placeholder="Search contour code or model..." aria-label="Search contour images" />
+                <datalist id="contour-suggestions"></datalist>
+                <button type="submit" class="pill btn-primary">Search</button>
+              </form>
+              <button id="btn-contour-show-all" class="pill" type="button">Show All</button>
+            </div>
+          </div>
+          <p class="card-desc">Search the contour library by filename prefix or description. Preview images and download the ones you need.</p>
+          <div class="contour-meta-bar">
+            <span id="contour-results-count">Enter a query to find contour images.</span>
+            <span id="contour-selected-count">0 selected</span>
+            <div class="contour-meta-controls">
+              <button id="btn-contour-download-zip" class="pill" type="button">Download ZIP</button>
+              <button id="btn-contour-copy-links" class="pill" type="button">Copy current links</button>
+            </div>
+          </div>
+          <div id="contour-results-grid" class="contour-results-grid" tabindex="0">
+            <div class="empty-state">Search above to view contour images.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Forum 頁面 -->
+      <section id="section-guestbook" class="content-section">
+        <div class="card guestbook-card forum-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-comments"></i> Forum</h2>
+              <p class="card-desc">Browse categories, start topics, and reply to discussion threads.</p>
+            </div>
+            <button class="pill" id="btn-forum-refresh"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+          </div>
+
+          <div id="forum-category-tabs" class="forum-category-tabs"></div>
+
+          <div class="forum-main">
+            <aside class="forum-sidebar">
+              <div class="card-subheader">Create New Topic</div>
+              <form id="forum-thread-form" class="guestbook-form">
+                <div class="form-group">
+                  <select id="forum-category-select" required></select>
+                </div>
+                <div class="form-group">
+                  <input type="text" id="thread-title" placeholder="Topic title" required />
+                </div>
+                <div class="form-group">
+                  <textarea id="thread-content" placeholder="Start a new thread..." required></textarea>
+                </div>
+                <div class="form-group">
+                  <input type="text" id="thread-username" placeholder="Your Name" required />
+                </div>
+                <button type="submit" class="btn-primary">
+                  <i class="fa-solid fa-pencil"></i> Create Topic
+                </button>
+              </form>
+            </aside>
+
+            <div class="forum-content">
+              <div id="forum-thread-list" class="forum-thread-list"></div>
+              <div id="forum-thread-detail" class="forum-thread-detail">
+                <div class="empty-state">Select a thread to view replies.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="contour-image-modal" class="image-modal-overlay" aria-hidden="true">
+    <div class="image-modal" role="dialog" aria-modal="true" aria-labelledby="contour-modal-title">
+      <button type="button" class="image-modal-close" id="contour-modal-close" aria-label="Close image">&times;</button>
+      <img id="contour-modal-image" src="" alt="" />
+      <div class="image-modal-meta">
+        <div id="contour-modal-title"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

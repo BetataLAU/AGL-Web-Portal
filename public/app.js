@@ -7,6 +7,75 @@ function debounce(fn, delay = 300) {
   };
 }
 
+// ===== 動效 #5: 游標追蹤光暈 =====
+function setupCardGlowTracking() {
+  document.addEventListener('mousemove', (e) => {
+    const cards = document.querySelectorAll('.card, .hero-header');
+    cards.forEach(card => {
+      const rect = card.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      card.style.setProperty('--mouse-x', `${x}%`);
+      card.style.setProperty('--mouse-y', `${y}%`);
+    });
+  });
+}
+
+// ===== 動效 #6: 游標拖尾 =====
+function setupCursorTrail() {
+  const canvas = document.getElementById('cursor-trail-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let trails = [];
+  let rafId = null;
+  let lastMove = 0;
+  const MAX_TRAILS = 24;
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  function addTrail(x, y) {
+    const now = Date.now();
+    if (now - lastMove < 14) return;
+    lastMove = now;
+    trails.push({ x, y, life: 1 });
+    if (trails.length > MAX_TRAILS) trails.shift();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    trails.forEach((t, i) => {
+      t.life -= 0.05;
+      if (t.life <= 0) { trails.splice(i, 1); return; }
+      const size = 10 * t.life;
+      const hue = 220;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${hue}, 85%, 65%, ${t.life * 0.5})`;
+      ctx.shadowColor = `hsla(${hue}, 90%, 65%, ${t.life * 0.7})`;
+      ctx.shadowBlur = 14;
+      ctx.fill();
+    });
+    if (trails.length > 0) {
+      rafId = requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      rafId = null;
+    }
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    addTrail(e.clientX, e.clientY);
+    if (!rafId) rafId = requestAnimationFrame(animate);
+  });
+}
+
+// ===== Utility: Debounce (unused helper retained) =====
+
 // ===== 銝駁?蝟餌絞 =====
 function initTheme() {
   const savedTheme = localStorage.getItem('site-theme') || 'light';
@@ -304,6 +373,8 @@ document.addEventListener('DOMContentLoaded', () => {
   animateCardsOnLoad();
   setupPageNavigation();
   setupTypewriter();
+  setupCardGlowTracking();
+  setupCursorTrail();
 
   // ???
   fetchSkills();

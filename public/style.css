@@ -39,6 +39,17 @@
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
+
+/* ===== 動效 #5: 游標拖尾 Canvas ===== */
+#cursor-trail-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}
+
 body {
   margin: 0;
   font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
@@ -304,10 +315,15 @@ h1, h2, h3, p {
 .card::after {
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.35), transparent 42%);
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(37, 99, 235, 0.28), transparent 46%);
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.3s ease;
   z-index: -1;
+}
+
+[data-theme="ocean"] .hero-header::after,
+[data-theme="ocean"] .card::after {
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(14, 165, 233, 0.3), transparent 46%);
 }
 
 .hero-header:hover::after,

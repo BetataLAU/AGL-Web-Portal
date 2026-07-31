@@ -365,7 +365,12 @@ function setupPageNavigation() {
   function showSection(sectionId) {
     sections.forEach(s => s.classList.remove('active'));
     const target = document.getElementById(sectionId);
-    if (target) target.classList.add('active');
+    if (target) {
+      target.classList.remove('section-enter');
+      void target.offsetWidth; // 強制 reflow，重新觸發轉場動畫
+      target.classList.add('active');
+      target.classList.add('section-enter');
+    }
 
     navItems.forEach(item => {
       const href = item.getAttribute('href');
@@ -577,10 +582,10 @@ function renderContourResults(images, query) {
   }
 
   countEl.textContent = `${images.length} contour image${images.length === 1 ? '' : 's'} found.`;
-  grid.innerHTML = images.map(img => {
+  grid.innerHTML = images.map((img, idx) => {
     const imageUrl = `/api/contour-image/${encodeURIComponent(img.filename)}`;
     return `
-      <div class="contour-result-card">
+      <div class="contour-result-card stagger-item" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
         <img src="${imageUrl}" alt="${escapeHtml(img.title)}" loading="lazy" data-filename="${escapeHtml(img.filename)}" data-title="${escapeHtml(img.title)}" data-code="${escapeHtml(img.code)}" />
         <div class="contour-meta">
           <span class="contour-code">${escapeHtml(img.code)}</span>
@@ -913,8 +918,8 @@ function renderThreadList(threads) {
     return;
   }
 
-  listEl.innerHTML = threads.map(thread => `
-    <div class="forum-thread-card" data-id="${thread.id}">
+  listEl.innerHTML = threads.map((thread, idx) => `
+    <div class="forum-thread-card stagger-item" style="animation-delay: ${Math.min(idx * 45, 600)}ms" data-id="${thread.id}">
       <div class="forum-thread-title">${escapeHtml(thread.title)}</div>
       <div class="forum-thread-meta">
         <span>${escapeHtml(thread.category)}</span>

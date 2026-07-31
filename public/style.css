@@ -286,6 +286,39 @@ h1, h2, h3, p {
   display: block;
 }
 
+/* ===== 動效 #10: 頁面切換轉場 ===== */
+.content-section.section-enter {
+  animation: section-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes section-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== 動效 #11: 卡片交錯彈入 ===== */
+.stagger-item {
+  opacity: 0;
+  animation: stagger-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stagger-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .hero-header, .card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);

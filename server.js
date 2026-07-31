@@ -329,3 +329,6 @@ app.delete('/api/messages/:id', (req, res) => {
   });
   stmt.finalize();
 });
+
+// 啟動伺服器
+startServer(INITIAL_PORT);

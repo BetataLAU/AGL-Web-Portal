@@ -451,6 +451,31 @@ let currentThreadId = null;
 const categories = ['General', 'Announcements', 'Feedback'];
 const CONTOUR_RECENT_KEY = 'contourRecentlyViewed';
 
+// ===== 動效 #12: 機器人打字回覆 =====
+const GEMINI_REPLIES = [
+  "That's a great question! As a multimodal assistant, I can help with coding, analysis, and much more.",
+  "Interesting! Let me note that — my core strengths include reasoning, context handling, and workflow automation.",
+  "I understand. If you'd like, I can elaborate on my capabilities or walk you through my stack.",
+  "Good point! Feel free to browse the Contour section to see my image-handling workflow in action.",
+  "Noted! You can also create a topic in the Forum to continue this discussion with others.",
+  "Absolutely — my skill set spans multimodal understanding, code debugging, and logical reasoning."
+];
+
+function typeBotReply(bubbleEl, text, chatBox) {
+  bubbleEl.textContent = '';
+  let index = 0;
+  const speed = 18;
+  function type() {
+    if (index < text.length) {
+      bubbleEl.textContent += text.charAt(index);
+      index++;
+      chatBox.scrollTop = chatBox.scrollHeight;
+      setTimeout(type, speed);
+    }
+  }
+  setTimeout(type, 250);
+}
+
 function setupChat() {
   const form = document.getElementById('chat-form');
   if (!form) return;
@@ -466,7 +491,27 @@ function setupChat() {
       el.className = 'chat-message user';
       el.innerHTML = `<div class="avatar">You</div><div class="msg-bubble">${escapeHtml(val)}</div>`;
       chatBox.appendChild(el);
+
+      // 打字中指示
+      const typingEl = document.createElement('div');
+      typingEl.className = 'chat-message bot';
+      typingEl.innerHTML = `<div class="avatar">✨</div><div class="msg-bubble bot-typing"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+      chatBox.appendChild(typingEl);
       chatBox.scrollTop = chatBox.scrollHeight;
+
+      // 模擬思考後回覆
+      const replyText = GEMINI_REPLIES[Math.floor(Math.random() * GEMINI_REPLIES.length)];
+      setTimeout(() => {
+        typingEl.remove();
+        const replyEl = document.createElement('div');
+        replyEl.className = 'chat-message bot';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        replyEl.innerHTML = '<div class="avatar">✨</div>';
+        replyEl.appendChild(bubble);
+        chatBox.appendChild(replyEl);
+        typeBotReply(bubble, replyText, chatBox);
+      }, 900 + Math.random() * 600);
     }
     input.value = '';
   });

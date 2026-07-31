@@ -40,7 +40,17 @@
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
 
-/* ===== 動效 #5: 游標拖尾 Canvas ===== */
+/* ===== 動效 #7: 背景漂浮粒子 Canvas ===== */
+#bg-particles-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 動效 #6: 游標拖尾 Canvas ===== */
 #cursor-trail-canvas {
   position: fixed;
   inset: 0;

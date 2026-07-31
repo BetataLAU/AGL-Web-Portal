@@ -74,6 +74,76 @@ function setupCursorTrail() {
   });
 }
 
+// ===== 動效 #7: 背景漂浮粒子 =====
+function setupBackgroundParticles() {
+  const canvas = document.getElementById('bg-particles-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  let rafId = null;
+  const MIN_COUNT = 40;
+  const MAX_COUNT = 70;
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    initParticles();
+  }
+
+  function initParticles() {
+    const count = MIN_COUNT + Math.floor(Math.random() * (MAX_COUNT - MIN_COUNT));
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: 1.5 + Math.random() * 3,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      alpha: 0.25 + Math.random() * 0.5,
+      pulse: Math.random() * Math.PI * 2,
+      pulseSpeed: 0.01 + Math.random() * 0.03
+    }));
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.pulse += p.pulseSpeed;
+      if (p.x < -10) p.x = canvas.width + 10;
+      if (p.x > canvas.width + 10) p.x = -10;
+      if (p.y < -10) p.y = canvas.height + 10;
+      if (p.y > canvas.height + 10) p.y = -10;
+      const a = p.alpha * (0.7 + 0.3 * Math.sin(p.pulse));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(99, 132, 235, ${a})`;
+      ctx.fill();
+    });
+    // 微細連線
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 110) {
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.strokeStyle = `rgba(99, 132, 235, ${(1 - dist / 110) * 0.16})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    rafId = requestAnimationFrame(animate);
+  }
+
+  resizeCanvas();
+  window.addEventListener('resize', debounce(resizeCanvas, 200));
+  animate();
+}
+
 // ===== Utility: Debounce (unused helper retained) =====
 
 // ===== 銝駁?蝟餌絞 =====
@@ -375,6 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTypewriter();
   setupCardGlowTracking();
   setupCursorTrail();
+  setupBackgroundParticles();
 
   // ???
   fetchSkills();

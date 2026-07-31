@@ -388,22 +388,48 @@ function setupPageNavigation() {
 
 // ===== ???嚗???霈? =====
 
+// ===== 動效 #9: 技能條動畫 =====
+function animateSkillBars() {
+  document.querySelectorAll('.skill-item').forEach((item, index) => {
+    const target = parseInt(item.dataset.level || '0', 10);
+    const bar = item.querySelector('.progress');
+    const numEl = item.querySelector('.skill-level-num');
+    if (!bar) return;
+    setTimeout(() => {
+      let current = 0;
+      const step = Math.max(1, Math.round(target / 60));
+      bar.style.transition = 'width 1.1s cubic-bezier(0.22, 1, 0.36, 1)';
+      const timer = setInterval(() => {
+        current += step;
+        if (current >= target) {
+          current = target;
+          clearInterval(timer);
+        }
+        bar.style.width = `${current}%`;
+        if (numEl) numEl.textContent = `${current}%`;
+      }, 18);
+    }, 150 + index * 120);
+  });
+}
+
 async function fetchSkills() {
   const res = await fetch('/api/skills');
   const result = await res.json();
   const container = document.getElementById('skills-list');
 
   container.innerHTML = result.data.map(skill => `
-    <div class="skill-item">
+    <div class="skill-item" data-level="${skill.level}">
       <div class="skill-info">
         <span><strong>${skill.name}</strong> (${skill.category})</span>
-        <span>${skill.level}%</span>
+        <span><span class="skill-level-num">0%</span></span>
       </div>
       <div class="progress-bar">
-        <div class="progress" style="width: ${skill.level}%"></div>
+        <div class="progress" style="width: 0%"></div>
       </div>
     </div>
   `).join('');
+
+  animateSkillBars();
 }
 
 function escapeHtml(str) {

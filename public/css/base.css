@@ -1,0 +1,154 @@
+/* ===== 主題變數 ===== */
+:root {
+  --primary: #2563eb;
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --bg-color: #f8fafc;
+  --sidebar-bg: rgba(37, 99, 235, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(148, 163, 184, 0.35);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --input-bg: #ffffff;
+  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  --surface-glow: rgba(37, 99, 235, 0.16);
+}
+
+[data-theme="dark"] {
+  --bg-color: #020617;
+  --sidebar-bg: rgba(15, 23, 42, 0.9);
+  --card-bg: rgba(15, 23, 42, 0.82);
+  --border-color: rgba(148, 163, 184, 0.25);
+  --text-main: #f8fafc;
+  --text-muted: #cbd5e1;
+  --input-bg: #0f172a;
+  --shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
+  --surface-glow: rgba(56, 189, 248, 0.18);
+}
+
+[data-theme="ocean"] {
+  --primary: #0ea5e9;
+  --primary-gradient: linear-gradient(135deg, #0ea5e9 0%, #22d3ee 100%);
+  --bg-color: #ecfeff;
+  --sidebar-bg: rgba(14, 165, 233, 0.12);
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --border-color: rgba(14, 165, 233, 0.3);
+  --text-main: #082f49;
+  --text-muted: #0f766e;
+  --input-bg: #ffffff;
+  --surface-glow: rgba(14, 165, 233, 0.2);
+}
+
+/* ===== 全域基礎 ===== */
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.2), transparent 28%),
+    radial-gradient(circle at 85% 12%, rgba(168, 85, 247, 0.16), transparent 24%),
+    linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  line-height: 1.5;
+  overflow: hidden;
+  position: relative;
+  min-height: 100vh;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  filter: blur(65px);
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 0;
+  animation: drift 12s ease-in-out infinite;
+}
+
+body::before {
+  top: -80px;
+  left: -60px;
+  background: rgba(37, 99, 235, 0.26);
+}
+
+body::after {
+  right: -70px;
+  bottom: -60px;
+  background: rgba(14, 165, 233, 0.24);
+  animation-duration: 16s;
+}
+
+::selection {
+  background: rgba(37, 99, 235, 0.25);
+  color: var(--text-main);
+}
+
+h1, h2, h3, p {
+  margin-top: 0;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+  margin-right: 8px;
+}
+
+/* ===== 共用按鈕 ===== */
+.theme-btn, .pill, .btn-primary, .btn-delete, .chat-input-wrapper button {
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.theme-btn:hover, .pill:hover, .btn-primary:hover, .btn-delete:hover, .chat-input-wrapper button:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.1);
+}
+
+.theme-btn.active, .pill.active, .btn-primary {
+  background: var(--primary-gradient);
+  color: white;
+  border-color: transparent;
+}
+
+/* ===== 表單輸入共用 ===== */
+.chat-input-wrapper input,
+.guestbook-form input,
+.guestbook-form textarea,
+.contour-search-form input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+/* ===== 空狀態 ===== */
+.empty-state {
+  color: var(--text-muted);
+  padding: 16px 0;
+}
+
+/* ===== 響應式（全域） ===== */
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+}

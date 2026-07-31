@@ -1,0 +1,190 @@
+/* ===== 動效 #8: 滾動進度條 ===== */
+#scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--primary-gradient);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+  z-index: 10000;
+  transition: width 0.1s linear;
+}
+
+/* ===== 動效 #7: 背景漂浮粒子 Canvas ===== */
+#bg-particles-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 動效 #6: 游標拖尾 Canvas ===== */
+#cursor-trail-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ===== 動效 #1: 打字機效果 ===== */
+#typed-subtitle {
+  min-height: 1.6em;
+  border-right: 2px solid var(--primary);
+  white-space: nowrap;
+  overflow: hidden;
+  animation: subtitle-caret 0.9s step-end infinite;
+  max-width: 100%;
+}
+
+@keyframes subtitle-caret {
+  0%, 100% { border-right-color: var(--primary); }
+  50% { border-right-color: transparent; }
+}
+
+/* ===== 動效 #10: 頁面切換轉場 ===== */
+.content-section.section-enter {
+  animation: section-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes section-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== 動效 #11: 卡片交錯彈入 ===== */
+.stagger-item {
+  opacity: 0;
+  animation: stagger-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stagger-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ===== 動效 #2: logo 發光脈動 ===== */
+.logo-glow {
+  font-size: 2rem;
+  display: inline-block;
+  animation: logo-breathe 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.45));
+}
+
+@keyframes logo-breathe {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.3));
+  }
+  50% {
+    transform: scale(1.18) rotate(8deg);
+    filter: drop-shadow(0 0 24px rgba(37, 99, 235, 0.65));
+  }
+}
+
+/* ===== 動效 #3: 浮動星塵 ===== */
+.hero-stardust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.stardust-particle {
+  position: absolute;
+  bottom: -12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(37, 99, 235, 0.55) 60%, transparent);
+  opacity: 0;
+  animation: stardust-rise 6s linear infinite;
+}
+
+.stardust-particle.p1 { left: 8%;  animation-delay: 0s;   width: 8px;  height: 8px; }
+.stardust-particle.p2 { left: 22%; animation-delay: 1.4s; width: 6px;  height: 6px; }
+.stardust-particle.p3 { left: 38%; animation-delay: 2.8s; width: 10px; height: 10px; }
+.stardust-particle.p4 { left: 56%; animation-delay: 0.9s; width: 6px;  height: 6px; }
+.stardust-particle.p5 { left: 72%; animation-delay: 2.1s; width: 9px;  height: 9px; }
+.stardust-particle.p6 { left: 88%; animation-delay: 3.6s; width: 7px;  height: 7px; }
+
+@keyframes stardust-rise {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(-300px) translateX(24px) scale(1.25);
+    opacity: 0;
+  }
+}
+
+/* ===== 動效 #12: 機器人打字中指示 ===== */
+.bot-typing {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-width: 52px;
+}
+
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.4;
+  animation: typing-bounce 1.1s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ===== 既有：卡片滾動淡入 ===== */
+.fade-in-up {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.fade-in-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== 既有：背景光暈漂移 ===== */
+@keyframes drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(12px, -16px, 0) scale(1.04);
+  }
+}

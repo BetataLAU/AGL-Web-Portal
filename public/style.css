@@ -40,6 +40,19 @@
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
 
+/* ===== 動效 #8: 滾動進度條 ===== */
+#scroll-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--primary-gradient);
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+  z-index: 10000;
+  transition: width 0.1s linear;
+}
+
 /* ===== 動效 #7: 背景漂浮粒子 Canvas ===== */
 #bg-particles-canvas {
   position: fixed;

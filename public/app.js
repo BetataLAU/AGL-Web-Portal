@@ -74,6 +74,22 @@ function setupCursorTrail() {
   });
 }
 
+// ===== 動效 #8: 滾動進度條 =====
+function setupScrollProgressBar() {
+  const bar = document.getElementById('scroll-progress-bar');
+  const scroller = document.querySelector('.app-layout');
+  if (!bar || !scroller) return;
+
+  function update() {
+    const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+    const pct = maxScroll > 0 ? (scroller.scrollTop / maxScroll) * 100 : 0;
+    bar.style.width = `${pct}%`;
+  }
+  scroller.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+  window.addEventListener('resize', debounce(update, 150));
+  update();
+}
+
 // ===== 動效 #7: 背景漂浮粒子 =====
 function setupBackgroundParticles() {
   const canvas = document.getElementById('bg-particles-canvas');
@@ -446,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCardGlowTracking();
   setupCursorTrail();
   setupBackgroundParticles();
+  setupScrollProgressBar();
 
   // ???
   fetchSkills();

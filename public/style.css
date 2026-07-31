@@ -100,6 +100,21 @@ h1, h2, h3, p {
   margin-right: 8px;
 }
 
+/* ===== 動效 #1: 打字機效果 ===== */
+#typed-subtitle {
+  min-height: 1.6em;
+  border-right: 2px solid var(--primary);
+  white-space: nowrap;
+  overflow: hidden;
+  animation: subtitle-caret 0.9s step-end infinite;
+  max-width: 100%;
+}
+
+@keyframes subtitle-caret {
+  0%, 100% { border-right-color: var(--primary); }
+  50% { border-right-color: transparent; }
+}
+
 .app-layout {
   display: flex;
   min-height: 100vh;

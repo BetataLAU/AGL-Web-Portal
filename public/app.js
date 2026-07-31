@@ -185,6 +185,24 @@ function animateCardsOnLoad() {
 }
 
 // ===== ???嚗椰?渡?????喳?芷＊蝷箏???憛? =====
+// ===== 動效 #1: 打字機效果 =====
+function setupTypewriter() {
+  const el = document.getElementById('typed-subtitle');
+  if (!el) return;
+  const text = el.getAttribute('data-text') || '';
+  el.textContent = '';
+  let index = 0;
+  const speed = 55;
+  function type() {
+    if (index < text.length) {
+      el.textContent += text.charAt(index);
+      index++;
+      setTimeout(type, speed);
+    }
+  }
+  setTimeout(type, 600);
+}
+
 function setupPageNavigation() {
   const navItems = document.querySelectorAll('.nav-item');
   const sections = document.querySelectorAll('.content-section');
@@ -285,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupScrollAnimations();
   animateCardsOnLoad();
   setupPageNavigation();
+  setupTypewriter();
 
   // ???
   fetchSkills();

@@ -2,19 +2,46 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const CONTOUR_DIR = path.join(__dirname, 'public', 'image', 'HACTL_contour_spec');
 
-app.use(express.json());
+// Security middleware
+app.use(helmet());
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 200 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false
+}));
+
+app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Simple health endpoint for readiness checks
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // 初始化 SQLite 數據庫
-const db = new sqlite3.Database('./database.db', (err) => {
+const dbPath = path.join(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('數據庫連接失敗:', err.message);
-  else console.log('已成功連接 SQLite 數據庫');
+  else console.log('已成功連接 SQLite 數據庫', dbPath);
+});
+
+// SQLite performance and concurrency tweaks
+db.run("PRAGMA journal_mode = WAL;", [], (err) => {
+  if (err) console.warn('Unable to set journal_mode WAL:', err.message);
+  else console.log('SQLite PRAGMA journal_mode set to WAL');
+});
+// Use NORMAL synchronous for better write throughput while keeping durability reasonable
+db.run("PRAGMA synchronous = NORMAL;", [], (err) => {
+  if (err) console.warn('Unable to set synchronous PRAGMA:', err.message);
+  else console.log('SQLite PRAGMA synchronous set to NORMAL');
 });
 
 // 建表與預設數據初始化
@@ -87,6 +114,7 @@ db.serialize(() => {
       stmt.finalize();
     }
   });
+
 });
 
 // API 1: 獲取 Gemini 技能與資料
@@ -216,11 +244,17 @@ app.get('/api/threads', (req, res) => {
 });
 
 // API 3: 新增論壇主題或回覆
-app.post('/api/messages', (req, res) => {
+app.post('/api/messages', [
+  body('user_name').trim().isLength({ min: 1, max: 50 }).withMessage('請填寫名字 (1-50 字元)'),
+  body('content').trim().isLength({ min: 1, max: 5000 }).withMessage('內容不可為空且不可過長'),
+  body('parent_id').optional().isInt({ min: 1 }).withMessage('parent_id 必須為正整數'),
+  body('title').if((value, { req }) => !req.body.parent_id).trim().isLength({ min: 1, max: 200 }).withMessage('請填寫主題標題 (1-200 字元)'),
+  body('category').if((value, { req }) => !req.body.parent_id).trim().isLength({ min: 1, max: 50 }).withMessage('請填寫版區')
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { user_name, title, category, content, parent_id } = req.body;
-  if (!user_name || !content) {
-    return res.status(400).json({ error: '請填寫名字與內容' });
-  }
 
   if (parent_id) {
     const stmt = db.prepare("INSERT INTO messages (user_name, content, parent_id) VALUES (?, ?, ?)");
@@ -239,10 +273,6 @@ app.post('/api/messages', (req, res) => {
     });
     stmt.finalize();
     return;
-  }
-
-  if (!title || !category) {
-    return res.status(400).json({ error: '請填寫主題標題與版區' });
   }
 
   const stmt = db.prepare("INSERT INTO messages (user_name, title, category, content) VALUES (?, ?, ?, ?)");
@@ -265,7 +295,7 @@ app.post('/api/messages', (req, res) => {
 });
 
 const HOST = process.env.HOST || '0.0.0.0';
-const INITIAL_PORT = Number.isNaN(Number(process.env.PORT)) ? 3000 : Number(process.env.PORT || 3000);
+const INITIAL_PORT = parseInt(process.env.PORT, 10) || 3000;
 
 function startServer(port) {
   const server = app.listen(port, HOST, () => {
@@ -285,6 +315,21 @@ function startServer(port) {
   });
 }
 
+// Start server (after module initialization)
+startServer(INITIAL_PORT);
+
+// Graceful shutdown: close DB before exit
+function shutdown() {
+  console.log('Shutting down...');
+  db.close((err) => {
+    if (err) console.error('Error closing database:', err.message);
+    else console.log('Database connection closed.');
+    process.exit(0);
+  });
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
 // API 4: 取得單一主題與回覆
 app.get('/api/threads/:id', (req, res) => {
   const { id } = req.params;
@@ -300,13 +345,15 @@ app.get('/api/threads/:id', (req, res) => {
 });
 
 // API 5: 修改留言 (UPDATE)
-app.put('/api/messages/:id', (req, res) => {
+app.put('/api/messages/:id', [
+  body('user_name').trim().isLength({ min: 1, max: 50 }).withMessage('名字長度必須在1到50字元'),
+  body('content').trim().isLength({ min: 1, max: 5000 }).withMessage('內容不可為空')
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   const { id } = req.params;
   const { user_name, content } = req.body;
-
-  if (!user_name || !content) {
-    return res.status(400).json({ error: '名字與內容不可為空' });
-  }
 
   const stmt = db.prepare("UPDATE messages SET user_name = ?, content = ? WHERE id = ?");
   stmt.run(user_name, content, id, function (err) {

@@ -579,7 +579,7 @@ function showTemporaryNotice(container, text) {
   if (existing) existing.remove();
   const notice = document.createElement('div');
   notice.className = 'table-notice';
-  notice.style.cssText = 'position:absolute; right:14px; top:14px; background:var(--bg-muted); color:var(--text); padding:8px 12px; border-radius:8px; box-shadow:var(--card-shadow); font-size:0.85rem; z-index:50;';
+  notice.style.cssText = 'position:absolute; right:14px; top:14px; background:var(--card-bg); color:var(--text-main); padding:8px 12px; border-radius:8px; box-shadow:var(--shadow); font-size:0.85rem; z-index:50;';
   notice.innerText = text;
   if (getComputedStyle(container).position === 'static') {
     document.body.appendChild(notice);

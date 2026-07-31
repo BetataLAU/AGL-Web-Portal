@@ -328,7 +328,68 @@ h1, h2, h3, p {
   gap: 10px;
 }
 
-.logo-glow { font-size: 2rem; animation: drift 5s ease-in-out infinite; }
+/* ===== 動效 #2: logo 發光脈動 ===== */
+.logo-glow {
+  font-size: 2rem;
+  display: inline-block;
+  animation: logo-breathe 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 12px rgba(37, 99, 235, 0.45));
+}
+
+@keyframes logo-breathe {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.3));
+  }
+  50% {
+    transform: scale(1.18) rotate(8deg);
+    filter: drop-shadow(0 0 24px rgba(37, 99, 235, 0.65));
+  }
+}
+
+/* ===== 動效 #3: 浮動星塵 ===== */
+.hero-stardust {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.stardust-particle {
+  position: absolute;
+  bottom: -12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(37, 99, 235, 0.55) 60%, transparent);
+  opacity: 0;
+  animation: stardust-rise 6s linear infinite;
+}
+
+.stardust-particle.p1 { left: 8%;  animation-delay: 0s;   width: 8px;  height: 8px; }
+.stardust-particle.p2 { left: 22%; animation-delay: 1.4s; width: 6px;  height: 6px; }
+.stardust-particle.p3 { left: 38%; animation-delay: 2.8s; width: 10px; height: 10px; }
+.stardust-particle.p4 { left: 56%; animation-delay: 0.9s; width: 6px;  height: 6px; }
+.stardust-particle.p5 { left: 72%; animation-delay: 2.1s; width: 9px;  height: 9px; }
+.stardust-particle.p6 { left: 88%; animation-delay: 3.6s; width: 7px;  height: 7px; }
+
+@keyframes stardust-rise {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  60% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateY(-300px) translateX(24px) scale(1.25);
+    opacity: 0;
+  }
+}
 
 .gradient-text {
   background: var(--primary-gradient);

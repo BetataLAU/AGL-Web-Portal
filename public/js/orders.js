@@ -235,24 +235,21 @@ function renderNewOrderForm(applyTemplate = null) {
 
         <div class="orders-form-section">
           <div class="orders-form-section-title">5️⃣ ⚡ 帶電種類及件數 *</div>
+          <p class="power-hint">點下方按鈕逐項加入（可混合多種電力，每項各自輸入件數）</p>
           <div class="orders-choice-row">
-            <button type="button" class="orders-choice-btn power-no ${fields.powerType === 'no' || !fields.powerType ? 'selected' : ''}" id="power-type-no" data-power-type="no">
-              ⚡ 無電 <span class="choice-sub">不含電池</span>
+            <button type="button" class="orders-choice-btn power-no" id="power-add-no" data-add-power="no">
+              ⚡ 無電 <span class="choice-sub">點擊加入一行</span>
             </button>
-            <button type="button" class="orders-choice-btn power-dry ${fields.powerType === 'dry' ? 'selected' : ''}" id="power-type-dry" data-power-type="dry">
+            <button type="button" class="orders-choice-btn power-dry" id="power-add-dry" data-add-power="dry">
               🔋 乾電 <span class="choice-sub">A67 / A123 / A199</span>
             </button>
-            <button type="button" class="orders-choice-btn power-lithium ${fields.powerType === 'lithium' ? 'selected' : ''}" id="power-type-lithium" data-power-type="lithium">
+            <button type="button" class="orders-choice-btn power-lithium" id="power-add-lithium" data-add-power="lithium">
               🔋 鋰電 <span class="choice-sub">ELI / ELM</span>
             </button>
           </div>
 
           <!-- 電力組合編輯區 -->
-          <div id="power-items-editor" style="display:${fields.powerType === 'no' || !fields.powerType ? 'none' : 'block'}; margin-top:14px;">
-            <div class="power-items-header">
-              <span class="power-items-title">帶電項目（可多行，如 A67 × 5 件 + A199 × 11 件）</span>
-              <button type="button" class="pill" id="btn-power-item-add">＋ 新增帶電項目</button>
-            </div>
+          <div id="power-items-editor" style="margin-top:14px;">
             <div id="power-items-list"></div>
           </div>
         </div>
@@ -302,23 +299,17 @@ function renderNewOrderForm(applyTemplate = null) {
       </form>
     `;
 
-    // 初始化電力組合
-    const initialPowerType = fields.powerType || 'no';
-    if (applyTemplate && applyTemplate.power_items && Array.isArray(applyTemplate.power_items)) {
+    // 初始化電力組合（累積載入既有項目或範本）
+    if (applyTemplate && applyTemplate.power_items && Array.isArray(applyTemplate.power_items) && applyTemplate.power_items.length) {
       powerItemsList = applyTemplate.power_items.map(item => ({ ...item }));
     } else {
       powerItemsList = [];
+      // 舊範本只有單一代碼的相容處理
+      if (applyTemplate && applyTemplate.power_code && applyTemplate.power_type && applyTemplate.power_type !== 'no') {
+        powerItemsList = [{ type: applyTemplate.power_type, main: '', code: applyTemplate.power_code, qty: '' }];
+      }
     }
-    // 舊範本只有 power_code 的相容處理
-    if (applyTemplate && !applyTemplate.power_items && applyTemplate.power_code && applyTemplate.power_type !== 'no') {
-      powerItemsList = [{ type: applyTemplate.power_type, code: applyTemplate.power_code, qty: '' }];
-    }
-    initPowerItemsEditor(initialPowerType);
-    if (initialPowerType !== 'no') {
-      document.getElementById('power-type-no').classList.remove('selected');
-      const targetBtn = document.getElementById(`power-type-${initialPowerType}`);
-      if (targetBtn) targetBtn.classList.add('selected');
-    }
+    renderPowerItemsList();
 
     // 嘗試帶出公司（範本）
     if (applyTemplate && applyTemplate.company_id) {
@@ -345,30 +336,14 @@ function escapeAttr(str) {
 }
 
 // ===== 帶電種類及件數編輯器 =====
-function initPowerItemsEditor(powerType) {
-  const editor = document.getElementById('power-items-editor');
-  const listEl = document.getElementById('power-items-list');
-  const addBtn = document.getElementById('btn-power-item-add');
-  if (!editor || !listEl) return;
-
-  if (powerType === 'no') {
-    editor.style.display = 'none';
-    powerItemsList = [];
-    return;
-  }
-  editor.style.display = 'block';
-
-  if (addBtn && !addBtn.dataset.bound) {
-    addBtn.dataset.bound = '1';
-    addBtn.addEventListener('click', () => {
-      powerItemsList.push({ type: powerType, main: '', code: '', qty: '' });
-      renderPowerItemsList();
-    });
-  }
-
-  // 過濾掉不屬於目前類型的項目
-  if (powerItemsList.length) {
-    powerItemsList = powerItemsList.filter(item => item.type === powerType);
+// 新增一項電力（無電/乾電/鋰電 均可累積加入）
+function addPowerItem(type) {
+  if (type === 'no') {
+    powerItemsList.push({ type: 'no', main: '', code: '', qty: '' });
+  } else if (type === 'dry') {
+    powerItemsList.push({ type: 'dry', main: '', code: '', qty: '' });
+  } else if (type === 'lithium') {
+    powerItemsList.push({ type: 'lithium', main: '', code: '', qty: '' });
   }
   renderPowerItemsList();
 }
@@ -397,8 +372,11 @@ function renderPowerItemsList() {
     // 鋰電子代碼（依主選項）— 由 JS 動態填，這裡先放預設
     const subCodes = LITHIUM_MAIN[item.main] || ['PI965', 'PI966', 'PI967'];
 
+    const typeLabel = POWER_TYPE_LABEL[item.type] || item.type;
+
     return `
-      <div class="power-item-row" data-idx="${idx}">
+      <div class="power-item-row" data-idx="${idx}" data-item-type="${item.type}">
+        <span class="power-item-type-label">${typeLabel}</span>
         ${isLithium ? `
           <select class="power-item-main" data-field="main">
             <option value="">-- 主類別 --</option>
@@ -512,14 +490,20 @@ function showCustomCodeInput(row, idx, defaultVal) {
 
 // 將電力組合轉為可讀文字，如「A67 × 5 件、A199 × 11 件」或「ELI/PI967 × 2 件」
 function formatPowerItems(order) {
-  if (!order || order.power_type === 'no') return '⚡ 無電';
+  if (!order) return '⚡ 無電';
   if (order.power_items && order.power_items.length) {
+    // 純無電（只有一項且是 no）→ 只顯示「⚡ 無電」
+    if (order.power_items.length === 1 && order.power_items[0].type === 'no') {
+      return '⚡ 無電';
+    }
     return order.power_items.map(item => {
-      const label = item.main ? `${item.main}/${item.code}` : item.code;
+      if (item.type === 'no') return `⚡ 無電 × ${item.qty} 件`;
+      const label = item.main ? `${item.main}/${item.code}` : (item.code || '');
       return `${label} × ${item.qty} 件`;
     }).join('、');
   }
   // 舊資料相容
+  if (order.power_type === 'no' || !order.power_type) return '⚡ 無電';
   return `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
 }
 
@@ -527,42 +511,52 @@ function getCurrentFormData() {
   const form = document.getElementById('orders-create-form');
   if (!form) return null;
 
-  const powerType = document.querySelector('.orders-choice-btn[data-power-type].selected')?.dataset.powerType || 'no';
-
-  // 收集電力組合（僅非無電）
+  // 收集電力組合（累積所有行：無電/乾電/鋰電）
   let items = [];
-  if (powerType !== 'no') {
-    document.querySelectorAll('.power-item-row').forEach((row, idx) => {
-      const mainSel = row.querySelector('.power-item-main');
-      const codeSel = row.querySelector('.power-item-code');
-      const qtyInput = row.querySelector('.power-item-qty');
-      const customInput = row.querySelector('.power-item-custom-input input');
-      const main = mainSel ? mainSel.value : '';
-      let code = '';
-      if (customInput) {
-        code = customInput.value.trim();
-      } else if (codeSel) {
-        code = codeSel.value;
-      }
-      const qty = qtyInput ? qtyInput.value : '';
-      if (code && qty) {
-        items.push({ type: powerType, main, code, qty });
-      }
-    });
-    // 若 DOM 再渲染過，回退到 powerItemsList
-    if (items.length === 0 && powerItemsList.length) {
-      items = powerItemsList.filter(item => item.type === powerType && item.code && item.qty);
+  document.querySelectorAll('.power-item-row').forEach((row) => {
+    const rowType = row.dataset.itemType || 'no';
+    const mainSel = row.querySelector('.power-item-main');
+    const codeSel = row.querySelector('.power-item-code');
+    const qtyInput = row.querySelector('.power-item-qty');
+    const customInput = row.querySelector('.power-item-custom-input input');
+    const main = mainSel ? mainSel.value : '';
+    let code = '';
+    if (rowType === 'no') {
+      code = '無電';
+    } else if (customInput) {
+      code = customInput.value.trim();
+    } else if (codeSel) {
+      code = codeSel.value;
     }
+    const qty = qtyInput ? qtyInput.value : '';
+    if (qty) {
+      items.push({ type: rowType, main, code, qty });
+    }
+  });
+  // 若 DOM 再渲染過，回退到 powerItemsList
+  if (items.length === 0 && powerItemsList.length) {
+    items = powerItemsList.filter(item => item.qty);
   }
 
-  const firstItem = items[0] || null;
-  const powerCode = firstItem && firstItem.code ? firstItem.code : '';
+  // 摘要：以總體的 power_type / power_code 保底
+  let powerType = 'no';
+  let powerCode = '';
+  if (items.length) {
+    const dryCount = items.filter(i => i.type === 'dry').length;
+    const lithCount = items.filter(i => i.type === 'lithium').length;
+    if (lithCount > 0) powerType = 'lithium';
+    else if (dryCount > 0) powerType = 'dry';
+    const firstCodeItem = items.find(i => i.type !== 'no') || null;
+    if (firstCodeItem && firstCodeItem.code) powerCode = firstCodeItem.code;
+  }
+  // 若純無電，power_type 設為 no（方便顯示）
+  if (items.every(i => i.type === 'no')) powerType = 'no';
 
   const urgent = document.querySelector('.orders-choice-btn[data-urgent].selected')?.dataset.urgent || 'no';
 
-  // 驗證：乾電/鋰電必需要有至少一筆有效項目
-  if (powerType !== 'no' && items.length === 0) {
-    alert('請在「帶電種類及件數」加入至少一筆項目（選擇代碼 + 輸入件數）。');
+  // 驗證：至少需要一筆有效項目
+  if (items.length === 0) {
+    alert('請在「帶電種類及件數」加入至少一筆項目並輸入件數。（如全部無電，點「⚡ 無電」加入並輸入件數）');
     return null;
   }
 
@@ -583,7 +577,7 @@ function getCurrentFormData() {
     cbm: document.getElementById('order-cbm').value,
     power_type: powerType,
     power_code: powerCode,
-    power_items: powerType === 'no' ? null : items,
+    power_items: items,
     urgent,
     receiver_name: document.getElementById('order-receiver-name').value.trim(),
     receiver_phone: document.getElementById('order-receiver-phone').value.trim(),
@@ -630,20 +624,10 @@ function setupNewOrderFormEvents() {
     });
   });
 
-  // 電力分類按鈕（無電 / 乾電 / 鋰電）
-  document.querySelectorAll('.orders-choice-btn[data-power-type]').forEach(btn => {
+  // 電力新增按鈕（無電 / 乾電 / 鋰電 → 累積新增一行）
+  document.querySelectorAll('.orders-choice-btn[data-add-power]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.orders-choice-btn[data-power-type]').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      const newType = btn.dataset.powerType;
-      if (newType === 'no') {
-        powerItemsList = [];
-        const editor = document.getElementById('power-items-editor');
-        if (editor) editor.style.display = 'none';
-      } else {
-        powerItemsList = [];
-        initPowerItemsEditor(newType);
-      }
+      addPowerItem(btn.dataset.addPower);
     });
   });
 

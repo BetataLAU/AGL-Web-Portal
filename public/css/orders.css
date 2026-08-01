@@ -180,6 +180,12 @@
 }
 
 /* ===== 帶電種類及件數編輯器 ===== */
+.power-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
 .power-items-header {
   display: flex;
   justify-content: space-between;
@@ -215,6 +221,20 @@
   background: var(--input-bg);
   margin-bottom: 8px;
   position: relative;
+}
+
+.power-item-type-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface-glow);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .power-item-row select,

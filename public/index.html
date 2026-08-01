@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/orders.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -49,6 +50,9 @@
               </a>
               <a href="#section-guestbook" class="nav-item">
                 <i class="fa-solid fa-comments"></i> <span>Guestbook</span>
+              </a>
+              <a href="#section-orders" class="nav-item">
+                <i class="fa-solid fa-box"></i> <span>訂單系統</span>
               </a>
             </nav>
 
@@ -187,6 +191,50 @@
           </div>
         </div>
       </section>
+
+      <!-- 訂單系統頁面 -->
+      <section id="section-orders" class="content-section">
+        <div class="card orders-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-box"></i> 📦 訂單系統</h2>
+              <p class="card-desc">管理收貨 / 送貨訂單、公司資料與範本。</p>
+            </div>
+          </div>
+
+          <div class="orders-tabs" id="orders-tabs">
+            <button class="orders-tab active" data-tab="new">＋ 新建訂單</button>
+            <button class="orders-tab" data-tab="list">📋 訂單列表</button>
+            <button class="orders-tab" data-tab="templates">⭐ 範本</button>
+          </div>
+
+          <!-- Tab 1：新建訂單 -->
+          <div id="orders-tab-new" class="orders-tab-panel active">
+            <div id="orders-new-form"></div>
+          </div>
+
+          <!-- Tab 2：訂單列表 -->
+          <div id="orders-tab-list" class="orders-tab-panel">
+            <div class="orders-list-controls">
+              <input type="search" id="orders-search-input" placeholder="搜尋訂單編號 / 公司 / 提單號..." />
+              <select id="orders-status-filter">
+                <option value="">全部狀態</option>
+                <option value="pending">待處理</option>
+                <option value="in_progress">進行中</option>
+                <option value="completed">已完成</option>
+                <option value="cancelled">已取消</option>
+              </select>
+              <button type="button" id="btn-orders-refresh" class="pill"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
+            </div>
+            <div id="orders-list-container"></div>
+          </div>
+
+          <!-- Tab 3：範本管理 -->
+          <div id="orders-tab-templates" class="orders-tab-panel">
+            <div id="orders-templates-container"></div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -208,6 +256,7 @@
   <script src="./js/contours.js"></script>
   <script src="./js/forum.js"></script>
   <script src="./js/chat.js"></script>
+  <script src="./js/orders.js"></script>
   <script src="./js/main.js"></script>
 </body>
 </html>

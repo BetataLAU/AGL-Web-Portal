@@ -1,0 +1,531 @@
+/* ===== 訂單系統樣式（手機優先） ===== */
+
+/* ===== Tab 導航 ===== */
+.orders-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+
+.orders-tab {
+  flex: 1;
+  min-width: 120px;
+  min-height: 48px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.06);
+}
+
+.orders-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-tab.active {
+  background: var(--primary-gradient);
+  color: white;
+  border-color: transparent;
+}
+
+.orders-tab-panel {
+  display: none;
+}
+
+.orders-tab-panel.active {
+  display: block;
+}
+
+/* ===== 新建訂單表單 ===== */
+.orders-form-section {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--input-bg);
+}
+
+.orders-form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: var(--text-main);
+}
+
+.orders-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.orders-form-grid .orders-form-field.full {
+  grid-column: 1 / -1;
+}
+
+.orders-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.orders-form-field label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.orders-form-field input,
+.orders-form-field select,
+.orders-form-field textarea {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 1rem;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.orders-form-field textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* ===== 大按鈕選擇（訂單類型 / 電力分類 / 趕機） ===== */
+.orders-choice-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.orders-choice-btn {
+  flex: 1;
+  min-width: 130px;
+  min-height: 56px;
+  border: 2px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.orders-choice-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn.selected {
+  border-color: var(--primary);
+  background: var(--surface-glow);
+  box-shadow: 0 0 0 3px var(--surface-glow), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn .choice-sub {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.orders-choice-btn.selected .choice-sub {
+  color: var(--text-main);
+}
+
+/* 電力分類按鈕顏色 */
+.orders-choice-btn.power-no.selected {
+  border-color: #94a3b8;
+  background: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn.power-dry.selected {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn.power-lithium.selected {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn.urgent-yes.selected {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.orders-choice-btn.urgent-no.selected {
+  border-color: #94a3b8;
+  background: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2), 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+/* ===== 提交按鈕 ===== */
+.orders-submit-btn {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  border-radius: 14px;
+  background: var(--primary-gradient);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+  margin-top: 8px;
+}
+
+.orders-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.3);
+}
+
+/* ===== 成功頁面 ===== */
+.orders-success {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.orders-success h3 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+}
+
+.orders-success .orders-success-no {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin: 8px 0 20px;
+}
+
+.orders-success-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.orders-success-actions .pill {
+  min-height: 48px;
+  padding: 12px 18px;
+  font-size: 1rem;
+}
+
+/* ===== 訂單列表 ===== */
+.orders-list-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.orders-list-controls input[type="search"] {
+  flex: 1;
+  min-width: 220px;
+  min-height: 48px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.orders-list-controls select {
+  min-height: 48px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 1rem;
+}
+
+.orders-card-item {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--input-bg);
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.orders-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+  border-color: var(--primary);
+}
+
+.orders-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.orders-card-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.orders-card-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.order-status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.order-status-badge.pending { background: rgba(245, 158, 11, 0.18); color: #b45309; }
+.order-status-badge.in_progress { background: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
+.order-status-badge.completed { background: rgba(34, 197, 94, 0.18); color: #15803d; }
+.order-status-badge.cancelled { background: rgba(148, 163, 184, 0.22); color: #475569; }
+
+[data-theme="dark"] .order-status-badge.pending { color: #fbbf24; }
+[data-theme="dark"] .order-status-badge.in_progress { color: #60a5fa; }
+[data-theme="dark"] .order-status-badge.completed { color: #4ade80; }
+[data-theme="dark"] .order-status-badge.cancelled { color: #94a3b8; }
+
+/* 標籤 */
+.orders-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.orders-tag.power-dry { background: rgba(245, 158, 11, 0.18); color: #b45309; }
+.orders-tag.power-lithium { background: rgba(239, 68, 68, 0.18); color: #dc2626; }
+.orders-tag.power-no { background: rgba(148, 163, 184, 0.22); color: #475569; }
+.orders-tag.urgent { background: rgba(239, 68, 68, 0.18); color: #dc2626; }
+
+[data-theme="dark"] .orders-tag.power-dry { color: #fbbf24; }
+[data-theme="dark"] .orders-tag.power-lithium { color: #f87171; }
+[data-theme="dark"] .orders-tag.power-no { color: #94a3b8; }
+[data-theme="dark"] .orders-tag.urgent { color: #f87171; }
+
+/* 訂單詳情展開 */
+.orders-card-detail {
+  display: none;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.orders-card-item.open .orders-card-detail {
+  display: block;
+}
+
+.orders-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.orders-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.orders-detail-field.full {
+  grid-column: 1 / -1;
+}
+
+.orders-detail-field .detail-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.orders-detail-field .detail-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.orders-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.orders-card-actions .pill {
+  min-height: 40px;
+  font-size: 0.9rem;
+}
+
+.orders-recipient {
+  background: var(--surface-glow);
+  border: 1px dashed var(--primary);
+  border-radius: 12px;
+  padding: 10px;
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+/* ===== 範本管理 ===== */
+.orders-template-group {
+  margin-bottom: 20px;
+}
+
+.orders-template-group h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 1rem;
+}
+
+.orders-template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--input-bg);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+
+.orders-template-item .template-info {
+  flex: 1;
+}
+
+.orders-template-item .template-name {
+  font-weight: 600;
+}
+
+.orders-template-item .template-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.orders-template-item .template-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.orders-template-item .template-actions button {
+  min-height: 40px;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.orders-template-item .template-actions button:hover {
+  transform: translateY(-1px);
+}
+
+.template-btn-delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+/* 新增範本表單 */
+.orders-template-add-form {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--input-bg);
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+/* ===== 新增公司表單 ===== */
+.orders-company-add {
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 10px;
+  background: var(--input-bg);
+}
+
+.orders-company-add summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.95rem;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+/* ===== 電郵總結文字 ===== */
+.orders-summary-text {
+  white-space: pre-wrap;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 0.85rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  margin-top: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  user-select: all;
+}
+
+/* ===== 桌面版 ===== */
+@media (min-width: 900px) {
+  .orders-form-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .orders-list-controls input[type="search"] {
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 600px) {
+  .orders-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .orders-choice-btn {
+    min-width: 100%;
+  }
+
+  .orders-card-item {
+    padding: 14px;
+  }
+}

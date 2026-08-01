@@ -29,6 +29,68 @@ db.serialize(() => {
     )
   `);
 
+  // ===== 訂單系統：公司/地點 =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS companies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category TEXT DEFAULT 'customer',
+      name TEXT,
+      address TEXT,
+      contact_person TEXT,
+      phone TEXT,
+      email TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ===== 訂單系統：範本 =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      company_id INTEGER,
+      cargo_desc TEXT,
+      quantity INTEGER,
+      weight_kg REAL,
+      cbm REAL,
+      power_type TEXT DEFAULT 'no',
+      receiver_name TEXT,
+      receiver_phone TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ===== 訂單系統：訂單 =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_no TEXT,
+      order_type TEXT,
+      mawb TEXT,
+      hawb TEXT,
+      pickup_no TEXT,
+      pickup_company_id INTEGER,
+      delivery_company_id INTEGER,
+      cargo_desc TEXT,
+      quantity INTEGER,
+      weight_kg REAL,
+      cbm REAL,
+      power_type TEXT DEFAULT 'no',
+      power_code TEXT,
+      urgent TEXT DEFAULT 'no',
+      receiver_name TEXT,
+      receiver_phone TEXT,
+      address TEXT,
+      notes TEXT,
+      transport_company TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   db.all("PRAGMA table_info(messages)", [], (err, rows) => {
     if (err) {
       console.error('PRAGMA table_info failed:', err.message);

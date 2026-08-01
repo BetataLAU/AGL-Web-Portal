@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupForumSection();
   setupContourSection();
   setupContourModal();
+  setupOrdersSection();
 
   setupMessageStream();
 });

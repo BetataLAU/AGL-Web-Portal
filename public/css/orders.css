@@ -103,6 +103,13 @@
   resize: vertical;
 }
 
+.orders-field-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  transition: color 0.2s ease;
+}
+
 /* ===== 大按鈕選擇（訂單類型 / 電力分類 / 趕機） ===== */
 .orders-choice-row {
   display: flex;
@@ -633,6 +640,144 @@
   min-height: 40px;
   display: flex;
   align-items: center;
+}
+
+/* ===== 重複訂單浮動卡片 ===== */
+.duplicate-order-card {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  width: min(92vw, 520px);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 2px solid #f59e0b;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  padding: 18px;
+  display: none;
+}
+
+.duplicate-order-card.visible {
+  display: block;
+  animation: duplicateCardSlideIn 0.25s ease;
+}
+
+@keyframes duplicateCardSlideIn {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.duplicate-order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #b45309;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.duplicate-order-close {
+  border: none;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-muted);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.duplicate-order-close:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.duplicate-order-list {
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.duplicate-order-item {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--input-bg);
+  padding: 12px;
+}
+
+.duplicate-order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.duplicate-order-no {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.duplicate-order-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .duplicate-order-badge {
+  color: #fbbf24;
+}
+
+.duplicate-order-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.duplicate-order-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.duplicate-order-actions .pill {
+  min-height: 44px;
+  font-size: 0.95rem;
+  flex: 1;
+}
+
+/* 浮動卡片背景遮罩 */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+body:has(.duplicate-order-card.visible)::after {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* ===== 電郵總結文字 ===== */

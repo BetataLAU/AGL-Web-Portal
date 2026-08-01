@@ -3,12 +3,79 @@ const db = require('../db/database');
 const router = express.Router();
 
 // ===== 工具函數 =====
+const MAWB_LATE_LABEL = '後補MAWB#';
+const ORDER_NO_PREFIX = 'AGL-';
+
+// 將舊版 ORD- 開頭的訂單編號轉為 AGL-（一次性資料遷移）
+db.all("SELECT id, order_no FROM orders WHERE order_no LIKE 'ORD-%'", [], (err, rows) => {
+  if (err) {
+    console.error('訂單編號遷移查詢失敗:', err.message);
+    return;
+  }
+  if (!rows || !rows.length) return;
+  const stmt = db.prepare("UPDATE orders SET order_no = ? WHERE id = ?");
+  rows.forEach(row => {
+    const newNo = 'AGL-' + row.order_no.slice(4);
+    stmt.run(newNo, row.id, (updateErr) => {
+      if (updateErr) console.error(`訂單 ${row.id} 編號遷移失敗:`, updateErr.message);
+    });
+  });
+  stmt.finalize();
+  console.log(`已將 ${rows.length} 筆訂單編號由 ORD- 遷移至 AGL-`);
+});
+
+// 去除空格、連字號，取得 11 位純數字
+function normalizeMawb(value) {
+  if (value == null) return '';
+  return String(value).replace(/[\s-]/g, '');
+}
+
+// 統一顯示格式 000-0000 0000
+function formatMawb(value) {
+  const digits = normalizeMawb(value);
+  if (!/^\d{11}$/.test(digits)) return String(value || '');
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)} ${digits.slice(7, 11)}`;
+}
+
+// 驗證 MAWB#：格式 + checksum（suffix 前 7 位 mod 7 = 第 8 位）
+function validateMawb(value) {
+  const raw = (value == null ? '' : String(value)).trim();
+  if (!raw) {
+    return { valid: false, error: 'empty', formatted: '' };
+  }
+  if (raw === MAWB_LATE_LABEL) {
+    return { valid: true, late: true, error: null, formatted: MAWB_LATE_LABEL };
+  }
+
+  const digits = normalizeMawb(raw);
+  // 格式：11位全數字
+  if (!/^\d{11}$/.test(digits)) {
+    return { valid: false, error: '格式錯誤：MAWB# 必須是 11 位數字（如 000-00000000）', formatted: '' };
+  }
+  // prefix 介於 001-999
+  const prefix = digits.slice(0, 3);
+  const prefixNum = parseInt(prefix, 10);
+  if (prefixNum < 1 || prefixNum > 999) {
+    return { valid: false, error: '格式錯誤：MAWB# 前 3 位（prefix）必須介於 001-999', formatted: '' };
+  }
+  // checksum：suffix 前 7 位 mod 7 = 第 8 位
+  const suffix = digits.slice(3);
+  const first7 = parseInt(suffix.slice(0, 7), 10);
+  const checkDigit = parseInt(suffix.charAt(7), 10);
+  const modResult = first7 % 7;
+  if (modResult !== checkDigit) {
+    return { valid: false, error: 'MAWB# 有問題，請再輸入', formatted: '' };
+  }
+
+  return { valid: true, late: false, error: null, formatted: formatMawb(digits) };
+}
+
 function generateOrderNo(callback) {
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const prefix = `ORD-${yyyy}${mm}${dd}-`;
+  const prefix = `${ORDER_NO_PREFIX}${yyyy}${mm}${dd}-`;
 
   db.get(
     "SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1",
@@ -212,8 +279,17 @@ router.post('/', (req, res) => {
     notes, transport_company, status = 'pending'
   } = req.body;
 
-  if (!order_type || !mawb || !hawb || !pickup_no) {
-    return res.status(400).json({ error: '請填寫訂單類型、MAWB#、HAWB# 與客戶提貨號' });
+  if (!order_type || !hawb || !pickup_no) {
+    return res.status(400).json({ error: '請填寫訂單類型、HAWB# 與客戶提貨號' });
+  }
+  // MAWB# 驗證：可留空代表「後補MAWB#」，有值則必須通過格式 + checksum 驗證
+  let finalMawb = MAWB_LATE_LABEL;
+  if (mawb != null && String(mawb).trim() !== '') {
+    const mawbResult = validateMawb(mawb);
+    if (!mawbResult.valid) {
+      return res.status(400).json({ error: 'MAWB# 有問題，請再輸入' });
+    }
+    finalMawb = mawbResult.formatted;
   }
   if (!pickup_company_id && !delivery_company_id) {
     return res.status(400).json({ error: '請選擇收/送貨公司' });
@@ -245,7 +321,7 @@ router.post('/', (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      orderNo, order_type, mawb, hawb, pickup_no,
+      orderNo, order_type, finalMawb, hawb, pickup_no,
       pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
       power_type, power_code || null,
@@ -259,6 +335,54 @@ router.post('/', (req, res) => {
       }
     );
     stmt.finalize();
+  });
+});
+
+// GET /api/orders/check-duplicate?mawb=&hawb=&pickup_no=&exclude_id=
+router.get('/check-duplicate', (req, res) => {
+  const mawb = (req.query.mawb || '').trim();
+  const hawb = (req.query.hawb || '').trim();
+  const pickupNo = (req.query.pickup_no || '').trim();
+  const excludeId = req.query.exclude_id ? parseInt(req.query.exclude_id, 10) : null;
+
+  const conditions = [];
+  const params = [];
+  if (mawb && mawb !== MAWB_LATE_LABEL) {
+    conditions.push('o.mawb = ?');
+    params.push(mawb);
+  }
+  if (hawb) {
+    conditions.push('o.hawb = ?');
+    params.push(hawb);
+  }
+  if (pickupNo) {
+    conditions.push('o.pickup_no = ?');
+    params.push(pickupNo);
+  }
+  if (excludeId) {
+    conditions.push('o.id != ?');
+    params.push(excludeId);
+  }
+  if (conditions.length === 0) {
+    return res.json({ data: [] });
+  }
+
+  const sql = `
+    SELECT o.*,
+           pc.name AS pickup_company_name,
+           dc.name AS delivery_company_name,
+           strftime('%Y-%m-%dT%H:%M:%fZ', o.created_at) AS created_at,
+           strftime('%Y-%m-%dT%H:%M:%fZ', o.updated_at) AS updated_at
+    FROM orders o
+    LEFT JOIN companies pc ON pc.id = o.pickup_company_id
+    LEFT JOIN companies dc ON dc.id = o.delivery_company_id
+    WHERE ${conditions.join(' OR ')}
+    ORDER BY o.created_at DESC LIMIT 20
+  `;
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ data: rows.map(serializeOrder) });
   });
 });
 
@@ -297,6 +421,15 @@ router.put('/:id', (req, res) => {
   if (!status) {
     return res.status(400).json({ error: '缺少狀態欄位' });
   }
+  // MAWB# 驗證：可留空代表「後補MAWB#」，有值則必須通過格式 + checksum 驗證
+  let finalMawb = MAWB_LATE_LABEL;
+  if (mawb != null && String(mawb).trim() !== '') {
+    const mawbResult = validateMawb(mawb);
+    if (!mawbResult.valid) {
+      return res.status(400).json({ error: 'MAWB# 有問題，請再輸入' });
+    }
+    finalMawb = mawbResult.formatted;
+  }
 
   const stmt = db.prepare(`
     UPDATE orders SET
@@ -310,7 +443,7 @@ router.put('/:id', (req, res) => {
     WHERE id = ?
   `);
   stmt.run(
-    order_type, mawb, hawb, pickup_no,
+    order_type, finalMawb, hawb, pickup_no,
     pickup_company_id || null, delivery_company_id || null,
     cargo_desc, quantity, weight_kg, cbm,
     power_type, power_code || null,

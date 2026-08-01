@@ -5,8 +5,10 @@ let transportCompanies = [];
 let templatesData = [];
 let currentOrderType = 'delivery';
 let editingOrderId = null;
+let duplicateConfirmed = false;
 
 const ORDER_TYPE_LABEL = { delivery: '🚚 送貨', pickup: '📥 收貨' };
+const MAWB_LATE_LABEL = '後補MAWB#';
 const STATUS_LABEL = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
 const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '🔋 乾電', lithium: '🔋 鋰電' };
 const POWER_CODES = {
@@ -73,6 +75,171 @@ function formatDateTime(isoString) {
   });
 }
 
+// ===== MAWB# 驗證 =====
+// 去除空格、連字號，取得 11 位純數字
+function normalizeMawb(value) {
+  if (value == null) return '';
+  return String(value).replace(/[\s-]/g, '');
+}
+
+// 統一顯示格式 000-0000 0000
+function formatMawb(value) {
+  const digits = normalizeMawb(value);
+  if (!/^\d{11}$/.test(digits)) return value || '';
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)} ${digits.slice(7, 11)}`;
+}
+
+// 驗證 MAWB#：格式 + checksum（suffix 前 7 位 mod 7 = 第 8 位）
+function validateMawb(value) {
+  const raw = (value || '').trim();
+  if (!raw) {
+    return { valid: false, error: 'empty', formatted: '' };
+  }
+  if (raw === MAWB_LATE_LABEL) {
+    return { valid: true, late: true, error: null, formatted: MAWB_LATE_LABEL };
+  }
+
+  const digits = normalizeMawb(raw);
+  // 格式：11位全數字
+  if (!/^\d{11}$/.test(digits)) {
+    return { valid: false, error: '格式錯誤：MAWB# 必須是 11 位數字（如 000-00000000）', formatted: '' };
+  }
+  // prefix 介於 001-999
+  const prefix = digits.slice(0, 3);
+  const prefixNum = parseInt(prefix, 10);
+  if (prefixNum < 1 || prefixNum > 999) {
+    return { valid: false, error: '格式錯誤：MAWB# 前 3 位（prefix）必須介於 001-999', formatted: '' };
+  }
+  // checksum：suffix 前 7 位 mod 7 = 第 8 位
+  const suffix = digits.slice(3);
+  const first7 = parseInt(suffix.slice(0, 7), 10);
+  const checkDigit = parseInt(suffix.charAt(7), 10);
+  const modResult = first7 % 7;
+  if (modResult !== checkDigit) {
+    return { valid: false, error: 'MAWB# 有問題，請再輸入', formatted: '' };
+  }
+
+  return { valid: true, late: false, error: null, formatted: formatMawb(digits) };
+}
+
+// 判斷是否為「後補MAWB#」
+function isLateMawb(value) {
+  if (value == null) return false;
+  return String(value).trim() === MAWB_LATE_LABEL;
+}
+
+// 顯示用：後補→顯示「後補MAWB#」，有值→標準格式，無值→'-'
+function displayMawb(value) {
+  if (!value || !String(value).trim()) return '-';
+  if (isLateMawb(value)) return MAWB_LATE_LABEL;
+  return formatMawb(value);
+}
+
+// 查詢是否已有重複的訂單（MAWB# / HAWB# / 客戶提貨號）
+async function checkDuplicateOrder() {
+  const mawbVal = document.getElementById('order-mawb')?.value.trim() || '';
+  const hawbVal = document.getElementById('order-hawb')?.value.trim() || '';
+  const pickupVal = document.getElementById('order-pickup-no')?.value.trim() || '';
+
+  const params = new URLSearchParams();
+  if (mawbVal && !isLateMawb(mawbVal)) {
+    // MAWB 標準化後查詢
+    const mawbResult = validateMawb(mawbVal);
+    if (mawbResult.valid && !mawbResult.late) params.set('mawb', mawbResult.formatted);
+  }
+  if (hawbVal) params.set('hawb', hawbVal);
+  if (pickupVal) params.set('pickup_no', pickupVal);
+  if (editingOrderId) params.set('exclude_id', editingOrderId);
+
+  const query = params.toString();
+  if (!query) return [];
+
+  try {
+    const result = await apiFetch(`/api/orders/check-duplicate?${query}`);
+    return result.data || [];
+  } catch (err) {
+    console.warn('重複檢查失敗：', err.message);
+    return [];
+  }
+}
+
+// 顯示重複訂單浮動卡片
+// mode: 'submit' = 提交時（按「仍然繼續」會觸發重新提交）；'blur' = 離開欄位即時檢查（按「知道了」只關閉卡片）
+function showDuplicateCard(orders, mode = 'submit') {
+  // 移除舊卡片
+  document.querySelectorAll('.duplicate-order-card').forEach(el => el.remove());
+
+  if (!orders || !orders.length) return;
+  const isBlurMode = mode === 'blur';
+
+  const entries = orders.map(order => {
+    // 找出哪個欄位重複
+    const mawbVal = (document.getElementById('order-mawb')?.value || '').trim();
+    const hawbVal = (document.getElementById('order-hawb')?.value || '').trim();
+    const pickupVal = (document.getElementById('order-pickup-no')?.value || '').trim();
+    const matchFields = [];
+    if (mawbVal && displayMawb(order.mawb) === displayMawb(mawbVal)) matchFields.push('MAWB#');
+    if (hawbVal && order.hawb === hawbVal) matchFields.push('HAWB#');
+    if (pickupVal && order.pickup_no === pickupVal) matchFields.push('客戶提貨號');
+    const companyName = order.order_type === 'delivery'
+      ? (order.delivery_company_name || order.pickup_company_name || '-')
+      : (order.pickup_company_name || order.delivery_company_name || '-');
+
+    return `
+      <div class="duplicate-order-item">
+        <div class="duplicate-order-head">
+          <span class="duplicate-order-no">${escapeHtml(order.order_no)}</span>
+          <span class="duplicate-order-badge">${escapeHtml(matchFields.join('、'))}重複</span>
+        </div>
+        <div class="duplicate-order-meta">
+          <span>${escapeHtml(companyName)}</span>
+          <span>${formatDateTime(order.created_at)}</span>
+        </div>
+        <div class="duplicate-order-meta">
+          <span>MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
+          <span>HAWB: ${escapeHtml(order.hawb || '-')}</span>
+          <span>提貨: ${escapeHtml(order.pickup_no || '-')}</span>
+        </div>
+        <div class="duplicate-order-meta">
+          <span>${escapeHtml(order.cargo_desc || '-')}</span>
+          <span>${order.quantity || 0}件 / ${order.weight_kg || 0}KG / ${order.cbm || 0}CBM</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const card = document.createElement('div');
+  card.className = 'duplicate-order-card';
+  card.innerHTML = `
+    <div class="duplicate-order-card-header">
+      <span>⚠️ 發現重複訂單</span>
+      <button type="button" class="duplicate-order-close" title="關閉">✕</button>
+    </div>
+    <div class="duplicate-order-list">${entries}</div>
+    <div class="duplicate-order-actions">
+      <button type="button" class="pill btn-primary duplicate-order-proceed">${isBlurMode ? '🔍 知道了，繼續填寫' : '✅ 仍然繼續'}</button>
+      <button type="button" class="pill duplicate-order-back">✏️ 返回修改</button>
+    </div>
+  `;
+  document.body.appendChild(card);
+  card.classList.add('visible');
+
+  card.querySelector('.duplicate-order-close').addEventListener('click', () => card.remove());
+  card.querySelector('.duplicate-order-back').addEventListener('click', () => card.remove());
+  card.querySelector('.duplicate-order-proceed').addEventListener('click', () => {
+    if (isBlurMode) {
+      // blur 模式：只關閉卡片，不觸發提交，用戶可繼續填寫
+      card.remove();
+      return;
+    }
+    // submit 模式：標記用戶已確認繼續，重新觸發提交
+    duplicateConfirmed = true;
+    card.remove();
+    const submitBtn = document.querySelector('.orders-submit-btn');
+    if (submitBtn) submitBtn.click();
+  });
+}
+
 // ===== Tab 切換 =====
 function setupOrdersTabs() {
   const tabs = document.querySelectorAll('.orders-tab');
@@ -113,6 +280,7 @@ function transportSelectOptions(selectedId) {
 function renderNewOrderForm(applyTemplate = null) {
   const container = document.getElementById('orders-new-form');
   if (!container) return;
+  duplicateConfirmed = false; // 新表單重置重複確認狀態
 
   // 載入公司資料
   Promise.all([loadCompanies(), loadTransportCompanies()]).then(() => {
@@ -150,15 +318,18 @@ function renderNewOrderForm(applyTemplate = null) {
           <div class="orders-form-grid">
             <div class="orders-form-field">
               <label>MAWB# *</label>
-              <input type="text" id="order-mawb" required placeholder="如 157-12345678" />
+              <input type="text" id="order-mawb" inputmode="numeric" placeholder="如 157-1234 5678" />
+              <div class="orders-field-hint" id="mawb-hint">格式：000-0000 0000（如 157-1234 5678）</div>
             </div>
             <div class="orders-form-field">
               <label>HAWB# *</label>
               <input type="text" id="order-hawb" required placeholder="如 HKG-987654" />
+              <div class="orders-field-hint" id="hawb-hint"></div>
             </div>
             <div class="orders-form-field full">
               <label>客戶提貨號 *</label>
               <input type="text" id="order-pickup-no" required placeholder="客戶提供的提貨/取貨編號" />
+              <div class="orders-field-hint" id="pickup-hint"></div>
             </div>
           </div>
         </div>
@@ -624,6 +795,14 @@ function setupNewOrderFormEvents() {
     });
   });
 
+  // 是否趕機按鈕（🔴 趕機 / ⚪ 普通）
+  document.querySelectorAll('.orders-choice-btn[data-urgent]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.orders-choice-btn[data-urgent]').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
   // 電力新增按鈕（無電 / 乾電 / 鋰電 → 累積新增一行）
   document.querySelectorAll('.orders-choice-btn[data-add-power]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -637,6 +816,98 @@ function setupNewOrderFormEvents() {
     if (el) {
       el.addEventListener('change', handleCompanySelected);
     }
+  });
+
+  // MAWB# 輸入即時格式化 + 失焦驗證
+  const mawbInput = document.getElementById('order-mawb');
+  if (mawbInput) {
+    // 輸入時自動格式化成 000-0000 0000（最多 11 位數字）
+    mawbInput.addEventListener('input', () => {
+      const digits = mawbInput.value.replace(/[^\d]/g, '').slice(0, 11);
+      let formatted = digits;
+      if (digits.length > 3) formatted = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      if (digits.length > 7) formatted = `${digits.slice(0, 3)}-${digits.slice(3, 7)} ${digits.slice(7)}`;
+      mawbInput.value = formatted;
+      const hint = document.getElementById('mawb-hint');
+      if (hint) hint.style.color = '';
+    });
+
+    // 失焦即時驗證
+    mawbInput.addEventListener('blur', () => {
+      const val = mawbInput.value.trim();
+      if (!val || isLateMawb(val)) {
+        const hint = document.getElementById('mawb-hint');
+        if (hint) {
+          hint.style.color = '';
+          hint.textContent = '格式：000-0000 0000（如 157-1234 5678）';
+        }
+        return;
+      }
+      const result = validateMawb(val);
+      const hint = document.getElementById('mawb-hint');
+      if (hint) {
+        if (result.valid) {
+          hint.style.color = '#16a34a';
+          hint.textContent = `✅ 有效 MAWB#：${result.formatted}`;
+        } else {
+          hint.style.color = '#dc2626';
+          hint.textContent = `❌ ${result.error}`;
+        }
+      }
+    });
+  }
+
+  // ===== 三個欄位（MAWB / HAWB / 客戶提貨號）blur 即時重複檢查 =====
+  // 共用 debounce：快速跳欄位時只發一次請求
+  let duplicateCheckTimer = null;
+  // 防重複彈卡：記住上次已確認過的欄位值組合，值沒變就不再次彈卡
+  let lastCheckedDuplicateKey = '';
+
+  function getDuplicateCheckKey() {
+    return [
+      document.getElementById('order-mawb')?.value.trim() || '',
+      document.getElementById('order-hawb')?.value.trim() || '',
+      document.getElementById('order-pickup-no')?.value.trim() || ''
+    ].join('|');
+  }
+
+  async function runBlurDuplicateCheck() {
+    const currentKey = getDuplicateCheckKey();
+    if (!currentKey) return;
+
+    const duplicates = await checkDuplicateOrder();
+    // 無重複 → 更新標記（表示這組值已檢查過無問題）
+    if (!duplicates || !duplicates.length) {
+      lastCheckedDuplicateKey = currentKey;
+      return;
+    }
+
+    // 有重複 → 若這組值已確認過就不再彈卡
+    if (lastCheckedDuplicateKey === currentKey) return;
+    lastCheckedDuplicateKey = currentKey;
+
+    // 彈出浮動卡片（blur 模式，按「知道了」只關閉卡片）
+    showDuplicateCard(duplicates, 'blur');
+  }
+
+  const blurFields = [
+    { id: 'order-mawb', hintId: 'mawb-hint' },
+    { id: 'order-hawb', hintId: 'hawb-hint' },
+    { id: 'order-pickup-no', hintId: 'pickup-hint' }
+  ];
+
+  blurFields.forEach(({ id }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('blur', () => {
+      const val = el.value.trim();
+      if (!val) return;
+      // 共用 debounce：350ms 內多次 blur 只執行一次
+      clearTimeout(duplicateCheckTimer);
+      duplicateCheckTimer = setTimeout(() => {
+        runBlurDuplicateCheck();
+      }, 350);
+    });
   });
 
   // 新增公司
@@ -677,6 +948,36 @@ function setupNewOrderFormEvents() {
       e.preventDefault();
       const data = getCurrentFormData();
       if (!data) return;
+
+      // MAWB# 驗證
+      const mawbValue = document.getElementById('order-mawb').value.trim();
+      if (!mawbValue) {
+        // 沒填 MAWB# → 確認是否後補
+        if (!confirm('⚠️ 沒有 MAWB#？\n\n確定以「後補MAWB#」提交訂單嗎？\n\n按「確定」= 後補 MAWB#（可稍後編輯補上）\n按「取消」= 返回輸入 MAWB#')) {
+          document.getElementById('order-mawb').focus();
+          return;
+        }
+        data.mawb = MAWB_LATE_LABEL;
+      } else {
+        const mawbResult = validateMawb(mawbValue);
+        if (!mawbResult.valid) {
+          alert(`❌ ${mawbResult.error}`);
+          document.getElementById('order-mawb').focus();
+          return;
+        }
+        // 統一儲存為標準格式 000-0000 0000
+        data.mawb = mawbResult.formatted;
+      }
+
+      // 重複檢查（已確認繼續則跳過）
+      if (!duplicateConfirmed) {
+        const duplicates = await checkDuplicateOrder();
+        if (duplicates && duplicates.length) {
+          showDuplicateCard(duplicates);
+          return;
+        }
+      }
+      duplicateConfirmed = false; // 重置，確保下次提交再次檢查
 
       try {
         const url = editingOrderId ? `/api/orders/${editingOrderId}` : '/api/orders';
@@ -759,7 +1060,7 @@ function buildOrderSummary(order) {
   lines.push(`📦 訂單總結 ${order.order_no}`);
   lines.push(line);
   lines.push(`類型    ：${typeLabel}`);
-  lines.push(`MAWB#   ：${order.mawb || '-'}`);
+  lines.push(`MAWB#   ：${displayMawb(order.mawb)}`);
   lines.push(`HAWB#   ：${order.hawb || '-'}`);
   lines.push(`提貨號  ：${order.pickup_no || '-'}`);
   lines.push(line);
@@ -841,11 +1142,11 @@ function renderOrdersList(orders) {
           <span class="order-status-badge ${escapeHtml(order.status)}">${STATUS_LABEL[order.status] || order.status}</span>
         </div>
         <div class="orders-card-meta">
-          <span>${escapeHtml(order.order_no)}</span>
+          <span>流水號：${escapeHtml(order.order_no)}</span>
           <span>📅 ${formatDateTime(order.created_at)}</span>
         </div>
         <div class="orders-card-meta">
-          <span>MAWB: ${escapeHtml(order.mawb || '-')}</span>
+          <span>MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
           <span>HAWB: ${escapeHtml(order.hawb || '-')}</span>
           <span>提貨: ${escapeHtml(order.pickup_no || '-')}</span>
         </div>
@@ -906,7 +1207,7 @@ function buildOrderDetailHtml(order) {
       </div>
       <div class="orders-detail-field">
         <span class="detail-label">MAWB#</span>
-        <span class="detail-value">${escapeHtml(order.mawb || '-')}</span>
+        <span class="detail-value">${escapeHtml(displayMawb(order.mawb))}</span>
       </div>
       <div class="orders-detail-field">
         <span class="detail-label">HAWB#</span>
@@ -1052,7 +1353,8 @@ function loadOrderToForm(order) {
 
     // 稍後填上其餘欄位
     setTimeout(() => {
-      document.getElementById('order-mawb').value = order.mawb || '';
+      // 後補MAWB# → 輸入框留空（提交時再確認）
+      document.getElementById('order-mawb').value = (order.mawb && !isLateMawb(order.mawb)) ? formatMawb(order.mawb) : '';
       document.getElementById('order-hawb').value = order.hawb || '';
       document.getElementById('order-pickup-no').value = order.pickup_no || '';
       document.getElementById('order-mawb').dispatchEvent(new Event('change'));
@@ -1082,6 +1384,36 @@ function loadOrderToForm(order) {
         form.onsubmit = async (e) => {
           e.preventDefault();
           const data = getCurrentFormData();
+          if (!data) return;
+
+          // MAWB# 驗證
+          const mawbValue = document.getElementById('order-mawb').value.trim();
+          if (!mawbValue) {
+            if (!confirm('⚠️ 沒有 MAWB#？\n\n確定以「後補MAWB#」提交訂單嗎？\n\n按「確定」= 後補 MAWB#（可稍後編輯補上）\n按「取消」= 返回輸入 MAWB#')) {
+              document.getElementById('order-mawb').focus();
+              return;
+            }
+            data.mawb = MAWB_LATE_LABEL;
+          } else {
+            const mawbResult = validateMawb(mawbValue);
+            if (!mawbResult.valid) {
+              alert(`❌ ${mawbResult.error}`);
+              document.getElementById('order-mawb').focus();
+              return;
+            }
+            data.mawb = mawbResult.formatted;
+          }
+
+          // 重複檢查（已確認繼續則跳過）
+          if (!duplicateConfirmed) {
+            const duplicates = await checkDuplicateOrder();
+            if (duplicates && duplicates.length) {
+              showDuplicateCard(duplicates);
+              return;
+            }
+          }
+          duplicateConfirmed = false; // 重置，確保下次提交再次檢查
+
           try {
             await apiFetch(`/api/orders/${order.id}`, {
               method: 'PUT',

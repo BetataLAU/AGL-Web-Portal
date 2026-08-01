@@ -1,5 +1,25 @@
 /* ===== 資料庫檢視器樣式 ===== */
 
+/* 覆蓋 .card 的 overflow:hidden，讓表格橫向捲軸可正常運作 */
+.dbviewer-card {
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.dbviewer-card::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dbviewer-card::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+.dbviewer-card::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
 /* ===== 表清單 Tab ===== */
 .dbviewer-tables {
   display: flex;
@@ -73,12 +93,24 @@
   overflow-x: auto;
   border: 1px solid var(--border-color);
   border-radius: 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.dbviewer-table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.dbviewer-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
 }
 
 .dbviewer-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  min-width: max-content;
 }
 
 .dbviewer-table th {

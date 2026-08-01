@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/orders.css">
+  <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -53,6 +54,9 @@
               </a>
               <a href="#section-orders" class="nav-item">
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
+              </a>
+              <a href="#section-dbviewer" class="nav-item">
+                <i class="fa-solid fa-database"></i> <span>資料庫</span>
               </a>
             </nav>
 
@@ -235,6 +239,22 @@
           </div>
         </div>
       </section>
+
+      <!-- 資料庫檢視器頁面 -->
+      <section id="section-dbviewer" class="content-section">
+        <div class="card dbviewer-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-database"></i> 資料庫管理</h2>
+              <p class="card-desc">瀏覽與編輯 SQLite 資料庫記錄（不會改變資料庫結構）。</p>
+            </div>
+            <button type="button" class="pill" id="btn-dbviewer-refresh"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
+          </div>
+
+          <div id="dbviewer-tables" class="dbviewer-tables"></div>
+          <div id="dbviewer-content"></div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -257,6 +277,7 @@
   <script src="./js/forum.js"></script>
   <script src="./js/chat.js"></script>
   <script src="./js/orders.js"></script>
+  <script src="./js/dbviewer.js"></script>
   <script src="./js/main.js"></script>
 </body>
 </html>

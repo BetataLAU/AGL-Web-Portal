@@ -9,6 +9,7 @@ const skillsRouter = require('./routes/skills');
 const { contoursRouter, contourImageRouter } = require('./routes/contours');
 const { threadsRouter, messagesRouter } = require('./routes/forum');
 const ordersRouter = require('./routes/orders');
+const dbViewerRouter = require('./routes/dbviewer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 app.use('/api/threads', threadsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/db', dbViewerRouter);
 
 // ===== 伺服器啟動 =====
 const HOST = process.env.HOST || '0.0.0.0';

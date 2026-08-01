@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupContourSection();
   setupContourModal();
   setupOrdersSection();
+  setupDbViewerSection();
 
   setupMessageStream();
 });

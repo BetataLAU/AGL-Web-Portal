@@ -8,11 +8,19 @@ let editingOrderId = null;
 
 const ORDER_TYPE_LABEL = { delivery: '🚚 送貨', pickup: '📥 收貨' };
 const STATUS_LABEL = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
-const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '⚡ 乾電', lithium: '⚡ 鋰電' };
+const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '🔋 乾電', lithium: '🔋 鋰電' };
 const POWER_CODES = {
   dry: ['A67', 'A123', 'A199'],
-  lithium: ['ELI', 'ELM']
+  lithium: ['PI965', 'PI966', 'PI967', 'PI968', 'PI969', 'PI970']
 };
+// 鋰電主選項 → PI 子代碼
+const LITHIUM_MAIN = {
+  ELI: ['PI965', 'PI966', 'PI967'],
+  ELM: ['PI968', 'PI969', 'PI970']
+};
+// 電力組合項目（power_items 元素結構）: { type, main?, code, qty }
+const POWER_ITEMS = [];
+let powerItemsList = [];
 
 // ===== 共用函數 =====
 async function apiFetch(url, options = {}) {
@@ -226,23 +234,26 @@ function renderNewOrderForm(applyTemplate = null) {
         </div>
 
         <div class="orders-form-section">
-          <div class="orders-form-section-title">5️⃣ ⚡ 電力分類 *</div>
+          <div class="orders-form-section-title">5️⃣ ⚡ 帶電種類及件數 *</div>
           <div class="orders-choice-row">
-            <button type="button" class="orders-choice-btn power-no ${fields.powerType === 'no' ? 'selected' : ''}" data-power-type="no">
+            <button type="button" class="orders-choice-btn power-no ${fields.powerType === 'no' || !fields.powerType ? 'selected' : ''}" id="power-type-no" data-power-type="no">
               ⚡ 無電 <span class="choice-sub">不含電池</span>
             </button>
-            <button type="button" class="orders-choice-btn power-dry ${fields.powerType === 'dry' ? 'selected' : ''}" data-power-type="dry">
+            <button type="button" class="orders-choice-btn power-dry ${fields.powerType === 'dry' ? 'selected' : ''}" id="power-type-dry" data-power-type="dry">
               🔋 乾電 <span class="choice-sub">A67 / A123 / A199</span>
             </button>
-            <button type="button" class="orders-choice-btn power-lithium ${fields.powerType === 'lithium' ? 'selected' : ''}" data-power-type="lithium">
+            <button type="button" class="orders-choice-btn power-lithium ${fields.powerType === 'lithium' ? 'selected' : ''}" id="power-type-lithium" data-power-type="lithium">
               🔋 鋰電 <span class="choice-sub">ELI / ELM</span>
             </button>
           </div>
-          <div class="orders-form-field" id="power-code-field" style="margin-top:12px; display:${fields.powerType === 'no' || !fields.powerType ? 'none' : 'flex'};">
-            <label id="power-code-label">代碼</label>
-            <select id="order-power-code">
-              <option value="">-- 選擇代碼 --</option>
-            </select>
+
+          <!-- 電力組合編輯區 -->
+          <div id="power-items-editor" style="display:${fields.powerType === 'no' || !fields.powerType ? 'none' : 'block'}; margin-top:14px;">
+            <div class="power-items-header">
+              <span class="power-items-title">帶電項目（可多行，如 A67 × 5 件 + A199 × 11 件）</span>
+              <button type="button" class="pill" id="btn-power-item-add">＋ 新增帶電項目</button>
+            </div>
+            <div id="power-items-list"></div>
           </div>
         </div>
 
@@ -291,22 +302,32 @@ function renderNewOrderForm(applyTemplate = null) {
       </form>
     `;
 
-    // 套用範本（若有）
-    if (applyTemplate) {
-      const codeSelect = document.getElementById('order-power-code');
-      const code = applyTemplate.power_code || '';
-      populatePowerCodes(fields.powerType || 'no', code);
-      // 嘗試帶出公司
-      if (applyTemplate.company_id) {
-        if (currentOrderType === 'delivery') {
-          document.getElementById('order-location-b').value = applyTemplate.company_id;
-        } else {
-          document.getElementById('order-location-a').value = applyTemplate.company_id;
-        }
-        handleCompanySelected();
-      }
+    // 初始化電力組合
+    const initialPowerType = fields.powerType || 'no';
+    if (applyTemplate && applyTemplate.power_items && Array.isArray(applyTemplate.power_items)) {
+      powerItemsList = applyTemplate.power_items.map(item => ({ ...item }));
     } else {
-      populatePowerCodes('no');
+      powerItemsList = [];
+    }
+    // 舊範本只有 power_code 的相容處理
+    if (applyTemplate && !applyTemplate.power_items && applyTemplate.power_code && applyTemplate.power_type !== 'no') {
+      powerItemsList = [{ type: applyTemplate.power_type, code: applyTemplate.power_code, qty: '' }];
+    }
+    initPowerItemsEditor(initialPowerType);
+    if (initialPowerType !== 'no') {
+      document.getElementById('power-type-no').classList.remove('selected');
+      const targetBtn = document.getElementById(`power-type-${initialPowerType}`);
+      if (targetBtn) targetBtn.classList.add('selected');
+    }
+
+    // 嘗試帶出公司（範本）
+    if (applyTemplate && applyTemplate.company_id) {
+      if (currentOrderType === 'delivery') {
+        document.getElementById('order-location-b').value = applyTemplate.company_id;
+      } else {
+        document.getElementById('order-location-a').value = applyTemplate.company_id;
+      }
+      handleCompanySelected();
     }
 
     setupNewOrderFormEvents();
@@ -323,23 +344,183 @@ function escapeAttr(str) {
     .replace(/>/g, '\x26gt;');
 }
 
-function populatePowerCodes(powerType, selectedCode = '') {
-  const field = document.getElementById('power-code-field');
-  const select = document.getElementById('order-power-code');
-  if (!field || !select) return;
+// ===== 帶電種類及件數編輯器 =====
+function initPowerItemsEditor(powerType) {
+  const editor = document.getElementById('power-items-editor');
+  const listEl = document.getElementById('power-items-list');
+  const addBtn = document.getElementById('btn-power-item-add');
+  if (!editor || !listEl) return;
+
   if (powerType === 'no') {
-    field.style.display = 'none';
-    select.innerHTML = '<option value="">--</option>';
+    editor.style.display = 'none';
+    powerItemsList = [];
     return;
   }
-  field.style.display = 'flex';
-  const codes = POWER_CODES[powerType] || [];
-  select.innerHTML = `<option value="">-- 選擇代碼 --</option>` +
-    codes.map(c => `<option value="${c}" ${c === selectedCode ? 'selected' : ''}>${c}</option>`).join('') +
-    `<option value="custom">自訂...</option>`;
-  if (selectedCode && !codes.includes(selectedCode) && selectedCode !== 'custom') {
-    select.innerHTML += `<option value="${escapeAttr(selectedCode)}" selected>${escapeAttr(selectedCode)}</option>`;
+  editor.style.display = 'block';
+
+  if (addBtn && !addBtn.dataset.bound) {
+    addBtn.dataset.bound = '1';
+    addBtn.addEventListener('click', () => {
+      powerItemsList.push({ type: powerType, main: '', code: '', qty: '' });
+      renderPowerItemsList();
+    });
   }
+
+  // 過濾掉不屬於目前類型的項目
+  if (powerItemsList.length) {
+    powerItemsList = powerItemsList.filter(item => item.type === powerType);
+  }
+  renderPowerItemsList();
+}
+
+function renderPowerItemsList() {
+  const listEl = document.getElementById('power-items-list');
+  if (!listEl) return;
+
+  if (!powerItemsList.length) {
+    listEl.innerHTML = '<div class="power-items-empty">尚未加入帶電項目。按「＋ 新增帶電項目」開始。</div>';
+    return;
+  }
+
+  listEl.innerHTML = powerItemsList.map((item, idx) => {
+    const isDry = item.type === 'dry';
+    const isLithium = item.type === 'lithium';
+    // 鋰電主下拉（ELI/ELM）
+    const mainOptions = ['ELI', 'ELM'].map(m =>
+      `<option value="${m}" ${item.main === m ? 'selected' : ''}>${m}</option>`
+    ).join('');
+    // 乾電代碼
+    const dryCodes = ['A67', 'A123', 'A199', 'custom', 'custom2'];
+    const dryOptions = ['A67', 'A123', 'A199'].map(c =>
+      `<option value="${c}" ${item.code === c ? 'selected' : ''}>${c}</option>`
+    ).join('');
+    // 鋰電子代碼（依主選項）— 由 JS 動態填，這裡先放預設
+    const subCodes = LITHIUM_MAIN[item.main] || ['PI965', 'PI966', 'PI967'];
+
+    return `
+      <div class="power-item-row" data-idx="${idx}">
+        ${isLithium ? `
+          <select class="power-item-main" data-field="main">
+            <option value="">-- 主類別 --</option>
+            ${mainOptions}
+          </select>
+        ` : ''}
+        ${isDry ? `
+          <select class="power-item-code" data-field="code">
+            <option value="">-- 代碼 --</option>
+            ${dryOptions}
+            <option value="custom" ${item.code === 'custom' ? 'selected' : ''}>其他（自訂）...</option>
+          </select>
+        ` : isLithium ? `
+          <select class="power-item-code" data-field="code">
+            <option value="">-- 代碼 --</option>
+            ${subCodes.map(c => `<option value="${c}" ${item.code === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+        ` : ''}
+        <input type="number" class="power-item-qty" data-field="qty" min="1" step="1" placeholder="件數" value="${escapeAttr(item.qty)}" />
+        <button type="button" class="power-item-remove" title="移除此行">✕</button>
+      </div>
+    `;
+  }).join('');
+
+  // 綁定事件
+  listEl.querySelectorAll('.power-item-row').forEach((row, idx) => {
+    // 主類別變化（鋰電）→ 更新子代碼選項
+    const mainSelect = row.querySelector('.power-item-main');
+    if (mainSelect) {
+      mainSelect.addEventListener('change', () => {
+        powerItemsList[idx].main = mainSelect.value;
+        // 重繪該行以更新子代碼
+        const codeSelect = row.querySelector('.power-item-code');
+        if (codeSelect) {
+          const subs = LITHIUM_MAIN[mainSelect.value] || [];
+          codeSelect.innerHTML = '<option value="">-- 代碼 --</option>' +
+            subs.map(c => `<option value="${c}">${c}</option>`).join('') +
+            '<option value="custom">其他（自訂）...</option>';
+          powerItemsList[idx].code = '';
+        }
+      });
+    }
+
+    // 代碼選擇（含「其他」自訂）
+    const codeSelect = row.querySelector('.power-item-code');
+    if (codeSelect) {
+      // 處理已有自訂值
+      if (itemHasCustomCode(powerItemsList[idx])) {
+        const customVal = powerItemsList[idx].customVal || powerItemsList[idx].code;
+        codeSelect.insertAdjacentHTML('beforeend', `<option value="customval" selected>${escapeHtml('自訂: ' + customVal)}</option>`);
+      }
+      codeSelect.addEventListener('change', () => {
+        const val = codeSelect.value;
+        if (val === 'custom') {
+          // 開啟自訂輸入
+          showCustomCodeInput(row, idx, '');
+        } else if (val === 'customval') {
+          showCustomCodeInput(row, idx, powerItemsList[idx].customVal || '');
+        } else {
+          powerItemsList[idx].code = val;
+          powerItemsList[idx].customVal = '';
+        }
+      });
+    }
+
+    // 件數輸入
+    const qtyInput = row.querySelector('.power-item-qty');
+    if (qtyInput) {
+      qtyInput.addEventListener('input', () => {
+        powerItemsList[idx].qty = qtyInput.value;
+      });
+    }
+
+    // 移除行
+    const removeBtn = row.querySelector('.power-item-remove');
+    if (removeBtn) {
+      removeBtn.addEventListener('click', () => {
+        powerItemsList.splice(idx, 1);
+        renderPowerItemsList();
+      });
+    }
+  });
+}
+
+function itemHasCustomCode(item) {
+  return item.customVal && item.customVal !== '';
+}
+
+function showCustomCodeInput(row, idx, defaultVal) {
+  // 移除舊的 custom input（若有）
+  const oldCustom = row.querySelector('.power-item-custom-input');
+  if (oldCustom) oldCustom.remove();
+
+  const qtyInput = row.querySelector('.power-item-qty');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'power-item-custom-input';
+  wrapper.innerHTML = '<input type="text" placeholder="輸入自訂代碼（如 A999）" />';
+  const input = wrapper.querySelector('input');
+  input.value = defaultVal;
+
+  const codeSelect = row.querySelector('.power-item-code');
+  if (codeSelect) codeSelect.insertAdjacentElement('afterend', wrapper);
+
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    powerItemsList[idx].customVal = val;
+    powerItemsList[idx].code = val;
+  });
+  input.focus();
+}
+
+// 將電力組合轉為可讀文字，如「A67 × 5 件、A199 × 11 件」或「ELI/PI967 × 2 件」
+function formatPowerItems(order) {
+  if (!order || order.power_type === 'no') return '⚡ 無電';
+  if (order.power_items && order.power_items.length) {
+    return order.power_items.map(item => {
+      const label = item.main ? `${item.main}/${item.code}` : item.code;
+      return `${label} × ${item.qty} 件`;
+    }).join('、');
+  }
+  // 舊資料相容
+  return `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
 }
 
 function getCurrentFormData() {
@@ -347,18 +528,43 @@ function getCurrentFormData() {
   if (!form) return null;
 
   const powerType = document.querySelector('.orders-choice-btn[data-power-type].selected')?.dataset.powerType || 'no';
-  const powerSelect = document.getElementById('order-power-code');
-  const powerCodeInput = document.getElementById('order-power-code-custom');
-  let powerCode = '';
-  if (powerType !== 'no' && powerSelect) {
-    if (powerSelect.value === 'custom' && powerCodeInput) {
-      powerCode = powerCodeInput.value.trim();
-    } else {
-      powerCode = powerSelect.value;
+
+  // 收集電力組合（僅非無電）
+  let items = [];
+  if (powerType !== 'no') {
+    document.querySelectorAll('.power-item-row').forEach((row, idx) => {
+      const mainSel = row.querySelector('.power-item-main');
+      const codeSel = row.querySelector('.power-item-code');
+      const qtyInput = row.querySelector('.power-item-qty');
+      const customInput = row.querySelector('.power-item-custom-input input');
+      const main = mainSel ? mainSel.value : '';
+      let code = '';
+      if (customInput) {
+        code = customInput.value.trim();
+      } else if (codeSel) {
+        code = codeSel.value;
+      }
+      const qty = qtyInput ? qtyInput.value : '';
+      if (code && qty) {
+        items.push({ type: powerType, main, code, qty });
+      }
+    });
+    // 若 DOM 再渲染過，回退到 powerItemsList
+    if (items.length === 0 && powerItemsList.length) {
+      items = powerItemsList.filter(item => item.type === powerType && item.code && item.qty);
     }
   }
 
+  const firstItem = items[0] || null;
+  const powerCode = firstItem && firstItem.code ? firstItem.code : '';
+
   const urgent = document.querySelector('.orders-choice-btn[data-urgent].selected')?.dataset.urgent || 'no';
+
+  // 驗證：乾電/鋰電必需要有至少一筆有效項目
+  if (powerType !== 'no' && items.length === 0) {
+    alert('請在「帶電種類及件數」加入至少一筆項目（選擇代碼 + 輸入件數）。');
+    return null;
+  }
 
   return {
     order_type: currentOrderType,
@@ -377,6 +583,7 @@ function getCurrentFormData() {
     cbm: document.getElementById('order-cbm').value,
     power_type: powerType,
     power_code: powerCode,
+    power_items: powerType === 'no' ? null : items,
     urgent,
     receiver_name: document.getElementById('order-receiver-name').value.trim(),
     receiver_phone: document.getElementById('order-receiver-phone').value.trim(),
@@ -423,34 +630,22 @@ function setupNewOrderFormEvents() {
     });
   });
 
-  // 電力分類按鈕
+  // 電力分類按鈕（無電 / 乾電 / 鋰電）
   document.querySelectorAll('.orders-choice-btn[data-power-type]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.orders-choice-btn[data-power-type]').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
-      populatePowerCodes(btn.dataset.powerType, '');
-    });
-  });
-
-  // 電力代碼：自訂
-  const powerSelect = document.getElementById('order-power-code');
-  if (powerSelect) {
-    powerSelect.addEventListener('change', () => {
-      const field = document.getElementById('power-code-field');
-      let existingCustom = document.getElementById('order-power-code-custom');
-      if (powerSelect.value === 'custom') {
-        if (!existingCustom) {
-          const wrapper = document.createElement('div');
-          wrapper.id = 'power-code-custom-wrapper';
-          wrapper.style.cssText = 'margin-top:8px; width:100%;';
-          wrapper.innerHTML = '<label style="font-size:0.9rem; font-weight:600; color:var(--text-muted);">自訂代碼</label><input type="text" id="order-power-code-custom" placeholder="輸入代碼" style="width:100%; min-height:48px; border:1px solid var(--border-color); border-radius:12px; padding:10px 12px; background:var(--input-bg); color:var(--text-main); font-size:1rem; margin-top:4px;" />';
-          field.appendChild(wrapper);
-        }
-      } else if (existingCustom) {
-        existingCustom.remove();
+      const newType = btn.dataset.powerType;
+      if (newType === 'no') {
+        powerItemsList = [];
+        const editor = document.getElementById('power-items-editor');
+        if (editor) editor.style.display = 'none';
+      } else {
+        powerItemsList = [];
+        initPowerItemsEditor(newType);
       }
     });
-  }
+  });
 
   // 公司選擇 → 自動帶出
   ['order-location-a', 'order-location-b'].forEach(id => {
@@ -572,9 +767,7 @@ function showOrderSuccess(orderNo, orderId) {
 function buildOrderSummary(order) {
   const line = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
   const typeLabel = ORDER_TYPE_LABEL[order.order_type] || order.order_type;
-  const powLabel = order.power_type === 'no'
-    ? '⚡ 無電'
-    : `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
+  const powLabel = formatPowerItems(order);
   const urgentLabel = order.urgent === 'yes' ? '🔴 是 - 需優先處理' : '⚪ 否 - 普通';
 
   let lines = [];
@@ -654,7 +847,7 @@ function renderOrdersList(orders) {
       : (order.pickup_company_name || order.delivery_company_name || '-');
     const powerLabel = order.power_type === 'no'
       ? '<span class="orders-tag power-no">⚡ 無電</span>'
-      : `<span class="orders-tag ${order.power_type === 'dry' ? 'power-dry' : 'power-lithium'}">${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}</span>`;
+      : `<span class="orders-tag ${order.power_type === 'dry' ? 'power-dry' : 'power-lithium'}">${escapeHtml(formatPowerItems(order))}</span>`;
     const urgentTag = order.urgent === 'yes' ? '<span class="orders-tag urgent">🚨 趕機</span>' : '';
 
     return `
@@ -715,9 +908,7 @@ async function renderOrderDetail(id) {
 }
 
 function buildOrderDetailHtml(order) {
-  const powLabel = order.power_type === 'no'
-    ? '⚡ 無電'
-    : `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
+  const powLabel = formatPowerItems(order);
 
   return `
     <div class="orders-detail-grid">
@@ -868,6 +1059,7 @@ function loadOrderToForm(order) {
       cbm: order.cbm,
       power_type: order.power_type,
       power_code: order.power_code,
+      power_items: order.power_items || null,
       receiver_name: order.receiver_name,
       receiver_phone: order.receiver_phone,
       notes: order.notes

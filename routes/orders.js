@@ -34,6 +34,14 @@ function getCompanyName(id, cb) {
 }
 
 function serializeOrder(row) {
+  let powerItems = null;
+  if (row.power_items) {
+    try {
+      powerItems = JSON.parse(row.power_items);
+    } catch (e) {
+      powerItems = null;
+    }
+  }
   return {
     id: row.id,
     order_no: row.order_no,
@@ -51,6 +59,7 @@ function serializeOrder(row) {
     cbm: row.cbm,
     power_type: row.power_type,
     power_code: row.power_code,
+    power_items: powerItems,
     urgent: row.urgent,
     receiver_name: row.receiver_name,
     receiver_phone: row.receiver_phone,
@@ -198,7 +207,7 @@ router.post('/', (req, res) => {
     order_type, mawb, hawb, pickup_no,
     pickup_company_id, delivery_company_id,
     cargo_desc, quantity, weight_kg, cbm,
-    power_type, power_code, urgent,
+    power_type, power_code, power_items, urgent,
     receiver_name, receiver_phone, address,
     notes, transport_company, status = 'pending'
   } = req.body;
@@ -230,16 +239,18 @@ router.post('/', (req, res) => {
         order_no, order_type, mawb, hawb, pickup_no,
         pickup_company_id, delivery_company_id,
         cargo_desc, quantity, weight_kg, cbm,
-        power_type, power_code, urgent,
+        power_type, power_code, power_items, urgent,
         receiver_name, receiver_phone, address,
         notes, transport_company, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       orderNo, order_type, mawb, hawb, pickup_no,
       pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
-      power_type, power_code || null, urgent,
+      power_type, power_code || null,
+      power_items ? JSON.stringify(power_items) : null,
+      urgent,
       receiver_name, receiver_phone, address,
       notes || '', transport_company || '', status,
       function (insertErr) {
@@ -278,7 +289,7 @@ router.put('/:id', (req, res) => {
     order_type, mawb, hawb, pickup_no,
     pickup_company_id, delivery_company_id,
     cargo_desc, quantity, weight_kg, cbm,
-    power_type, power_code, urgent,
+    power_type, power_code, power_items, urgent,
     receiver_name, receiver_phone, address,
     notes, transport_company, status
   } = req.body;
@@ -292,7 +303,7 @@ router.put('/:id', (req, res) => {
       order_type = ?, mawb = ?, hawb = ?, pickup_no = ?,
       pickup_company_id = ?, delivery_company_id = ?,
       cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?,
-      power_type = ?, power_code = ?, urgent = ?,
+      power_type = ?, power_code = ?, power_items = ?, urgent = ?,
       receiver_name = ?, receiver_phone = ?, address = ?,
       notes = ?, transport_company = ?, status = ?,
       updated_at = CURRENT_TIMESTAMP
@@ -302,7 +313,9 @@ router.put('/:id', (req, res) => {
     order_type, mawb, hawb, pickup_no,
     pickup_company_id || null, delivery_company_id || null,
     cargo_desc, quantity, weight_kg, cbm,
-    power_type, power_code || null, urgent,
+    power_type, power_code || null,
+    power_items ? JSON.stringify(power_items) : null,
+    urgent,
     receiver_name, receiver_phone, address,
     notes || '', transport_company || '', status,
     id,

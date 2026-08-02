@@ -65,6 +65,12 @@ function getCompanyById(id) {
   return companiesCache.find(c => Number(c.id) === numId) || null;
 }
 
+// 判斷某公司是否屬「運輸公司」類別（category 可能是逗號分隔多值，如 "customer,transport"）
+function isTransportCategory(category) {
+  if (!category) return false;
+  return String(category).split(',').map(s => s.trim()).includes('transport');
+}
+
 function formatDateTime(isoString) {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -73,6 +79,152 @@ function formatDateTime(isoString) {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', hour12: false
   });
+}
+
+// ===== 提貨日期/時間 工具 =====
+// 今日日期 YYYY-MM-DD（用本地時區）
+function getTodayDateStr() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// 目前時間 HH:MM（24 小時制）
+function getNowTimeStr() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mi = String(now.getMinutes()).padStart(2, '0');
+  return `${hh}:${mi}`;
+}
+
+// 顯示提貨日期時間（如 2026-08-02 18:30）
+function formatPickupDatetime(value) {
+  if (!value) return '';
+  const v = String(value).trim();
+  if (!v) return '';
+  // 值本身就是「日期 時間」或「日期」
+  return v;
+}
+
+// 依公司 id 找公司名稱
+function getCompanyNameById(id) {
+  const company = getCompanyById(id);
+  return company ? company.name : '';
+}
+
+// ===== 公司自動補全（收貨/交回地點） =====
+// 為兩個地點輸入框建立 Google 式自動補全
+// 採「輸入即時篩選已載入的 companiesCache」；若輸入值不在 cache 即為新公司名（提交時自動儲存）
+function setupCompanyAutocomplete(inputId, hiddenId) {
+  const input = document.getElementById(inputId);
+  const hidden = document.getElementById(hiddenId);
+  if (!input) return;
+
+  const listEl = input.parentElement.querySelector('.company-autocomplete-list');
+  if (!listEl) return;
+
+  let activeIndex = -1;
+  let currentItems = [];
+
+  function closeList() {
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    activeIndex = -1;
+    currentItems = [];
+  }
+
+  function selectCompany(company) {
+    input.value = company.name;
+    if (hidden) hidden.value = company.id;
+    closeList();
+    handleCompanySelected();
+  }
+
+  function showMatches(query) {
+    const q = (query || '').trim();
+    const candidates = companiesCache.filter(c => !isTransportCategory(c.category));
+    let matches;
+    if (!q) {
+      // 空 → 顯示前 8 間
+      matches = candidates.slice(0, 8);
+    } else {
+      matches = candidates.filter(c => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 10);
+    }
+    currentItems = matches;
+    listEl.innerHTML = '';
+    if (!matches.length) {
+      // 無匹配 → 顯示「以新名稱儲存」的提示（但仍允許用戶手動輸入）
+      listEl.style.display = 'block';
+      listEl.innerHTML = `<div class="company-autocomplete-empty">「${escapeHtml(q)}」不在公司庫，提交時會自動新增。</div>`;
+      return;
+    }
+    listEl.style.display = 'block';
+    activeIndex = -1;
+    matches.forEach((c, idx) => {
+      const div = document.createElement('div');
+      div.className = 'company-autocomplete-item';
+      div.dataset.index = idx;
+      const detailParts = [];
+      if (c.address) detailParts.push(c.address);
+      if (c.contact_person) detailParts.push(c.contact_person);
+      const detail = detailParts.length ? `<span class="company-autocomplete-sub">${escapeHtml(detailParts.join(' · '))}</span>` : '';
+      div.innerHTML = `${escapeHtml(c.name)}${detail}`;
+      div.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // 防止 input blur 關閉清單
+        selectCompany(c);
+      });
+      listEl.appendChild(div);
+    });
+  }
+
+  input.addEventListener('input', () => {
+    // 手動輸入 → 清除已選 id
+    if (hidden) hidden.value = '';
+    showMatches(input.value);
+  });
+
+  input.addEventListener('focus', () => {
+    showMatches(input.value);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    const items = listEl.querySelectorAll('.company-autocomplete-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, items.length - 1);
+      highlightItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      highlightItem(items);
+    } else if (e.key === 'Enter' && activeIndex >= 0 && currentItems[activeIndex]) {
+      e.preventDefault(); // 選中建議，不觸發表單提交
+      selectCompany(currentItems[activeIndex]);
+    } else if (e.key === 'Escape') {
+      closeList();
+    } else if (e.key === 'Tab') {
+      // 若目前有高亮的建議，先選中它
+      if (activeIndex >= 0 && currentItems[activeIndex]) {
+        selectCompany(currentItems[activeIndex]);
+        // 不 preventDefault，讓 Tab 正常跳到下一欄位
+      } else {
+        closeList();
+      }
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    // 延遲關閉，讓 mousedown 有時間選中項目
+    setTimeout(() => {
+      if (!listEl.contains(document.activeElement)) closeList();
+    }, 150);
+  });
+
+  function highlightItem(items) {
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+  }
 }
 
 // ===== MAWB# 驗證 =====
@@ -181,14 +333,29 @@ function showDuplicateCard(orders, mode = 'submit') {
     if (mawbVal && displayMawb(order.mawb) === displayMawb(mawbVal)) matchFields.push('MAWB#');
     if (hawbVal && order.hawb === hawbVal) matchFields.push('HAWB#');
     if (pickupVal && order.pickup_no === pickupVal) matchFields.push('客戶提貨號');
+
+    // 沒有任何欄位真正與輸入值重複 → 不顯示（避免無重複的記錄混入）
+    if (matchFields.length === 0) return null;
+
     const companyName = order.order_type === 'delivery'
       ? (order.delivery_company_name || order.pickup_company_name || '-')
       : (order.pickup_company_name || order.delivery_company_name || '-');
 
+    // 只顯示有重複的欄位；不重複的欄位顯示「─」
+    const mawbLabel = matchFields.includes('MAWB#')
+      ? `<span class="duplicate-order-blink">${escapeHtml(displayMawb(order.mawb))}</span>`
+      : '<span class="duplicate-order-nomatch">─</span>';
+    const hawbLabel = matchFields.includes('HAWB#')
+      ? `<span class="duplicate-order-blink">${escapeHtml(order.hawb || '-')}</span>`
+      : '<span class="duplicate-order-nomatch">─</span>';
+    const pickupLabel = matchFields.includes('客戶提貨號')
+      ? `<span class="duplicate-order-blink">${escapeHtml(order.pickup_no || '-')}</span>`
+      : '<span class="duplicate-order-nomatch">─</span>';
+
     return `
       <div class="duplicate-order-item">
         <div class="duplicate-order-head">
-          <span class="duplicate-order-no">${escapeHtml(order.order_no)}</span>
+          <span class="duplicate-order-no duplicate-order-blink">${escapeHtml(order.order_no)}</span>
           <span class="duplicate-order-badge">${escapeHtml(matchFields.join('、'))}重複</span>
         </div>
         <div class="duplicate-order-meta">
@@ -196,9 +363,9 @@ function showDuplicateCard(orders, mode = 'submit') {
           <span>${formatDateTime(order.created_at)}</span>
         </div>
         <div class="duplicate-order-meta">
-          <span>MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
-          <span>HAWB: ${escapeHtml(order.hawb || '-')}</span>
-          <span>提貨: ${escapeHtml(order.pickup_no || '-')}</span>
+          <span>MAWB: ${mawbLabel}</span>
+          <span>HAWB: ${hawbLabel}</span>
+          <span>提貨: ${pickupLabel}</span>
         </div>
         <div class="duplicate-order-meta">
           <span>${escapeHtml(order.cargo_desc || '-')}</span>
@@ -206,7 +373,7 @@ function showDuplicateCard(orders, mode = 'submit') {
         </div>
       </div>
     `;
-  }).join('');
+  }).filter(Boolean).join('');
 
   const card = document.createElement('div');
   card.className = 'duplicate-order-card';
@@ -266,7 +433,7 @@ function setupOrdersTabs() {
 // ===== 新建訂單表單 =====
 function companySelectOptions(selectedId) {
   const options = companiesCache
-    .filter(c => c.category !== 'transport')
+    .filter(c => !isTransportCategory(c.category))
     .map(c => `<option value="${c.id}" ${Number(c.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(c.name)}</option>`)
     .join('');
   return `<option value="">-- 搜尋/選擇公司 --</option>${options}`;
@@ -331,6 +498,14 @@ function renderNewOrderForm(applyTemplate = null) {
               <input type="text" id="order-pickup-no" required placeholder="客戶提供的提貨/取貨編號" />
               <div class="orders-field-hint" id="pickup-hint"></div>
             </div>
+            <div class="orders-form-field">
+              <label>📅 提貨日期</label>
+              <input type="date" id="order-pickup-date" value="${getTodayDateStr()}" />
+            </div>
+            <div class="orders-form-field">
+              <label>⏰ 提貨時間</label>
+              <input type="time" id="order-pickup-time" value="${getNowTimeStr()}" />
+            </div>
           </div>
         </div>
 
@@ -339,13 +514,22 @@ function renderNewOrderForm(applyTemplate = null) {
           <div class="orders-form-grid">
             <div class="orders-form-field">
               <label id="order-location-a-label">${currentOrderType === 'delivery' ? '取貨地點（倉庫/公司）*' : '收貨地點（客戶公司）*'}</label>
-              <select id="order-location-a">${companySelectOptions()}</select>
+              <div class="company-autocomplete">
+                <input type="text" id="order-location-a" placeholder="輸入公司名搜尋..." autocomplete="off" />
+                <input type="hidden" id="order-location-a-id" />
+                <div class="company-autocomplete-list"></div>
+              </div>
             </div>
             <div class="orders-form-field">
               <label id="order-location-b-label">${currentOrderType === 'delivery' ? '送貨目的地 *' : '交回/轉交地點 *'}</label>
-              <select id="order-location-b">${companySelectOptions()}</select>
+              <div class="company-autocomplete">
+                <input type="text" id="order-location-b" placeholder="輸入公司名搜尋..." autocomplete="off" />
+                <input type="hidden" id="order-location-b-id" />
+                <div class="company-autocomplete-list"></div>
+              </div>
             </div>
           </div>
+          <div class="orders-autocomplete-hint">🔍 可輸入新公司名，提交訂單時會自動加入公司庫，下次輸入即可搜尋到。</div>
           <details class="orders-company-add">
             <summary>＋ 新增公司 / 地點（落單時順手儲存）</summary>
             <div class="orders-form-grid" style="margin-top:10px;">
@@ -370,12 +554,22 @@ function renderNewOrderForm(applyTemplate = null) {
                 <input type="email" id="new-company-email" placeholder="transport@company.com" />
               </div>
               <div class="orders-form-field">
-                <label>類別</label>
-                <select id="new-company-category">
-                  <option value="customer">客戶公司</option>
-                  <option value="warehouse">倉庫/自家地點</option>
-                  <option value="transport">運輸公司</option>
-                </select>
+                <label>類別（可多選）</label>
+                <div class="orders-category-checkboxes">
+                  <label class="orders-category-checkbox">
+                    <input type="checkbox" name="new-company-category" value="customer" checked /> 客戶公司
+                  </label>
+                  <label class="orders-category-checkbox">
+                    <input type="checkbox" name="new-company-category" value="warehouse" /> 倉庫/自家地點
+                  </label>
+                  <label class="orders-category-checkbox">
+                    <input type="checkbox" name="new-company-category" value="transport" /> 運輸公司
+                  </label>
+                </div>
+              </div>
+              <div class="orders-form-field full">
+                <label>備註</label>
+                <input type="text" id="new-company-notes" placeholder="如：辦公時間、注意事項..." />
               </div>
             </div>
             <button type="button" class="pill btn-primary" id="btn-save-new-company" style="margin-top:10px;">＋ 儲存公司</button>
@@ -399,7 +593,10 @@ function renderNewOrderForm(applyTemplate = null) {
             </div>
             <div class="orders-form-field">
               <label>CBM（方數）*</label>
-              <input type="number" id="order-cbm" required min="0" step="0.01" value="${escapeAttr(fields.cbm)}" placeholder="如 0.52" />
+              <div class="cbm-input-wrapper">
+                <input type="number" id="order-cbm" required min="0" step="0.01" value="${escapeAttr(fields.cbm)}" placeholder="如 0.52" />
+                <button type="button" class="cbm-calc-btn" id="btn-open-cbm-calc" title="開啟 CBM 計算機">🧮 計算機</button>
+              </div>
             </div>
           </div>
         </div>
@@ -444,6 +641,14 @@ function renderNewOrderForm(applyTemplate = null) {
               <label>聯絡電話 *</label>
               <input type="text" id="order-receiver-phone" required value="${escapeAttr(fields.receiverPhone)}" />
             </div>
+            <div class="orders-form-field">
+              <label>收貨人備註</label>
+              <input type="text" id="order-receiver-note" placeholder="收貨人備註（選填）" />
+            </div>
+            <div class="orders-form-field">
+              <label>聯絡人備註</label>
+              <input type="text" id="order-contact-note" placeholder="聯絡人備註（選填）" />
+            </div>
             <div class="orders-form-field full">
               <label>地址 *</label>
               <textarea id="order-address" required></textarea>
@@ -464,6 +669,36 @@ function renderNewOrderForm(applyTemplate = null) {
               <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
             </div>
           </div>
+          <details class="orders-company-add" id="transport-company-add">
+            <summary>＋ 新增運輸公司（落單時順手儲存）</summary>
+            <div class="orders-form-grid" style="margin-top:10px;">
+              <div class="orders-form-field">
+                <label>公司名稱 *</label>
+                <input type="text" id="new-transport-name" />
+              </div>
+              <div class="orders-form-field">
+                <label>聯絡人</label>
+                <input type="text" id="new-transport-contact" />
+              </div>
+              <div class="orders-form-field">
+                <label>電話</label>
+                <input type="text" id="new-transport-phone" />
+              </div>
+              <div class="orders-form-field">
+                <label>電郵</label>
+                <input type="email" id="new-transport-email" placeholder="transport@company.com" />
+              </div>
+              <div class="orders-form-field">
+                <label>地址</label>
+                <input type="text" id="new-transport-address" />
+              </div>
+              <div class="orders-form-field full">
+                <label>備註</label>
+                <input type="text" id="new-transport-notes" placeholder="如：辦公時間、注意事項..." />
+              </div>
+            </div>
+            <button type="button" class="pill btn-primary" id="btn-save-new-transport" style="margin-top:10px;">＋ 儲存運輸公司</button>
+          </details>
         </div>
 
         <button type="submit" class="orders-submit-btn">📦 提交訂單</button>
@@ -482,14 +717,19 @@ function renderNewOrderForm(applyTemplate = null) {
     }
     renderPowerItemsList();
 
-    // 嘗試帶出公司（範本）
+    // 嘗試帶出公司（範本）→ 設定自動補全欄位（hidden id + 顯示名稱）
     if (applyTemplate && applyTemplate.company_id) {
-      if (currentOrderType === 'delivery') {
-        document.getElementById('order-location-b').value = applyTemplate.company_id;
-      } else {
-        document.getElementById('order-location-a').value = applyTemplate.company_id;
+      const company = getCompanyById(applyTemplate.company_id);
+      if (company) {
+        if (currentOrderType === 'delivery') {
+          document.getElementById('order-location-b').value = company.name;
+          document.getElementById('order-location-b-id').value = company.id;
+        } else {
+          document.getElementById('order-location-a').value = company.name;
+          document.getElementById('order-location-a-id').value = company.id;
+        }
+        handleCompanySelected();
       }
-      handleCompanySelected();
     }
 
     setupNewOrderFormEvents();
@@ -731,17 +971,28 @@ function getCurrentFormData() {
     return null;
   }
 
+  const pickupDate = document.getElementById('order-pickup-date')?.value || '';
+  const pickupTime = document.getElementById('order-pickup-time')?.value || '';
+  let pickupDatetime = '';
+  if (pickupDate) {
+    pickupDatetime = pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate;
+  }
+
+  const pickupCompanyId = document.getElementById('order-location-a-id')?.value || '';
+  const deliveryCompanyId = document.getElementById('order-location-b-id')?.value || '';
+
   return {
     order_type: currentOrderType,
     mawb: document.getElementById('order-mawb').value.trim(),
     hawb: document.getElementById('order-hawb').value.trim(),
     pickup_no: document.getElementById('order-pickup-no').value.trim(),
+    pickup_datetime: pickupDatetime,
     pickup_company_id: currentOrderType === 'delivery'
-      ? document.getElementById('order-location-a').value
-      : document.getElementById('order-location-a').value,
+      ? pickupCompanyId
+      : pickupCompanyId,
     delivery_company_id: currentOrderType === 'delivery'
-      ? document.getElementById('order-location-b').value
-      : document.getElementById('order-location-b').value,
+      ? deliveryCompanyId
+      : deliveryCompanyId,
     cargo_desc: document.getElementById('order-cargo-desc').value.trim(),
     quantity: document.getElementById('order-quantity').value,
     weight_kg: document.getElementById('order-weight').value,
@@ -753,6 +1004,8 @@ function getCurrentFormData() {
     receiver_name: document.getElementById('order-receiver-name').value.trim(),
     receiver_phone: document.getElementById('order-receiver-phone').value.trim(),
     address: document.getElementById('order-address').value.trim(),
+    receiver_note: document.getElementById('order-receiver-note')?.value.trim() || '',
+    contact_note: document.getElementById('order-contact-note')?.value.trim() || '',
     notes: document.getElementById('order-notes').value.trim(),
     transport_company: document.getElementById('order-transport-company').value,
     status: editingOrderId ? 'pending' : 'pending'
@@ -760,8 +1013,8 @@ function getCurrentFormData() {
 }
 
 function handleCompanySelected() {
-  const locationA = document.getElementById('order-location-a');
-  const locationB = document.getElementById('order-location-b');
+  const locationAB = document.getElementById('order-location-a-id');
+  const locationBB = document.getElementById('order-location-b-id');
   const receiverName = document.getElementById('order-receiver-name');
   const receiverPhone = document.getElementById('order-receiver-phone');
   const address = document.getElementById('order-address');
@@ -769,8 +1022,8 @@ function handleCompanySelected() {
 
   // 送貨：目的地 = 收貨人公司；收貨：收貨地點 = 客戶公司
   const selectedCompanyId = currentOrderType === 'delivery'
-    ? (locationB ? locationB.value : '')
-    : (locationA ? locationA.value : '');
+    ? (locationBB ? locationBB.value : '')
+    : (locationAB ? locationAB.value : '');
   const company = getCompanyById(selectedCompanyId);
 
   if (company) {
@@ -781,6 +1034,175 @@ function handleCompanySelected() {
   } else if (hint) {
     hint.style.display = 'block';
   }
+}
+
+// ===== CBM 計算機 =====
+// 開啟浮動計算機：一行 4 格（長/寬/高/件數），Tab 加行，Enter 計算（按鈕在右下方）
+function openCbmCalculator() {
+  // 移除舊的計算機
+  document.querySelectorAll('.cbm-calculator-overlay').forEach(el => el.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'cbm-calculator-overlay';
+  overlay.innerHTML = `
+    <div class="cbm-calculator">
+      <div class="cbm-calculator-header">
+        <span>🧮 CBM 計算機</span>
+        <button type="button" class="cbm-calculator-close" title="關閉">✕</button>
+      </div>
+      <div class="cbm-calculator-hint">每行輸入 長(cm) × 寬(cm) × 高(cm) × 件數，填完一行按 Tab 會新增一行；按 Enter 計算。</div>
+      <div class="cbm-calculator-grid">
+        <div class="cbm-calc-col-header">長 (cm)</div>
+        <div class="cbm-calc-col-header">寬 (cm)</div>
+        <div class="cbm-calc-col-header">高 (cm)</div>
+        <div class="cbm-calc-col-header">件數</div>
+        <div class="cbm-calc-row">
+          <input type="number" class="cbm-calc-len" min="0" step="0.01" placeholder="長" />
+          <input type="number" class="cbm-calc-width" min="0" step="0.01" placeholder="寬" />
+          <input type="number" class="cbm-calc-height" min="0" step="0.01" placeholder="高" />
+          <input type="number" class="cbm-calc-qty" min="1" step="1" placeholder="件數" />
+        </div>
+      </div>
+      <div class="cbm-calculator-result">CBM 結果：<strong>—</strong></div>
+      <div class="cbm-calculator-actions">
+        <button type="button" class="cbm-calc-add-row">＋ 新增一行</button>
+        <button type="button" class="cbm-calc-enter">Enter 計算</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.classList.add('visible');
+
+  const grid = overlay.querySelector('.cbm-calculator-grid');
+  const resultEl = overlay.querySelector('.cbm-calculator-result strong');
+  const enterBtn = overlay.querySelector('.cbm-calc-enter');
+
+  // 兩段式 Enter：第一次計算顯示結果，第二次填回並關閉
+  let hasCalculated = false;
+
+  // 將 CBM 結果填回訂單表格並關閉
+  function commitResult() {
+    const value = resultEl.textContent;
+    const cbmInput = document.getElementById('order-cbm');
+    if (cbmInput && value && !isNaN(parseFloat(value))) {
+      cbmInput.value = parseFloat(value);
+    }
+    overlay.remove();
+  }
+
+  // 兩段式處理共用邏輯：第一次計算 → 顯示結果；第二次 → 填回並關閉
+  function handleQtyEnter() {
+    if (hasCalculated) {
+      commitResult();
+      return;
+    }
+    calculate();
+    // 計算成功（結果為有效數字）後標記，下次 Enter 即填回
+    if (resultEl.textContent && !isNaN(parseFloat(resultEl.textContent))) {
+      hasCalculated = true;
+    }
+  }
+
+  function createRow() {
+    const row = document.createElement('div');
+    row.className = 'cbm-calc-row';
+    row.innerHTML = `
+      <input type="number" class="cbm-calc-len" min="0" step="0.01" placeholder="長" />
+      <input type="number" class="cbm-calc-width" min="0" step="0.01" placeholder="寬" />
+      <input type="number" class="cbm-calc-height" min="0" step="0.01" placeholder="高" />
+      <input type="number" class="cbm-calc-qty" min="1" step="1" placeholder="件數" />
+    `;
+    grid.appendChild(row);
+    bindRow(row);
+    // 焦點移到新行第一個 input
+    const first = row.querySelector('input');
+    if (first) first.focus();
+  }
+
+  // 當一行 4 格全部填完時，按 Tab（在最後一格）即新增一行
+  function bindRow(row) {
+    const inputs = row.querySelectorAll('input');
+    const len = inputs[0], width = inputs[1], height = inputs[2], qty = inputs[3];
+    // 最後一格（件數）按 Tab → 若整行有值則新增一行
+    qty.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        const allFilled = [len, width, height, qty].every(inp => inp.value !== '');
+        if (allFilled) {
+          e.preventDefault();
+          createRow();
+        }
+      }
+    });
+    // 件數按 Enter → 兩段式：第一次計算、第二次填回並關閉
+    qty.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleQtyEnter();
+      }
+    });
+    // 其他 input 按 Enter → 跳到下一格
+    [len, width, height].forEach(inp => {
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const next = inp.parentElement.querySelectorAll('input')[Array.from(inputs).indexOf(inp) + 1];
+          if (next) next.focus();
+        }
+      });
+    });
+  }
+
+  function calculate() {
+    const rows = grid.querySelectorAll('.cbm-calc-row');
+    let total = 0;
+    let hasRow = false;
+    rows.forEach(row => {
+      const len = parseFloat(row.querySelector('.cbm-calc-len').value);
+      const width = parseFloat(row.querySelector('.cbm-calc-width').value);
+      const height = parseFloat(row.querySelector('.cbm-calc-height').value);
+      const qty = parseFloat(row.querySelector('.cbm-calc-qty').value);
+      if (!isNaN(len) && !isNaN(width) && !isNaN(height) && !isNaN(qty) && len > 0 && width > 0 && height > 0 && qty > 0) {
+        total += len * width * height * qty;
+        hasRow = true;
+      }
+    });
+    if (!hasRow) {
+      resultEl.textContent = '請輸入至少一行完整數值';
+      return;
+    }
+    // 公式：(每行長×寬×高×件數 的總和) ÷ 1,000,000，四捨五入到小數後 2 位
+    const cbm = Math.round(total / 1000000 * 100) / 100;
+    resultEl.textContent = cbm;
+  }
+
+  // 綁定第一行
+  const firstRow = grid.querySelector('.cbm-calc-row');
+  bindRow(firstRow);
+
+  // 新增一行按鈕
+  overlay.querySelector('.cbm-calc-add-row').addEventListener('click', createRow);
+
+  // Enter 計算按鈕（右下方）：無結果先計算；有結果即填回並關閉（一按即完成）
+  enterBtn.addEventListener('click', () => {
+    if (!hasCalculated) {
+      calculate();
+      if (!resultEl.textContent || isNaN(parseFloat(resultEl.textContent))) return;
+    }
+    commitResult();
+  });
+
+  // 關閉
+  overlay.querySelector('.cbm-calculator-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  // 第一行第一個格獲焦
+  setTimeout(() => {
+    const first = grid.querySelector('.cbm-calc-row input');
+    if (first) first.focus();
+  }, 100);
 }
 
 function setupNewOrderFormEvents() {
@@ -810,13 +1232,16 @@ function setupNewOrderFormEvents() {
     });
   });
 
-  // 公司選擇 → 自動帶出
+  // 公司自動補全（收貨/交回地點）
   ['order-location-a', 'order-location-b'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', handleCompanySelected);
-    }
+    setupCompanyAutocomplete(id, `${id}-id`);
   });
+
+  // CBM 計算機開啟按鈕
+  const cbmCalcBtn = document.getElementById('btn-open-cbm-calc');
+  if (cbmCalcBtn) {
+    cbmCalcBtn.addEventListener('click', openCbmCalculator);
+  }
 
   // MAWB# 輸入即時格式化 + 失焦驗證
   const mawbInput = document.getElementById('order-mawb');
@@ -910,7 +1335,7 @@ function setupNewOrderFormEvents() {
     });
   });
 
-  // 新增公司
+  // 新增公司（第 3️⃣ 區塊）
   const saveCompanyBtn = document.getElementById('btn-save-new-company');
   if (saveCompanyBtn) {
     saveCompanyBtn.addEventListener('click', async () => {
@@ -919,13 +1344,18 @@ function setupNewOrderFormEvents() {
         alert('請輸入公司名稱');
         return;
       }
+      // 收集勾選的類別（checkbox 可多選）→ 逗號分隔多值
+      const checkedCategories = Array.from(
+        document.querySelectorAll('input[name="new-company-category"]:checked')
+      ).map(cb => cb.value);
       const payload = {
-        category: document.getElementById('new-company-category').value,
+        category: checkedCategories,
         name,
         contact_person: document.getElementById('new-company-contact').value.trim(),
         phone: document.getElementById('new-company-phone').value.trim(),
         address: document.getElementById('new-company-address').value.trim(),
-        email: document.getElementById('new-company-email').value.trim()
+        email: document.getElementById('new-company-email').value.trim(),
+        notes: document.getElementById('new-company-notes').value.trim()
       };
       try {
         const result = await apiFetch('/api/orders/companies', {
@@ -941,6 +1371,38 @@ function setupNewOrderFormEvents() {
     });
   }
 
+  // 新增運輸公司（第 8️⃣ 區塊）
+  const saveTransportBtn = document.getElementById('btn-save-new-transport');
+  if (saveTransportBtn) {
+    saveTransportBtn.addEventListener('click', async () => {
+      const name = document.getElementById('new-transport-name').value.trim();
+      if (!name) {
+        alert('請輸入運輸公司名稱');
+        return;
+      }
+      const payload = {
+        category: 'transport',
+        name,
+        contact_person: document.getElementById('new-transport-contact').value.trim(),
+        phone: document.getElementById('new-transport-phone').value.trim(),
+        address: document.getElementById('new-transport-address').value.trim(),
+        email: document.getElementById('new-transport-email').value.trim(),
+        notes: document.getElementById('new-transport-notes').value.trim()
+      };
+      try {
+        const result = await apiFetch('/api/orders/companies', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        alert('運輸公司已儲存！');
+        // 重載公司並重繪表單
+        renderNewOrderForm();
+      } catch (err) {
+        alert(`儲存失敗：${err.message}`);
+      }
+    });
+  }
+
   // 提交表單
   const form = document.getElementById('orders-create-form');
   if (form) {
@@ -948,6 +1410,49 @@ function setupNewOrderFormEvents() {
       e.preventDefault();
       const data = getCurrentFormData();
       if (!data) return;
+
+      // ===== 自動儲存新公司（收貨/交回地點手動輸入的新名字）=====
+      // 若地點輸入框有值但 hidden id 為空 → 表示是新公司名，先建立到公司庫
+      const locationAInput = document.getElementById('order-location-a');
+      const locationBInput = document.getElementById('order-location-b');
+      const locationAId = document.getElementById('order-location-a-id');
+      const locationBId = document.getElementById('order-location-b-id');
+
+      const pendingNewCompanies = [];
+      if (locationAInput && locationAInput.value.trim() && (!locationAId || !locationAId.value)) {
+        pendingNewCompanies.push({ input: locationAInput, hidden: locationAId, category: currentOrderType === 'delivery' ? 'warehouse' : 'customer' });
+      }
+      if (locationBInput && locationBInput.value.trim() && (!locationBId || !locationBId.value)) {
+        pendingNewCompanies.push({ input: locationBInput, hidden: locationBId, category: currentOrderType === 'delivery' ? 'customer' : 'warehouse' });
+      }
+
+      if (pendingNewCompanies.length) {
+        try {
+          // 逐個建立（避免重名同時建立）
+          for (const item of pendingNewCompanies) {
+            const name = item.input.value.trim();
+            // 先檢查是否已存在（可能剛被其他欄位使用）
+            const existing = companiesCache.find(c => c.name.toLowerCase() === name.toLowerCase() && !isTransportCategory(c.category));
+            let companyId;
+            if (existing) {
+              companyId = existing.id;
+            } else {
+              const result = await apiFetch('/api/orders/companies', {
+                method: 'POST',
+                body: JSON.stringify({ category: item.category, name })
+              });
+              companyId = result.id;
+            }
+            if (item.hidden) item.hidden.value = companyId;
+          }
+          // 更新 data 的 company id
+          data.pickup_company_id = document.getElementById('order-location-a-id').value || '';
+          data.delivery_company_id = document.getElementById('order-location-b-id').value || '';
+        } catch (err) {
+          alert(`儲存新公司失敗：${err.message}`);
+          return;
+        }
+      }
 
       // MAWB# 驗證
       const mawbValue = document.getElementById('order-mawb').value.trim();
@@ -1063,11 +1568,14 @@ function buildOrderSummary(order) {
   lines.push(`MAWB#   ：${displayMawb(order.mawb)}`);
   lines.push(`HAWB#   ：${order.hawb || '-'}`);
   lines.push(`提貨號  ：${order.pickup_no || '-'}`);
+  if (order.pickup_datetime) lines.push(`提貨時間：${formatPickupDatetime(order.pickup_datetime)}`);
   lines.push(line);
   lines.push(`收貨公司：${order.delivery_company_name || order.pickup_company_name || '-'}`);
   lines.push(`地址    ：${order.address || '-'}`);
   lines.push(`聯絡人  ：${order.receiver_name || '-'}`);
   lines.push(`電話    ：${order.receiver_phone || '-'}`);
+  if (order.receiver_note) lines.push(`收貨人備註：${order.receiver_note}`);
+  if (order.contact_note) lines.push(`聯絡人備註：${order.contact_note}`);
   lines.push(line);
   lines.push(`貨品    ：${order.cargo_desc || '-'}`);
   lines.push(`件數    ：${order.quantity || '0'} 件`);
@@ -1218,6 +1726,10 @@ function buildOrderDetailHtml(order) {
         <span class="detail-value">${escapeHtml(order.pickup_no || '-')}</span>
       </div>
       <div class="orders-detail-field">
+        <span class="detail-label">📅 提貨日期時間</span>
+        <span class="detail-value">${escapeHtml(formatPickupDatetime(order.pickup_datetime) || '-')}</span>
+      </div>
+      <div class="orders-detail-field">
         <span class="detail-label">${order.order_type === 'delivery' ? '取貨地點' : '收貨地點'}</span>
         <span class="detail-value">${escapeHtml(order.pickup_company_name || '-')}</span>
       </div>
@@ -1249,6 +1761,16 @@ function buildOrderDetailHtml(order) {
         <span class="detail-label">電話</span>
         <span class="detail-value">${escapeHtml(order.receiver_phone || '-')}</span>
       </div>
+      ${order.receiver_note ? `
+      <div class="orders-detail-field full">
+        <span class="detail-label">收貨人備註</span>
+        <span class="detail-value">${escapeHtml(order.receiver_note)}</span>
+      </div>` : ''}
+      ${order.contact_note ? `
+      <div class="orders-detail-field full">
+        <span class="detail-label">聯絡人備註</span>
+        <span class="detail-value">${escapeHtml(order.contact_note)}</span>
+      </div>` : ''}
       <div class="orders-detail-field full">
         <span class="detail-label">地址</span>
         <span class="detail-value">${escapeHtml(order.address || '-')}</span>
@@ -1358,13 +1880,48 @@ function loadOrderToForm(order) {
       document.getElementById('order-hawb').value = order.hawb || '';
       document.getElementById('order-pickup-no').value = order.pickup_no || '';
       document.getElementById('order-mawb').dispatchEvent(new Event('change'));
-      document.getElementById('order-location-a').value = order.pickup_company_id || '';
-      document.getElementById('order-location-b').value = order.delivery_company_id || '';
+
+      // 提貨日期/時間
+      let pickupDate = '';
+      let pickupTime = '';
+      if (order.pickup_datetime) {
+        const parts = String(order.pickup_datetime).split(' ');
+        if (parts[0]) pickupDate = parts[0];
+        if (parts[1]) pickupTime = parts[1];
+      }
+      const pickupDateEl = document.getElementById('order-pickup-date');
+      if (pickupDateEl) pickupDateEl.value = pickupDate || getTodayDateStr();
+      const pickupTimeEl = document.getElementById('order-pickup-time');
+      if (pickupTimeEl) pickupTimeEl.value = pickupTime || '';
+
+      // 地點（自動補全：input 顯示名稱 + hidden id）
+      const locAEl = document.getElementById('order-location-a');
+      const locAIdEl = document.getElementById('order-location-a-id');
+      const locBEl = document.getElementById('order-location-b');
+      const locBIdEl = document.getElementById('order-location-b-id');
+      if (locAEl && locAIdEl) {
+        const companyA = order.pickup_company_id ? getCompanyById(order.pickup_company_id) : null;
+        if (companyA) {
+          locAEl.value = companyA.name;
+          locAIdEl.value = companyA.id;
+        }
+      }
+      if (locBEl && locBIdEl) {
+        const companyB = order.delivery_company_id ? getCompanyById(order.delivery_company_id) : null;
+        if (companyB) {
+          locBEl.value = companyB.name;
+          locBIdEl.value = companyB.id;
+        }
+      }
       document.getElementById('order-address').value = order.address || '';
       document.getElementById('order-transport-company').value = order.transport_company || '';
       document.getElementById('order-notes').value = order.notes || '';
       document.getElementById('order-receiver-name').value = order.receiver_name || '';
       document.getElementById('order-receiver-phone').value = order.receiver_phone || '';
+      const receiverNoteEl = document.getElementById('order-receiver-note');
+      if (receiverNoteEl) receiverNoteEl.value = order.receiver_note || '';
+      const contactNoteEl = document.getElementById('order-contact-note');
+      if (contactNoteEl) contactNoteEl.value = order.contact_note || '';
 
       // 趕機
       document.querySelectorAll('.orders-choice-btn[data-urgent]').forEach(b => {
@@ -1487,7 +2044,7 @@ async function renderTemplates() {
     });
 
     const companyOptionsForModal = companiesCache
-      .filter(c => c.category !== 'transport')
+      .filter(c => !isTransportCategory(c.category))
       .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
       .join('');
 

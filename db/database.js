@@ -127,22 +127,28 @@ db.serialize(() => {
     }
   });
 
-  // orders 表相容性：確保新資料庫（少了 power_items）補上欄位
+  // orders 表相容性：確保新資料庫（少了欄位）補上
   db.all("PRAGMA table_info(orders)", [], (err, ordersCols) => {
     if (err) {
       console.error('PRAGMA table_info(orders) failed:', err.message);
       return;
     }
     const orderColumns = ordersCols.map(c => c.name);
-    if (!orderColumns.includes('power_items')) {
-      db.run("ALTER TABLE orders ADD COLUMN power_items TEXT", (alterErr) => {
-        if (alterErr) {
-          console.error('Failed to add power_items column:', alterErr.message);
-        } else {
-          console.log('Added power_items column to orders table');
-        }
-      });
-    }
+    const ensureColumn = (name, type) => {
+      if (!orderColumns.includes(name)) {
+        db.run(`ALTER TABLE orders ADD COLUMN ${name} ${type}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`Failed to add ${name} column:`, alterErr.message);
+          } else {
+            console.log(`Added ${name} column to orders table`);
+          }
+        });
+      }
+    };
+    ensureColumn('power_items', 'TEXT');
+    ensureColumn('pickup_datetime', 'TEXT');
+    ensureColumn('receiver_note', 'TEXT');
+    ensureColumn('contact_note', 'TEXT');
   });
 
   // 插入初始技能資料（若表格為空）

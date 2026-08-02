@@ -1116,9 +1116,10 @@ function setupPickupTimePicker() {
       if (active) active.scrollIntoView({ block: 'center' });
     });
 
-    // 點選項即時更新
+    // 點選項即時更新（stopPropagation 防止 renderPopup 重建 DOM 後冒泡誤判為點擊外部而關閉）
     popup.querySelectorAll('.pickup-time-opt').forEach(opt => {
-      opt.addEventListener('click', () => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
         const colTitle = opt.closest('.pickup-time-col').querySelector('.pickup-time-col-title').textContent;
         const val = Number(opt.dataset.val);
         parseTime();
@@ -1129,7 +1130,8 @@ function setupPickupTimePicker() {
       });
     });
 
-    popup.querySelector('.pickup-time-done').addEventListener('click', () => {
+    popup.querySelector('.pickup-time-done').addEventListener('click', (e) => {
+      e.stopPropagation();
       popup.style.display = 'none';
     });
   }

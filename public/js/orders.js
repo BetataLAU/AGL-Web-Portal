@@ -91,11 +91,13 @@ function getTodayDateStr() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// 目前時間 HH:MM（24 小時制）
+// 目前時間 HH:MM（24 小時制），分鐘向下取整至最近 15 分鐘（00/15/30/45）
 function getNowTimeStr() {
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, '0');
-  const mi = String(now.getMinutes()).padStart(2, '0');
+  // 向下取整：分鐘 ÷ 15 取整再 ×15（如 9:07 → 9:00、9:17 → 9:15）
+  const roundedMin = Math.floor(now.getMinutes() / 15) * 15;
+  const mi = String(roundedMin).padStart(2, '0');
   return `${hh}:${mi}`;
 }
 
@@ -504,7 +506,7 @@ function renderNewOrderForm(applyTemplate = null) {
             </div>
             <div class="orders-form-field">
               <label>⏰ 提貨時間</label>
-              <input type="time" id="order-pickup-time" value="${getNowTimeStr()}" />
+              <input type="time" id="order-pickup-time" value="${getNowTimeStr()}" step="900" />
             </div>
           </div>
         </div>

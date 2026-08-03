@@ -31,7 +31,6 @@
 |------|------|
 | `skills.js` | 技能 API（GET /api/skills） |
 | `contours.js` | Contour 影像：匯出 `contoursRouter`（/api/contours）與 `contourImageRouter`（/api/contour-image） |
-| `forum.js` | 論壇/留言：主題列表、回覆、CRUD、SSE 推播（`broadcastMessagesChange`） |
 | `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；含 `doDelete` 刪除邏輯 |
 | `orders/index.js` | 訂單 Router 入口 + ORD- → AGL- 編號一次性遷移 |
 | `orders/orders-router.js` | 訂單 CRUD |
@@ -57,7 +56,6 @@
 | `js/animations.js` | 動畫效果 |
 | `js/skills.js` | 技能頁邏輯 |
 | `js/contours.js` | Contour 頁邏輯 |
-| `js/forum.js` | 論壇頁邏輯（含 SSE EventSource） |
 | `js/chat.js` | AI Playground 邏輯 |
 | `js/orders.js` | 訂單系統邏輯（前端主軸） |
 | `js/dbviewer.js` | 資料庫檢視器邏輯 |
@@ -133,16 +131,6 @@ created_at, updated_at
 ---
 
 ## 3. 其他後端模組
-
-### forum.js（論壇）
-| Endpoint | 說明 |
-|----------|------|
-| GET `/api/threads` | 主題列表 |
-| GET `/api/threads/:id` | 主題 + 回覆 |
-| POST `/api/messages` | 新增主題/回覆（`parent_id` 區分） |
-| PUT `/api/messages/:id` | 修改留言 |
-| DELETE `/api/messages/:id` | 刪除留言 |
-| GET `/api/messages/stream` | SSE 即時推播 |
 
 ### dbviewer.js（資料庫檢視器）
 - `isAllowedTable(name)`：白名單檢查，防止存取非預期表格

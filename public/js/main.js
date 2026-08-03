@@ -80,14 +80,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 各功能頁
   fetchSkills();
-  fetchThreads();
   setupChat();
   setupFilters();
-  setupForumSection();
   setupContourSection();
   setupContourModal();
   setupOrdersSection();
   setupDbViewerSection();
-
-  setupMessageStream();
 });

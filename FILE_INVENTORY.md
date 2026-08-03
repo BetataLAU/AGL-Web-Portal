@@ -2,46 +2,42 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/8/4 上午12:35:33
+> 最後更新：2026/8/4 上午1:03:13
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
-M FILE_INVENTORY.md
-M PROJECT_MAP.md
 M WORKSPACE_STATE.md
-M public/css/orders.css
+M db/database.js
 M public/index.html
-M public/js/orders.js
-M routes/orders/index.js
-M routes/orders/orders-router.js
-D routes/orders/templates.js
-?? public/css/utils/
-?? public/js/utils/
+D public/js/forum.js
+M public/js/main.js
+D routes/forum.js
+M server.js
 ```
 
-## 📁 檔案清單（共 46 個檔案）
+## 📁 檔案清單（共 44 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（546 B）
 - `.gitignore`（90 B）
-- `CLAUDE.md`（7.8 KB）
+- `CLAUDE.md`（8.1 KB）
 - `ORDER_SYSTEM_PLAN.md`（8.1 KB）
-- `PROJECT_MAP.md`（7.3 KB）
+- `PROJECT_MAP.md`（7.5 KB）
 - `README.md`（8.1 KB）
-- `WORKSPACE_STATE.md`（2.8 KB）
+- `WORKSPACE_STATE.md`（3.4 KB）
 - `package.json`（340 B）
-- `server.js`（1.7 KB）
+- `server.js`（1.6 KB）
 
 ### db
 
-- `db/database.js`（5.1 KB）
+- `db/database.js`（3.6 KB）
 
 ### public
 
-- `public/index.html`（13.6 KB）
+- `public/index.html`（11.4 KB）
 
 ### public/css
 
@@ -65,8 +61,7 @@ D routes/orders/templates.js
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（9.0 KB）
 - `public/js/dbviewer.js`（19.6 KB）
-- `public/js/forum.js`（7.6 KB）
-- `public/js/main.js`（2.8 KB）
+- `public/js/main.js`（2.7 KB）
 - `public/js/orders.js`（68.2 KB）
 - `public/js/skills.js`（1.0 KB）
 - `public/js/theme.js`（5.2 KB）
@@ -85,7 +80,6 @@ D routes/orders/templates.js
 
 - `routes/contours.js`（2.9 KB）
 - `routes/dbviewer.js`（6.5 KB）
-- `routes/forum.js`（4.9 KB）
 - `routes/skills.js`（377 B）
 
 ### routes/orders

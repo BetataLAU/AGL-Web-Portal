@@ -67,7 +67,7 @@
 | `public/index.html` | 單一頁面 + Sidebar 導航 |
 | `public/css/` | base / layout / components / animations / orders / dbviewer |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / forum / chat / orders / main / dbviewer |
+| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / modal / cbm / time-picker / autocomplete） |
 | `ORDER_SYSTEM_PLAN.md` | 訂單系統設計紀錄（欄位邏輯、電力分類等） |
 | `README.md` | 專案說明與 API 清單 |
@@ -81,8 +81,6 @@
 | `/api/skills` | `routes/skills.js` | 技能 API |
 | `/api/contours` | `routes/contours.js` | Contour 影像 |
 | `/api/contour-image` | `routes/contours.js` | 舊路徑的 Contour 影像 |
-| `/api/threads` | `routes/forum.js` | 論壇主題 |
-| `/api/messages` | `routes/forum.js` | 留言/回覆 + SSE 推播（`/stream`） |
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（見下） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（白名單保護） |
 
@@ -125,7 +123,7 @@
 | 表 | 用途 |
 |----|------|
 | `skills` | 技能展示（自動 seed） |
-| `messages` | 論壇/留言（`parent_id` 支援回覆） |
+| `messages` | 論壇/留言（REMARK：GuestBook 已移除，建表已刪；舊表仍在 database.db，留待日後清理） |
 | `companies` | 訂單系統：公司/地點（客戶、倉庫、運輸公司） |
 | `templates` | 訂單系統：範本 |
 | `orders` | 訂單主表（含電郵總結所需欄位） |

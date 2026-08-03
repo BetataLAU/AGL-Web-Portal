@@ -7,7 +7,6 @@ require('./db/database');
 // 路由模組
 const skillsRouter = require('./routes/skills');
 const { contoursRouter, contourImageRouter } = require('./routes/contours');
-const { threadsRouter, messagesRouter } = require('./routes/forum');
 const ordersRouter = require('./routes/orders');
 const dbViewerRouter = require('./routes/dbviewer');
 
@@ -21,8 +20,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/skills', skillsRouter);
 app.use('/api/contours', contoursRouter);
 app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
-app.use('/api/threads', threadsRouter);
-app.use('/api/messages', messagesRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/db', dbViewerRouter);
 

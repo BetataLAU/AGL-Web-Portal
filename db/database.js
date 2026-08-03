@@ -17,18 +17,6 @@ db.serialize(() => {
     )
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_name TEXT,
-      title TEXT,
-      category TEXT,
-      content TEXT,
-      parent_id INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
   // ===== 訂單系統：公司/地點 =====
   db.run(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -91,41 +79,6 @@ db.serialize(() => {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  db.all("PRAGMA table_info(messages)", [], (err, rows) => {
-    if (err) {
-      console.error('PRAGMA table_info failed:', err.message);
-    } else {
-      const columns = rows.map(column => column.name);
-      if (!columns.includes('parent_id')) {
-        db.run("ALTER TABLE messages ADD COLUMN parent_id INTEGER", (alterErr) => {
-          if (alterErr) {
-            console.error('Failed to add parent_id column:', alterErr.message);
-          } else {
-            console.log('Added parent_id column to messages table');
-          }
-        });
-      }
-      if (!columns.includes('title')) {
-        db.run("ALTER TABLE messages ADD COLUMN title TEXT", (alterErr) => {
-          if (alterErr) {
-            console.error('Failed to add title column:', alterErr.message);
-          } else {
-            console.log('Added title column to messages table');
-          }
-        });
-      }
-      if (!columns.includes('category')) {
-        db.run("ALTER TABLE messages ADD COLUMN category TEXT", (alterErr) => {
-          if (alterErr) {
-            console.error('Failed to add category column:', alterErr.message);
-          } else {
-            console.log('Added category column to messages table');
-          }
-        });
-      }
-    }
-  });
 
   // orders 表相容性：確保新資料庫（少了欄位）補上
   db.all("PRAGMA table_info(orders)", [], (err, ordersCols) => {

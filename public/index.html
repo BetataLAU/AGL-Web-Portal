@@ -54,9 +54,6 @@
               <a href="#section-contour" class="nav-item">
                 <i class="fa-solid fa-mountain-city"></i> <span>Contour</span>
               </a>
-              <a href="#section-guestbook" class="nav-item">
-                <i class="fa-solid fa-comments"></i> <span>Guestbook</span>
-              </a>
               <a href="#section-orders" class="nav-item">
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
               </a>
@@ -156,51 +153,6 @@
         </div>
       </section>
 
-      <!-- Forum 頁面 -->
-      <section id="section-guestbook" class="content-section">
-        <div class="card guestbook-card forum-card">
-          <div class="card-header-flex">
-            <div>
-              <h2><i class="fa-solid fa-comments"></i> Forum</h2>
-              <p class="card-desc">Browse categories, start topics, and reply to discussion threads.</p>
-            </div>
-            <button class="pill" id="btn-forum-refresh"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
-          </div>
-
-          <div id="forum-category-tabs" class="forum-category-tabs"></div>
-
-          <div class="forum-main">
-            <aside class="forum-sidebar">
-              <div class="card-subheader">Create New Topic</div>
-              <form id="forum-thread-form" class="guestbook-form">
-                <div class="form-group">
-                  <select id="forum-category-select" required></select>
-                </div>
-                <div class="form-group">
-                  <input type="text" id="thread-title" placeholder="Topic title" required />
-                </div>
-                <div class="form-group">
-                  <textarea id="thread-content" placeholder="Start a new thread..." required></textarea>
-                </div>
-                <div class="form-group">
-                  <input type="text" id="thread-username" placeholder="Your Name" required />
-                </div>
-                <button type="submit" class="btn-primary">
-                  <i class="fa-solid fa-pencil"></i> Create Topic
-                </button>
-              </form>
-            </aside>
-
-            <div class="forum-content">
-              <div id="forum-thread-list" class="forum-thread-list"></div>
-              <div id="forum-thread-detail" class="forum-thread-detail">
-                <div class="empty-state">Select a thread to view replies.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- 訂單系統頁面 -->
       <section id="section-orders" class="content-section">
         <div class="card orders-card">
@@ -281,7 +233,6 @@
   <script src="./js/utils/autocomplete.js"></script>
   <script src="./js/skills.js"></script>
   <script src="./js/contours.js"></script>
-  <script src="./js/forum.js"></script>
   <script src="./js/chat.js"></script>
   <script src="./js/orders.js"></script>
   <script src="./js/dbviewer.js"></script>

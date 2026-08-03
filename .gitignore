@@ -4,3 +4,4 @@ npm-debug.log*
 .DS_Store
 *.log
 database.db
+.project-state.json 

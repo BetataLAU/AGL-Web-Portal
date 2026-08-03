@@ -66,7 +66,9 @@
 | `routes/` | 後端 API 模組（見下方分節） |
 | `public/index.html` | 單一頁面 + Sidebar 導航 |
 | `public/css/` | base / layout / components / animations / orders / dbviewer |
+| `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
 | `public/js/` | theme / animations / skills / contours / forum / chat / orders / main / dbviewer |
+| `public/js/utils/` | 通用工具（api / datetime / mawb / modal / cbm / time-picker / autocomplete） |
 | `ORDER_SYSTEM_PLAN.md` | 訂單系統設計紀錄（欄位邏輯、電力分類等） |
 | `README.md` | 專案說明與 API 清單 |
 | `PROJECT_MAP.md` | 詳細專案地圖（資料模型、API 總表） |
@@ -86,19 +88,37 @@
 
 ## 訂單系統（routes/orders/）
 
-入口 `index.js` 掛載三個子路由，並執行一次性的 ORD- → AGL- 訂單編號遷移。
+入口 `index.js` 掛載兩個子路由，並執行一次性的 ORD- → AGL- 訂單編號遷移。
 
 | 檔名 | 職責 |
 |------|------|
 | `index.js` | Router 入口 + 訂單編號遷移 |
 | `orders-router.js` | 訂單 CRUD、搜尋（編號/公司/提單號）、狀態篩選、`/check-duplicate` |
 | `companies.js` | 公司/地點 CRUD（客戶/倉庫/運輸公司），`normalizeCategory` |
-| `templates.js` | 訂單範本 CRUD（按公司分類，一鍵載入） |
 | `utils.js` | MAWB 正規化/驗證、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` 共用查詢 |
 
 **訂單資料模型重點**：`orders` 表有 `power_type`（no/dry/lithium 電力分類）、`urgent`（趕機）、`status`（pending/progress/done/cancelled）；公司以 `company_id` 關聯。
 
 **前端對應**：`public/js/orders.js`（邏輯）、`public/css/orders.css`（手機優先樣式）
+**已移除**：範本功能（2026-08 移除 UI + API，資料庫 templates 表保留供 dbviewer/公司刪除保護）
+
+## 通用工具（public/js/utils/ 與 public/css/utils/）
+
+> 與業務無關、可跨頁面重用的工具。**新頁面需要類似功能時，優先呼叫這裡，勿在頁面 JS 內重寫。**
+
+| 檔案 | 全域函式/常數 | 用途 | 呼叫範例 |
+|------|--------------|------|---------|
+| `api.js` | `apiFetch(url, options)` | 統一 fetch 封裝（JSON header、錯誤拋出） | `await apiFetch('/api/orders')` |
+| `datetime-utils.js` | `getTodayDateStr` / `getNowTimeStr` / `formatPickupDatetime` / `formatDateTime` | 日期/時間格式化 | `getTodayDateStr()` |
+| `mawb-utils.js` | `MAWB_LATE_LABEL` / `normalizeMawb` / `formatMawb` / `validateMawb` / `isLateMawb` / `displayMawb` | MAWB# 驗證/格式化 | `validateMawb('157-1234 5678')` |
+| `modal.js` | `openModal({ title, body, actions, className })` | 通用浮動卡片/Modal | `openModal({ title:'提示', body:'...' })` |
+| `cbm-calculator.js` | `openCbmCalculator({ targetInput })` | CBM 計算浮動視窗，結果填回指定 input | `openCbmCalculator({ targetInput: el })` |
+| `time-picker.js` | `setupTimePicker({ input, clockBtn, popup })` | 自訂時間選擇器（鍵盤 ±15 分鐘 + 小時/分鐘彈出） | `setupTimePicker({ input, clockBtn, popup })` |
+| `autocomplete.js` | `setupAutocomplete({ input, suggestions, onSelect })` | 輸入即篩選下拉自動補全（可輸入自訂值；`suggestions` 可為函數動態產生） | `setupAutocomplete({ input, suggestions: ['A67','A123'], onSelect })` |
+
+**樣式對應**：`public/css/utils/modal.css`、`cbm-calculator.css`、`time-picker.css`、`autocomplete.css`（已在 `index.html` 引入）
+
+**注意**：這些是全域函式（無模組/namespace 包裝），引入順序必須在 `orders.js` 等使用方之前（`index.html` 已排好）
 
 ## 資料表（db/database.js）
 

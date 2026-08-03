@@ -23,7 +23,6 @@ db.all("SELECT id, order_no FROM orders WHERE order_no LIKE 'ORD-%'", [], (err, 
 
 // 子模組路由（對外路徑保持不變）
 router.use('/companies', require('./companies'));
-router.use('/templates', require('./templates'));
 router.use('/', require('./orders-router'));
 
 module.exports = router;

@@ -9,6 +9,11 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
+  <!-- 通用工具元件樣式 -->
+  <link rel="stylesheet" href="css/utils/modal.css">
+  <link rel="stylesheet" href="css/utils/cbm-calculator.css">
+  <link rel="stylesheet" href="css/utils/time-picker.css">
+  <link rel="stylesheet" href="css/utils/autocomplete.css">
   <link rel="stylesheet" href="css/orders.css">
   <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -202,14 +207,13 @@
           <div class="card-header-flex">
             <div>
               <h2><i class="fa-solid fa-box"></i> 📦 訂單系統</h2>
-              <p class="card-desc">管理收貨 / 送貨訂單、公司資料與範本。</p>
+              <p class="card-desc">管理收貨 / 送貨訂單與公司資料。</p>
             </div>
           </div>
 
           <div class="orders-tabs" id="orders-tabs">
             <button class="orders-tab active" data-tab="new">＋ 新建訂單</button>
             <button class="orders-tab" data-tab="list">📋 訂單列表</button>
-            <button class="orders-tab" data-tab="templates">⭐ 範本</button>
           </div>
 
           <!-- Tab 1：新建訂單 -->
@@ -231,11 +235,6 @@
               <button type="button" id="btn-orders-refresh" class="pill"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
             </div>
             <div id="orders-list-container"></div>
-          </div>
-
-          <!-- Tab 3：範本管理 -->
-          <div id="orders-tab-templates" class="orders-tab-panel">
-            <div id="orders-templates-container"></div>
           </div>
         </div>
       </section>
@@ -272,6 +271,14 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="./js/theme.js"></script>
   <script src="./js/animations.js"></script>
+  <!-- 通用工具（全域函式） -->
+  <script src="./js/utils/api.js"></script>
+  <script src="./js/utils/datetime-utils.js"></script>
+  <script src="./js/utils/mawb-utils.js"></script>
+  <script src="./js/utils/modal.js"></script>
+  <script src="./js/utils/cbm-calculator.js"></script>
+  <script src="./js/utils/time-picker.js"></script>
+  <script src="./js/utils/autocomplete.js"></script>
   <script src="./js/skills.js"></script>
   <script src="./js/contours.js"></script>
   <script src="./js/forum.js"></script>

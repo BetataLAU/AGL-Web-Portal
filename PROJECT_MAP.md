@@ -34,9 +34,8 @@
 | `forum.js` | 論壇/留言：主題列表、回覆、CRUD、SSE 推播（`broadcastMessagesChange`） |
 | `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；含 `doDelete` 刪除邏輯 |
 | `orders/index.js` | 訂單 Router 入口 + ORD- → AGL- 編號一次性遷移 |
-| `orders/orders-router.js` | 訂單 CRUD（233 行） |
+| `orders/orders-router.js` | 訂單 CRUD |
 | `orders/companies.js` | 公司/地點 CRUD，`normalizeCategory` |
-| `orders/templates.js` | 訂單範本 CRUD |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
 
 ### 前端 `public/`
@@ -50,6 +49,10 @@
 | `css/animations.css` | 動畫 |
 | `css/orders.css` | 訂單系統樣式（手機優先） |
 | `css/dbviewer.css` | 資料庫檢視器樣式 |
+| `css/utils/modal.css` | 通用 Modal 樣式 |
+| `css/utils/cbm-calculator.css` | CBM 計算機樣式 |
+| `css/utils/time-picker.css` | 自訂時間選擇器樣式 |
+| `css/utils/autocomplete.css` | 輸入即篩選自動補全樣式 |
 | `js/theme.js` | 主題切換 + Ocean 自訂色盤 |
 | `js/animations.js` | 動畫效果 |
 | `js/skills.js` | 技能頁邏輯 |
@@ -57,8 +60,15 @@
 | `js/forum.js` | 論壇頁邏輯（含 SSE EventSource） |
 | `js/chat.js` | AI Playground 邏輯 |
 | `js/orders.js` | 訂單系統邏輯（前端主軸） |
-| `js/dbviewer.js` | 資料庫檢視器邏輯（19.6 KB） |
+| `js/dbviewer.js` | 資料庫檢視器邏輯 |
 | `js/main.js` | 共用工具與初始化 |
+| `js/utils/api.js` | 通用 API 封裝（`apiFetch`） |
+| `js/utils/datetime-utils.js` | 日期/時間工具 |
+| `js/utils/mawb-utils.js` | MAWB# 驗證/格式化工具 |
+| `js/utils/modal.js` | 通用 Modal（`openModal`） |
+| `js/utils/cbm-calculator.js` | CBM 計算機（`openCbmCalculator`） |
+| `js/utils/time-picker.js` | 自訂時間選擇器（`setupTimePicker`） |
+| `js/utils/autocomplete.js` | 輸入即篩選自動補全（`setupAutocomplete`） |
 
 ---
 
@@ -114,9 +124,6 @@ created_at, updated_at
 | DELETE | `/api/orders/:id` | 刪除訂單 |
 | GET | `/api/orders/companies` | 公司清單（`?search=&category=`） |
 | POST | `/api/orders/companies` | 新增公司 |
-| GET | `/api/orders/templates` | 範本清單（`?company_id=`） |
-| POST | `/api/orders/templates` | 新增範本 |
-| DELETE | `/api/orders/templates/:id` | 刪除範本 |
 
 ### 電郵總結（`mailto:` 免設定）
 - 自動填收件人（運輸公司 email）、主旨、總結內容
@@ -148,7 +155,7 @@ created_at, updated_at
 ### 訂單前端流程（public/js/orders.js）
 1. 表單分步驟（Mobile 優先），大按鈕選擇訂單類型 🚚/📥
 2. 公司選取後自動帶出地址/聯絡人/電話（可修改）
-3. 電力分類三選一 + 代碼下拉
+3. 帶電項目：按「無電/乾電/鋰電」加入一行，「主類別/代碼」用輸入即篩選自動補全（支援自訂代碼）
 4. 列表卡片式顯示、搜尋、狀態篩選、狀態顏色標籤
 5. 詳情展開、編輯、複製、刪除、狀態變更
 6. 電郵總結（mailto:）與複製總結

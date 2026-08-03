@@ -1,0 +1,38 @@
+/* ===== 通用自動補全（輸入即篩選下拉） ===== */
+.app-autocomplete-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  z-index: 1000;
+}
+
+.app-autocomplete-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+  font-size: 0.95rem;
+}
+
+.app-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.app-autocomplete-item:hover,
+.app-autocomplete-item.active {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.app-autocomplete-empty {
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}

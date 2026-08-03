@@ -2,13 +2,11 @@
 let ordersData = [];
 let companiesCache = [];
 let transportCompanies = [];
-let templatesData = [];
 let currentOrderType = 'delivery';
 let editingOrderId = null;
 let duplicateConfirmed = false;
 
 const ORDER_TYPE_LABEL = { delivery: '🚚 送貨', pickup: '📥 收貨' };
-const MAWB_LATE_LABEL = '後補MAWB#';
 const STATUS_LABEL = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
 const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '🔋 乾電', lithium: '🔋 鋰電' };
 const POWER_CODES = {
@@ -24,23 +22,7 @@ const LITHIUM_MAIN = {
 const POWER_ITEMS = [];
 let powerItemsList = [];
 
-// ===== 共用函數 =====
-async function apiFetch(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  if (!res.ok) {
-    let errorMsg = '請求失敗';
-    try {
-      const errData = await res.json();
-      if (errData.error) errorMsg = errData.error;
-    } catch (e) { /* ignore */ }
-    throw new Error(errorMsg);
-  }
-  return res.json();
-}
-
+// ===== 訂單 API 載入 =====
 async function loadCompanies() {
   const result = await apiFetch('/api/orders/companies');
   companiesCache = result.data || [];
@@ -53,12 +35,6 @@ async function loadTransportCompanies() {
   return transportCompanies;
 }
 
-async function loadTemplates() {
-  const result = await apiFetch('/api/orders/templates');
-  templatesData = result.data || [];
-  return templatesData;
-}
-
 function getCompanyById(id) {
   const numId = Number(id);
   if (!numId) return null;
@@ -69,45 +45,6 @@ function getCompanyById(id) {
 function isTransportCategory(category) {
   if (!category) return false;
   return String(category).split(',').map(s => s.trim()).includes('transport');
-}
-
-function formatDateTime(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return isoString;
-  return date.toLocaleString('zh-HK', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
-  });
-}
-
-// ===== 提貨日期/時間 工具 =====
-// 今日日期 YYYY-MM-DD（用本地時區）
-function getTodayDateStr() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// 目前時間 HH:MM（24 小時制），分鐘向下取整至最近 15 分鐘（00/15/30/45）
-function getNowTimeStr() {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  // 向下取整：分鐘 ÷ 15 取整再 ×15（如 9:07 → 9:00、9:17 → 9:15）
-  const roundedMin = Math.floor(now.getMinutes() / 15) * 15;
-  const mi = String(roundedMin).padStart(2, '0');
-  return `${hh}:${mi}`;
-}
-
-// 顯示提貨日期時間（如 2026-08-02 18:30）
-function formatPickupDatetime(value) {
-  if (!value) return '';
-  const v = String(value).trim();
-  if (!v) return '';
-  // 值本身就是「日期 時間」或「日期」
-  return v;
 }
 
 // 依公司 id 找公司名稱
@@ -229,66 +166,6 @@ function setupCompanyAutocomplete(inputId, hiddenId) {
   }
 }
 
-// ===== MAWB# 驗證 =====
-// 去除空格、連字號，取得 11 位純數字
-function normalizeMawb(value) {
-  if (value == null) return '';
-  return String(value).replace(/[\s-]/g, '');
-}
-
-// 統一顯示格式 000-0000 0000
-function formatMawb(value) {
-  const digits = normalizeMawb(value);
-  if (!/^\d{11}$/.test(digits)) return value || '';
-  return `${digits.slice(0, 3)}-${digits.slice(3, 7)} ${digits.slice(7, 11)}`;
-}
-
-// 驗證 MAWB#：格式 + checksum（suffix 前 7 位 mod 7 = 第 8 位）
-function validateMawb(value) {
-  const raw = (value || '').trim();
-  if (!raw) {
-    return { valid: false, error: 'empty', formatted: '' };
-  }
-  if (raw === MAWB_LATE_LABEL) {
-    return { valid: true, late: true, error: null, formatted: MAWB_LATE_LABEL };
-  }
-
-  const digits = normalizeMawb(raw);
-  // 格式：11位全數字
-  if (!/^\d{11}$/.test(digits)) {
-    return { valid: false, error: '格式錯誤：MAWB# 必須是 11 位數字（如 000-00000000）', formatted: '' };
-  }
-  // prefix 介於 001-999
-  const prefix = digits.slice(0, 3);
-  const prefixNum = parseInt(prefix, 10);
-  if (prefixNum < 1 || prefixNum > 999) {
-    return { valid: false, error: '格式錯誤：MAWB# 前 3 位（prefix）必須介於 001-999', formatted: '' };
-  }
-  // checksum：suffix 前 7 位 mod 7 = 第 8 位
-  const suffix = digits.slice(3);
-  const first7 = parseInt(suffix.slice(0, 7), 10);
-  const checkDigit = parseInt(suffix.charAt(7), 10);
-  const modResult = first7 % 7;
-  if (modResult !== checkDigit) {
-    return { valid: false, error: 'MAWB# 有問題，請再輸入', formatted: '' };
-  }
-
-  return { valid: true, late: false, error: null, formatted: formatMawb(digits) };
-}
-
-// 判斷是否為「後補MAWB#」
-function isLateMawb(value) {
-  if (value == null) return false;
-  return String(value).trim() === MAWB_LATE_LABEL;
-}
-
-// 顯示用：後補→顯示「後補MAWB#」，有值→標準格式，無值→'-'
-function displayMawb(value) {
-  if (!value || !String(value).trim()) return '-';
-  if (isLateMawb(value)) return MAWB_LATE_LABEL;
-  return formatMawb(value);
-}
-
 // 查詢是否已有重複的訂單（MAWB# / HAWB# / 客戶提貨號）
 async function checkDuplicateOrder() {
   const mawbVal = document.getElementById('order-mawb')?.value.trim() || '';
@@ -321,7 +198,7 @@ async function checkDuplicateOrder() {
 // mode: 'submit' = 提交時（按「仍然繼續」會觸發重新提交）；'blur' = 離開欄位即時檢查（按「知道了」只關閉卡片）
 function showDuplicateCard(orders, mode = 'submit') {
   // 移除舊卡片
-  document.querySelectorAll('.duplicate-order-card').forEach(el => el.remove());
+  document.querySelectorAll('.duplicate-order-modal').forEach(el => el.remove());
 
   if (!orders || !orders.length) return;
   const isBlurMode = mode === 'blur';
@@ -377,35 +254,33 @@ function showDuplicateCard(orders, mode = 'submit') {
     `;
   }).filter(Boolean).join('');
 
-  const card = document.createElement('div');
-  card.className = 'duplicate-order-card';
-  card.innerHTML = `
-    <div class="duplicate-order-card-header">
-      <span>⚠️ 發現重複訂單</span>
-      <button type="button" class="duplicate-order-close" title="關閉">✕</button>
-    </div>
-    <div class="duplicate-order-list">${entries}</div>
-    <div class="duplicate-order-actions">
-      <button type="button" class="pill btn-primary duplicate-order-proceed">${isBlurMode ? '🔍 知道了，繼續填寫' : '✅ 仍然繼續'}</button>
-      <button type="button" class="pill duplicate-order-back">✏️ 返回修改</button>
-    </div>
-  `;
-  document.body.appendChild(card);
-  card.classList.add('visible');
-
-  card.querySelector('.duplicate-order-close').addEventListener('click', () => card.remove());
-  card.querySelector('.duplicate-order-back').addEventListener('click', () => card.remove());
-  card.querySelector('.duplicate-order-proceed').addEventListener('click', () => {
-    if (isBlurMode) {
-      // blur 模式：只關閉卡片，不觸發提交，用戶可繼續填寫
-      card.remove();
-      return;
-    }
-    // submit 模式：標記用戶已確認繼續，重新觸發提交
-    duplicateConfirmed = true;
-    card.remove();
-    const submitBtn = document.querySelector('.orders-submit-btn');
-    if (submitBtn) submitBtn.click();
+  openModal({
+    title: '⚠️ 發現重複訂單',
+    body: `<div class="duplicate-order-list">${entries}</div>`,
+    className: 'duplicate-order-modal',
+    actions: [
+      {
+        label: isBlurMode ? '🔍 知道了，繼續填寫' : '✅ 仍然繼續',
+        className: 'pill btn-primary',
+        onClick: (modal) => {
+          if (isBlurMode) {
+            // blur 模式：只關閉卡片，不觸發提交，用戶可繼續填寫
+            modal.close();
+            return;
+          }
+          // submit 模式：標記用戶已確認繼續，重新觸發提交
+          duplicateConfirmed = true;
+          modal.close();
+          const submitBtn = document.querySelector('.orders-submit-btn');
+          if (submitBtn) submitBtn.click();
+        }
+      },
+      {
+        label: '✏️ 返回修改',
+        className: 'pill',
+        onClick: (modal) => modal.close()
+      }
+    ]
   });
 }
 
@@ -420,11 +295,9 @@ function setupOrdersTabs() {
       const target = document.getElementById(`orders-tab-${tab.dataset.tab}`);
       if (target) target.classList.add('active');
 
-      // 切到列表或範本時重新載入
+      // 切到列表時重新載入
       if (tab.dataset.tab === 'list') {
         fetchOrders();
-      } else if (tab.dataset.tab === 'templates') {
-        renderTemplates();
       } else if (tab.dataset.tab === 'new') {
         renderNewOrderForm();
       }
@@ -441,31 +314,23 @@ function companySelectOptions(selectedId) {
   return `<option value="">-- 搜尋/選擇公司 --</option>${options}`;
 }
 
-function transportSelectOptions(selectedId) {
-  const options = transportCompanies.map(c => `<option value="${escapeHtml(c.name)}" ${c.name === selectedId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
-  return `<option value="">-- 選擇運輸公司 --</option>${options}`;
-}
-
-function renderNewOrderForm(applyTemplate = null) {
+function renderNewOrderForm(prefill = null) {
   const container = document.getElementById('orders-new-form');
   if (!container) return;
   duplicateConfirmed = false; // 新表單重置重複確認狀態
 
   // 載入公司資料
   Promise.all([loadCompanies(), loadTransportCompanies()]).then(() => {
-    const t = applyTemplate || {};
     const fields = {};
-
-    if (applyTemplate) {
-      // 套用範本後帶入值
-      fields.cargoDesc = applyTemplate.cargo_desc || '';
-      fields.quantity = applyTemplate.quantity || '';
-      fields.weight = applyTemplate.weight_kg || '';
-      fields.cbm = applyTemplate.cbm || '';
-      fields.powerType = applyTemplate.power_type || 'no';
-      fields.receiverName = applyTemplate.receiver_name || '';
-      fields.receiverPhone = applyTemplate.receiver_phone || '';
-      fields.notes = applyTemplate.notes || '';
+    if (prefill) {
+      // 編輯訂單時帶入既有值
+      fields.cargoDesc = prefill.cargo_desc || '';
+      fields.quantity = prefill.quantity || '';
+      fields.weight = prefill.weight_kg || '';
+      fields.cbm = prefill.cbm || '';
+      fields.receiverName = prefill.receiver_name || '';
+      fields.receiverPhone = prefill.receiver_phone || '';
+      fields.notes = prefill.notes || '';
     }
 
     container.innerHTML = `
@@ -473,11 +338,11 @@ function renderNewOrderForm(applyTemplate = null) {
         <div class="orders-form-section">
           <div class="orders-form-section-title">1️⃣ 訂單類型</div>
           <div class="orders-choice-row">
-            <button type="button" class="orders-choice-btn ${currentOrderType === 'delivery' ? 'selected' : ''}" data-order-type="delivery">
-              🚚 送貨 <span class="choice-sub">取貨 → 送到客戶</span>
-            </button>
             <button type="button" class="orders-choice-btn ${currentOrderType === 'pickup' ? 'selected' : ''}" data-order-type="pickup">
               📥 收貨 <span class="choice-sub">客戶收貨 → 交回/轉交</span>
+            </button>
+            <button type="button" class="orders-choice-btn ${currentOrderType === 'delivery' ? 'selected' : ''}" data-order-type="delivery">
+              🚚 送貨 <span class="choice-sub">取貨 → 送到客戶</span>
             </button>
           </div>
         </div>
@@ -491,8 +356,8 @@ function renderNewOrderForm(applyTemplate = null) {
               <div class="orders-field-hint" id="mawb-hint">格式：000-0000 0000（如 157-1234 5678）</div>
             </div>
             <div class="orders-form-field">
-              <label>HAWB# *</label>
-              <input type="text" id="order-hawb" required placeholder="如 HKG-987654" />
+              <label>HAWB#</label>
+              <input type="text" id="order-hawb" placeholder="如 HKG-987654（選填）" />
               <div class="orders-field-hint" id="hawb-hint"></div>
             </div>
             <div class="orders-form-field full">
@@ -664,79 +529,29 @@ function renderNewOrderForm(applyTemplate = null) {
         </div>
 
         <div class="orders-form-section">
-          <div class="orders-form-section-title">8️⃣ 運輸公司 & 備註</div>
+          <div class="orders-form-section-title">8️⃣ 備註</div>
           <div class="orders-form-grid">
-            <div class="orders-form-field">
-              <label>運輸公司</label>
-              <select id="order-transport-company">${transportSelectOptions()}</select>
-            </div>
             <div class="orders-form-field full">
               <label>備註（選填）</label>
               <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
             </div>
           </div>
-          <details class="orders-company-add" id="transport-company-add">
-            <summary>＋ 新增運輸公司（落單時順手儲存）</summary>
-            <div class="orders-form-grid" style="margin-top:10px;">
-              <div class="orders-form-field">
-                <label>公司名稱 *</label>
-                <input type="text" id="new-transport-name" />
-              </div>
-              <div class="orders-form-field">
-                <label>聯絡人</label>
-                <input type="text" id="new-transport-contact" />
-              </div>
-              <div class="orders-form-field">
-                <label>電話</label>
-                <input type="text" id="new-transport-phone" />
-              </div>
-              <div class="orders-form-field">
-                <label>電郵</label>
-                <input type="email" id="new-transport-email" placeholder="transport@company.com" />
-              </div>
-              <div class="orders-form-field">
-                <label>地址</label>
-                <input type="text" id="new-transport-address" />
-              </div>
-              <div class="orders-form-field full">
-                <label>備註</label>
-                <input type="text" id="new-transport-notes" placeholder="如：辦公時間、注意事項..." />
-              </div>
-            </div>
-            <button type="button" class="pill btn-primary" id="btn-save-new-transport" style="margin-top:10px;">＋ 儲存運輸公司</button>
-          </details>
         </div>
 
         <button type="submit" class="orders-submit-btn">📦 提交訂單</button>
       </form>
     `;
 
-    // 初始化電力組合（累積載入既有項目或範本）
-    if (applyTemplate && applyTemplate.power_items && Array.isArray(applyTemplate.power_items) && applyTemplate.power_items.length) {
-      powerItemsList = applyTemplate.power_items.map(item => ({ ...item }));
+    // 初始化電力組合（編輯時帶入既有項目）
+    if (prefill && prefill.power_items && Array.isArray(prefill.power_items) && prefill.power_items.length) {
+      powerItemsList = prefill.power_items.map(item => ({ ...item }));
+    } else if (prefill && prefill.power_code && prefill.power_type && prefill.power_type !== 'no') {
+      // 舊資料只有單一代碼的相容處理
+      powerItemsList = [{ type: prefill.power_type, main: '', code: prefill.power_code, qty: '' }];
     } else {
       powerItemsList = [];
-      // 舊範本只有單一代碼的相容處理
-      if (applyTemplate && applyTemplate.power_code && applyTemplate.power_type && applyTemplate.power_type !== 'no') {
-        powerItemsList = [{ type: applyTemplate.power_type, main: '', code: applyTemplate.power_code, qty: '' }];
-      }
     }
     renderPowerItemsList();
-
-    // 嘗試帶出公司（範本）→ 設定自動補全欄位（hidden id + 顯示名稱）
-    if (applyTemplate && applyTemplate.company_id) {
-      const company = getCompanyById(applyTemplate.company_id);
-      if (company) {
-        if (currentOrderType === 'delivery') {
-          document.getElementById('order-location-b').value = company.name;
-          document.getElementById('order-location-b-id').value = company.id;
-        } else {
-          document.getElementById('order-location-a').value = company.name;
-          document.getElementById('order-location-a-id').value = company.id;
-        }
-        handleCompanySelected();
-      }
-    }
 
     setupNewOrderFormEvents();
   }).catch(err => {
@@ -777,40 +592,20 @@ function renderPowerItemsList() {
   listEl.innerHTML = powerItemsList.map((item, idx) => {
     const isDry = item.type === 'dry';
     const isLithium = item.type === 'lithium';
-    // 鋰電主下拉（ELI/ELM）
-    const mainOptions = ['ELI', 'ELM'].map(m =>
-      `<option value="${m}" ${item.main === m ? 'selected' : ''}>${m}</option>`
-    ).join('');
-    // 乾電代碼
-    const dryCodes = ['A67', 'A123', 'A199', 'custom', 'custom2'];
-    const dryOptions = ['A67', 'A123', 'A199'].map(c =>
-      `<option value="${c}" ${item.code === c ? 'selected' : ''}>${c}</option>`
-    ).join('');
-    // 鋰電子代碼（依主選項）— 由 JS 動態填，這裡先放預設
-    const subCodes = LITHIUM_MAIN[item.main] || ['PI965', 'PI966', 'PI967'];
-
     const typeLabel = POWER_TYPE_LABEL[item.type] || item.type;
 
     return `
       <div class="power-item-row" data-idx="${idx}" data-item-type="${item.type}">
         <span class="power-item-type-label">${typeLabel}</span>
         ${isLithium ? `
-          <select class="power-item-main" data-field="main">
-            <option value="">-- 主類別 --</option>
-            ${mainOptions}
-          </select>
+          <div class="app-autocomplete power-item-main">
+            <input type="text" class="power-item-main-input" data-field="main" placeholder="主類別" value="${escapeAttr(item.main)}" autocomplete="off" />
+          </div>
         ` : ''}
-        ${isDry ? `
-          <select class="power-item-code" data-field="code">
-            <option value="">-- 代碼 --</option>
-            ${dryOptions}
-            <option value="custom" ${item.code === 'custom' ? 'selected' : ''}>其他（自訂）...</option>
-          </select>
-        ` : isLithium ? `
-          <select class="power-item-code" data-field="code">
-            <option value="">-- 代碼 --</option>
-            ${subCodes.map(c => `<option value="${c}" ${item.code === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
+        ${(isDry || isLithium) ? `
+          <div class="app-autocomplete power-item-code">
+            <input type="text" class="power-item-code-input" data-field="code" placeholder="代碼" value="${escapeAttr(item.code)}" autocomplete="off" />
+          </div>
         ` : ''}
         <input type="number" class="power-item-qty" data-field="qty" min="1" step="1" placeholder="件數" value="${escapeAttr(item.qty)}" />
         <button type="button" class="power-item-remove" title="移除此行">✕</button>
@@ -818,43 +613,50 @@ function renderPowerItemsList() {
     `;
   }).join('');
 
-  // 綁定事件
+  // 綁定事件（主類別/代碼使用通用自動補全）
   listEl.querySelectorAll('.power-item-row').forEach((row, idx) => {
-    // 主類別變化（鋰電）→ 更新子代碼選項
-    const mainSelect = row.querySelector('.power-item-main');
-    if (mainSelect) {
-      mainSelect.addEventListener('change', () => {
-        powerItemsList[idx].main = mainSelect.value;
-        // 重繪該行以更新子代碼
-        const codeSelect = row.querySelector('.power-item-code');
-        if (codeSelect) {
-          const subs = LITHIUM_MAIN[mainSelect.value] || [];
-          codeSelect.innerHTML = '<option value="">-- 代碼 --</option>' +
-            subs.map(c => `<option value="${c}">${c}</option>`).join('') +
-            '<option value="custom">其他（自訂）...</option>';
-          powerItemsList[idx].code = '';
+    const rowType = row.dataset.itemType;
+
+    // 主類別自動補全（鋰電）→ ELI/ELM
+    const mainInput = row.querySelector('.power-item-main-input');
+    if (mainInput) {
+      mainInput.addEventListener('input', () => {
+        powerItemsList[idx].main = mainInput.value.trim();
+      });
+      setupAutocomplete({
+        input: mainInput,
+        suggestions: ['ELI', 'ELM'],
+        onSelect: (val) => {
+          powerItemsList[idx].main = val;
+          // 主類別變更 → 清空代碼，讓候選隨之切換
+          const codeInput = row.querySelector('.power-item-code-input');
+          if (codeInput) {
+            powerItemsList[idx].code = '';
+            codeInput.value = '';
+            codeInput.focus();
+          }
         }
       });
     }
 
-    // 代碼選擇（含「其他」自訂）
-    const codeSelect = row.querySelector('.power-item-code');
-    if (codeSelect) {
-      // 處理已有自訂值
-      if (itemHasCustomCode(powerItemsList[idx])) {
-        const customVal = powerItemsList[idx].customVal || powerItemsList[idx].code;
-        codeSelect.insertAdjacentHTML('beforeend', `<option value="customval" selected>${escapeHtml('自訂: ' + customVal)}</option>`);
-      }
-      codeSelect.addEventListener('change', () => {
-        const val = codeSelect.value;
-        if (val === 'custom') {
-          // 開啟自訂輸入
-          showCustomCodeInput(row, idx, '');
-        } else if (val === 'customval') {
-          showCustomCodeInput(row, idx, powerItemsList[idx].customVal || '');
-        } else {
+    // 代碼自動補全（乾電固定清單；鋰電依主類別動態切換）
+    const codeInput = row.querySelector('.power-item-code-input');
+    if (codeInput) {
+      codeInput.addEventListener('input', () => {
+        powerItemsList[idx].code = codeInput.value.trim();
+      });
+      setupAutocomplete({
+        input: codeInput,
+        suggestions: () => {
+          if (rowType === 'dry') {
+            return ['A67', 'A123', 'A199'];
+          }
+          // 鋰電：依目前主類別切換候選
+          const main = powerItemsList[idx].main || (mainInput ? mainInput.value : '');
+          return LITHIUM_MAIN[main] || LITHIUM_MAIN.ELI;
+        },
+        onSelect: (val) => {
           powerItemsList[idx].code = val;
-          powerItemsList[idx].customVal = '';
         }
       });
     }
@@ -876,33 +678,6 @@ function renderPowerItemsList() {
       });
     }
   });
-}
-
-function itemHasCustomCode(item) {
-  return item.customVal && item.customVal !== '';
-}
-
-function showCustomCodeInput(row, idx, defaultVal) {
-  // 移除舊的 custom input（若有）
-  const oldCustom = row.querySelector('.power-item-custom-input');
-  if (oldCustom) oldCustom.remove();
-
-  const qtyInput = row.querySelector('.power-item-qty');
-  const wrapper = document.createElement('div');
-  wrapper.className = 'power-item-custom-input';
-  wrapper.innerHTML = '<input type="text" placeholder="輸入自訂代碼（如 A999）" />';
-  const input = wrapper.querySelector('input');
-  input.value = defaultVal;
-
-  const codeSelect = row.querySelector('.power-item-code');
-  if (codeSelect) codeSelect.insertAdjacentElement('afterend', wrapper);
-
-  input.addEventListener('input', () => {
-    const val = input.value.trim();
-    powerItemsList[idx].customVal = val;
-    powerItemsList[idx].code = val;
-  });
-  input.focus();
 }
 
 // 將電力組合轉為可讀文字，如「A67 × 5 件、A199 × 11 件」或「ELI/PI967 × 2 件」
@@ -932,18 +707,15 @@ function getCurrentFormData() {
   let items = [];
   document.querySelectorAll('.power-item-row').forEach((row) => {
     const rowType = row.dataset.itemType || 'no';
-    const mainSel = row.querySelector('.power-item-main');
-    const codeSel = row.querySelector('.power-item-code');
+    const mainInput = row.querySelector('.power-item-main-input');
+    const codeInput = row.querySelector('.power-item-code-input');
     const qtyInput = row.querySelector('.power-item-qty');
-    const customInput = row.querySelector('.power-item-custom-input input');
-    const main = mainSel ? mainSel.value : '';
+    const main = mainInput ? mainInput.value.trim() : '';
     let code = '';
     if (rowType === 'no') {
       code = '無電';
-    } else if (customInput) {
-      code = customInput.value.trim();
-    } else if (codeSel) {
-      code = codeSel.value;
+    } else if (codeInput) {
+      code = codeInput.value.trim();
     }
     const qty = qtyInput ? qtyInput.value : '';
     if (qty) {
@@ -1013,142 +785,9 @@ function getCurrentFormData() {
     receiver_note: document.getElementById('order-receiver-note')?.value.trim() || '',
     contact_note: document.getElementById('order-contact-note')?.value.trim() || '',
     notes: document.getElementById('order-notes').value.trim(),
-    transport_company: document.getElementById('order-transport-company').value,
+    transport_company: '',
     status: editingOrderId ? 'pending' : 'pending'
   };
-}
-
-// ===== 自訂提貨時間選擇器 =====
-// 提供：鍵盤上/下 ±15 分鐘並自動跨小時進位；🕐 彈出小時/分鐘兩欄（分鐘只有 00/15/30/45）
-function setupPickupTimePicker() {
-  const input = document.getElementById('order-pickup-time');
-  const clockBtn = document.getElementById('btn-pickup-time-clock');
-  const popup = document.getElementById('pickup-time-popup');
-  if (!input || !clockBtn || !popup) return;
-
-  let hour = 0;
-  let minute = 0;
-
-  function parseTime() {
-    const m = (input.value || '').match(/^(\d{1,2}):(\d{2})$/);
-    hour = m ? Number(m[1]) : 0;
-    minute = m ? Number(m[2]) : 0;
-  }
-
-  function writeTime() {
-    input.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-  }
-
-  // 分鐘 ±15，並自動跨小時進位（45 上→00 且小時+1；15 下→00 且小時-1）
-  function adjustMinute(deltaMin) {
-    parseTime();
-    minute += deltaMin;
-    if (minute >= 60) { minute -= 60; hour = (hour + 1) % 24; }
-    if (minute < 0) { minute += 60; hour = (hour - 1 + 24) % 24; }
-    writeTime();
-  }
-
-  function adjustHour(deltaH) {
-    parseTime();
-    hour = (hour + deltaH + 24) % 24;
-    writeTime();
-  }
-
-  // === 鍵盤操作（模擬原生）：右→分鐘、左→小時、上/下增減 ===
-  input.addEventListener('keydown', (e) => {
-    const selStart = input.selectionStart ?? 0;
-    const inMinute = selStart >= 2;
-
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      input.setSelectionRange(3, 5);
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      input.setSelectionRange(0, 2);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (inMinute) adjustMinute(15);
-      else adjustHour(1);
-      input.setSelectionRange(inMinute ? 3 : 0, inMinute ? 5 : 2);
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (inMinute) adjustMinute(-15);
-      else adjustHour(-1);
-      input.setSelectionRange(inMinute ? 3 : 0, inMinute ? 5 : 2);
-    }
-  });
-
-  input.addEventListener('focus', () => {
-    // 初始游標放在分鐘段，方便直接上下調整
-    input.setSelectionRange(3, 5);
-  });
-
-  // === 🕐 CLOCK 彈出 ===
-  function renderPopup() {
-    parseTime();
-    const curHour = String(hour).padStart(2, '0');
-    const curMin = String(minute).padStart(2, '0');
-    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-    const minutes = ['00', '15', '30', '45'];
-
-    const padOptions = (arr, cur) => arr.map(v =>
-      `<div class="pickup-time-opt ${v === cur ? 'active' : ''}" data-val="${v}">${v}</div>`
-    ).join('');
-
-    popup.innerHTML = `
-      <div class="pickup-time-col">
-        <div class="pickup-time-col-title">小時</div>
-        <div class="pickup-time-list">${padOptions(hours, curHour)}</div>
-      </div>
-      <div class="pickup-time-col">
-        <div class="pickup-time-col-title">分鐘</div>
-        <div class="pickup-time-list">${padOptions(minutes, curMin)}</div>
-      </div>
-      <div class="pickup-time-actions">
-        <button type="button" class="pickup-time-done">確定</button>
-      </div>
-    `;
-    popup.style.display = 'flex';
-
-    // 滾動到選中項
-    popup.querySelectorAll('.pickup-time-list').forEach(list => {
-      const active = list.querySelector('.pickup-time-opt.active');
-      if (active) active.scrollIntoView({ block: 'center' });
-    });
-
-    // 點選項即時更新（stopPropagation 防止 renderPopup 重建 DOM 後冒泡誤判為點擊外部而關閉）
-    popup.querySelectorAll('.pickup-time-opt').forEach(opt => {
-      opt.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const colTitle = opt.closest('.pickup-time-col').querySelector('.pickup-time-col-title').textContent;
-        const val = Number(opt.dataset.val);
-        parseTime();
-        if (colTitle === '小時') hour = val;
-        else minute = val;
-        writeTime();
-        renderPopup();
-      });
-    });
-
-    popup.querySelector('.pickup-time-done').addEventListener('click', (e) => {
-      e.stopPropagation();
-      popup.style.display = 'none';
-    });
-  }
-
-  clockBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const visible = popup.style.display === 'flex';
-    popup.style.display = visible ? 'none' : 'flex';
-    if (popup.style.display === 'flex') renderPopup();
-  });
-
-  // 點擊外部關閉
-  document.addEventListener('click', (e) => {
-    const picker = document.querySelector('.pickup-time-picker');
-    if (picker && !picker.contains(e.target)) popup.style.display = 'none';
-  });
 }
 
 function handleCompanySelected() {
@@ -1173,175 +812,6 @@ function handleCompanySelected() {
   } else if (hint) {
     hint.style.display = 'block';
   }
-}
-
-// ===== CBM 計算機 =====
-// 開啟浮動計算機：一行 4 格（長/寬/高/件數），Tab 加行，Enter 計算（按鈕在右下方）
-function openCbmCalculator() {
-  // 移除舊的計算機
-  document.querySelectorAll('.cbm-calculator-overlay').forEach(el => el.remove());
-
-  const overlay = document.createElement('div');
-  overlay.className = 'cbm-calculator-overlay';
-  overlay.innerHTML = `
-    <div class="cbm-calculator">
-      <div class="cbm-calculator-header">
-        <span>🧮 CBM 計算機</span>
-        <button type="button" class="cbm-calculator-close" title="關閉">✕</button>
-      </div>
-      <div class="cbm-calculator-hint">每行輸入 長(cm) × 寬(cm) × 高(cm) × 件數，填完一行按 Tab 會新增一行；按 Enter 計算。</div>
-      <div class="cbm-calculator-grid">
-        <div class="cbm-calc-col-header">長 (cm)</div>
-        <div class="cbm-calc-col-header">寬 (cm)</div>
-        <div class="cbm-calc-col-header">高 (cm)</div>
-        <div class="cbm-calc-col-header">件數</div>
-        <div class="cbm-calc-row">
-          <input type="number" class="cbm-calc-len" min="0" step="0.01" placeholder="長" />
-          <input type="number" class="cbm-calc-width" min="0" step="0.01" placeholder="寬" />
-          <input type="number" class="cbm-calc-height" min="0" step="0.01" placeholder="高" />
-          <input type="number" class="cbm-calc-qty" min="1" step="1" placeholder="件數" />
-        </div>
-      </div>
-      <div class="cbm-calculator-result">CBM 結果：<strong>—</strong></div>
-      <div class="cbm-calculator-actions">
-        <button type="button" class="cbm-calc-add-row">＋ 新增一行</button>
-        <button type="button" class="cbm-calc-enter">Enter 計算</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  overlay.classList.add('visible');
-
-  const grid = overlay.querySelector('.cbm-calculator-grid');
-  const resultEl = overlay.querySelector('.cbm-calculator-result strong');
-  const enterBtn = overlay.querySelector('.cbm-calc-enter');
-
-  // 兩段式 Enter：第一次計算顯示結果，第二次填回並關閉
-  let hasCalculated = false;
-
-  // 將 CBM 結果填回訂單表格並關閉
-  function commitResult() {
-    const value = resultEl.textContent;
-    const cbmInput = document.getElementById('order-cbm');
-    if (cbmInput && value && !isNaN(parseFloat(value))) {
-      cbmInput.value = parseFloat(value);
-    }
-    overlay.remove();
-  }
-
-  // 兩段式處理共用邏輯：第一次計算 → 顯示結果；第二次 → 填回並關閉
-  function handleQtyEnter() {
-    if (hasCalculated) {
-      commitResult();
-      return;
-    }
-    calculate();
-    // 計算成功（結果為有效數字）後標記，下次 Enter 即填回
-    if (resultEl.textContent && !isNaN(parseFloat(resultEl.textContent))) {
-      hasCalculated = true;
-    }
-  }
-
-  function createRow() {
-    const row = document.createElement('div');
-    row.className = 'cbm-calc-row';
-    row.innerHTML = `
-      <input type="number" class="cbm-calc-len" min="0" step="0.01" placeholder="長" />
-      <input type="number" class="cbm-calc-width" min="0" step="0.01" placeholder="寬" />
-      <input type="number" class="cbm-calc-height" min="0" step="0.01" placeholder="高" />
-      <input type="number" class="cbm-calc-qty" min="1" step="1" placeholder="件數" />
-    `;
-    grid.appendChild(row);
-    bindRow(row);
-    // 焦點移到新行第一個 input
-    const first = row.querySelector('input');
-    if (first) first.focus();
-  }
-
-  // 當一行 4 格全部填完時，按 Tab（在最後一格）即新增一行
-  function bindRow(row) {
-    const inputs = row.querySelectorAll('input');
-    const len = inputs[0], width = inputs[1], height = inputs[2], qty = inputs[3];
-    // 最後一格（件數）按 Tab → 若整行有值則新增一行
-    qty.addEventListener('keydown', (e) => {
-      if (e.key === 'Tab') {
-        const allFilled = [len, width, height, qty].every(inp => inp.value !== '');
-        if (allFilled) {
-          e.preventDefault();
-          createRow();
-        }
-      }
-    });
-    // 件數按 Enter → 兩段式：第一次計算、第二次填回並關閉
-    qty.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        e.stopPropagation();
-        handleQtyEnter();
-      }
-    });
-    // 其他 input 按 Enter → 跳到下一格
-    [len, width, height].forEach(inp => {
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const next = inp.parentElement.querySelectorAll('input')[Array.from(inputs).indexOf(inp) + 1];
-          if (next) next.focus();
-        }
-      });
-    });
-  }
-
-  function calculate() {
-    const rows = grid.querySelectorAll('.cbm-calc-row');
-    let total = 0;
-    let hasRow = false;
-    rows.forEach(row => {
-      const len = parseFloat(row.querySelector('.cbm-calc-len').value);
-      const width = parseFloat(row.querySelector('.cbm-calc-width').value);
-      const height = parseFloat(row.querySelector('.cbm-calc-height').value);
-      const qty = parseFloat(row.querySelector('.cbm-calc-qty').value);
-      if (!isNaN(len) && !isNaN(width) && !isNaN(height) && !isNaN(qty) && len > 0 && width > 0 && height > 0 && qty > 0) {
-        total += len * width * height * qty;
-        hasRow = true;
-      }
-    });
-    if (!hasRow) {
-      resultEl.textContent = '請輸入至少一行完整數值';
-      return;
-    }
-    // 公式：(每行長×寬×高×件數 的總和) ÷ 1,000,000，四捨五入到小數後 2 位
-    const cbm = Math.round(total / 1000000 * 100) / 100;
-    resultEl.textContent = cbm;
-  }
-
-  // 綁定第一行
-  const firstRow = grid.querySelector('.cbm-calc-row');
-  bindRow(firstRow);
-
-  // 新增一行按鈕
-  overlay.querySelector('.cbm-calc-add-row').addEventListener('click', createRow);
-
-  // Enter 計算按鈕（右下方）：無結果先計算；有結果即填回並關閉（一按即完成）
-  enterBtn.addEventListener('click', () => {
-    if (!hasCalculated) {
-      calculate();
-      if (!resultEl.textContent || isNaN(parseFloat(resultEl.textContent))) return;
-    }
-    commitResult();
-  });
-
-  // 關閉
-  overlay.querySelector('.cbm-calculator-close').addEventListener('click', () => overlay.remove());
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  // 第一行第一個格獲焦
-  setTimeout(() => {
-    const first = grid.querySelector('.cbm-calc-row input');
-    if (first) first.focus();
-  }, 100);
 }
 
 function setupNewOrderFormEvents() {
@@ -1376,14 +846,20 @@ function setupNewOrderFormEvents() {
     setupCompanyAutocomplete(id, `${id}-id`);
   });
 
-  // CBM 計算機開啟按鈕
+  // CBM 計算機開啟按鈕（通用工具，傳入目標 input）
   const cbmCalcBtn = document.getElementById('btn-open-cbm-calc');
   if (cbmCalcBtn) {
-    cbmCalcBtn.addEventListener('click', openCbmCalculator);
+    cbmCalcBtn.addEventListener('click', () => {
+      openCbmCalculator({ targetInput: document.getElementById('order-cbm') });
+    });
   }
 
-  // 自訂提貨時間選擇器（鍵盤 ±15 分鐘 + 🕐 小時/分鐘兩欄）
-  setupPickupTimePicker();
+  // 自訂提貨時間選擇器（通用工具，傳入元素）
+  setupTimePicker({
+    input: document.getElementById('order-pickup-time'),
+    clockBtn: document.getElementById('btn-pickup-time-clock'),
+    popup: document.getElementById('pickup-time-popup')
+  });
 
   // MAWB# 輸入即時格式化 + 失焦驗證
   const mawbInput = document.getElementById('order-mawb');
@@ -1505,38 +981,6 @@ function setupNewOrderFormEvents() {
           body: JSON.stringify(payload)
         });
         alert('公司已儲存！');
-        // 重載公司並重繪表單
-        renderNewOrderForm();
-      } catch (err) {
-        alert(`儲存失敗：${err.message}`);
-      }
-    });
-  }
-
-  // 新增運輸公司（第 8️⃣ 區塊）
-  const saveTransportBtn = document.getElementById('btn-save-new-transport');
-  if (saveTransportBtn) {
-    saveTransportBtn.addEventListener('click', async () => {
-      const name = document.getElementById('new-transport-name').value.trim();
-      if (!name) {
-        alert('請輸入運輸公司名稱');
-        return;
-      }
-      const payload = {
-        category: 'transport',
-        name,
-        contact_person: document.getElementById('new-transport-contact').value.trim(),
-        phone: document.getElementById('new-transport-phone').value.trim(),
-        address: document.getElementById('new-transport-address').value.trim(),
-        email: document.getElementById('new-transport-email').value.trim(),
-        notes: document.getElementById('new-transport-notes').value.trim()
-      };
-      try {
-        const result = await apiFetch('/api/orders/companies', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        alert('運輸公司已儲存！');
         // 重載公司並重繪表單
         renderNewOrderForm();
       } catch (err) {
@@ -2001,7 +1445,7 @@ function loadOrderToForm(order) {
   container.innerHTML = '<div class="loading-spinner"></div>';
 
   Promise.all([loadCompanies(), loadTransportCompanies()]).then(() => {
-    const apply = {
+    renderNewOrderForm({
       cargo_desc: order.cargo_desc,
       quantity: order.quantity,
       weight_kg: order.weight_kg,
@@ -2012,8 +1456,7 @@ function loadOrderToForm(order) {
       receiver_name: order.receiver_name,
       receiver_phone: order.receiver_phone,
       notes: order.notes
-    };
-    renderNewOrderForm(apply);
+    });
 
     // 稍後填上其餘欄位
     setTimeout(() => {
@@ -2056,7 +1499,6 @@ function loadOrderToForm(order) {
         }
       }
       document.getElementById('order-address').value = order.address || '';
-      document.getElementById('order-transport-company').value = order.transport_company || '';
       document.getElementById('order-notes').value = order.notes || '';
       document.getElementById('order-receiver-name').value = order.receiver_name || '';
       document.getElementById('order-receiver-phone').value = order.receiver_phone || '';
@@ -2159,182 +1601,6 @@ async function deleteOrder(order) {
     fetchOrders();
   } catch (err) {
     alert(`刪除失敗：${err.message}`);
-  }
-}
-
-// ===== 範本管理 =====
-async function renderTemplates() {
-  const container = document.getElementById('orders-templates-container');
-  if (!container) return;
-
-  try {
-    const promises = [loadTemplates(), loadCompanies()];
-    await Promise.all(promises);
-
-    // 按公司分組
-    const byCompany = {};
-    templatesData.forEach(t => {
-      const key = t.company_id || 'uncategorized';
-      if (!byCompany[key]) {
-        byCompany[key] = {
-          companyId: key,
-          companyName: t.company_name || '未分類',
-          templates: []
-        };
-      }
-      byCompany[key].templates.push(t);
-    });
-
-    const companyOptionsForModal = companiesCache
-      .filter(c => !isTransportCategory(c.category))
-      .map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`)
-      .join('');
-
-    const groupsHtml = Object.values(byCompany).length ? Object.values(byCompany).map(group => `
-      <div class="orders-template-group">
-        <h4>🏢 ${escapeHtml(group.companyName)} <span style="font-weight:400; color:var(--text-muted); font-size:0.85rem;">(${group.templates.length})</span></h4>
-        ${group.templates.map(t => `
-          <div class="orders-template-item">
-            <div class="template-info">
-              <div class="template-name">⭐ ${escapeHtml(t.name)}</div>
-              <div class="template-desc">
-                ${escapeHtml(t.cargo_desc || '')}
-                ${t.quantity ? ` · ${t.quantity} 件` : ''}
-                ${t.weight_kg ? ` · ${t.weight_kg} KG` : ''}
-                ${t.cbm ? ` · ${t.cbm} CBM` : ''}
-                ${t.power_type && t.power_type !== 'no' ? ` · ⚡ ${POWER_TYPE_LABEL[t.power_type]}${t.power_code ? ` (${t.power_code})` : ''}` : ''}
-              </div>
-            </div>
-            <div class="template-actions">
-              <button type="button" class="template-btn-use" data-template-id="${t.id}" style="background: var(--primary-gradient); color:white;">使用</button>
-              <button type="button" class="template-btn-delete" data-template-id="${t.id}">刪除</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `).join('') : '<div class="empty-state">尚未建立任何範本。</div>';
-
-    container.innerHTML = `
-      <div class="orders-template-add-form">
-        <div class="orders-form-section-title">＋ 新增範本</div>
-        <div class="orders-form-grid">
-          <div class="orders-form-field">
-            <label>範本名稱 *</label>
-            <input type="text" id="new-template-name" placeholder="如：電子零件 - 3箱" />
-          </div>
-          <div class="orders-form-field">
-            <label>綁定公司 *</label>
-            <select id="new-template-company"><option value="">-- 選擇公司 --</option>${companyOptionsForModal}</select>
-          </div>
-          <div class="orders-form-field full">
-            <label>貨品描述</label>
-            <input type="text" id="new-template-cargo-desc" />
-          </div>
-          <div class="orders-form-field">
-            <label>件數</label>
-            <input type="number" id="new-template-quantity" min="1" step="1" />
-          </div>
-          <div class="orders-form-field">
-            <label>重量 (KG)</label>
-            <input type="number" id="new-template-weight" min="0" step="0.01" />
-          </div>
-          <div class="orders-form-field">
-            <label>CBM</label>
-            <input type="number" id="new-template-cbm" min="0" step="0.01" />
-          </div>
-          <div class="orders-form-field">
-            <label>⚡ 電力分類</label>
-            <select id="new-template-power-type">
-              <option value="no">無電</option>
-              <option value="dry">乾電</option>
-              <option value="lithium">鋰電</option>
-            </select>
-          </div>
-          <div class="orders-form-field">
-            <label>收貨人</label>
-            <input type="text" id="new-template-receiver-name" />
-          </div>
-          <div class="orders-form-field">
-            <label>聯絡電話</label>
-            <input type="text" id="new-template-receiver-phone" />
-          </div>
-          <div class="orders-form-field full">
-            <label>備註</label>
-            <input type="text" id="new-template-notes" />
-          </div>
-        </div>
-        <button type="button" class="orders-submit-btn" id="btn-save-template" style="margin-top:14px;">＋ 儲存範本</button>
-      </div>
-
-      ${groupsHtml}
-    `;
-
-    // 新增範本
-    const saveTemplateBtn = document.getElementById('btn-save-template');
-    if (saveTemplateBtn) {
-      saveTemplateBtn.addEventListener('click', async () => {
-        const name = document.getElementById('new-template-name').value.trim();
-        const company_id = document.getElementById('new-template-company').value;
-        if (!name || !company_id) {
-          alert('請填寫範本名稱與選擇公司');
-          return;
-        }
-        const payload = {
-          name,
-          company_id,
-          cargo_desc: document.getElementById('new-template-cargo-desc').value.trim(),
-          quantity: document.getElementById('new-template-quantity').value || null,
-          weight_kg: document.getElementById('new-template-weight').value || null,
-          cbm: document.getElementById('new-template-cbm').value || null,
-          power_type: document.getElementById('new-template-power-type').value,
-          receiver_name: document.getElementById('new-template-receiver-name').value.trim(),
-          receiver_phone: document.getElementById('new-template-receiver-phone').value.trim(),
-          notes: document.getElementById('new-template-notes').value.trim()
-        };
-        try {
-          await apiFetch('/api/orders/templates', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          alert('範本已儲存！');
-          renderTemplates();
-        } catch (err) {
-          alert(`儲存失敗：${err.message}`);
-        }
-      });
-    }
-
-    // 刪除範本
-    container.querySelectorAll('.template-btn-delete').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.templateId;
-        if (!confirm('確定刪除此範本？')) return;
-        try {
-          await apiFetch(`/api/orders/templates/${id}`, { method: 'DELETE' });
-          renderTemplates();
-        } catch (err) {
-          alert(`刪除失敗：${err.message}`);
-        }
-      });
-    });
-
-    // 使用範本
-    container.querySelectorAll('.template-btn-use').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.templateId;
-        const template = templatesData.find(t => Number(t.id) === Number(id));
-        if (!template) return;
-        // 切到新建訂單
-        document.querySelectorAll('.orders-tab').forEach(t => t.classList.remove('active'));
-        document.querySelector('.orders-tab[data-tab="new"]').classList.add('active');
-        document.querySelectorAll('.orders-tab-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById('orders-tab-new').classList.add('active');
-        renderNewOrderForm(template);
-      });
-    });
-
-  } catch (err) {
-    container.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(err.message)}</div>`;
   }
 }
 

@@ -92,8 +92,8 @@ router.post('/', (req, res) => {
     notes, transport_company, status = 'pending'
   } = req.body;
 
-  if (!order_type || !hawb || !pickup_no) {
-    return res.status(400).json({ error: '請填寫訂單類型、HAWB# 與客戶提貨號' });
+  if (!order_type || !pickup_no) {
+    return res.status(400).json({ error: '請填寫訂單類型與客戶提貨號' });
   }
   // MAWB# 驗證：可留空代表「後補MAWB#」，有值則必須通過格式 + checksum 驗證
   let finalMawb = MAWB_LATE_LABEL;

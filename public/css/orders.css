@@ -227,7 +227,7 @@
   border-radius: 12px;
   background: var(--input-bg);
   margin-bottom: 8px;
-  position: relative;
+  position: relative; /* 讓 .app-autocomplete-list 定位對齊 */
 }
 
 .power-item-type-label {
@@ -244,7 +244,7 @@
   flex-shrink: 0;
 }
 
-.power-item-row select,
+.power-item-row .app-autocomplete input,
 .power-item-row input[type="number"] {
   min-height: 44px;
   border: 1px solid var(--border-color);
@@ -253,16 +253,20 @@
   background: var(--input-bg);
   color: var(--text-main);
   font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .power-item-main {
   flex: 1;
   min-width: 90px;
+  position: relative; /* autocomplete 下拉定位 */
 }
 
 .power-item-code {
   flex: 1.2;
   min-width: 110px;
+  position: relative; /* autocomplete 下拉定位 */
 }
 
 .power-item-qty {
@@ -551,204 +555,6 @@
   font-size: 0.9rem;
 }
 
-/* ===== 範本管理 ===== */
-.orders-template-group {
-  margin-bottom: 20px;
-}
-
-.orders-template-group h4 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  font-size: 1rem;
-}
-
-.orders-template-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--input-bg);
-  padding: 12px 14px;
-  margin-bottom: 8px;
-}
-
-.orders-template-item .template-info {
-  flex: 1;
-}
-
-.orders-template-item .template-name {
-  font-weight: 600;
-}
-
-.orders-template-item .template-desc {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.orders-template-item .template-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.orders-template-item .template-actions button {
-  min-height: 40px;
-  border: none;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.orders-template-item .template-actions button:hover {
-  transform: translateY(-1px);
-}
-
-.template-btn-delete {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-}
-
-/* 新增範本表單 */
-.orders-template-add-form {
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: var(--input-bg);
-  padding: 18px;
-  margin-bottom: 20px;
-}
-
-/* ===== 自訂提貨時間選擇器 ===== */
-.pickup-time-picker {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.pickup-time-picker input[type="text"] {
-  flex: 1;
-  min-height: 48px;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: var(--input-bg);
-  color: var(--text-main);
-  font-size: 1rem;
-  font-family: "Consolas", "Menlo", monospace;
-  letter-spacing: 1px;
-  text-align: center;
-}
-
-.pickup-time-clock {
-  min-width: 44px;
-  min-height: 44px;
-  border: 1px solid #2563eb;
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
-  border-radius: 10px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.pickup-time-clock:hover {
-  background: rgba(37, 99, 235, 0.2);
-}
-
-.pickup-time-popup {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  left: auto;
-  min-width: 260px;
-  width: max-content;
-  max-width: 320px;
-  z-index: 3000;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 14px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
-  padding: 12px;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.pickup-time-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pickup-time-col-title {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.pickup-time-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 4px;
-}
-
-.pickup-time-opt {
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  text-align: center;
-  cursor: pointer;
-  color: var(--text-main);
-  transition: background 0.15s;
-}
-
-.pickup-time-opt:hover {
-  background: rgba(37, 99, 235, 0.1);
-}
-
-.pickup-time-opt.active {
-  background: var(--primary-gradient);
-  color: white;
-  font-weight: 700;
-}
-
-.pickup-time-actions {
-  flex-basis: 100%;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.pickup-time-done {
-  min-height: 38px;
-  padding: 6px 20px;
-  border: none;
-  border-radius: 10px;
-  background: var(--primary-gradient);
-  color: white;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pickup-time-done:hover {
-  transform: translateY(-1px);
-}
-
 /* ===== 類別複選框（新增公司/地點） ===== */
 .orders-category-checkboxes {
   display: flex;
@@ -795,62 +601,7 @@
   align-items: center;
 }
 
-/* ===== 重複訂單浮動卡片 ===== */
-.duplicate-order-card {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10000;
-  width: min(92vw, 520px);
-  max-height: 80vh;
-  overflow-y: auto;
-  background: var(--card-bg);
-  border: 2px solid #f59e0b;
-  border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-  padding: 18px;
-  display: none;
-}
-
-.duplicate-order-card.visible {
-  display: block;
-  animation: duplicateCardSlideIn 0.25s ease;
-}
-
-@keyframes duplicateCardSlideIn {
-  from { opacity: 0; transform: translate(-50%, -48%) scale(0.95); }
-  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
-
-.duplicate-order-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #b45309;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.duplicate-order-close {
-  border: none;
-  background: rgba(148, 163, 184, 0.15);
-  color: var(--text-muted);
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  font-size: 1rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.duplicate-order-close:hover {
-  background: rgba(148, 163, 184, 0.3);
-}
-
+/* ===== 重複訂單浮動卡片（內容樣式） ===== */
 .duplicate-order-list {
   margin: 14px 0;
   display: flex;
@@ -948,23 +699,6 @@
   flex: 1;
 }
 
-/* 浮動卡片背景遮罩 */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 9999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-body:has(.duplicate-order-card.visible)::after {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 /* ===== 電郵總結文字 ===== */
 .orders-summary-text {
   white-space: pre-wrap;
@@ -1047,173 +781,6 @@ body:has(.duplicate-order-card.visible)::after {
   color: var(--text-muted);
 }
 
-/* ===== CBM 計算機按鈕（輸入框旁） ===== */
-.cbm-input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.cbm-input-wrapper input[type="number"] {
-  flex: 1;
-}
-
-.cbm-calc-btn {
-  min-height: 44px;
-  white-space: nowrap;
-  border: 1px solid #2563eb;
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.cbm-calc-btn:hover {
-  background: rgba(37, 99, 235, 0.2);
-}
-
-/* ===== CBM 計算機浮動視窗 ===== */
-.cbm-calculator-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.cbm-calculator {
-  width: min(680px, 100%);
-  background: var(--card-bg);
-  border-radius: 18px;
-  padding: 20px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.cbm-calculator-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.cbm-calculator-close {
-  border: none;
-  background: none;
-  font-size: 1.2rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-}
-
-.cbm-calculator-close:hover {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-}
-
-.cbm-calculator-hint {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-
-.cbm-calculator-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-.cbm-calc-col-header {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 4px 0;
-}
-
-.cbm-calc-row {
-  display: contents;
-}
-
-.cbm-calc-row input {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--text-main);
-  padding: 8px 10px;
-  font-size: 0.9rem;
-  text-align: center;
-}
-
-.cbm-calculator-result {
-  margin-top: 14px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-main);
-  background: rgba(37, 99, 235, 0.08);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.cbm-calculator-result strong {
-  color: #2563eb;
-  font-size: 1.3rem;
-}
-
-.cbm-calculator-actions {
-  display: flex;
-  justify-content: flex-end;  /* 按鈕靠右（右下方） */
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.cbm-calc-add-row {
-  min-height: 44px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  color: var(--text-main);
-  border-radius: 10px;
-  padding: 8px 16px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.cbm-calc-add-row:hover {
-  background: rgba(37, 99, 235, 0.1);
-}
-
-.cbm-calc-enter {
-  min-height: 44px;
-  background: var(--primary-gradient);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  padding: 8px 20px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.25);
-}
-
-.cbm-calc-enter:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
-}
-
 /* ===== 桌面版 ===== */
 @media (min-width: 900px) {
   .orders-form-grid {
@@ -1236,14 +803,5 @@ body:has(.duplicate-order-card.visible)::after {
 
   .orders-card-item {
     padding: 14px;
-  }
-
-  .cbm-calc-btn {
-    font-size: 0.8rem;
-    padding: 8px 10px;
-  }
-
-  .cbm-calculator-actions {
-    flex-direction: column;
   }
 }

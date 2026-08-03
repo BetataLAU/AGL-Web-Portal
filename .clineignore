@@ -1,0 +1,40 @@
+# ===== AGL-Web-Portal: AI 工具忽略清單 =====
+# 讓 AI agent 跳過這些路徑，節省 context 與避免誤改
+
+# 依賴與建置
+node_modules/
+package-lock.json
+dist/
+build/
+
+# 版本控制
+.git/
+.gitignore
+
+# 資料庫檔案（程式會自動建檔，勿直接編輯）
+*.db
+*.sqlite
+*.sqlite3
+database.db
+
+# 靜態資源（圖片、字型）
+public/image/
+public/fonts/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+
+# 日誌與暫存
+*.log
+logs/
+tmp/
+temp/
+.DS_Store
+Thumbs.db

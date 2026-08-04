@@ -773,16 +773,16 @@ function renderNewOrderForm(prefill = null) {
           <div class="orders-form-section-title">7️⃣ 備註</div>
           <div class="orders-form-grid">
             <div class="orders-form-field full">
+              <label>備註（選填）</label>
+              <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
+            </div>
+            <div class="orders-form-field full">
               <label>備註文件範本</label>
               <div class="note-template-search">
                 <input type="text" id="note-template-input" placeholder="輸入關鍵字搜尋備註範本..." autocomplete="off" />
                 <div class="note-template-list" id="note-template-list"></div>
               </div>
               <div class="note-template-status" id="note-template-status"></div>
-            </div>
-            <div class="orders-form-field full">
-              <label>備註（選填）</label>
-              <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
             </div>
             <div id="cbm-dim-preview" class="orders-form-field full" style="display:none;"></div>
           </div>
@@ -958,17 +958,40 @@ function setupNoteTemplateSearch() {
 
   let searchTimer = null;
   let currentTemplates = [];
+  let activeIndex = -1;
 
   function closeList() {
     listEl.innerHTML = '';
     listEl.style.display = 'none';
+    activeIndex = -1;
     currentTemplates = [];
+  }
+
+  // 選中範本 → 內容加入「備註（選填）」textarea 底部
+  function selectTemplate(tpl) {
+    if (!tpl) return;
+    const notesEl = document.getElementById('order-notes');
+    const current = notesEl.value.trim();
+    const content = tpl.content || '';
+    notesEl.value = current ? `${current}\n${content}` : content;
+    input.value = tpl.name;
+    closeList();
+    input.blur();
+  }
+
+  function highlightItem(items) {
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+    // 確保高亮項目可見（滾動到視野內）
+    if (activeIndex >= 0 && items[activeIndex]) {
+      items[activeIndex].scrollIntoView({ block: 'nearest' });
+    }
   }
 
   async function doSearch(query) {
     const q = (query || '').trim();
     const templates = await searchNoteTemplates(q);
     currentTemplates = templates;
+    activeIndex = -1;
     if (!templates.length) {
       listEl.style.display = 'none';
       statusEl.innerHTML = `
@@ -1005,17 +1028,15 @@ function setupNoteTemplateSearch() {
     `).join('');
 
     listEl.querySelectorAll('.note-template-item').forEach((el, idx) => {
+      // 滑鼠點選 → 選中
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        const tpl = currentTemplates[idx];
-        if (!tpl) return;
-        const notesEl = document.getElementById('order-notes');
-        const current = notesEl.value.trim();
-        const content = tpl.content || '';
-        notesEl.value = current ? `${current}\n${content}` : content;
-        closeList();
-        input.value = tpl.name;
-        input.blur();
+        selectTemplate(currentTemplates[idx]);
+      });
+      // 滑鼠 hover → 同步 activeIndex（與鍵盤高亮視覺一致）
+      el.addEventListener('mouseenter', () => {
+        activeIndex = idx;
+        listEl.querySelectorAll('.note-template-item').forEach(other => other.classList.toggle('active', other === el));
       });
     });
   }
@@ -1035,6 +1056,34 @@ function setupNoteTemplateSearch() {
 
   input.addEventListener('blur', () => {
     setTimeout(closeList, 150);
+  });
+
+  // ===== 鍵盤導航（上下 arrow key 選擇）=====
+  input.addEventListener('keydown', (e) => {
+    const items = listEl.querySelectorAll('.note-template-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!items.length) return;
+      activeIndex = activeIndex >= items.length - 1 ? 0 : activeIndex + 1;
+      highlightItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!items.length) return;
+      activeIndex = activeIndex <= 0 ? items.length - 1 : activeIndex - 1;
+      highlightItem(items);
+    } else if (e.key === 'Enter' && activeIndex >= 0 && currentTemplates[activeIndex]) {
+      e.preventDefault();
+      selectTemplate(currentTemplates[activeIndex]);
+    } else if (e.key === 'Escape') {
+      closeList();
+    } else if (e.key === 'Tab') {
+      // 若目前有高亮項目，先選中；不 preventDefault 讓 Tab 正常跳轉
+      if (activeIndex >= 0 && currentTemplates[activeIndex]) {
+        selectTemplate(currentTemplates[activeIndex]);
+      } else {
+        closeList();
+      }
+    }
   });
 }
 

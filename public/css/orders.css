@@ -961,8 +961,9 @@
   font-size: 0.85rem;
 }
 
-.note-template-item:hover {
-  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+.note-template-item:hover,
+.note-template-item.active {
+  background: rgba(37, 99, 235, 0.12);
 }
 
 .note-template-name {

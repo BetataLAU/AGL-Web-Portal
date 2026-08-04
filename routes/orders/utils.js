@@ -82,6 +82,14 @@ function serializeOrder(row) {
       powerItems = null;
     }
   }
+  let cbmDimensions = null;
+  if (row.cbm_dimensions) {
+    try {
+      cbmDimensions = JSON.parse(row.cbm_dimensions);
+    } catch (e) {
+      cbmDimensions = null;
+    }
+  }
   return {
     id: row.id,
     order_no: row.order_no,
@@ -90,6 +98,8 @@ function serializeOrder(row) {
     hawb: row.hawb,
     pickup_no: row.pickup_no,
     pickup_datetime: row.pickup_datetime || null,
+    customer_company_id: row.customer_company_id,
+    customer_company_name: row.customer_company_name || null,
     pickup_company_id: row.pickup_company_id,
     pickup_company_name: row.pickup_company_name || null,
     delivery_company_id: row.delivery_company_id,
@@ -98,6 +108,7 @@ function serializeOrder(row) {
     quantity: row.quantity,
     weight_kg: row.weight_kg,
     cbm: row.cbm,
+    cbm_dimensions: cbmDimensions,
     power_type: row.power_type,
     power_code: row.power_code,
     power_items: powerItems,
@@ -118,11 +129,13 @@ function serializeOrder(row) {
 // 訂單查詢（含公司名稱 join）的共用 SQL 前綴
 const ORDER_SELECT_SQL = `
   SELECT o.*,
+         cc.name AS customer_company_name,
          pc.name AS pickup_company_name,
          dc.name AS delivery_company_name,
          strftime('%Y-%m-%dT%H:%M:%fZ', o.created_at) AS created_at,
          strftime('%Y-%m-%dT%H:%M:%fZ', o.updated_at) AS updated_at
   FROM orders o
+  LEFT JOIN companies cc ON cc.id = o.customer_company_id
   LEFT JOIN companies pc ON pc.id = o.pickup_company_id
   LEFT JOIN companies dc ON dc.id = o.delivery_company_id
 `;

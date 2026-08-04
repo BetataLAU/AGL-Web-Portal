@@ -3,6 +3,7 @@
 // 每行輸入 長(cm) × 寬(cm) × 高(cm) × 件數，Tab 加行，Enter 計算（按鈕在右下方）
 function openCbmCalculator(options = {}) {
   const targetInput = options.targetInput || null;
+  const onCommit = options.onCommit || null;
   // 移除舊的計算機
   document.querySelectorAll('.cbm-calculator-overlay').forEach(el => el.remove());
 
@@ -49,6 +50,20 @@ function openCbmCalculator(options = {}) {
     const value = resultEl.textContent;
     if (targetInput && value && !isNaN(parseFloat(value))) {
       targetInput.value = parseFloat(value);
+    }
+    // 收集每個有完整數值的行
+    if (onCommit) {
+      const dims = [];
+      grid.querySelectorAll('.cbm-calc-row').forEach(row => {
+        const len = parseFloat(row.querySelector('.cbm-calc-len').value);
+        const width = parseFloat(row.querySelector('.cbm-calc-width').value);
+        const height = parseFloat(row.querySelector('.cbm-calc-height').value);
+        const qty = parseFloat(row.querySelector('.cbm-calc-qty').value);
+        if (!isNaN(len) && !isNaN(width) && !isNaN(height) && !isNaN(qty) && len > 0 && width > 0 && height > 0 && qty > 0) {
+          dims.push({ len, width, height, qty });
+        }
+      });
+      onCommit(dims);
     }
     overlay.remove();
   }

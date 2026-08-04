@@ -55,4 +55,26 @@ router.post('/', (req, res) => {
   stmt.finalize();
 });
 
+// PUT /api/orders/companies/:id（更新公司資料）
+router.put('/:id', (req, res) => {
+  const { id } = req.params;
+  const { category, name, address = '', contact_person = '', phone = '', email = '', notes = '' } = req.body;
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: '公司名稱不可為空' });
+  }
+  const finalCategory = normalizeCategory(category) || 'customer';
+
+  const stmt = db.prepare(`
+    UPDATE companies SET
+      category = ?, name = ?, address = ?, contact_person = ?, phone = ?, email = ?, notes = ?
+    WHERE id = ?
+  `);
+  stmt.run(finalCategory, name.trim(), address, contact_person, phone, email, notes, id, function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, changes: this.changes });
+  });
+  stmt.finalize();
+});
+
 module.exports = router;

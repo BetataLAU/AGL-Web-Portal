@@ -85,8 +85,8 @@ router.get('/check-duplicate', (req, res) => {
 router.post('/', (req, res) => {
   const {
     order_type, mawb, hawb, pickup_no, pickup_datetime,
-    pickup_company_id, delivery_company_id,
-    cargo_desc, quantity, weight_kg, cbm,
+    customer_company_id, pickup_company_id, delivery_company_id,
+    cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
     power_type, power_code, power_items, urgent,
     receiver_name, receiver_phone, address, receiver_note, contact_note,
     notes, transport_company, status = 'pending'
@@ -116,9 +116,6 @@ router.post('/', (req, res) => {
   if (!urgent) {
     return res.status(400).json({ error: '請選擇是否趕機' });
   }
-  if (!receiver_name || !receiver_phone || !address) {
-    return res.status(400).json({ error: '請填寫收貨人、聯絡電話與地址' });
-  }
 
   generateOrderNo((err, orderNo) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -126,22 +123,23 @@ router.post('/', (req, res) => {
     const stmt = db.prepare(`
       INSERT INTO orders (
         order_no, order_type, mawb, hawb, pickup_no, pickup_datetime,
-        pickup_company_id, delivery_company_id,
-        cargo_desc, quantity, weight_kg, cbm,
+        customer_company_id, pickup_company_id, delivery_company_id,
+        cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
         power_type, power_code, power_items, urgent,
         receiver_name, receiver_phone, address, receiver_note, contact_note,
         notes, transport_company, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       orderNo, order_type, finalMawb, hawb, pickup_no,
       pickup_datetime || null,
-      pickup_company_id || null, delivery_company_id || null,
+      customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
+      cbm_dimensions ? JSON.stringify(cbm_dimensions) : null,
       power_type, power_code || null,
       power_items ? JSON.stringify(power_items) : null,
       urgent,
-      receiver_name, receiver_phone, address,
+      receiver_name || '', receiver_phone || '', address || '',
       receiver_note || '', contact_note || '',
       notes || '', transport_company || '', status,
       function (insertErr) {
@@ -168,8 +166,8 @@ router.put('/:id', (req, res) => {
   const { id } = req.params;
   const {
     order_type, mawb, hawb, pickup_no, pickup_datetime,
-    pickup_company_id, delivery_company_id,
-    cargo_desc, quantity, weight_kg, cbm,
+    customer_company_id, pickup_company_id, delivery_company_id,
+    cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
     power_type, power_code, power_items, urgent,
     receiver_name, receiver_phone, address, receiver_note, contact_note,
     notes, transport_company, status
@@ -191,8 +189,8 @@ router.put('/:id', (req, res) => {
   const stmt = db.prepare(`
     UPDATE orders SET
       order_type = ?, mawb = ?, hawb = ?, pickup_no = ?, pickup_datetime = ?,
-      pickup_company_id = ?, delivery_company_id = ?,
-      cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?,
+      customer_company_id = ?, pickup_company_id = ?, delivery_company_id = ?,
+      cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?, cbm_dimensions = ?,
       power_type = ?, power_code = ?, power_items = ?, urgent = ?,
       receiver_name = ?, receiver_phone = ?, address = ?, receiver_note = ?, contact_note = ?,
       notes = ?, transport_company = ?, status = ?,
@@ -202,12 +200,13 @@ router.put('/:id', (req, res) => {
   stmt.run(
     order_type, finalMawb, hawb, pickup_no,
     pickup_datetime || null,
-    pickup_company_id || null, delivery_company_id || null,
+    customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
     cargo_desc, quantity, weight_kg, cbm,
+    cbm_dimensions ? JSON.stringify(cbm_dimensions) : null,
     power_type, power_code || null,
     power_items ? JSON.stringify(power_items) : null,
     urgent,
-    receiver_name, receiver_phone, address,
+    receiver_name || '', receiver_phone || '', address || '',
     receiver_note || '', contact_note || '',
     notes || '', transport_company || '', status,
     id,

@@ -6,6 +6,19 @@ let currentOrderType = 'delivery';
 let editingOrderId = null;
 let duplicateConfirmed = false;
 
+// 每個公司欄位的「原始資料快照」（偵測用戶修改既有公司資料）
+let companySnapshots = {};
+// 備註範本暫存
+let noteTemplatesCache = [];
+// CBM DIM 尺寸資料 { len, width, height, qty }[]
+let currentCbmDimensions = [];
+
+const CATEGORY_LABEL = {
+  customer: '客戶公司',
+  warehouse: '倉庫/自家地點',
+  transport: '運輸公司'
+};
+
 const ORDER_TYPE_LABEL = { delivery: '🚚 送貨', pickup: '📥 收貨' };
 const STATUS_LABEL = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
 const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '🔋 乾電', lithium: '🔋 鋰電' };
@@ -78,6 +91,9 @@ function setupCompanyAutocomplete(inputId, hiddenId) {
     input.value = company.name;
     if (hidden) hidden.value = company.id;
     closeList();
+    // 記錄原始快照 + 渲染詳細資料卡
+    captureCompanySnapshot(hiddenId);
+    renderCompanyDetailCard(inputId, hiddenId);
     handleCompanySelected();
   }
 
@@ -122,6 +138,9 @@ function setupCompanyAutocomplete(inputId, hiddenId) {
     // 手動輸入 → 清除已選 id
     if (hidden) hidden.value = '';
     showMatches(input.value);
+    // 手動輸入 → 清除快照 + 改為新公司模式
+    delete companySnapshots[hiddenId];
+    renderCompanyDetailCard(inputId, hiddenId);
   });
 
   input.addEventListener('focus', () => {
@@ -164,6 +183,289 @@ function setupCompanyAutocomplete(inputId, hiddenId) {
   function highlightItem(items) {
     items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
   }
+}
+
+// ===== 公司詳細資料卡（快照、渲染、變更偵測） =====
+// 記錄公司原始資料快照（existed company 選中時）
+function captureCompanySnapshot(hiddenId) {
+  const hidden = document.getElementById(hiddenId);
+  if (!hidden) return;
+  const company = getCompanyById(hidden.value);
+  if (!company) {
+    delete companySnapshots[hiddenId];
+    return;
+  }
+  companySnapshots[hiddenId] = {
+    companyId: company.id,
+    name: company.name || '',
+    address: company.address || '',
+    contact_person: company.contact_person || '',
+    phone: company.phone || '',
+    email: company.email || '',
+    category: company.category || '',
+    notes: company.notes || ''
+  };
+}
+
+// 自動補全選擇公司後，把該公司的聯絡資料靜默帶入訂單 data（不顯示於表單）
+function handleCompanySelected() {
+  // 資料在 getCurrentFormData 時從公司卡取得，無需額外 UI
+}
+
+// 每個公司欄位下方渲染詳細資料卡
+function renderCompanyDetailCard(inputId, hiddenId) {
+  const input = document.getElementById(inputId);
+  const hidden = document.getElementById(hiddenId);
+  const card = document.getElementById(`${inputId}-detail`);
+  if (!input || !card) return;
+
+  const name = (input.value || '').trim();
+  const company = hidden && hidden.value ? getCompanyById(hidden.value) : null;
+
+  if (!name) {
+    card.innerHTML = '';
+    card.style.display = 'none';
+    return;
+  }
+
+  // 既有公司 → 顯示資料（可編輯，偵測變更）
+  if (company) {
+    card.style.display = 'block';
+    card.className = 'company-detail-card company-detail-existing';
+    const cats = (company.category || '').split(',').map(s => s.trim()).filter(Boolean);
+    card.innerHTML = `
+      <div class="company-detail-header">
+        <span>📍 ${escapeHtml(company.name)}</span>
+        <span class="company-detail-badge">既有公司（可編輯）</span>
+      </div>
+      <div class="company-detail-grid">
+        <div class="company-detail-field">
+          <label>地址</label>
+          <input type="text" id="${inputId}-detail-address" value="${escapeAttr(company.address || '')}" placeholder="－" />
+        </div>
+        <div class="company-detail-field">
+          <label>聯絡人</label>
+          <input type="text" id="${inputId}-detail-contact" value="${escapeAttr(company.contact_person || '')}" placeholder="－" />
+        </div>
+        <div class="company-detail-field">
+          <label>電話</label>
+          <input type="text" id="${inputId}-detail-phone" value="${escapeAttr(company.phone || '')}" placeholder="－" />
+        </div>
+        <div class="company-detail-field">
+          <label>電郵</label>
+          <input type="text" id="${inputId}-detail-email" value="${escapeAttr(company.email || '')}" placeholder="－" />
+        </div>
+        <div class="company-detail-field full">
+          <label>類別（可多選）</label>
+          <div class="company-detail-categories">
+            ${['customer', 'warehouse', 'transport'].map(cat => {
+              const checked = cats.includes(cat) ? 'checked' : '';
+              return `<label class="orders-category-checkbox"><input type="checkbox" data-cat="${cat}" ${checked} /> ${CATEGORY_LABEL[cat] || cat}</label>`;
+            }).join('')}
+          </div>
+        </div>
+        <div class="company-detail-field full">
+          <label>備註</label>
+          <input type="text" id="${inputId}-detail-notes" value="${escapeAttr(company.notes || '')}" placeholder="－" />
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  // 新公司 → 可編輯空欄位 + 提示
+  card.style.display = 'block';
+  card.className = 'company-detail-card company-detail-new';
+  card.innerHTML = `
+    <div class="company-detail-header">
+      <span>➕ ${escapeHtml(name)}（新公司）</span>
+      <span class="company-detail-badge warn">⚠️ 無資料，待 USER 提供</span>
+    </div>
+    <div class="company-detail-hint">此公司不在公司庫，提交訂單時會自動新增一筆資料。可現在補充以下資料：</div>
+    <div class="company-detail-grid">
+      <div class="company-detail-field">
+        <label>地址</label>
+        <input type="text" id="${inputId}-detail-address" placeholder="地址（可留空）" />
+      </div>
+      <div class="company-detail-field">
+        <label>聯絡人</label>
+        <input type="text" id="${inputId}-detail-contact" placeholder="聯絡人（可留空）" />
+      </div>
+      <div class="company-detail-field">
+        <label>電話</label>
+        <input type="text" id="${inputId}-detail-phone" placeholder="電話（可留空）" />
+      </div>
+      <div class="company-detail-field">
+        <label>電郵</label>
+        <input type="text" id="${inputId}-detail-email" placeholder="電郵（可留空）" />
+      </div>
+      <div class="company-detail-field full">
+        <label>類別（可多選）</label>
+        <div class="company-detail-categories">
+          <label class="orders-category-checkbox"><input type="checkbox" data-cat="customer" checked /> 客戶公司</label>
+          <label class="orders-category-checkbox"><input type="checkbox" data-cat="warehouse" /> 倉庫/自家地點</label>
+          <label class="orders-category-checkbox"><input type="checkbox" data-cat="transport" /> 運輸公司</label>
+        </div>
+      </div>
+      <div class="company-detail-field full">
+        <label>備註</label>
+        <input type="text" id="${inputId}-detail-notes" placeholder="備註（可留空）" />
+      </div>
+    </div>
+  `;
+}
+
+// 收集某欄位的公司資料（從詳細卡 input 讀取）
+function getCompanyDetailData(inputId) {
+  const getVal = (suffix) => {
+    const el = document.getElementById(`${inputId}-detail-${suffix}`);
+    return el ? el.value.trim() : '';
+  };
+  const cats = [];
+  document.querySelectorAll(`#${inputId}-detail .company-detail-categories input[type="checkbox"]:checked`).forEach(cb => {
+    if (cb.dataset && cb.dataset.cat) cats.push(cb.dataset.cat);
+  });
+  return {
+    address: getVal('address'),
+    contact_person: getVal('contact'),
+    phone: getVal('phone'),
+    email: getVal('email'),
+    notes: getVal('notes'),
+    category: cats.join(',')
+  };
+}
+
+// 偵測某欄位是否改動了既有公司資料 → 回傳變更清單
+function detectCompanyChanges(inputId, hiddenId) {
+  const snapshot = companySnapshots[hiddenId];
+  if (!snapshot) return [];
+  const hidden = document.getElementById(hiddenId);
+  if (!hidden || !hidden.value) return [];
+  const current = getCompanyDetailData(inputId);
+
+  const fieldMap = [
+    ['address', '地址'],
+    ['contact_person', '聯絡人'],
+    ['phone', '電話'],
+    ['email', '電郵'],
+    ['notes', '備註']
+  ];
+  const changes = [];
+  const inputEl = document.getElementById(inputId);
+  const nameVal = inputEl ? inputEl.value.trim() : '';
+  if (nameVal !== snapshot.name) {
+    changes.push({ field: 'name', label: '名稱', oldVal: snapshot.name, newVal: nameVal });
+  }
+  fieldMap.forEach(([key, label]) => {
+    const oldVal = snapshot[key] || '';
+    const newVal = current[key] || '';
+    if (oldVal !== newVal) {
+      changes.push({ field: key, label, oldVal, newVal });
+    }
+  });
+  const oldCat = snapshot.category || '';
+  const newCat = current.category || '';
+  if (oldCat !== newCat) {
+    changes.push({
+      field: 'category', label: '類別',
+      oldVal: oldCat.split(',').filter(Boolean).map(c => CATEGORY_LABEL[c] || c).join('、') || '—',
+      newVal: newCat.split(',').filter(Boolean).map(c => CATEGORY_LABEL[c] || c).join('、') || '—'
+    });
+  }
+  return changes;
+}
+
+// 彈出「修改既有公司資料」通知 modal（現在值以閃爍文字顯示）
+function showCompanyUpdateModal(changesByField, onConfirm) {
+  const entries = Object.entries(changesByField).map(([hiddenId, changes]) => {
+    const inputEl = document.getElementById(hiddenId.replace('-id', ''));
+    const companyName = inputEl ? escapeHtml(inputEl.value.trim()) : '';
+    const rows = changes.map(ch => `
+      <div class="company-change-row">
+        <span class="company-change-field">${escapeHtml(ch.label)}：</span>
+        <span class="company-change-old">原本 ${escapeHtml(ch.oldVal || '—')}</span>
+        <span class="company-change-arrow">→</span>
+        <span class="company-change-new blink-text">${escapeHtml(ch.newVal || '—')}</span>
+      </div>
+    `).join('');
+    return `
+      <div class="company-change-group">
+        <div class="company-change-title">🏢 ${companyName}</div>
+        ${rows}
+      </div>
+    `;
+  }).join('');
+
+  openModal({
+    title: '⚠️ 以下公司資料有改動',
+    body: `
+      <div class="company-change-modal">
+        <p>你修改了以下既有公司的資料。確認後會一併更新公司庫，並儲存訂單。</p>
+        ${entries}
+      </div>
+    `,
+    actions: [
+      {
+        label: '✅ 確認更新並儲存',
+        className: 'pill btn-primary',
+        onClick: (modal) => {
+          modal.close();
+          onConfirm();
+        }
+      },
+      {
+        label: '✏️ 返回修改',
+        className: 'pill',
+        onClick: (modal) => modal.close()
+      }
+    ]
+  });
+}
+
+// ===== 備註文件範本 =====
+async function searchNoteTemplates(query) {
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    const result = await apiFetch(`/api/orders/note-templates?${params.toString()}`);
+    noteTemplatesCache = result.data || [];
+    return noteTemplatesCache;
+  } catch (err) {
+    console.warn('備註範本搜尋失敗：', err.message);
+    return [];
+  }
+}
+
+async function saveNoteTemplate(name, content) {
+  const result = await apiFetch('/api/orders/note-templates', {
+    method: 'POST',
+    body: JSON.stringify({ name, content })
+  });
+  return result;
+}
+
+// ===== CBM DIM 處理 =====
+function formatCbmDimensions(dims) {
+  if (!dims || !dims.length) return '';
+  const lines = dims.map(d => `${d.len} x ${d.width} x ${d.height} / ${d.qty}`);
+  return `DIM(cm):\n${lines.join('\n')}`;
+}
+
+function renderCbmDimPreview() {
+  const container = document.getElementById('cbm-dim-preview');
+  if (!container) return;
+  if (!currentCbmDimensions.length) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div class="cbm-dim-box">
+      <div class="cbm-dim-title">📐 尺寸明細（將加入訂單總結）</div>
+      <pre>${escapeHtml(formatCbmDimensions(currentCbmDimensions))}</pre>
+    </div>
+  `;
 }
 
 // 查詢是否已有重複的訂單（MAWB# / HAWB# / 客戶提貨號）
@@ -360,6 +662,14 @@ function renderNewOrderForm(prefill = null) {
               <input type="text" id="order-hawb" placeholder="如 HKG-987654（選填）" />
               <div class="orders-field-hint" id="hawb-hint"></div>
             </div>
+            <div class="orders-form-field">
+              <label>需要提貨的客戶 *</label>
+              <div class="company-autocomplete">
+                <input type="text" id="order-customer" placeholder="輸入客戶公司名搜尋..." autocomplete="off" />
+                <input type="hidden" id="order-customer-id" />
+                <div class="company-autocomplete-list"></div>
+              </div>
+            </div>
             <div class="orders-form-field full">
               <label>客戶提貨號 *</label>
               <input type="text" id="order-pickup-no" required placeholder="客戶提供的提貨/取貨編號" />
@@ -400,51 +710,9 @@ function renderNewOrderForm(prefill = null) {
               </div>
             </div>
           </div>
-          <div class="orders-autocomplete-hint">🔍 可輸入新公司名，提交訂單時會自動加入公司庫，下次輸入即可搜尋到。</div>
-          <details class="orders-company-add">
-            <summary>＋ 新增公司 / 地點（落單時順手儲存）</summary>
-            <div class="orders-form-grid" style="margin-top:10px;">
-              <div class="orders-form-field">
-                <label>公司名稱 *</label>
-                <input type="text" id="new-company-name" />
-              </div>
-              <div class="orders-form-field">
-                <label>聯絡人</label>
-                <input type="text" id="new-company-contact" />
-              </div>
-              <div class="orders-form-field">
-                <label>電話</label>
-                <input type="text" id="new-company-phone" />
-              </div>
-              <div class="orders-form-field">
-                <label>地址</label>
-                <input type="text" id="new-company-address" />
-              </div>
-              <div class="orders-form-field">
-                <label>電郵（運輸公司用）</label>
-                <input type="email" id="new-company-email" placeholder="transport@company.com" />
-              </div>
-              <div class="orders-form-field">
-                <label>類別（可多選）</label>
-                <div class="orders-category-checkboxes">
-                  <label class="orders-category-checkbox">
-                    <input type="checkbox" name="new-company-category" value="customer" checked /> 客戶公司
-                  </label>
-                  <label class="orders-category-checkbox">
-                    <input type="checkbox" name="new-company-category" value="warehouse" /> 倉庫/自家地點
-                  </label>
-                  <label class="orders-category-checkbox">
-                    <input type="checkbox" name="new-company-category" value="transport" /> 運輸公司
-                  </label>
-                </div>
-              </div>
-              <div class="orders-form-field full">
-                <label>備註</label>
-                <input type="text" id="new-company-notes" placeholder="如：辦公時間、注意事項..." />
-              </div>
-            </div>
-            <button type="button" class="pill btn-primary" id="btn-save-new-company" style="margin-top:10px;">＋ 儲存公司</button>
-          </details>
+          <div id="order-location-a-detail" class="company-detail-card"></div>
+          <div id="order-location-b-detail" class="company-detail-card"></div>
+          <div class="orders-autocomplete-hint">🔍 可輸入新公司名並補充資料，提交訂單時會自動加入公司庫，下次輸入即可搜尋到。</div>
         </div>
 
         <div class="orders-form-section">
@@ -502,39 +770,21 @@ function renderNewOrderForm(prefill = null) {
         </div>
 
         <div class="orders-form-section">
-          <div class="orders-form-section-title">7️⃣ 收貨人 / 聯絡人</div>
+          <div class="orders-form-section-title">7️⃣ 備註</div>
           <div class="orders-form-grid">
-            <div class="orders-form-field">
-              <label>收貨人 *</label>
-              <input type="text" id="order-receiver-name" required value="${escapeAttr(fields.receiverName)}" />
-            </div>
-            <div class="orders-form-field">
-              <label>聯絡電話 *</label>
-              <input type="text" id="order-receiver-phone" required value="${escapeAttr(fields.receiverPhone)}" />
-            </div>
-            <div class="orders-form-field">
-              <label>收貨人備註</label>
-              <input type="text" id="order-receiver-note" placeholder="收貨人備註（選填）" />
-            </div>
-            <div class="orders-form-field">
-              <label>聯絡人備註</label>
-              <input type="text" id="order-contact-note" placeholder="聯絡人備註（選填）" />
-            </div>
             <div class="orders-form-field full">
-              <label>地址 *</label>
-              <textarea id="order-address" required></textarea>
+              <label>備註文件範本</label>
+              <div class="note-template-search">
+                <input type="text" id="note-template-input" placeholder="輸入關鍵字搜尋備註範本..." autocomplete="off" />
+                <div class="note-template-list" id="note-template-list"></div>
+              </div>
+              <div class="note-template-status" id="note-template-status"></div>
             </div>
-          </div>
-          <div class="orders-recipient" id="recipient-auto-hint" style="display:none;">選公司後自動帶出聯絡人資料。</div>
-        </div>
-
-        <div class="orders-form-section">
-          <div class="orders-form-section-title">8️⃣ 備註</div>
-          <div class="orders-form-grid">
             <div class="orders-form-field full">
               <label>備註（選填）</label>
               <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
             </div>
+            <div id="cbm-dim-preview" class="orders-form-field full" style="display:none;"></div>
           </div>
         </div>
 
@@ -699,6 +949,95 @@ function formatPowerItems(order) {
   return `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
 }
 
+// ===== 備註文件範本搜尋 =====
+function setupNoteTemplateSearch() {
+  const input = document.getElementById('note-template-input');
+  if (!input) return;
+  const listEl = document.getElementById('note-template-list');
+  const statusEl = document.getElementById('note-template-status');
+
+  let searchTimer = null;
+  let currentTemplates = [];
+
+  function closeList() {
+    listEl.innerHTML = '';
+    listEl.style.display = 'none';
+    currentTemplates = [];
+  }
+
+  async function doSearch(query) {
+    const q = (query || '').trim();
+    const templates = await searchNoteTemplates(q);
+    currentTemplates = templates;
+    if (!templates.length) {
+      listEl.style.display = 'none';
+      statusEl.innerHTML = `
+        <div class="note-template-empty">「${escapeHtml(q || '')}」沒有找到範本。
+          <button type="button" class="pill" id="btn-save-note-template">💾 儲存為新範本</button>
+        </div>
+      `;
+      const saveBtn = document.getElementById('btn-save-note-template');
+      if (saveBtn && q) {
+        saveBtn.addEventListener('click', async () => {
+          const name = q;
+          const content = document.getElementById('order-notes').value.trim();
+          if (!content) {
+            alert('請先在「備註（選填）」輸入內容，才可儲存為範本。');
+            return;
+          }
+          try {
+            await saveNoteTemplate(name, content);
+            statusEl.innerHTML = `<div class="note-template-saved">✅ 範本「${escapeHtml(name)}」已儲存。</div>`;
+          } catch (err) {
+            statusEl.innerHTML = `<div class="note-template-saved">❌ 儲存失敗：${escapeHtml(err.message)}</div>`;
+          }
+        });
+      }
+      return;
+    }
+    statusEl.innerHTML = '';
+    listEl.style.display = 'block';
+    listEl.innerHTML = templates.map((t, idx) => `
+      <div class="note-template-item" data-index="${idx}">
+        <span class="note-template-name">${escapeHtml(t.name)}</span>
+        <span class="note-template-sub">${escapeHtml((t.content || '').slice(0, 40))}</span>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.note-template-item').forEach((el, idx) => {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const tpl = currentTemplates[idx];
+        if (!tpl) return;
+        const notesEl = document.getElementById('order-notes');
+        const current = notesEl.value.trim();
+        const content = tpl.content || '';
+        notesEl.value = current ? `${current}\n${content}` : content;
+        closeList();
+        input.value = tpl.name;
+        input.blur();
+      });
+    });
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => doSearch(input.value), 300);
+    if (!input.value.trim()) {
+      closeList();
+      statusEl.innerHTML = '';
+    }
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim()) doSearch(input.value);
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(closeList, 150);
+  });
+}
+
 function getCurrentFormData() {
   const form = document.getElementById('orders-create-form');
   if (!form) return null;
@@ -756,8 +1095,15 @@ function getCurrentFormData() {
     pickupDatetime = pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate;
   }
 
+  const customerCompanyId = document.getElementById('order-customer-id')?.value || '';
   const pickupCompanyId = document.getElementById('order-location-a-id')?.value || '';
   const deliveryCompanyId = document.getElementById('order-location-b-id')?.value || '';
+
+  // 收貨人資料：由「需要提貨的客戶」公司靜默帶入（優先），其次目的地/收貨公司
+  let receiverCompany = null;
+  if (customerCompanyId) receiverCompany = getCompanyById(customerCompanyId);
+  if (!receiverCompany && currentOrderType === 'delivery' && deliveryCompanyId) receiverCompany = getCompanyById(deliveryCompanyId);
+  if (!receiverCompany && currentOrderType === 'pickup' && pickupCompanyId) receiverCompany = getCompanyById(pickupCompanyId);
 
   return {
     order_type: currentOrderType,
@@ -765,25 +1111,23 @@ function getCurrentFormData() {
     hawb: document.getElementById('order-hawb').value.trim(),
     pickup_no: document.getElementById('order-pickup-no').value.trim(),
     pickup_datetime: pickupDatetime,
-    pickup_company_id: currentOrderType === 'delivery'
-      ? pickupCompanyId
-      : pickupCompanyId,
-    delivery_company_id: currentOrderType === 'delivery'
-      ? deliveryCompanyId
-      : deliveryCompanyId,
+    customer_company_id: customerCompanyId,
+    pickup_company_id: pickupCompanyId,
+    delivery_company_id: deliveryCompanyId,
     cargo_desc: document.getElementById('order-cargo-desc').value.trim(),
     quantity: document.getElementById('order-quantity').value,
     weight_kg: document.getElementById('order-weight').value,
     cbm: document.getElementById('order-cbm').value,
+    cbm_dimensions: currentCbmDimensions.length ? currentCbmDimensions : null,
     power_type: powerType,
     power_code: powerCode,
     power_items: items,
     urgent,
-    receiver_name: document.getElementById('order-receiver-name').value.trim(),
-    receiver_phone: document.getElementById('order-receiver-phone').value.trim(),
-    address: document.getElementById('order-address').value.trim(),
-    receiver_note: document.getElementById('order-receiver-note')?.value.trim() || '',
-    contact_note: document.getElementById('order-contact-note')?.value.trim() || '',
+    receiver_name: receiverCompany ? (receiverCompany.contact_person || '') : '',
+    receiver_phone: receiverCompany ? (receiverCompany.phone || '') : '',
+    address: receiverCompany ? (receiverCompany.address || '') : '',
+    receiver_note: '',
+    contact_note: '',
     notes: document.getElementById('order-notes').value.trim(),
     transport_company: '',
     status: editingOrderId ? 'pending' : 'pending'
@@ -791,27 +1135,7 @@ function getCurrentFormData() {
 }
 
 function handleCompanySelected() {
-  const locationAB = document.getElementById('order-location-a-id');
-  const locationBB = document.getElementById('order-location-b-id');
-  const receiverName = document.getElementById('order-receiver-name');
-  const receiverPhone = document.getElementById('order-receiver-phone');
-  const address = document.getElementById('order-address');
-  const hint = document.getElementById('recipient-auto-hint');
-
-  // 送貨：目的地 = 收貨人公司；收貨：收貨地點 = 客戶公司
-  const selectedCompanyId = currentOrderType === 'delivery'
-    ? (locationBB ? locationBB.value : '')
-    : (locationAB ? locationAB.value : '');
-  const company = getCompanyById(selectedCompanyId);
-
-  if (company) {
-    if (!receiverName.value.trim()) receiverName.value = company.contact_person || '';
-    if (!receiverPhone.value.trim()) receiverPhone.value = company.phone || '';
-    if (!address.value.trim()) address.value = company.address || '';
-    if (hint) hint.style.display = 'none';
-  } else if (hint) {
-    hint.style.display = 'block';
-  }
+  // 收貨人資料在 getCurrentFormData 時從公司帶入，無需操作表單欄位
 }
 
 function setupNewOrderFormEvents() {
@@ -841,16 +1165,24 @@ function setupNewOrderFormEvents() {
     });
   });
 
-  // 公司自動補全（收貨/交回地點）
-  ['order-location-a', 'order-location-b'].forEach(id => {
-    setupCompanyAutocomplete(id, `${id}-id`);
+  // 公司自動補全（客戶 + 地點 A/B）
+  ['order-customer', 'order-location-a', 'order-location-b'].forEach(id => {
+    const hiddenId = `${id}-id`;
+    setupCompanyAutocomplete(id, hiddenId);
+    renderCompanyDetailCard(id, hiddenId);
   });
 
-  // CBM 計算機開啟按鈕（通用工具，傳入目標 input）
+  // CBM 計算機開啟按鈕（傳入 onCommit 收集尺寸）
   const cbmCalcBtn = document.getElementById('btn-open-cbm-calc');
   if (cbmCalcBtn) {
     cbmCalcBtn.addEventListener('click', () => {
-      openCbmCalculator({ targetInput: document.getElementById('order-cbm') });
+      openCbmCalculator({
+        targetInput: document.getElementById('order-cbm'),
+        onCommit: (dims) => {
+          currentCbmDimensions = dims || [];
+          renderCbmDimPreview();
+        }
+      });
     });
   }
 
@@ -860,6 +1192,9 @@ function setupNewOrderFormEvents() {
     clockBtn: document.getElementById('btn-pickup-time-clock'),
     popup: document.getElementById('pickup-time-popup')
   });
+
+  // 備註文件範本搜尋
+  setupNoteTemplateSearch();
 
   // MAWB# 輸入即時格式化 + 失焦驗證
   const mawbInput = document.getElementById('order-mawb');
@@ -1156,6 +1491,7 @@ function buildOrderSummary(order) {
   lines.push(`提貨號  ：${order.pickup_no || '-'}`);
   if (order.pickup_datetime) lines.push(`提貨時間：${formatPickupDatetime(order.pickup_datetime)}`);
   lines.push(line);
+  if (order.customer_company_name) lines.push(`客戶公司：${order.customer_company_name}`);
   lines.push(`收貨公司：${order.delivery_company_name || order.pickup_company_name || '-'}`);
   lines.push(`地址    ：${order.address || '-'}`);
   lines.push(`聯絡人  ：${order.receiver_name || '-'}`);
@@ -1167,6 +1503,10 @@ function buildOrderSummary(order) {
   lines.push(`件數    ：${order.quantity || '0'} 件`);
   lines.push(`重量    ：${order.weight_kg || '0'} KG`);
   lines.push(`CBM     ：${order.cbm || '0'}`);
+  if (order.cbm_dimensions && order.cbm_dimensions.length) {
+    lines.push(line);
+    lines.push(formatCbmDimensions(order.cbm_dimensions));
+  }
   lines.push(`⚡ 電力  ：${powLabel}`);
   lines.push(`🚨 趕機  ：${urgentLabel}`);
   if (order.notes) lines.push(`備註    ：${order.notes}`);
@@ -1450,12 +1790,14 @@ function loadOrderToForm(order) {
       quantity: order.quantity,
       weight_kg: order.weight_kg,
       cbm: order.cbm,
+      cbm_dimensions: order.cbm_dimensions || null,
       power_type: order.power_type,
       power_code: order.power_code,
       power_items: order.power_items || null,
-      receiver_name: order.receiver_name,
-      receiver_phone: order.receiver_phone,
-      notes: order.notes
+      notes: order.notes,
+      customer_company_id: order.customer_company_id,
+      pickup_company_id: order.pickup_company_id,
+      delivery_company_id: order.delivery_company_id
     });
 
     // 稍後填上其餘欄位
@@ -1479,33 +1821,32 @@ function loadOrderToForm(order) {
       const pickupTimeEl = document.getElementById('order-pickup-time');
       if (pickupTimeEl) pickupTimeEl.value = pickupTime || '';
 
-      // 地點（自動補全：input 顯示名稱 + hidden id）
-      const locAEl = document.getElementById('order-location-a');
-      const locAIdEl = document.getElementById('order-location-a-id');
-      const locBEl = document.getElementById('order-location-b');
-      const locBIdEl = document.getElementById('order-location-b-id');
-      if (locAEl && locAIdEl) {
-        const companyA = order.pickup_company_id ? getCompanyById(order.pickup_company_id) : null;
-        if (companyA) {
-          locAEl.value = companyA.name;
-          locAIdEl.value = companyA.id;
+      // 公司欄位（客戶 + 地點 A/B：input 顯示名稱 + hidden id）
+      const companyFields = [
+        { inputId: 'order-customer', hiddenId: 'order-customer-id', companyId: order.customer_company_id },
+        { inputId: 'order-location-a', hiddenId: 'order-location-a-id', companyId: order.pickup_company_id },
+        { inputId: 'order-location-b', hiddenId: 'order-location-b-id', companyId: order.delivery_company_id }
+      ];
+      companyFields.forEach(({ inputId, hiddenId, companyId }) => {
+        const inputEl = document.getElementById(inputId);
+        const hiddenEl = document.getElementById(hiddenId);
+        if (!inputEl || !hiddenEl) return;
+        const company = companyId ? getCompanyById(companyId) : null;
+        if (company) {
+          inputEl.value = company.name;
+          hiddenEl.value = company.id;
+          captureCompanySnapshot(hiddenId);
+          renderCompanyDetailCard(inputId, hiddenId);
         }
-      }
-      if (locBEl && locBIdEl) {
-        const companyB = order.delivery_company_id ? getCompanyById(order.delivery_company_id) : null;
-        if (companyB) {
-          locBEl.value = companyB.name;
-          locBIdEl.value = companyB.id;
-        }
-      }
-      document.getElementById('order-address').value = order.address || '';
+      });
+
       document.getElementById('order-notes').value = order.notes || '';
-      document.getElementById('order-receiver-name').value = order.receiver_name || '';
-      document.getElementById('order-receiver-phone').value = order.receiver_phone || '';
-      const receiverNoteEl = document.getElementById('order-receiver-note');
-      if (receiverNoteEl) receiverNoteEl.value = order.receiver_note || '';
-      const contactNoteEl = document.getElementById('order-contact-note');
-      if (contactNoteEl) contactNoteEl.value = order.contact_note || '';
+
+      // CBM DIM 預覽
+      if (order.cbm_dimensions && order.cbm_dimensions.length) {
+        currentCbmDimensions = order.cbm_dimensions;
+        renderCbmDimPreview();
+      }
 
       // 趕機
       document.querySelectorAll('.orders-choice-btn[data-urgent]').forEach(b => {

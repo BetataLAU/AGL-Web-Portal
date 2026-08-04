@@ -8,7 +8,7 @@ const router = express.Router();
 // 2. 只允許修改「資料欄位」，自動排除 id / created_at / updated_at（由 DB 自動管理）
 // 3. 這些操作是「記錄級」CRUD，不會改變資料庫結構（schema）
 
-const ALLOWED_TABLES = ['skills', 'messages', 'companies', 'templates', 'orders'];
+const ALLOWED_TABLES = ['skills', 'messages', 'companies', 'templates', 'note_templates', 'orders'];
 
 // 各表不可由使用者修改的欄位（系統自動管理）
 const READONLY_COLUMNS = {
@@ -16,6 +16,7 @@ const READONLY_COLUMNS = {
   messages: ['id', 'created_at'],
   companies: ['id', 'created_at'],
   templates: ['id', 'created_at'],
+  note_templates: ['id', 'created_at'],
   orders: ['id', 'created_at', 'updated_at', 'status']
 };
 

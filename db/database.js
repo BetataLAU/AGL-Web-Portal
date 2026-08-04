@@ -59,12 +59,14 @@ db.serialize(() => {
       mawb TEXT,
       hawb TEXT,
       pickup_no TEXT,
+      customer_company_id INTEGER,
       pickup_company_id INTEGER,
       delivery_company_id INTEGER,
       cargo_desc TEXT,
       quantity INTEGER,
       weight_kg REAL,
       cbm REAL,
+      cbm_dimensions TEXT,
       power_type TEXT DEFAULT 'no',
       power_code TEXT,
       power_items TEXT,
@@ -77,6 +79,16 @@ db.serialize(() => {
       status TEXT DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ===== 訂單系統：備註文件範本 =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS note_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      content TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
@@ -102,6 +114,8 @@ db.serialize(() => {
     ensureColumn('pickup_datetime', 'TEXT');
     ensureColumn('receiver_note', 'TEXT');
     ensureColumn('contact_note', 'TEXT');
+    ensureColumn('customer_company_id', 'INTEGER');
+    ensureColumn('cbm_dimensions', 'TEXT');
   });
 
   // 插入初始技能資料（若表格為空）

@@ -662,7 +662,7 @@ function renderNewOrderForm(prefill = null) {
               <input type="text" id="order-hawb" placeholder="如 HKG-987654（選填）" />
               <div class="orders-field-hint" id="hawb-hint"></div>
             </div>
-            <div class="orders-form-field">
+            <div class="orders-form-field full">
               <label>需要提貨的客戶 *</label>
               <div class="company-autocomplete">
                 <input type="text" id="order-customer" placeholder="輸入客戶公司名搜尋..." autocomplete="off" />

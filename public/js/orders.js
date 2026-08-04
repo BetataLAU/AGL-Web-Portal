@@ -780,6 +780,7 @@ function renderNewOrderForm(prefill = null) {
               <label>備註文件範本</label>
               <div class="note-template-search">
                 <input type="text" id="note-template-input" placeholder="輸入關鍵字搜尋備註範本..." autocomplete="off" />
+                <button type="button" class="pill note-template-save-btn" id="btn-save-note-template-standalone" title="以輸入的名稱儲存為範本">💾 儲存</button>
                 <div class="note-template-list" id="note-template-list"></div>
               </div>
               <div class="note-template-status" id="note-template-status"></div>
@@ -978,6 +979,9 @@ function setupNoteTemplateSearch() {
     input.value = tpl.name;
     closeList();
     input.blur();
+    // 選中提示
+    statusEl.innerHTML = `<div class="note-template-saved">✅ 已將範本「${escapeHtml(tpl.name)}」加入備註。</div>`;
+    setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 3000);
   }
 
   // 進入「修改模式」：將範本內容載入備註 textarea（覆蓋），顯示修改工具列
@@ -1030,6 +1034,44 @@ function setupNoteTemplateSearch() {
     }
   }
 
+  // 以指定名稱儲存為範本；若已有同名範本則先確認（避免誤覆蓋）
+  async function saveAs(name, content) {
+    name = (name || '').trim();
+    content = (content || '').trim();
+    if (!name) {
+      alert('請輸入範本名稱。');
+      return false;
+    }
+    if (!content) {
+      alert('請先在「備註（選填）」輸入內容，才可儲存為範本。');
+      return false;
+    }
+    // 檢查是否存在同名範本（精確比對）
+    const existing = (await searchNoteTemplates(name)).find(t => t.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) {
+      if (!confirm(`⚠️ 已存在同名範本「${name}」。\n\n確定要以目前的備註內容覆蓋它嗎？`)) {
+        return false;
+      }
+    }
+    try {
+      await saveNoteTemplate(name, content);
+      statusEl.innerHTML = `<div class="note-template-saved">✅ 範本「${escapeHtml(name)}」已儲存。</div>`;
+      setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 3000);
+      return true;
+    } catch (err) {
+      statusEl.innerHTML = `<div class="note-template-saved">❌ 儲存失敗：${escapeHtml(err.message)}</div>`;
+      return false;
+    }
+  }
+
+  // 常駐「💾 儲存」按鈕：以輸入框的名稱儲存為範本
+  const standaloneSaveBtn = document.getElementById('btn-save-note-template-standalone');
+  if (standaloneSaveBtn) {
+    standaloneSaveBtn.addEventListener('click', async () => {
+      await saveAs(input.value, document.getElementById('order-notes').value);
+    });
+  }
+
   function highlightItem(items) {
     items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
     // 確保高亮項目可見（滾動到視野內）
@@ -1053,18 +1095,7 @@ function setupNoteTemplateSearch() {
       const saveBtn = document.getElementById('btn-save-note-template');
       if (saveBtn && q) {
         saveBtn.addEventListener('click', async () => {
-          const name = q;
-          const content = document.getElementById('order-notes').value.trim();
-          if (!content) {
-            alert('請先在「備註（選填）」輸入內容，才可儲存為範本。');
-            return;
-          }
-          try {
-            await saveNoteTemplate(name, content);
-            statusEl.innerHTML = `<div class="note-template-saved">✅ 範本「${escapeHtml(name)}」已儲存。</div>`;
-          } catch (err) {
-            statusEl.innerHTML = `<div class="note-template-saved">❌ 儲存失敗：${escapeHtml(err.message)}</div>`;
-          }
+          await saveAs(q, document.getElementById('order-notes').value);
         });
       }
       return;

@@ -924,16 +924,42 @@
 /* ===== 備註文件範本 ===== */
 .note-template-search {
   position: relative;
+  display: flex;
+  gap: 8px;
 }
 
 .note-template-search input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--input-bg, var(--card-bg));
   color: var(--text-main);
   font-size: 0.85rem;
+}
+
+.note-template-save-btn {
+  flex-shrink: 0;
+  min-height: 38px;
+  align-self: center;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-template-save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(22, 163, 74, 0.3);
+}
+
+.note-template-save-btn:active {
+  transform: translateY(0);
 }
 
 .note-template-list {

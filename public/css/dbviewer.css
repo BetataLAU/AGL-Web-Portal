@@ -20,6 +20,14 @@
   background: rgba(148, 163, 184, 0.6);
 }
 
+/* ===== 標題列按鈕群組 ===== */
+.dbviewer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* ===== 表清單 Tab ===== */
 .dbviewer-tables {
   display: flex;
@@ -318,6 +326,166 @@
   padding: 10px 18px;
 }
 
+/* ===== 備註文件範本管理 Modal ===== */
+.note-templates-modal-card {
+  max-width: 900px;
+  width: 100%;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.note-templates-modal-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.note-templates-sidebar {
+  width: 240px;
+  min-width: 240px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-glow);
+}
+
+.note-templates-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.note-templates-sidebar-header strong {
+  font-size: 0.95rem;
+}
+
+.note-templates-add-btn {
+  min-height: 34px !important;
+  padding: 6px 12px !important;
+  font-size: 0.85rem !important;
+}
+
+.note-templates-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.note-template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-main);
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.note-template-item:hover {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.note-template-item.active {
+  background: var(--primary-gradient);
+  color: white;
+  border-color: transparent;
+}
+
+.note-template-name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.note-template-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.note-template-item.active .note-template-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.note-template-detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-template-detail .empty-state {
+  margin: auto;
+}
+
+.note-template-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.note-template-detail-header strong {
+  font-size: 1.05rem;
+}
+
+.note-template-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-template-field-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.note-template-textarea {
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.pill.btn-danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #dc2626;
+}
+
+.pill.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #dc2626;
+}
+
+[data-theme="dark"] .pill.btn-danger,
+[data-theme="ocean"] .pill.btn-danger {
+  color: #f87171;
+}
+
 /* ===== 手機版 ===== */
 @media (max-width: 600px) {
   .db-form-grid {
@@ -327,5 +495,23 @@
   .dbviewer-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .dbviewer-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .note-templates-modal-body {
+    flex-direction: column;
+  }
+
+  .note-templates-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 40%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
   }
 }

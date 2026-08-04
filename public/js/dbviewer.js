@@ -9,6 +9,7 @@ const TABLE_LABELS = {
   messages: '論壇 / 留言',
   companies: '公司 / 地點',
   templates: '訂單範本',
+  note_templates: '備註文件範本',
   orders: '訂單'
 };
 
@@ -516,6 +517,207 @@ function showEditForm(tableName, editableColumns, row, fkOptions) {
   });
 }
 
+// ===== 備註文件範本管理（獨立介面） =====
+let noteTemplatesData = [];
+
+// 載入所有備註文件範本
+async function loadNoteTemplates() {
+  const result = await apiDbFetch('/api/orders/note-templates');
+  noteTemplatesData = result.data || [];
+  renderNoteTemplatesList();
+}
+
+// 渲染範本列表
+function renderNoteTemplatesList() {
+  const listEl = document.getElementById('note-templates-list');
+  if (!listEl) return;
+
+  if (noteTemplatesData.length === 0) {
+    listEl.innerHTML = '<div class="empty-state">目前沒有備註文件範本。</div>';
+    return;
+  }
+
+  listEl.innerHTML = noteTemplatesData.map(t => `
+    <button type="button" class="note-template-item" data-id="${t.id}">
+      <span class="note-template-name">${escapeHtml(t.name)}</span>
+      <span class="note-template-meta">#${t.id}</span>
+    </button>
+  `).join('');
+
+  listEl.querySelectorAll('.note-template-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      listEl.querySelectorAll('.note-template-item').forEach(i => i.classList.remove('active'));
+      btn.classList.add('active');
+      showNoteTemplateDetail(Number(btn.dataset.id));
+    });
+  });
+}
+
+// 顯示範本詳細內容（含編輯）
+function showNoteTemplateDetail(id) {
+  const template = noteTemplatesData.find(t => Number(t.id) === Number(id));
+  const detailEl = document.getElementById('note-template-detail');
+  if (!detailEl || !template) return;
+
+  detailEl.innerHTML = `
+    <div class="note-template-detail-header">
+      <div>
+        <strong>${escapeHtml(template.name)}</strong>
+        <span class="db-record-count">#${template.id}</span>
+      </div>
+      <div class="note-template-detail-actions">
+        <button type="button" class="pill" id="btn-note-template-save">💾 儲存</button>
+        <button type="button" class="pill btn-danger" id="btn-note-template-delete">🗑️ 刪除</button>
+      </div>
+    </div>
+    <label class="note-template-field-label">範本名稱</label>
+    <input type="text" class="db-form-input" id="note-template-name-input" value="${escapeAttr(template.name)}" />
+    <label class="note-template-field-label">範本內容</label>
+    <textarea class="db-form-input note-template-textarea" id="note-template-content-input" rows="14">${escapeHtml(template.content || '')}</textarea>
+  `;
+
+  const saveBtn = detailEl.querySelector('#btn-note-template-save');
+  const deleteBtn = detailEl.querySelector('#btn-note-template-delete');
+
+  saveBtn.addEventListener('click', async () => {
+    const nameInput = detailEl.querySelector('#note-template-name-input');
+    const contentInput = detailEl.querySelector('#note-template-content-input');
+    const name = nameInput.value.trim();
+    const content = contentInput.value.trim();
+    if (!name) { alert('範本名稱不可為空'); return; }
+    if (!content) { alert('範本內容不可為空'); return; }
+    try {
+      const result = await apiDbFetch('/api/orders/note-templates', {
+        method: 'POST',
+        body: JSON.stringify({ name, content })
+      });
+      alert(result.updated ? '已更新範本內容' : `已新增範本 (id=${result.id})`);
+      await loadNoteTemplates();
+      // 若名稱變更，重新選取該筆
+      showNoteTemplateDetail(Number(result.id));
+      renderNoteTemplateCount();
+    } catch (err) {
+      alert(`儲存失敗：${err.message}`);
+    }
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!confirm(`確定刪除範本「${template.name}」？此操作無法復原。`)) return;
+    try {
+      const result = await apiDbFetch(`/api/db/tables/note_templates/${id}`, { method: 'DELETE' });
+      if (result.changes === 0) {
+        alert('找不到該範本，可能已被刪除');
+      } else {
+        alert('已刪除');
+      }
+      await loadNoteTemplates();
+      showNoteTemplateDetail(null);
+      renderNoteTemplateCount();
+    } catch (err) {
+      alert(`刪除失敗：${err.message}`);
+    }
+  });
+}
+
+// 顯示空白的新增表單
+function showNoteTemplateAddForm() {
+  const detailEl = document.getElementById('note-template-detail');
+  if (!detailEl) return;
+
+  document.querySelectorAll('.note-template-item').forEach(i => i.classList.remove('active'));
+
+  detailEl.innerHTML = `
+    <div class="note-template-detail-header">
+      <div>
+        <strong>＋ 新增範本</strong>
+      </div>
+      <div class="note-template-detail-actions">
+        <button type="button" class="pill btn-primary" id="btn-note-template-save">✅ 儲存</button>
+      </div>
+    </div>
+    <label class="note-template-field-label">範本名稱</label>
+    <input type="text" class="db-form-input" id="note-template-name-input" placeholder="例如：提貨注意事項" />
+    <label class="note-template-field-label">範本內容</label>
+    <textarea class="db-form-input note-template-textarea" id="note-template-content-input" rows="14" placeholder="輸入備註文件內容..."></textarea>
+  `;
+
+  const saveBtn = detailEl.querySelector('#btn-note-template-save');
+  saveBtn.addEventListener('click', async () => {
+    const nameInput = detailEl.querySelector('#note-template-name-input');
+    const contentInput = detailEl.querySelector('#note-template-content-input');
+    const name = nameInput.value.trim();
+    const content = contentInput.value.trim();
+    if (!name) { alert('範本名稱不可為空'); return; }
+    if (!content) { alert('範本內容不可為空'); return; }
+    try {
+      const result = await apiDbFetch('/api/orders/note-templates', {
+        method: 'POST',
+        body: JSON.stringify({ name, content })
+      });
+      alert(result.updated ? '已更新範本內容' : `已新增範本 (id=${result.id})`);
+      await loadNoteTemplates();
+      showNoteTemplateDetail(Number(result.id));
+      renderNoteTemplateCount();
+    } catch (err) {
+      alert(`儲存失敗：${err.message}`);
+    }
+  });
+}
+
+// 更新按鈕上的範本數量
+function renderNoteTemplateCount() {
+  const btn = document.getElementById('btn-dbviewer-note-templates');
+  if (btn) {
+    const count = noteTemplatesData.length;
+    btn.innerHTML = `<i class="fa-solid fa-note-sticky"></i> 📝 備註文件範本${count > 0 ? ` (${count})` : ''}`;
+  }
+}
+
+// 開啟備註文件範本管理 Modal
+function openNoteTemplatesModal() {
+  let overlay = document.getElementById('note-templates-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'note-templates-modal';
+    overlay.className = 'db-form-overlay';
+    overlay.innerHTML = `
+      <div class="db-form-card note-templates-modal-card">
+        <div class="db-form-header">
+          <h3><i class="fa-solid fa-note-sticky"></i> 📝 備註文件範本管理</h3>
+          <button type="button" class="db-form-close" id="btn-note-templates-close">&times;</button>
+        </div>
+        <div class="note-templates-modal-body">
+          <div class="note-templates-sidebar">
+            <div class="note-templates-sidebar-header">
+              <strong>範本列表</strong>
+              <button type="button" class="pill btn-primary note-templates-add-btn" id="btn-note-template-add">＋ 新增</button>
+            </div>
+            <div class="note-templates-list" id="note-templates-list">
+              <div class="loading-spinner"></div>
+            </div>
+          </div>
+          <div class="note-template-detail" id="note-template-detail">
+            <div class="empty-state">請選擇左側範本，或點「＋ 新增」建立新範本。</div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector('#btn-note-templates-close');
+    closeBtn.addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    const addBtn = overlay.querySelector('#btn-note-template-add');
+    addBtn.addEventListener('click', () => showNoteTemplateAddForm());
+  }
+
+  loadNoteTemplates();
+  renderNoteTemplateCount();
+}
+
 // 初始化
 function setupDbViewerSection() {
   const refreshBtn = document.getElementById('btn-dbviewer-refresh');
@@ -525,5 +727,16 @@ function setupDbViewerSection() {
       if (currentDbTable) await loadDbTableData(currentDbTable);
     });
   }
+
+  const noteTemplatesBtn = document.getElementById('btn-dbviewer-note-templates');
+  if (noteTemplatesBtn) {
+    noteTemplatesBtn.addEventListener('click', openNoteTemplatesModal);
+    // 預先載入範本數量顯示在按鈕上
+    apiDbFetch('/api/orders/note-templates').then(result => {
+      noteTemplatesData = result.data || [];
+      renderNoteTemplateCount();
+    }).catch(() => {});
+  }
+
   loadDbTables();
 }

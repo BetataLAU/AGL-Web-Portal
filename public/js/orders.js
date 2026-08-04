@@ -959,6 +959,7 @@ function setupNoteTemplateSearch() {
   let searchTimer = null;
   let currentTemplates = [];
   let activeIndex = -1;
+  let editingTemplateId = null; // 目前正在修改的範本 id
 
   function closeList() {
     listEl.innerHTML = '';
@@ -977,6 +978,56 @@ function setupNoteTemplateSearch() {
     input.value = tpl.name;
     closeList();
     input.blur();
+  }
+
+  // 進入「修改模式」：將範本內容載入備註 textarea（覆蓋），顯示修改工具列
+  function enterEditMode(tpl) {
+    if (!tpl) return;
+    editingTemplateId = tpl.id;
+    const notesEl = document.getElementById('order-notes');
+    notesEl.value = tpl.content || '';
+    input.value = tpl.name;
+    statusEl.innerHTML = `
+      <div class="note-template-edit-bar">
+        <span class="note-template-edit-label">✏️ 正在修改範本「${escapeHtml(tpl.name)}」</span>
+        <span class="note-template-edit-actions">
+          <button type="button" class="pill" id="btn-save-edit-template">✅ 儲存修改</button>
+          <button type="button" class="pill" id="btn-cancel-edit-template">✖ 取消</button>
+        </span>
+      </div>
+    `;
+    closeList();
+
+    // 儲存修改 → 同名覆寫
+    const saveBtn = document.getElementById('btn-save-edit-template');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const name = input.value.trim();
+        const content = notesEl.value.trim();
+        if (!content) {
+          alert('「備註（選填）」內容不可為空，才可儲存範本。');
+          return;
+        }
+        try {
+          await saveNoteTemplate(name, content);
+          statusEl.innerHTML = `<div class="note-template-saved">✅ 範本「${escapeHtml(name)}」已更新。</div>`;
+          editingTemplateId = null;
+          notesEl.focus();
+        } catch (err) {
+          statusEl.innerHTML = `<div class="note-template-saved">❌ 儲存失敗：${escapeHtml(err.message)}</div>`;
+        }
+      });
+    }
+
+    // 取消修改
+    const cancelBtn = document.getElementById('btn-cancel-edit-template');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        editingTemplateId = null;
+        statusEl.innerHTML = '';
+        input.focus();
+      });
+    }
   }
 
   function highlightItem(items) {
@@ -1024,12 +1075,15 @@ function setupNoteTemplateSearch() {
       <div class="note-template-item" data-index="${idx}">
         <span class="note-template-name">${escapeHtml(t.name)}</span>
         <span class="note-template-sub">${escapeHtml((t.content || '').slice(0, 40))}</span>
+        <button type="button" class="note-template-edit-btn" data-edit-index="${idx}" title="修改此範本">📝</button>
       </div>
     `).join('');
 
     listEl.querySelectorAll('.note-template-item').forEach((el, idx) => {
-      // 滑鼠點選 → 選中
+      // 滑鼠點選項目本體 → 選中
       el.addEventListener('mousedown', (e) => {
+        // 若點擊的是「📝 修改」按鈕，不觸發選中
+        if (e.target.closest('.note-template-edit-btn')) return;
         e.preventDefault();
         selectTemplate(currentTemplates[idx]);
       });
@@ -1038,6 +1092,15 @@ function setupNoteTemplateSearch() {
         activeIndex = idx;
         listEl.querySelectorAll('.note-template-item').forEach(other => other.classList.toggle('active', other === el));
       });
+      // 「📝 修改」按鈕 → 進入修改模式
+      const editBtn = el.querySelector('.note-template-edit-btn');
+      if (editBtn) {
+        editBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          enterEditMode(currentTemplates[idx]);
+        });
+      }
     });
   }
 

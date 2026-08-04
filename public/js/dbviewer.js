@@ -9,6 +9,7 @@ const TABLE_LABELS = {
   messages: '論壇 / 留言',
   companies: '公司 / 地點',
   templates: '訂單範本',
+  note_templates: '備註文件範本',
   orders: '訂單'
 };
 

@@ -7,6 +7,8 @@ let editingOrderId = null;
 let duplicateConfirmed = false;
 // 「今天的收貨」過濾（依提貨日期 pickup_datetime）
 let todayPickupActive = false;
+// 日期搜尋過濾（依提貨日期 pickup_datetime，'YYYY-MM-DD'）
+let dateFilterValue = '';
 // blur 重複檢查的 debounce timer（全域：submit handler 需 clearTimeout，防止 blur 卡片覆蓋「仍然繼續」卡片）
 let duplicateCheckTimer = null;
 
@@ -1783,6 +1785,13 @@ async function fetchOrders() {
         return String(o.pickup_datetime).slice(0, 10) === today;
       });
     }
+    // 日期搜尋過濾：依提貨日期 pickup_datetime 篩選
+    if (dateFilterValue) {
+      visible = visible.filter(o => {
+        if (!o.pickup_datetime) return false;
+        return String(o.pickup_datetime).slice(0, 10) === dateFilterValue;
+      });
+    }
     renderOrdersList(visible);
   } catch (err) {
     container.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(err.message)}</div>`;
@@ -1815,7 +1824,7 @@ function renderOrdersList(orders) {
       <div class="orders-card-item" data-id="${order.id}">
         <div class="orders-card-header">
           <div class="orders-card-title">${titleLine}</div>
-          <span class="order-status-badge ${escapeHtml(order.status)}">${STATUS_LABEL[order.status] || order.status}</span>
+          <span class="order-status-badge ${escapeHtml(order.status)}" title="點擊收起卡片">${STATUS_LABEL[order.status] || order.status}</span>
         </div>
         <div class="orders-card-meta">
           <span>📅 ${formatDateTime(order.created_at)}</span>
@@ -1855,6 +1864,15 @@ function renderOrdersList(orders) {
         card.classList.remove('open');
       }
     });
+
+    // 點擊「狀態」徽章 → 自動收起整個 Record
+    const badge = card.querySelector('.order-status-badge');
+    if (badge) {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        card.classList.remove('open');
+      });
+    }
   });
 }
 
@@ -1955,11 +1973,11 @@ function buildOrderDetailHtml(order) {
       <div class="orders-detail-field">
         <span class="detail-label">狀態</span>
         <span class="detail-value">
-          <select class="order-status-select" data-order-id="${order.id}">
-            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>待處理</option>
-            <option value="in_progress" ${order.status === 'in_progress' ? 'selected' : ''}>進行中</option>
-            <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>已完成</option>
-            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>已取消</option>
+          <select class="order-status-select ${escapeHtml(order.status)}" data-order-id="${order.id}">
+            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>⏳ 待處理</option>
+            <option value="in_progress" ${order.status === 'in_progress' ? 'selected' : ''}>🔄 進行中</option>
+            <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>✅ 已完成</option>
+            <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>⛔ 已取消</option>
           </select>
         </span>
       </div>
@@ -1989,6 +2007,9 @@ function setupOrderDetailActions(order) {
           method: 'PUT',
           body: JSON.stringify({ ...order, status: statusSelect.value })
         });
+        // 更新成功 → 自動收起整張卡片（先從 DOM 移除 open，再重新載入列表）
+        const card = document.querySelector(`.orders-card-item[data-id="${order.id}"]`);
+        if (card) card.classList.remove('open');
         fetchOrders();
       } catch (err) {
         alert(`更新失敗：${err.message}`);
@@ -2205,6 +2226,8 @@ function setupOrdersSearch() {
   const statusFilter = document.getElementById('orders-status-filter');
   const refreshBtn = document.getElementById('btn-orders-refresh');
   const todayPickupBtn = document.getElementById('btn-orders-today-pickup');
+  const dateFilterInput = document.getElementById('orders-date-filter-input');
+  const dateClearBtn = document.getElementById('btn-orders-date-clear');
 
   if (searchInput) {
     searchInput.addEventListener('input', debounce(fetchOrders, 350));
@@ -2215,12 +2238,43 @@ function setupOrdersSearch() {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', fetchOrders);
   }
+  // 日期搜尋：依提貨日期篩選
+  if (dateFilterInput) {
+    dateFilterInput.addEventListener('change', () => {
+      dateFilterValue = dateFilterInput.value || '';
+      if (dateClearBtn) dateClearBtn.style.display = dateFilterValue ? 'flex' : 'none';
+      // 與「今天的收貨」互斥：手動選日期時關閉今天的收貨
+      if (dateFilterValue && todayPickupActive) {
+        todayPickupActive = false;
+        if (todayPickupBtn) {
+          todayPickupBtn.classList.remove('active');
+          todayPickupBtn.textContent = '📥 今天的收貨';
+        }
+      }
+      fetchOrders();
+    });
+  }
+  // 清除日期
+  if (dateClearBtn) {
+    dateClearBtn.addEventListener('click', () => {
+      dateFilterValue = '';
+      if (dateFilterInput) dateFilterInput.value = '';
+      dateClearBtn.style.display = 'none';
+      fetchOrders();
+    });
+  }
   // 「今天的收貨」切換按鈕
   if (todayPickupBtn) {
     todayPickupBtn.addEventListener('click', () => {
       todayPickupActive = !todayPickupActive;
       todayPickupBtn.classList.toggle('active', todayPickupActive);
       todayPickupBtn.textContent = todayPickupActive ? '📥 今天的收貨 ✓' : '📥 今天的收貨';
+      // 與日期搜尋互斥：啟用今天的收貨時清除日期
+      if (todayPickupActive && dateFilterValue) {
+        dateFilterValue = '';
+        if (dateFilterInput) dateFilterInput.value = '';
+        if (dateClearBtn) dateClearBtn.style.display = 'none';
+      }
       fetchOrders();
     });
   }

@@ -177,6 +177,10 @@
           <div id="orders-tab-list" class="orders-tab-panel">
             <div class="orders-list-controls">
               <input type="search" id="orders-search-input" placeholder="搜尋訂單編號 / 公司 / 提單號..." />
+              <div class="orders-date-filter">
+                <input type="date" id="orders-date-filter-input" title="依提貨日期篩選" />
+                <button type="button" id="btn-orders-date-clear" class="orders-date-clear" title="清除日期">✕</button>
+              </div>
               <select id="orders-status-filter">
                 <option value="">全部狀態</option>
                 <option value="pending">待處理</option>

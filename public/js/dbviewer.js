@@ -60,6 +60,20 @@ const FK_FIELDS = {
 // 不可編輯欄位（顯示但防修改）
 const HIDDEN_FIELDS = ['id', 'created_at', 'updated_at'];
 
+// 長文字欄位 → 表單渲染為可縮放 textarea
+const TEXTAREA_COLUMNS = new Set([
+  'content',      // 備註文件範本內容
+  'notes',        // 備註
+  'address',      // 地址
+  'cargo_desc',   // 貨品描述
+  'power_items',  // 電力組合（JSON）
+  'cbm_dimensions', // CBM 尺寸
+  'receiver_note',  // 收貨人備註
+  'contact_note',   // 聯絡人備註
+  'values',       // 其他可能的多行欄位
+  'description'
+]);
+
 async function apiDbFetch(url, options = {}) {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
@@ -310,6 +324,7 @@ function showAddForm(tableName, editableColumns, fkOptions) {
                       <option value="yes">🔴 趕機</option>
                     </select>`
                   : c === 'parent_id' ? `<input type="number" class="db-form-input" data-col="${c}" placeholder="留空 = 主題" />`
+                  : TEXTAREA_COLUMNS.has(c) ? `<textarea class="db-form-input db-form-textarea" data-col="${c}" rows="4"></textarea>`
                   : `<input type="text" class="db-form-input" data-col="${c}" />`
                 }
               </div>
@@ -447,6 +462,12 @@ function showEditForm(tableName, editableColumns, row, fkOptions) {
                 return `<div class="db-form-field">
                   <label>${COLUMN_LABELS[c] || c}</label>
                   <input type="text" class="db-form-input" data-col="${c}" value="${escapeAttr(currentVal)}" />
+                </div>`;
+              }
+              if (TEXTAREA_COLUMNS.has(c)) {
+                return `<div class="db-form-field">
+                  <label>${COLUMN_LABELS[c] || c}</label>
+                  <textarea class="db-form-input db-form-textarea" data-col="${c}" rows="4">${escapeHtml(currentVal)}</textarea>
                 </div>`;
               }
               return `<div class="db-form-field">

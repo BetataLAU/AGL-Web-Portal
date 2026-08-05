@@ -2,9 +2,13 @@
 let ordersData = [];
 let companiesCache = [];
 let transportCompanies = [];
-let currentOrderType = 'delivery';
+let currentOrderType = 'pickup';
 let editingOrderId = null;
 let duplicateConfirmed = false;
+// 「今天的收貨」過濾（依提貨日期 pickup_datetime）
+let todayPickupActive = false;
+// blur 重複檢查的 debounce timer（全域：submit handler 需 clearTimeout，防止 blur 卡片覆蓋「仍然繼續」卡片）
+let duplicateCheckTimer = null;
 
 // 每個公司欄位的「原始資料快照」（偵測用戶修改既有公司資料）
 let companySnapshots = {};
@@ -212,6 +216,19 @@ function handleCompanySelected() {
   // 資料在 getCurrentFormData 時從公司卡取得，無需額外 UI
 }
 
+// 讓公司詳細卡的「備註」textarea 高度至少完全顯示當前文字
+function setupCompanyNotesAutosize(card) {
+  if (!card) return;
+  const box = card.querySelector('textarea');
+  if (!box) return;
+  const fit = () => {
+    box.style.height = 'auto';
+    box.style.height = box.scrollHeight + 'px';
+  };
+  fit();
+  box.addEventListener('input', fit);
+}
+
 // 每個公司欄位下方渲染詳細資料卡
 function renderCompanyDetailCard(inputId, hiddenId) {
   const input = document.getElementById(inputId);
@@ -264,12 +281,13 @@ function renderCompanyDetailCard(inputId, hiddenId) {
             }).join('')}
           </div>
         </div>
-        <div class="company-detail-field full">
-          <label>備註</label>
-          <input type="text" id="${inputId}-detail-notes" value="${escapeAttr(company.notes || '')}" placeholder="－" />
-        </div>
+      <div class="company-detail-field full">
+        <label>備註</label>
+        <textarea id="${inputId}-detail-notes" placeholder="－">${escapeAttr(company.notes || '')}</textarea>
       </div>
+    </div>
     `;
+    setupCompanyNotesAutosize(card); // 備註欄高度完整顯示目前文字
     return;
   }
 
@@ -309,10 +327,11 @@ function renderCompanyDetailCard(inputId, hiddenId) {
       </div>
       <div class="company-detail-field full">
         <label>備註</label>
-        <input type="text" id="${inputId}-detail-notes" placeholder="備註（可留空）" />
+        <textarea id="${inputId}-detail-notes" placeholder="備註（可留空）"></textarea>
       </div>
     </div>
   `;
+  setupCompanyNotesAutosize(card); // 備註欄高度完整顯示目前文字
 }
 
 // 收集某欄位的公司資料（從詳細卡 input 讀取）
@@ -497,8 +516,9 @@ async function checkDuplicateOrder() {
 }
 
 // 顯示重複訂單浮動卡片
-// mode: 'submit' = 提交時（按「仍然繼續」會觸發重新提交）；'blur' = 離開欄位即時檢查（按「知道了」只關閉卡片）
-function showDuplicateCard(orders, mode = 'submit') {
+// mode: 'submit' = 提交時（按「仍然繼續」會直接提交已收集的資料）；'blur' = 離開欄位即時檢查（按「知道了」只關閉卡片）
+// onConfirm: 可選，submit 模式按下「仍然繼續」時呼叫（用於直接提交已收集的 data，避免重跑 submit handler）
+function showDuplicateCard(orders, mode = 'submit', onConfirm = null) {
   // 移除舊卡片
   document.querySelectorAll('.duplicate-order-modal').forEach(el => el.remove());
 
@@ -570,11 +590,16 @@ function showDuplicateCard(orders, mode = 'submit') {
             modal.close();
             return;
           }
-          // submit 模式：標記用戶已確認繼續，重新觸發提交
-          duplicateConfirmed = true;
+          // submit 模式：關閉卡片並直接提交已收集的資料（onConfirm）
           modal.close();
-          const submitBtn = document.querySelector('.orders-submit-btn');
-          if (submitBtn) submitBtn.click();
+          if (typeof onConfirm === 'function') {
+            onConfirm();
+          } else {
+            // 沒有 onConfirm（例如 blur check 誤觸 submit）→ 退回重新觸發提交
+            duplicateConfirmed = true;
+            const submitBtn = document.querySelector('.orders-submit-btn');
+            if (submitBtn) submitBtn.click();
+          }
         }
       },
       {
@@ -1379,8 +1404,8 @@ function setupNewOrderFormEvents() {
   }
 
   // ===== 三個欄位（MAWB / HAWB / 客戶提貨號）blur 即時重複檢查 =====
-  // 共用 debounce：快速跳欄位時只發一次請求
-  let duplicateCheckTimer = null;
+  // 共用 debounce：快速跳欄位時只發一次請求（變數在全域，submit handler 需 clearTimeout 防止 blur 卡片覆蓋「仍然繼續」卡片）
+  duplicateCheckTimer = null;
   // 防重複彈卡：記住上次已確認過的欄位值組合，值沒變就不再次彈卡
   let lastCheckedDuplicateKey = '';
 
@@ -1472,6 +1497,8 @@ function setupNewOrderFormEvents() {
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      // 取消排程中的 blur 重複檢查，防止 350ms 後 blur 卡片覆蓋「仍然繼續」卡片
+      clearTimeout(duplicateCheckTimer);
       const data = getCurrentFormData();
       if (!data) return;
 
@@ -1482,7 +1509,14 @@ function setupNewOrderFormEvents() {
       const locationAId = document.getElementById('order-location-a-id');
       const locationBId = document.getElementById('order-location-b-id');
 
+      // 「需要提貨的客戶」新公司也要自動儲存（含詳細資料）
+      const customerInput = document.getElementById('order-customer');
+      const customerId = document.getElementById('order-customer-id');
+
       const pendingNewCompanies = [];
+      if (customerInput && customerInput.value.trim() && (!customerId || !customerId.value)) {
+        pendingNewCompanies.push({ input: customerInput, hidden: customerId, category: 'customer' });
+      }
       if (locationAInput && locationAInput.value.trim() && (!locationAId || !locationAId.value)) {
         pendingNewCompanies.push({ input: locationAInput, hidden: locationAId, category: currentOrderType === 'delivery' ? 'warehouse' : 'customer' });
       }
@@ -1492,7 +1526,7 @@ function setupNewOrderFormEvents() {
 
       if (pendingNewCompanies.length) {
         try {
-          // 逐個建立（避免重名同時建立）
+          // 逐個建立（避免重名同時建立；新公司在詳細卡填的地址/聯絡人/電話等一併儲存）
           for (const item of pendingNewCompanies) {
             const name = item.input.value.trim();
             // 先檢查是否已存在（可能剛被其他欄位使用）
@@ -1501,9 +1535,19 @@ function setupNewOrderFormEvents() {
             if (existing) {
               companyId = existing.id;
             } else {
+              // 從詳細資料卡收集用戶填寫的資料（欄位 id = `${inputId}-detail-*`）
+              const detail = getCompanyDetailData(item.input.id);
               const result = await apiFetch('/api/orders/companies', {
                 method: 'POST',
-                body: JSON.stringify({ category: item.category, name })
+                body: JSON.stringify({
+                  category: item.category,
+                  name,
+                  address: detail.address || '',
+                  contact_person: detail.contact_person || '',
+                  phone: detail.phone || '',
+                  email: detail.email || '',
+                  notes: detail.notes || ''
+                })
               });
               companyId = result.id;
             }
@@ -1516,6 +1560,41 @@ function setupNewOrderFormEvents() {
           alert(`儲存新公司失敗：${err.message}`);
           return;
         }
+      }
+
+      // ===== 更新既有公司變更（用戶在詳細卡修改了既有公司的資料）=====
+      try {
+        const companyFieldsToCheck = [
+          { inputId: 'order-customer', hiddenId: 'order-customer-id' },
+          { inputId: 'order-location-a', hiddenId: 'order-location-a-id' },
+          { inputId: 'order-location-b', hiddenId: 'order-location-b-id' }
+        ];
+        for (const { inputId, hiddenId } of companyFieldsToCheck) {
+          const hiddenEl = document.getElementById(hiddenId);
+          if (!hiddenEl || !hiddenEl.value) continue; // 只處理已選中的既有公司
+          const changes = detectCompanyChanges(inputId, hiddenId);
+          if (!changes.length) continue;
+          const companyId = hiddenEl.value;
+          const current = getCompanyDetailData(inputId);
+          const inputEl = document.getElementById(inputId);
+          const nameVal = inputEl ? inputEl.value.trim() : '';
+          const existingCompany = getCompanyById(companyId);
+          await apiFetch(`/api/orders/companies/${companyId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              category: current.category || (existingCompany ? existingCompany.category : 'customer'),
+              name: nameVal,
+              address: current.address || '',
+              contact_person: current.contact_person || '',
+              phone: current.phone || '',
+              email: current.email || '',
+              notes: current.notes || ''
+            })
+          });
+        }
+      } catch (err) {
+        alert(`更新公司資料失敗：${err.message}`);
+        return;
       }
 
       // MAWB# 驗證
@@ -1538,24 +1617,29 @@ function setupNewOrderFormEvents() {
         data.mawb = mawbResult.formatted;
       }
 
+      // 定義提交函數（「仍然繼續」時直接呼叫，避免重跑整個 handler 與重複彈 MAWB 確認）
+      const performSubmit = async () => {
+        try {
+          const url = editingOrderId ? `/api/orders/${editingOrderId}` : '/api/orders';
+          const method = editingOrderId ? 'PUT' : 'POST';
+          const result = await apiFetch(url, { method, body: JSON.stringify(data) });
+          showOrderSuccess(result.order_no || `ORD-${Date.now()}`, result.id);
+        } catch (err) {
+          alert(`提交失敗：${err.message}`);
+        }
+      };
+
       // 重複檢查（已確認繼續則跳過）
       if (!duplicateConfirmed) {
         const duplicates = await checkDuplicateOrder();
         if (duplicates && duplicates.length) {
-          showDuplicateCard(duplicates);
+          // 彈出重複卡；按「仍然繼續」直接提交已收集的 data（onConfirm）
+          showDuplicateCard(duplicates, 'submit', performSubmit);
           return;
         }
       }
       duplicateConfirmed = false; // 重置，確保下次提交再次檢查
-
-      try {
-        const url = editingOrderId ? `/api/orders/${editingOrderId}` : '/api/orders';
-        const method = editingOrderId ? 'PUT' : 'POST';
-        const result = await apiFetch(url, { method, body: JSON.stringify(data) });
-        showOrderSuccess(result.order_no || `ORD-${Date.now()}`, result.id);
-      } catch (err) {
-        alert(`提交失敗：${err.message}`);
-      }
+      await performSubmit();
     });
   }
 }
@@ -1581,7 +1665,7 @@ function showOrderSuccess(orderNo, orderId) {
 
   document.getElementById('btn-order-new-another').addEventListener('click', () => {
     editingOrderId = null;
-    currentOrderType = 'delivery';
+    currentOrderType = 'pickup';
     renderNewOrderForm();
   });
 
@@ -1688,7 +1772,18 @@ async function fetchOrders() {
   try {
     const result = await apiFetch(`/api/orders${query}`);
     ordersData = result.data || [];
-    renderOrdersList(ordersData);
+
+    let visible = ordersData;
+    // 「今天的收貨」過濾：訂單類型 = 收貨 且 提貨日期 = 今天
+    if (todayPickupActive) {
+      const today = getTodayDateStr(); // 'YYYY-MM-DD'
+      visible = ordersData.filter(o => {
+        if (o.order_type !== 'pickup') return false;
+        if (!o.pickup_datetime) return false;
+        return String(o.pickup_datetime).slice(0, 10) === today;
+      });
+    }
+    renderOrdersList(visible);
   } catch (err) {
     container.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(err.message)}</div>`;
   }
@@ -1704,9 +1799,13 @@ function renderOrdersList(orders) {
   }
 
   container.innerHTML = orders.map(order => {
-    const companyName = order.order_type === 'delivery'
-      ? (order.delivery_company_name || order.pickup_company_name || '-')
-      : (order.pickup_company_name || order.delivery_company_name || '-');
+    // 第一行：類型 + 起點 到 終點
+    const fromName = order.pickup_company_name || order.pickup_company_id || '-';
+    const toName = order.delivery_company_name || order.delivery_company_id || '';
+    const typeLabel = ORDER_TYPE_LABEL[order.order_type] || order.order_type;
+    const titleLine = toName
+      ? `${typeLabel} ${escapeHtml(fromName)} 到 ${escapeHtml(toName)}`
+      : `${typeLabel} ${escapeHtml(fromName)}`;
     const powerLabel = order.power_type === 'no'
       ? '<span class="orders-tag power-no">⚡ 無電</span>'
       : `<span class="orders-tag ${order.power_type === 'dry' ? 'power-dry' : 'power-lithium'}">${escapeHtml(formatPowerItems(order))}</span>`;
@@ -1715,21 +1814,26 @@ function renderOrdersList(orders) {
     return `
       <div class="orders-card-item" data-id="${order.id}">
         <div class="orders-card-header">
-          <div class="orders-card-title">${ORDER_TYPE_LABEL[order.order_type] || order.order_type} ${escapeHtml(companyName)}</div>
+          <div class="orders-card-title">${titleLine}</div>
           <span class="order-status-badge ${escapeHtml(order.status)}">${STATUS_LABEL[order.status] || order.status}</span>
         </div>
         <div class="orders-card-meta">
-          <span>流水號：${escapeHtml(order.order_no)}</span>
           <span>📅 ${formatDateTime(order.created_at)}</span>
         </div>
         <div class="orders-card-meta">
-          <span>MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
-          <span>HAWB: ${escapeHtml(order.hawb || '-')}</span>
-          <span>提貨: ${escapeHtml(order.pickup_no || '-')}</span>
+          <span>🧾 MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
+          <span>| HAWB: ${escapeHtml(order.hawb || '-')}</span>
+          <span>| 提貨: ${escapeHtml(order.pickup_no || '-')}</span>
+        </div>
+        <div class="orders-card-meta">
+          <span>📦 ${order.quantity || 0} 件 / ${order.weight_kg || 0} KG / ${order.cbm || 0} CBM</span>
         </div>
         <div class="orders-card-meta">
           ${powerLabel}
           ${urgentTag}
+        </div>
+        <div class="orders-card-footer">
+          <span class="orders-card-order-no">流水號：${escapeHtml(order.order_no)}</span>
         </div>
         <div class="orders-card-detail" id="order-detail-${order.id}"></div>
       </div>
@@ -2008,6 +2112,8 @@ function loadOrderToForm(order) {
       if (form) {
         form.onsubmit = async (e) => {
           e.preventDefault();
+          // 取消排程中的 blur 重複檢查，防止 350ms 後 blur 卡片覆蓋「仍然繼續」卡片
+          clearTimeout(duplicateCheckTimer);
           const data = getCurrentFormData();
           if (!data) return;
 
@@ -2029,32 +2135,37 @@ function loadOrderToForm(order) {
             data.mawb = mawbResult.formatted;
           }
 
+          // 定義提交函數（「仍然繼續」時直接呼叫，避免重跑整個 handler 與重複彈 MAWB 確認）
+          const performSubmit = async () => {
+            try {
+              await apiFetch(`/api/orders/${order.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(data)
+              });
+              alert('訂單已更新！');
+              editingOrderId = null;
+              // 切回列表
+              document.querySelectorAll('.orders-tab').forEach(t => t.classList.remove('active'));
+              document.querySelector('.orders-tab[data-tab="list"]').classList.add('active');
+              document.querySelectorAll('.orders-tab-panel').forEach(p => p.classList.remove('active'));
+              document.getElementById('orders-tab-list').classList.add('active');
+              fetchOrders();
+            } catch (err) {
+              alert(`更新失敗：${err.message}`);
+            }
+          };
+
           // 重複檢查（已確認繼續則跳過）
           if (!duplicateConfirmed) {
             const duplicates = await checkDuplicateOrder();
             if (duplicates && duplicates.length) {
-              showDuplicateCard(duplicates);
+              // 彈出重複卡；按「仍然繼續」直接提交已收集的 data（onConfirm）
+              showDuplicateCard(duplicates, 'submit', performSubmit);
               return;
             }
           }
           duplicateConfirmed = false; // 重置，確保下次提交再次檢查
-
-          try {
-            await apiFetch(`/api/orders/${order.id}`, {
-              method: 'PUT',
-              body: JSON.stringify(data)
-            });
-            alert('訂單已更新！');
-            editingOrderId = null;
-            // 切回列表
-            document.querySelectorAll('.orders-tab').forEach(t => t.classList.remove('active'));
-            document.querySelector('.orders-tab[data-tab="list"]').classList.add('active');
-            document.querySelectorAll('.orders-tab-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('orders-tab-list').classList.add('active');
-            fetchOrders();
-          } catch (err) {
-            alert(`更新失敗：${err.message}`);
-          }
+          await performSubmit();
         };
       }
     }, 50);
@@ -2093,6 +2204,7 @@ function setupOrdersSearch() {
   const searchInput = document.getElementById('orders-search-input');
   const statusFilter = document.getElementById('orders-status-filter');
   const refreshBtn = document.getElementById('btn-orders-refresh');
+  const todayPickupBtn = document.getElementById('btn-orders-today-pickup');
 
   if (searchInput) {
     searchInput.addEventListener('input', debounce(fetchOrders, 350));
@@ -2102,6 +2214,15 @@ function setupOrdersSearch() {
   }
   if (refreshBtn) {
     refreshBtn.addEventListener('click', fetchOrders);
+  }
+  // 「今天的收貨」切換按鈕
+  if (todayPickupBtn) {
+    todayPickupBtn.addEventListener('click', () => {
+      todayPickupActive = !todayPickupActive;
+      todayPickupBtn.classList.toggle('active', todayPickupActive);
+      todayPickupBtn.textContent = todayPickupActive ? '📥 今天的收貨 ✓' : '📥 今天的收貨';
+      fetchOrders();
+    });
   }
 }
 

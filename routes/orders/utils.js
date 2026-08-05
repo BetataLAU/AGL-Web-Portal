@@ -58,7 +58,7 @@ function generateOrderNo(callback) {
   const prefix = `${ORDER_NO_PREFIX}${yyyy}${mm}${dd}-`;
 
   db.get(
-    "SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY order_no DESC LIMIT 1",
+    "SELECT order_no FROM orders WHERE order_no LIKE ? ORDER BY id DESC LIMIT 1",
     [`${prefix}%`],
     (err, row) => {
       if (err) return callback(err);

@@ -5,7 +5,9 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 16px 0;
+  padding-bottom: 14px;                 /* 分隔線與按鈕之間留白 */
+  border-bottom: 1px solid var(--border-color);  /* 「＋ 新建訂單」下一行分線 */
+  margin: 16px 0 20px;                  /* 分隔線與下方內容留白 */
 }
 
 .orders-tab {
@@ -348,7 +350,7 @@
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
-  margin-top: 8px;
+  margin-top: 80px;
 }
 
 .orders-submit-btn:hover {
@@ -425,6 +427,7 @@
   padding: 16px;
   margin-bottom: 12px;
   cursor: pointer;
+  position: relative;   /* 讓狀態徽章固定右上角 */
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -437,7 +440,7 @@
 .orders-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   flex-wrap: wrap;
 }
@@ -445,6 +448,7 @@
 .orders-card-title {
   font-weight: 700;
   font-size: 1.05rem;
+  padding-right: 88px;  /* 預留右上角狀態徽章空間 */
 }
 
 .orders-card-meta {
@@ -457,8 +461,33 @@
   margin-top: 6px;
 }
 
+/* 卡片底部：流水號放左下角 */
+.orders-card-footer {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.orders-card-order-no {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* 「今天的收貨」按鈕切換高亮 */
+#btn-orders-today-pickup.active {
+  background: var(--primary-gradient);
+  color: white;
+  border-color: transparent;
+}
+
+/* 處理狀態：固定在卡片右上角 */
 .order-status-badge {
-  display: inline-block;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.8rem;
@@ -532,6 +561,8 @@
 .orders-detail-field .detail-value {
   font-size: 0.95rem;
   font-weight: 500;
+  white-space: pre-wrap;      /* 保留備註等文字的換行 */
+  word-break: break-word;     /* 長字串自動換行 */
 }
 
 .orders-card-actions {
@@ -841,7 +872,8 @@
   margin-bottom: 2px;
 }
 
-.company-detail-field input {
+.company-detail-field input,
+.company-detail-field textarea {
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--border-color);
@@ -849,6 +881,12 @@
   background: var(--input-bg, var(--card-bg));
   color: var(--text-main);
   font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.company-detail-field textarea {
+  min-height: 60px;
+  resize: vertical;   /* 可拖曳上下調整高度 */
 }
 
 .company-detail-field.full {

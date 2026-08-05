@@ -99,10 +99,10 @@ function randomHawb() {
   return String(randInt(1000000000, 999999999999));
 }
 
-// 產生提貨號
-function randomPickupNo() {
+// 產生提貨號（使用訂單序號確保唯一，避免與用戶輸入撞號）
+function randomPickupNo(seq) {
   const yymm = '2608';
-  return `PK${yymm}-${String(randInt(1000, 9999))}`;
+  return `PK${yymm}-${String(seq).padStart(4, '0')}`;
 }
 
 // 產生 pickup_datetime（2026-08-05 ~ 2026-08-15，08:00~22:00）
@@ -294,7 +294,7 @@ db.serialize(() => {
             order_type: orderType,
             mawb,
             hawb: randomHawb(),
-            pickup_no: randomPickupNo(),
+            pickup_no: randomPickupNo(seq),
             pickup_datetime: randomPickupDatetime(),
             customer_company_id: customer.id,
             pickup_company_id: pickupCompanyId,

@@ -33,11 +33,12 @@ router.get('/', (req, res) => {
   });
 });
 
-// GET /api/orders/check-duplicate?mawb=&hawb=&pickup_no=&exclude_id=
+// GET /api/orders/check-duplicate?mawb=&hawb=&pickup_no=&customer_company_id=&exclude_id=
 router.get('/check-duplicate', (req, res) => {
   const mawb = (req.query.mawb || '').trim();
   const hawb = (req.query.hawb || '').trim();
   const pickupNo = (req.query.pickup_no || '').trim();
+  const customerCompanyId = req.query.customer_company_id ? parseInt(req.query.customer_company_id, 10) : null;
   const excludeId = req.query.exclude_id ? parseInt(req.query.exclude_id, 10) : null;
 
   const conditions = [];
@@ -51,8 +52,15 @@ router.get('/check-duplicate', (req, res) => {
     params.push(hawb);
   }
   if (pickupNo) {
-    conditions.push('o.pickup_no = ?');
-    params.push(pickupNo);
+    if (customerCompanyId) {
+      // 已選客戶 → 只比對同一客戶的提貨號（精確防呆）
+      conditions.push('(o.pickup_no = ? AND o.customer_company_id = ?)');
+      params.push(pickupNo, customerCompanyId);
+    } else {
+      // 未選客戶 → 全表比對（提醒用：不同客戶可有相同提貨號）
+      conditions.push('o.pickup_no = ?');
+      params.push(pickupNo);
+    }
   }
   if (excludeId) {
     conditions.push('o.id != ?');
@@ -64,11 +72,13 @@ router.get('/check-duplicate', (req, res) => {
 
   const sql = `
     SELECT o.*,
+           cc.name AS customer_company_name,
            pc.name AS pickup_company_name,
            dc.name AS delivery_company_name,
            strftime('%Y-%m-%dT%H:%M:%fZ', o.created_at) AS created_at,
            strftime('%Y-%m-%dT%H:%M:%fZ', o.updated_at) AS updated_at
     FROM orders o
+    LEFT JOIN companies cc ON cc.id = o.customer_company_id
     LEFT JOIN companies pc ON pc.id = o.pickup_company_id
     LEFT JOIN companies dc ON dc.id = o.delivery_company_id
     WHERE ${conditions.join(' OR ')}

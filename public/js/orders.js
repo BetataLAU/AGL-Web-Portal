@@ -494,6 +494,7 @@ async function checkDuplicateOrder() {
   const mawbVal = document.getElementById('order-mawb')?.value.trim() || '';
   const hawbVal = document.getElementById('order-hawb')?.value.trim() || '';
   const pickupVal = document.getElementById('order-pickup-no')?.value.trim() || '';
+  const customerCompanyId = document.getElementById('order-customer-id')?.value?.trim() || '';
 
   const params = new URLSearchParams();
   if (mawbVal && !isLateMawb(mawbVal)) {
@@ -503,6 +504,8 @@ async function checkDuplicateOrder() {
   }
   if (hawbVal) params.set('hawb', hawbVal);
   if (pickupVal) params.set('pickup_no', pickupVal);
+  // 已選客戶 → 後端只比對同一客戶的提貨號（精確）；未選客戶 → 全表提醒
+  if (customerCompanyId) params.set('customer_company_id', customerCompanyId);
   if (editingOrderId) params.set('exclude_id', editingOrderId);
 
   const query = params.toString();
@@ -526,6 +529,9 @@ function showDuplicateCard(orders, mode = 'submit', onConfirm = null) {
 
   if (!orders || !orders.length) return;
   const isBlurMode = mode === 'blur';
+  // 是否已選「需要提貨的客戶」；未選客戶時 pickup_no 重複只是提醒（不同客戶可用同號）
+  const customerCompanyId = (document.getElementById('order-customer-id')?.value || '').trim();
+  const isPickupReminderOnly = isBlurMode && !customerCompanyId;
 
   const entries = orders.map(order => {
     // 找出哪個欄位重複
@@ -540,9 +546,11 @@ function showDuplicateCard(orders, mode = 'submit', onConfirm = null) {
     // 沒有任何欄位真正與輸入值重複 → 不顯示（避免無重複的記錄混入）
     if (matchFields.length === 0) return null;
 
-    const companyName = order.order_type === 'delivery'
-      ? (order.delivery_company_name || order.pickup_company_name || '-')
-      : (order.pickup_company_name || order.delivery_company_name || '-');
+    // 顯示時優先使用客戶公司名稱（後端已 join 回傳）
+    const companyName = order.customer_company_name
+      || (order.order_type === 'delivery'
+        ? (order.delivery_company_name || order.pickup_company_name || '-')
+        : (order.pickup_company_name || order.delivery_company_name || '-'));
 
     // 只顯示有重複的欄位；不重複的欄位顯示「─」
     const mawbLabel = matchFields.includes('MAWB#')
@@ -562,7 +570,7 @@ function showDuplicateCard(orders, mode = 'submit', onConfirm = null) {
           <span class="duplicate-order-badge">${escapeHtml(matchFields.join('、'))}重複</span>
         </div>
         <div class="duplicate-order-meta">
-          <span>${escapeHtml(companyName)}</span>
+          <span>${isPickupReminderOnly ? '🏢 ' : ''}${escapeHtml(companyName)}</span>
           <span>${formatDateTime(order.created_at)}</span>
         </div>
         <div class="duplicate-order-meta">
@@ -578,9 +586,14 @@ function showDuplicateCard(orders, mode = 'submit', onConfirm = null) {
     `;
   }).filter(Boolean).join('');
 
+  // 未選客戶時：顯示提醒說明（不同客戶可以使用相同提貨號）
+  const reminderHtml = isPickupReminderOnly
+    ? `<div class="duplicate-order-reminder">ℹ️ 尚未選擇「需要提貨的客戶」。此提貨號曾在以下公司出現；<strong>不同客戶可以使用相同提貨號</strong>，請確認後繼續。選擇客戶後如屬同一客戶，提交時會再精確檢查。</div>`
+    : '';
+
   openModal({
-    title: '⚠️ 發現重複訂單',
-    body: `<div class="duplicate-order-list">${entries}</div>`,
+    title: isPickupReminderOnly ? '🔔 提貨號曾被使用（提醒）' : '⚠️ 發現重複訂單',
+    body: `${reminderHtml}<div class="duplicate-order-list">${entries}</div>`,
     className: 'duplicate-order-modal',
     actions: [
       {
@@ -807,10 +820,23 @@ function renderNewOrderForm(prefill = null) {
               <label>備註文件範本</label>
               <div class="note-template-search">
                 <input type="text" id="note-template-input" placeholder="輸入關鍵字搜尋備註範本..." autocomplete="off" />
-                <button type="button" class="pill note-template-save-btn" id="btn-save-note-template-standalone" title="以輸入的名稱儲存為範本">💾 儲存</button>
                 <div class="note-template-list" id="note-template-list"></div>
               </div>
               <div class="note-template-status" id="note-template-status"></div>
+              <div class="note-template-creator">
+                <div class="note-template-creator-title">➕ 建立新範本</div>
+                <div class="note-template-creator-grid">
+                  <div class="note-template-creator-field">
+                    <label>範本名稱</label>
+                    <input type="text" id="note-template-new-name" placeholder="例如：貴重物品搬運提醒" autocomplete="off" />
+                  </div>
+                  <div class="note-template-creator-field full">
+                    <label>範本內容</label>
+                    <textarea id="note-template-new-content" placeholder="輸入範本文字內容..."></textarea>
+                  </div>
+                </div>
+                <button type="button" class="pill note-template-save-btn" id="btn-save-note-template-new">💾 儲存為範本</button>
+              </div>
             </div>
             <div id="cbm-dim-preview" class="orders-form-field full" style="display:none;"></div>
           </div>
@@ -1011,16 +1037,17 @@ function setupNoteTemplateSearch() {
     setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 3000);
   }
 
-  // 進入「修改模式」：將範本內容載入備註 textarea（覆蓋），顯示修改工具列
+  // 進入「修改模式」：將範本名稱/內容載入下方「建立新範本」區域，顯示修改工具列
   function enterEditMode(tpl) {
     if (!tpl) return;
     editingTemplateId = tpl.id;
-    const notesEl = document.getElementById('order-notes');
-    notesEl.value = tpl.content || '';
-    input.value = tpl.name;
+    const newNameInput = document.getElementById('note-template-new-name');
+    const newContentInput = document.getElementById('note-template-new-content');
+    if (newNameInput) newNameInput.value = tpl.name || '';
+    if (newContentInput) newContentInput.value = tpl.content || '';
     statusEl.innerHTML = `
       <div class="note-template-edit-bar">
-        <span class="note-template-edit-label">✏️ 正在修改範本「${escapeHtml(tpl.name)}」</span>
+        <span class="note-template-edit-label">✏️ 正在修改範本「${escapeHtml(tpl.name)}」（下方欄位已載入，請修改後儲存）</span>
         <span class="note-template-edit-actions">
           <button type="button" class="pill" id="btn-save-edit-template">✅ 儲存修改</button>
           <button type="button" class="pill" id="btn-cancel-edit-template">✖ 取消</button>
@@ -1029,33 +1056,36 @@ function setupNoteTemplateSearch() {
     `;
     closeList();
 
-    // 儲存修改 → 同名覆寫
+    // 儲存修改 → 使用下方「建立新範本」區域的名稱與內容（同名覆寫）
     const saveBtn = document.getElementById('btn-save-edit-template');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
-        const name = input.value.trim();
-        const content = notesEl.value.trim();
-        if (!content) {
-          alert('「備註（選填）」內容不可為空，才可儲存範本。');
+        const name = (newNameInput ? newNameInput.value : '').trim();
+        const content = (newContentInput ? newContentInput.value : '').trim();
+        if (!name || !content) {
+          alert('請填寫範本名稱與內容。');
           return;
         }
         try {
           await saveNoteTemplate(name, content);
           statusEl.innerHTML = `<div class="note-template-saved">✅ 範本「${escapeHtml(name)}」已更新。</div>`;
           editingTemplateId = null;
-          notesEl.focus();
+          if (newNameInput) newNameInput.value = '';
+          if (newContentInput) newContentInput.value = '';
         } catch (err) {
           statusEl.innerHTML = `<div class="note-template-saved">❌ 儲存失敗：${escapeHtml(err.message)}</div>`;
         }
       });
     }
 
-    // 取消修改
+    // 取消修改 → 清空下方區域
     const cancelBtn = document.getElementById('btn-cancel-edit-template');
     if (cancelBtn) {
       cancelBtn.addEventListener('click', () => {
         editingTemplateId = null;
         statusEl.innerHTML = '';
+        if (newNameInput) newNameInput.value = '';
+        if (newContentInput) newContentInput.value = '';
         input.focus();
       });
     }
@@ -1070,7 +1100,7 @@ function setupNoteTemplateSearch() {
       return false;
     }
     if (!content) {
-      alert('請先在「備註（選填）」輸入內容，才可儲存為範本。');
+      alert('請輸入範本內容。');
       return false;
     }
     // 檢查是否存在同名範本（精確比對）
@@ -1091,11 +1121,13 @@ function setupNoteTemplateSearch() {
     }
   }
 
-  // 常駐「💾 儲存」按鈕：以輸入框的名稱儲存為範本
-  const standaloneSaveBtn = document.getElementById('btn-save-note-template-standalone');
-  if (standaloneSaveBtn) {
-    standaloneSaveBtn.addEventListener('click', async () => {
-      await saveAs(input.value, document.getElementById('order-notes').value);
+  // 「儲存為範本」按鈕：以下方「建立新範本」區域的名稱與內容儲存
+  const newNameInput = document.getElementById('note-template-new-name');
+  const newContentInput = document.getElementById('note-template-new-content');
+  const newSaveBtn = document.getElementById('btn-save-note-template-new');
+  if (newSaveBtn && newNameInput && newContentInput) {
+    newSaveBtn.addEventListener('click', async () => {
+      await saveAs(newNameInput.value, newContentInput.value);
     });
   }
 
@@ -1115,16 +1147,8 @@ function setupNoteTemplateSearch() {
     if (!templates.length) {
       listEl.style.display = 'none';
       statusEl.innerHTML = `
-        <div class="note-template-empty">「${escapeHtml(q || '')}」沒有找到範本。
-          <button type="button" class="pill" id="btn-save-note-template">💾 儲存為新範本</button>
-        </div>
+        <div class="note-template-empty">「${escapeHtml(q || '')}」沒有找到範本。可用下方「➕ 建立新範本」填寫名稱與內容後儲存。</div>
       `;
-      const saveBtn = document.getElementById('btn-save-note-template');
-      if (saveBtn && q) {
-        saveBtn.addEventListener('click', async () => {
-          await saveAs(q, document.getElementById('order-notes').value);
-        });
-      }
       return;
     }
     statusEl.innerHTML = '';
@@ -1850,7 +1874,10 @@ function renderOrdersList(orders) {
   }).join('');
 
   container.querySelectorAll('.orders-card-item').forEach(card => {
-    card.addEventListener('click', async () => {
+    card.addEventListener('click', (e) => {
+      // 點擊互動元素（SELECT/BUTTON/INPUT 等）→ 不切換展開/收合，避免誤觸收合
+      const tag = e.target.tagName;
+      if (['SELECT', 'BUTTON', 'INPUT', 'TEXTAREA', 'A', 'LABEL'].includes(tag)) return;
       const id = card.dataset.id;
       const isOpen = card.classList.contains('open');
       // 關閉其他
@@ -2001,6 +2028,8 @@ function setupOrderDetailActions(order) {
   // 狀態變更
   const statusSelect = document.querySelector(`.order-status-select[data-order-id="${order.id}"]`);
   if (statusSelect) {
+    // 防止點擊/展開狀態選單時冒泡到卡片 handler 造成瞬間收合
+    statusSelect.addEventListener('click', (e) => e.stopPropagation());
     statusSelect.addEventListener('change', async () => {
       try {
         await apiFetch(`/api/orders/${order.id}`, {

@@ -398,6 +398,11 @@
   align-items: center;
 }
 
+/* 「重新整理」按鈕固定在控制列最右邊 */
+.orders-list-controls #btn-orders-refresh {
+  margin-left: auto;
+}
+
 .orders-list-controls input[type="search"] {
   flex: 1;
   min-width: 220px;
@@ -1239,6 +1244,76 @@
 .note-template-saved {
   font-size: 0.85rem;
   margin-top: 6px;
+}
+
+/* ===== 建立新範本區域 ===== */
+.note-template-creator {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  background: rgba(22, 163, 74, 0.04);
+}
+
+.note-template-creator-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #15803d;
+  margin-bottom: 10px;
+}
+
+.note-template-creator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.note-template-creator-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.note-template-creator-field.full {
+  grid-column: 1 / -1;
+}
+
+.note-template-creator-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.note-template-creator-field input,
+.note-template-creator-field textarea {
+  padding: 9px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-main);
+  font-size: 0.85rem;
+}
+
+.note-template-creator-field textarea {
+  resize: vertical;
+  min-height: 68px;
+}
+
+.note-template-creator-field input:focus,
+.note-template-creator-field textarea:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.note-template-creator .note-template-save-btn {
+  margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+  .note-template-creator-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ===== CBM DIM 預覽 ===== */

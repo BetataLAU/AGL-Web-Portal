@@ -4,6 +4,7 @@ const router = express.Router();
 const {
   MAWB_LATE_LABEL,
   validateMawb,
+  validateHawb,
   generateOrderNo,
   serializeOrder,
   ORDER_SELECT_SQL
@@ -114,6 +115,12 @@ router.post('/', (req, res) => {
     }
     finalMawb = mawbResult.formatted;
   }
+  // HAWB# 驗證：選填；有值必須為 1-13 位英文字母或數字（自動轉大楷）
+  const hawbResult = validateHawb(hawb);
+  if (!hawbResult.valid) {
+    return res.status(400).json({ error: hawbResult.error });
+  }
+  const finalHawb = hawbResult.value;
   if (!pickup_company_id && !delivery_company_id) {
     return res.status(400).json({ error: '請選擇收/送貨公司' });
   }
@@ -141,7 +148,7 @@ router.post('/', (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      orderNo, order_type, finalMawb, hawb, pickup_no,
+      orderNo, order_type, finalMawb, finalHawb, pickup_no,
       pickup_datetime || null,
       customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
@@ -195,6 +202,12 @@ router.put('/:id', (req, res) => {
     }
     finalMawb = mawbResult.formatted;
   }
+  // HAWB# 驗證：選填；有值必須為 1-13 位英文字母或數字（自動轉大楷）
+  const hawbResult = validateHawb(hawb);
+  if (!hawbResult.valid) {
+    return res.status(400).json({ error: hawbResult.error });
+  }
+  const finalHawb = hawbResult.value;
 
   const stmt = db.prepare(`
     UPDATE orders SET
@@ -208,7 +221,7 @@ router.put('/:id', (req, res) => {
     WHERE id = ?
   `);
   stmt.run(
-    order_type, finalMawb, hawb, pickup_no,
+    order_type, finalMawb, finalHawb, pickup_no,
     pickup_datetime || null,
     customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
     cargo_desc, quantity, weight_kg, cbm,

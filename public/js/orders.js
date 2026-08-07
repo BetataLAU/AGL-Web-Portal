@@ -28,6 +28,8 @@ const CATEGORY_LABEL = {
 const ORDER_TYPE_LABEL = { delivery: '🚚 送貨', pickup: '📥 收貨' };
 const STATUS_LABEL = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
 const POWER_TYPE_LABEL = { no: '⚡ 無電', dry: '🔋 乾電', lithium: '🔋 鋰電' };
+// 「後補電池資訊」標記（提交時未選擇電池類型的訂單）
+const POWER_LATE_LABEL = '後補電池資訊';
 const POWER_CODES = {
   dry: ['A67', 'A123', 'A199'],
   lithium: ['PI965', 'PI966', 'PI967', 'PI968', 'PI969', 'PI970']
@@ -443,7 +445,7 @@ function showCompanyUpdateModal(changesByField, onConfirm) {
   });
 }
 
-// ===== 備註文件範本 =====
+// ===== 備註文字範本 =====
 async function searchNoteTemplates(query) {
   try {
     const params = new URLSearchParams();
@@ -659,6 +661,11 @@ function companySelectOptions(selectedId) {
 function renderNewOrderForm(prefill = null) {
   const container = document.getElementById('orders-new-form');
   if (!container) return;
+  if (!prefill) {
+    // 新增模式：重置編輯狀態，避免誤將「新增」當作對上一單的「更新」（會覆蓋舊訂單資料）
+    editingOrderId = null;
+    currentOrderType = 'pickup';
+  }
   duplicateConfirmed = false; // 新表單重置重複確認狀態
 
   // 載入公司資料
@@ -699,8 +706,8 @@ function renderNewOrderForm(prefill = null) {
             </div>
             <div class="orders-form-field">
               <label>HAWB#</label>
-              <input type="text" id="order-hawb" placeholder="如 HKG-987654（選填）" />
-              <div class="orders-field-hint" id="hawb-hint"></div>
+              <input type="text" id="order-hawb" placeholder="如 ABC123456789（選填）" maxlength="13" />
+              <div class="orders-field-hint" id="hawb-hint">限英文字母或數字（自動轉大楷），最多 13 字（選填）</div>
             </div>
             <div class="orders-form-field full">
               <label>需要提貨的客戶 *</label>
@@ -817,25 +824,30 @@ function renderNewOrderForm(prefill = null) {
               <textarea id="order-notes" placeholder="其他特殊指示...">${escapeAttr(fields.notes)}</textarea>
             </div>
             <div class="orders-form-field full">
-              <label>備註文件範本</label>
+              <label>備註文字範本</label>
               <div class="note-template-search">
                 <input type="text" id="note-template-input" placeholder="輸入關鍵字搜尋備註範本..." autocomplete="off" />
                 <div class="note-template-list" id="note-template-list"></div>
               </div>
               <div class="note-template-status" id="note-template-status"></div>
               <div class="note-template-creator">
-                <div class="note-template-creator-title">➕ 建立新範本</div>
-                <div class="note-template-creator-grid">
-                  <div class="note-template-creator-field">
-                    <label>範本名稱</label>
-                    <input type="text" id="note-template-new-name" placeholder="例如：貴重物品搬運提醒" autocomplete="off" />
+                <button type="button" class="note-template-creator-toggle" aria-expanded="false">
+                  <span>➕ 建立新文字範本</span>
+                  <span class="note-template-creator-arrow">▶</span>
+                </button>
+                <div class="note-template-creator-body">
+                  <div class="note-template-creator-grid">
+                    <div class="note-template-creator-field">
+                      <label>範本名稱</label>
+                      <input type="text" id="note-template-new-name" placeholder="例如：貴重物品搬運提醒" autocomplete="off" />
+                    </div>
+                    <div class="note-template-creator-field full">
+                      <label>範本內容</label>
+                      <textarea id="note-template-new-content" placeholder="輸入範本文字內容..."></textarea>
+                    </div>
                   </div>
-                  <div class="note-template-creator-field full">
-                    <label>範本內容</label>
-                    <textarea id="note-template-new-content" placeholder="輸入範本文字內容..."></textarea>
-                  </div>
+                  <button type="button" class="pill note-template-save-btn" id="btn-save-note-template-new">💾 儲存為範本</button>
                 </div>
-                <button type="button" class="pill note-template-save-btn" id="btn-save-note-template-new">💾 儲存為範本</button>
               </div>
             </div>
             <div id="cbm-dim-preview" class="orders-form-field full" style="display:none;"></div>
@@ -984,9 +996,11 @@ function renderPowerItemsList() {
   });
 }
 
-// 將電力組合轉為可讀文字，如「A67 × 5 件、A199 × 11 件」或「ELI/PI967 × 2 件」
+// 將電力組合轉為可讀文字，如「A67 × 5 件 ｜ A199 × 11 件」或「ELI/PI967 × 2 件」
 function formatPowerItems(order) {
   if (!order) return '⚡ 無電';
+  // 後補電池資訊標記
+  if (order.power_type === 'late') return '🔋 後補電池資訊';
   if (order.power_items && order.power_items.length) {
     // 純無電（只有一項且是 no）→ 只顯示「⚡ 無電」
     if (order.power_items.length === 1 && order.power_items[0].type === 'no') {
@@ -996,14 +1010,14 @@ function formatPowerItems(order) {
       if (item.type === 'no') return `⚡ 無電 × ${item.qty} 件`;
       const label = item.main ? `${item.main}/${item.code}` : (item.code || '');
       return `${label} × ${item.qty} 件`;
-    }).join('、');
+    }).join('｜');
   }
   // 舊資料相容
   if (order.power_type === 'no' || !order.power_type) return '⚡ 無電';
   return `${POWER_TYPE_LABEL[order.power_type] || order.power_type}${order.power_code ? ` (${order.power_code})` : ''}`;
 }
 
-// ===== 備註文件範本搜尋 =====
+// ===== 備註文字範本搜尋 =====
 function setupNoteTemplateSearch() {
   const input = document.getElementById('note-template-input');
   if (!input) return;
@@ -1014,6 +1028,24 @@ function setupNoteTemplateSearch() {
   let currentTemplates = [];
   let activeIndex = -1;
   let editingTemplateId = null; // 目前正在修改的範本 id
+
+  // 「➕ 建立新文字範本」卡片：預設收埋，點標題列展開/收回
+  const creatorEl = document.querySelector('.note-template-creator');
+  const creatorToggle = creatorEl ? creatorEl.querySelector('.note-template-creator-toggle') : null;
+  if (creatorToggle) {
+    creatorToggle.addEventListener('click', () => {
+      const isOpen = creatorEl.classList.toggle('open');
+      creatorToggle.setAttribute('aria-expanded', String(isOpen));
+    });
+  }
+
+  // 展開「建立新文字範本」卡片（修改範本 / 搜尋無結果時自動展開）
+  function expandCreator() {
+    if (!creatorEl) return;
+    creatorEl.classList.add('open');
+    const btn = creatorEl.querySelector('.note-template-creator-toggle');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  }
 
   function closeList() {
     listEl.innerHTML = '';
@@ -1037,10 +1069,11 @@ function setupNoteTemplateSearch() {
     setTimeout(() => { if (statusEl) statusEl.innerHTML = ''; }, 3000);
   }
 
-  // 進入「修改模式」：將範本名稱/內容載入下方「建立新範本」區域，顯示修改工具列
+  // 進入「修改模式」：將範本名稱/內容載入下方「建立新文字範本」區域，顯示修改工具列
   function enterEditMode(tpl) {
     if (!tpl) return;
     editingTemplateId = tpl.id;
+    expandCreator(); // 展開卡片，讓使用者看到已載入的欄位
     const newNameInput = document.getElementById('note-template-new-name');
     const newContentInput = document.getElementById('note-template-new-content');
     if (newNameInput) newNameInput.value = tpl.name || '';
@@ -1056,7 +1089,7 @@ function setupNoteTemplateSearch() {
     `;
     closeList();
 
-    // 儲存修改 → 使用下方「建立新範本」區域的名稱與內容（同名覆寫）
+    // 儲存修改 → 使用下方「建立新文字範本」區域的名稱與內容（同名覆寫）
     const saveBtn = document.getElementById('btn-save-edit-template');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
@@ -1121,7 +1154,7 @@ function setupNoteTemplateSearch() {
     }
   }
 
-  // 「儲存為範本」按鈕：以下方「建立新範本」區域的名稱與內容儲存
+  // 「儲存為範本」按鈕：以下方「建立新文字範本」區域的名稱與內容儲存
   const newNameInput = document.getElementById('note-template-new-name');
   const newContentInput = document.getElementById('note-template-new-content');
   const newSaveBtn = document.getElementById('btn-save-note-template-new');
@@ -1147,8 +1180,9 @@ function setupNoteTemplateSearch() {
     if (!templates.length) {
       listEl.style.display = 'none';
       statusEl.innerHTML = `
-        <div class="note-template-empty">「${escapeHtml(q || '')}」沒有找到範本。可用下方「➕ 建立新範本」填寫名稱與內容後儲存。</div>
+        <div class="note-template-empty">「${escapeHtml(q || '')}」沒有找到範本。可用下方「➕ 建立新文字範本」填寫名稱與內容後儲存。</div>
       `;
+      expandCreator(); // 無結果時自動展開建立區，方便直接填寫
       return;
     }
     statusEl.innerHTML = '';
@@ -1251,7 +1285,8 @@ function getCurrentFormData() {
       code = codeInput.value.trim();
     }
     const qty = qtyInput ? qtyInput.value : '';
-    if (qty) {
+    // 「無電」行可不輸入件數（本身代表無電池）；其他類型仍需件數
+    if (qty || rowType === 'no') {
       items.push({ type: rowType, main, code, qty });
     }
   });
@@ -1276,10 +1311,10 @@ function getCurrentFormData() {
 
   const urgent = document.querySelector('.orders-choice-btn[data-urgent].selected')?.dataset.urgent || 'no';
 
-  // 驗證：至少需要一筆有效項目
+  // 完全沒輸入電池類型 → 標記為後補（power_type='late'），由提交時向用戶確認
   if (items.length === 0) {
-    alert('請在「帶電種類及件數」加入至少一筆項目並輸入件數。（如全部無電，點「⚡ 無電」加入並輸入件數）');
-    return null;
+    powerType = 'late';
+    powerCode = POWER_LATE_LABEL;
   }
 
   const pickupDate = document.getElementById('order-pickup-date')?.value || '';
@@ -1387,7 +1422,7 @@ function setupNewOrderFormEvents() {
     popup: document.getElementById('pickup-time-popup')
   });
 
-  // 備註文件範本搜尋
+  // 備註文字範本搜尋
   setupNoteTemplateSearch();
 
   // MAWB# 輸入即時格式化 + 失焦驗證
@@ -1428,6 +1463,12 @@ function setupNewOrderFormEvents() {
       }
     });
   }
+
+  // HAWB# 輸入即時過濾 + 失焦驗證（邏輯於 utils/hawb-utils.js）
+  setupHawbInput({
+    input: document.getElementById('order-hawb'),
+    hintEl: document.getElementById('hawb-hint')
+  });
 
   // ===== 三個欄位（MAWB / HAWB / 客戶提貨號）blur 即時重複檢查 =====
   // 共用 debounce：快速跳欄位時只發一次請求（變數在全域，submit handler 需 clearTimeout 防止 blur 卡片覆蓋「仍然繼續」卡片）
@@ -1528,6 +1569,15 @@ function setupNewOrderFormEvents() {
       const data = getCurrentFormData();
       if (!data) return;
 
+      // ===== 電池資訊後補確認（完全沒輸入電池類型時）=====
+      if (data.power_type === 'late') {
+        if (!confirm(`⚠️ 尚未選擇電池類型（帶電種類及件數）。\n\n電池資訊是否後補？\n\n按「確定」= 以後補電池資訊提交訂單\n按「取消」= 返回填寫電池資料`)) {
+          const powerBtn = document.querySelector('[data-add-power="no"]');
+          if (powerBtn) powerBtn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          return;
+        }
+      }
+
       // ===== 自動儲存新公司（收貨/交回地點手動輸入的新名字）=====
       // 若地點輸入框有值但 hidden id 為空 → 表示是新公司名，先建立到公司庫
       const locationAInput = document.getElementById('order-location-a');
@@ -1579,7 +1629,8 @@ function setupNewOrderFormEvents() {
             }
             if (item.hidden) item.hidden.value = companyId;
           }
-          // 更新 data 的 company id
+          // 更新 data 的 company id（客戶 + 地點 A/B）
+          data.customer_company_id = document.getElementById('order-customer-id').value || '';
           data.pickup_company_id = document.getElementById('order-location-a-id').value || '';
           data.delivery_company_id = document.getElementById('order-location-b-id').value || '';
         } catch (err) {
@@ -1641,6 +1692,17 @@ function setupNewOrderFormEvents() {
         }
         // 統一儲存為標準格式 000-0000 0000
         data.mawb = mawbResult.formatted;
+      }
+
+      // HAWB# 驗證：只允許英數字、最多 13 字（輸入時已自動過濾轉大楷；此處攔截編輯舊資料中的符號）
+      const hawbValue = document.getElementById('order-hawb').value.trim();
+      if (hawbValue) {
+        const hawbResult = validateHawb(hawbValue);
+        if (!hawbResult.valid) {
+          alert(`❌ ${hawbResult.error}`);
+          document.getElementById('order-hawb').focus();
+          return;
+        }
       }
 
       // 定義提交函數（「仍然繼續」時直接呼叫，避免重跑整個 handler 與重複彈 MAWB 確認）
@@ -1852,6 +1914,9 @@ function renderOrdersList(orders) {
         </div>
         <div class="orders-card-meta">
           <span>📅 ${formatDateTime(order.created_at)}</span>
+        </div>
+        <div class="orders-card-meta">
+          <span>🏢 需要提貨的客戶：${escapeHtml(order.customer_company_name || '-')}</span>
         </div>
         <div class="orders-card-meta">
           <span>🧾 MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
@@ -2101,7 +2166,7 @@ function loadOrderToForm(order) {
     setTimeout(() => {
       // 後補MAWB# → 輸入框留空（提交時再確認）
       document.getElementById('order-mawb').value = (order.mawb && !isLateMawb(order.mawb)) ? formatMawb(order.mawb) : '';
-      document.getElementById('order-hawb').value = order.hawb || '';
+      document.getElementById('order-hawb').value = String(order.hawb || '').toUpperCase();
       document.getElementById('order-pickup-no').value = order.pickup_no || '';
       document.getElementById('order-mawb').dispatchEvent(new Event('change'));
 

@@ -82,7 +82,7 @@ db.serialize(() => {
     )
   `);
 
-  // ===== 訂單系統：備註文件範本 =====
+  // ===== 訂單系統：備註文字範本 =====
   db.run(`
     CREATE TABLE IF NOT EXISTS note_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1095,7 +1095,7 @@
   50% { background-color: rgba(220, 38, 38, 0.4); color: #fff; }
 }
 
-/* ===== 備註文件範本 ===== */
+/* ===== 備註文字範本 ===== */
 .note-template-search {
   position: relative;
   display: flex;
@@ -1246,7 +1246,7 @@
   margin-top: 6px;
 }
 
-/* ===== 建立新範本區域 ===== */
+/* ===== 建立新文字範本區域 ===== */
 .note-template-creator {
   margin-top: 12px;
   padding: 14px;
@@ -1255,11 +1255,50 @@
   background: rgba(22, 163, 74, 0.04);
 }
 
-.note-template-creator-title {
+/* 標題列：可點擊展開/收回整個卡片 */
+.note-template-creator-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 8px;
+  font-family: inherit;
   font-size: 0.85rem;
   font-weight: 700;
   color: #15803d;
-  margin-bottom: 10px;
+  text-align: left;
+}
+
+.note-template-creator-toggle:hover {
+  background: rgba(22, 163, 74, 0.08);
+}
+
+.note-template-creator-toggle:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
+}
+
+.note-template-creator-arrow {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+}
+
+.note-template-creator.open .note-template-creator-arrow {
+  transform: rotate(90deg);
+}
+
+/* 內容區：預設收埋，卡片加 .open 才顯示 */
+.note-template-creator-body {
+  display: none;
+  margin-top: 10px;
+}
+
+.note-template-creator.open .note-template-creator-body {
+  display: block;
 }
 
 .note-template-creator-grid {

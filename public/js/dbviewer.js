@@ -9,7 +9,7 @@ const TABLE_LABELS = {
   messages: '論壇 / 留言',
   companies: '公司 / 地點',
   templates: '訂單範本',
-  note_templates: '備註文件範本',
+  note_templates: '備註文字範本',
   orders: '訂單'
 };
 
@@ -62,7 +62,7 @@ const HIDDEN_FIELDS = ['id', 'created_at', 'updated_at'];
 
 // 長文字欄位 → 表單渲染為可縮放 textarea
 const TEXTAREA_COLUMNS = new Set([
-  'content',      // 備註文件範本內容
+  'content',      // 備註文字範本內容
   'notes',        // 備註
   'address',      // 地址
   'cargo_desc',   // 貨品描述
@@ -101,7 +101,10 @@ function renderDbTableTabs() {
   const container = document.getElementById('dbviewer-tables');
   if (!container) return;
 
-  container.innerHTML = dbTablesData.map(t => `
+  container.innerHTML = dbTablesData
+    // 不顯示「訂單範本」Tab（僅移除頁面按鈕，templates 表與後端保留）
+    .filter(t => t.name !== 'templates')
+    .map(t => `
     <button type="button" class="db-table-tab ${currentDbTable === t.name ? 'active' : ''}" data-table="${t.name}">
       ${TABLE_LABELS[t.name] || t.name}
       <span class="db-table-count">${t.count}</span>
@@ -538,10 +541,10 @@ function showEditForm(tableName, editableColumns, row, fkOptions) {
   });
 }
 
-// ===== 備註文件範本管理（獨立介面） =====
+// ===== 備註文字範本管理（獨立介面） =====
 let noteTemplatesData = [];
 
-// 載入所有備註文件範本
+// 載入所有備註文字範本
 async function loadNoteTemplates() {
   const result = await apiDbFetch('/api/orders/note-templates');
   noteTemplatesData = result.data || [];
@@ -554,7 +557,7 @@ function renderNoteTemplatesList() {
   if (!listEl) return;
 
   if (noteTemplatesData.length === 0) {
-    listEl.innerHTML = '<div class="empty-state">目前沒有備註文件範本。</div>';
+    listEl.innerHTML = '<div class="empty-state">目前沒有備註文字範本。</div>';
     return;
   }
 
@@ -690,11 +693,11 @@ function renderNoteTemplateCount() {
   const btn = document.getElementById('btn-dbviewer-note-templates');
   if (btn) {
     const count = noteTemplatesData.length;
-    btn.innerHTML = `<i class="fa-solid fa-note-sticky"></i> 📝 備註文件範本${count > 0 ? ` (${count})` : ''}`;
+    btn.innerHTML = `<i class="fa-solid fa-note-sticky"></i> 📝 備註文字範本${count > 0 ? ` (${count})` : ''}`;
   }
 }
 
-// 開啟備註文件範本管理 Modal
+// 開啟備註文字範本管理 Modal
 function openNoteTemplatesModal() {
   let overlay = document.getElementById('note-templates-modal');
   if (!overlay) {
@@ -704,7 +707,7 @@ function openNoteTemplatesModal() {
     overlay.innerHTML = `
       <div class="db-form-card note-templates-modal-card">
         <div class="db-form-header">
-          <h3><i class="fa-solid fa-note-sticky"></i> 📝 備註文件範本管理</h3>
+          <h3><i class="fa-solid fa-note-sticky"></i> 📝 備註文字範本管理</h3>
           <button type="button" class="db-form-close" id="btn-note-templates-close">&times;</button>
         </div>
         <div class="note-templates-modal-body">
@@ -718,7 +721,7 @@ function openNoteTemplatesModal() {
             </div>
           </div>
           <div class="note-template-detail" id="note-template-detail">
-            <div class="empty-state">請選擇左側範本，或點「＋ 新增」建立新範本。</div>
+            <div class="empty-state">請選擇左側範本，或點「＋ 新增」建立新文字範本。</div>
           </div>
         </div>
       </div>

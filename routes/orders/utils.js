@@ -50,6 +50,18 @@ function validateMawb(value) {
   return { valid: true, late: false, error: null, formatted: formatMawb(digits) };
 }
 
+// 驗證 HAWB#：選填欄位；有值必須為 1-13 位英文字母或數字（自動轉大楷），不可包含符號或空格
+function validateHawb(value) {
+  const raw = (value == null ? '' : String(value)).trim().toUpperCase();
+  if (!raw) {
+    return { valid: true, value: '', error: null };
+  }
+  if (!/^[A-Z0-9]{1,13}$/.test(raw)) {
+    return { valid: false, value: null, error: 'HAWB# 只允許英文字母或數字（自動轉大楷），最多 13 字，不可包含符號或空格' };
+  }
+  return { valid: true, value: raw, error: null };
+}
+
 function generateOrderNo(callback) {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -146,6 +158,7 @@ module.exports = {
   normalizeMawb,
   formatMawb,
   validateMawb,
+  validateHawb,
   generateOrderNo,
   serializeOrder,
   ORDER_SELECT_SQL

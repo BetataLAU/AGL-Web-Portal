@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../../db/database');
 const router = express.Router();
 
-// ===== 備註文件範本 API =====
+// ===== 備註文字範本 API =====
 
 // GET /api/orders/note-templates?search=
 router.get('/', (req, res) => {

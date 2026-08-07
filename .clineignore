@@ -11,12 +11,6 @@ build/
 .git/
 .gitignore
 
-# 資料庫檔案（程式會自動建檔，勿直接編輯）
-*.db
-*.sqlite
-*.sqlite3
-database.db
-
 # 靜態資源（圖片、字型）
 public/image/
 public/fonts/

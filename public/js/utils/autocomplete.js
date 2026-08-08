@@ -57,7 +57,11 @@ function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMess
       const div = document.createElement('div');
       div.className = 'app-autocomplete-item';
       div.dataset.index = idx;
-      div.textContent = item;
+      if (window.highlightMatch) {
+        div.innerHTML = window.highlightMatch(item, input.value);
+      } else {
+        div.textContent = item;
+      }
       div.addEventListener('mousedown', (e) => {
         e.preventDefault();
         selectItem(item);

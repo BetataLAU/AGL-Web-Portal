@@ -1,6 +1,8 @@
 const express = require('express');
-const { exec, execFile } = require('child_process');
+const { exec, execFile, execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const db = require('../../db/database');
 const router = express.Router();
 const {
@@ -57,74 +59,124 @@ router.get('/email-apps', (req, res) => {
   res.json({ data: apps });
 });
 
-// POST /api/orders/open-email-client → 用指定郵件應用程式開啟 mailto URL
+// POST /api/orders/open-email-client
+// 新協議：{ client, subject, htmlBody, plainText }
+// 依使用者要求：TO:/CC: 一律不自動填入（收件人留空，由使用者在郵件程式自行輸入）
+// - outlook-classic：優先以 PowerShell + Outlook COM 建立 HTML 格線草稿（Display），失敗時 fallback mailto 純文字
+// - default：由前端自行處理（window.location.href = mailto:，body 用 plainText）
+function writeTempFile(filename, content) {
+  const filePath = path.join(os.tmpdir(), filename);
+  fs.writeFileSync(filePath, '\uFEFF' + content, 'utf8'); // 加 BOM 確保 PowerShell 讀中文無亂碼
+  return filePath;
+}
+
+function cleanTempFiles(files) {
+  files.forEach(f => { try { fs.unlinkSync(f); } catch (e) { /* ignore */ } });
+}
+
 router.post('/open-email-client', (req, res) => {
-  const { client, mailtoUrl } = req.body;
-  console.log('[open-email-client] 收到請求：', { client, mailtoUrl: mailtoUrl ? mailtoUrl.slice(0, 80) + '...' : mailtoUrl });
-  if (!mailtoUrl) {
-    return res.status(400).json({ error: '缺少 mailtoUrl' });
+  const { client, subject, htmlBody, plainText } = req.body;
+  console.log('[open-email-client] 收到請求：', { client, subject: subject ? subject.slice(0, 50) + '...' : '', hasHtml: !!htmlBody, hasText: !!plainText });
+  if (!subject) {
+    return res.status(400).json({ error: '缺少 subject' });
   }
 
   if (client === 'outlook-classic') {
-    const outlookExe = findOutlookClassic();
-    if (!outlookExe) {
-      console.error('[open-email-client] 找不到 Outlook Classic 執行檔');
-      return res.status(404).json({ error: '找不到 Outlook Classic 執行檔' });
+    // ===== 層級 1：PowerShell + Outlook COM 建立 HTML 格線草稿（TO/CC 留空）=====
+    const tmpFiles = [];
+    try {
+      const bodyFile = writeTempFile('agl-email-body.html', htmlBody || '');
+      const subjectFile = writeTempFile('agl-email-subject.txt', subject);
+      const psFile = writeTempFile('agl-email-com.ps1', [
+        "$ErrorActionPreference = 'Stop'",
+        "$bodyFile = '" + bodyFile + "'",
+        "$subjectFile = '" + subjectFile + "'",
+        "$bodyHtml = Get-Content -Path $bodyFile -Raw -Encoding UTF8",
+        "$subject = Get-Content -Path $subjectFile -Raw -Encoding UTF8",
+        "try {",
+        "  $outlook = New-Object -ComObject Outlook.Application",
+        "  $mail = $outlook.CreateItem(0)",
+        "  $mail.To = ''",
+        "  $mail.CC = ''",
+        "  $mail.Subject = $subject.Trim()",
+        "  $mail.HTMLBody = $bodyHtml",
+        "  $mail.Display()",
+        "  $mail = $null",
+        "  [System.Runtime.Interopservices.Marshal]::ReleaseComObject($outlook) | Out-Null",
+        "  Write-Output 'COM_OK'",
+        "} catch {",
+        "  Write-Error $_.Exception.Message",
+        "  exit 1",
+        "}"
+      ].join('\n'));
+      tmpFiles.push(bodyFile, subjectFile, psFile);
+
+      const out = execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', psFile], {
+        encoding: 'utf8', timeout: 60000, windowsHide: true
+      });
+      cleanTempFiles(tmpFiles);
+      if (String(out).includes('COM_OK')) {
+        console.log('[open-email-client] ✅ Outlook COM HTML 草稿已開啟（TO/CC 留空）');
+        return res.json({ success: true, layer: 'outlook-com-html' });
+      }
+      console.warn('[open-email-client] COM 未回傳成功標記，改用 mailto fallback');
+    } catch (comErr) {
+      cleanTempFiles(tmpFiles);
+      console.warn('[open-email-client] Outlook COM 失敗（' + (comErr.message || comErr) + '），改用 mailto fallback');
     }
-    console.log('[open-email-client] 使用 Outlook Classic 路徑：', outlookExe);
 
-    // Outlook Classic 支援 mailto 協議：OUTLOOK.EXE /c ipm.note /m "recipient?subject=...&body=..."
-    const mailtoCmd = String(mailtoUrl).replace(/^mailto:/i, '');
+    // ===== 層級 2：mailto fallback（純文字 body，收件人留空）=====
+    const outlookExe = findOutlookClassic();
+    const fallbackMailto = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(plainText || '');
+    if (outlookExe) {
+      const mailtoCmd = fallbackMailto.replace(/^mailto:/i, '');
+      const tryLayers = [
+        {
+          name: 'execFile 直接執行',
+          run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', mailtoCmd], { windowsHide: true }, cb)
+        },
+        {
+          name: 'execFile 帶引號參數',
+          run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', `"${mailtoCmd}"`], { windowsHide: true }, cb)
+        },
+        {
+          name: 'Outlook Protocol (start outlook:)',
+          run: (cb) => exec('start outlook:', { windowsHide: true }, cb)
+        }
+      ];
 
-    // ===== 多層 fallback 啟動策略 =====
-    // 層級 1：execFile 直接執行 OUTLOOK.EXE（不經過 cmd shell，避免 %/& 轉義問題）
-    // 層級 2：同上但 mailto 參數加雙引號
-    // 層級 3：exec 'start outlook:'（Outlook Protocol，GEMINI 建議）
-    // 層級 4：回傳錯誤
-    const tryLayers = [
-      {
-        name: 'execFile 直接執行',
-        run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', mailtoCmd], { windowsHide: true }, cb)
-      },
-      {
-        name: 'execFile 帶引號參數',
-        run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', `"${mailtoCmd}"`], { windowsHide: true }, cb)
-      },
-      {
-        name: 'Outlook Protocol (start outlook:)',
-        run: (cb) => exec('start outlook:', { windowsHide: true }, cb)
-      }
-    ];
-
-    let layerIndex = 0;
-    const tryNextLayer = (prevErr) => {
-      if (layerIndex >= tryLayers.length) {
-        // 所有層級都失敗
-        console.error('[open-email-client] 所有啟動方式皆失敗：', prevErr && prevErr.message);
-        return res.status(500).json({
-          error: `開啟 Outlook Classic 失敗：${prevErr ? prevErr.message : '未知錯誤'}`
-        });
-      }
-      const layer = tryLayers[layerIndex++];
-      console.log(`[open-email-client] 嘗試層級 ${layerIndex}/${tryLayers.length}：${layer.name}`);
-      try {
-        layer.run((err) => {
-          if (err) {
-            console.warn(`[open-email-client] ${layer.name} 失敗：`, err.message);
-            tryNextLayer(err);
-            return;
-          }
-          console.log(`[open-email-client] ✅ ${layer.name} 成功`);
-          res.json({ success: true, layer: layer.name });
-        });
-      } catch (e) {
-        console.warn(`[open-email-client] ${layer.name} 拋出例外：`, e.message);
-        tryNextLayer(e);
-      }
-    };
-    tryNextLayer(null);
+      let layerIndex = 0;
+      const tryNextLayer = (prevErr) => {
+        if (layerIndex >= tryLayers.length) {
+          console.error('[open-email-client] 所有 mailto fallback 皆失敗：', prevErr && prevErr.message);
+          return res.status(500).json({
+            error: `開啟 Outlook Classic 失敗：${prevErr ? prevErr.message : '未知錯誤'}`
+          });
+        }
+        const layer = tryLayers[layerIndex++];
+        console.log(`[open-email-client] fallback 嘗試層級 ${layerIndex}/${tryLayers.length}：${layer.name}`);
+        try {
+          layer.run((err) => {
+            if (err) {
+              console.warn(`[open-email-client] ${layer.name} 失敗：`, err.message);
+              tryNextLayer(err);
+              return;
+            }
+            console.log(`[open-email-client] ✅ fallback ${layer.name} 成功`);
+            res.json({ success: true, layer: 'mailto-fallback-' + layer.name });
+          });
+        } catch (e) {
+          console.warn(`[open-email-client] ${layer.name} 拋出例外：`, e.message);
+          tryNextLayer(e);
+        }
+      };
+      tryNextLayer(null);
+    } else {
+      console.warn('[open-email-client] 找不到 Outlook Classic 執行檔，改用系統預設 mailto');
+      res.json({ success: true, fallback: 'default-mailto' });
+    }
   } else {
-    // 系統預設郵件由前端自行處理（window.location.href = mailto:）
+    // 系統預設郵件由前端自行處理（window.location.href = mailto:，body 用 plainText）
     console.log('[open-email-client] 使用系統預設郵件（前端 mailto:)');
     res.json({ success: true });
   }

@@ -1493,3 +1493,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== Autocomplete 搜尋匹配高亮 + 閃爍 ===== */
+.autocomplete-match{background:#fff3bf;color:#b45309;border-radius:2px;padding:0 1px;animation:autocomplete-blink 1s ease-in-out infinite;}
+@keyframes autocomplete-blink{0%,100%{background:#fff3bf;color:#b45309;}50%{background:#fde68a;color:#92400e;}}

@@ -157,7 +157,6 @@ async function renderDbTable(tableName, columns, rows) {
 
   // 找出可編輯欄位（隱藏 system 欄位）
   const editableColumns = columns.filter(c => !HIDDEN_FIELDS.includes(c));
-  const idColumn = columns.find(c => c === 'id');
 
   // 為外鍵欄位預載下拉選項
   const fkOptions = {};
@@ -172,9 +171,16 @@ async function renderDbTable(tableName, columns, rows) {
     <div class="dbviewer-toolbar">
       <div>
         <strong>${TABLE_LABELS[tableName] || tableName}</strong>
-        <span class="db-record-count">共 ${rows.length} 筆</span>
+        <span class="db-record-count" id="dbviewer-record-count">共 ${rows.length} 筆</span>
       </div>
-      <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
+      <div class="dbviewer-toolbar-actions">
+        <div class="dbviewer-search-wrap">
+          <i class="fa-solid fa-magnifying-glass dbviewer-search-icon"></i>
+          <input type="text" class="dbviewer-search-input" id="dbviewer-search-input" placeholder="搜尋…" autocomplete="off" spellcheck="false" />
+          <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
+        </div>
+        <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
+      </div>
     </div>
 
     <div class="dbviewer-table-wrap">
@@ -185,31 +191,51 @@ async function renderDbTable(tableName, columns, rows) {
             ${editableColumns.map(c => `<th>${COLUMN_LABELS[c] || c}</th>`).join('')}
           </tr>
         </thead>
-        <tbody>
-          ${rows.map((row, idx) => `
-            <tr data-id="${row.id}">
-              <td class="db-row-actions">
-                <button type="button" class="db-btn-edit" data-id="${row.id}" title="編輯">✏️</button>
-                <button type="button" class="db-btn-delete" data-id="${row.id}" title="刪除">🗑️</button>
-              </td>
-              ${editableColumns.map(c => `
-                <td class="db-cell" data-column="${c}" data-id="${row.id}" data-value="${escapeAttr(row[c] ?? '')}">
-                  ${renderCellValue(tableName, c, row[c])}
-                </td>
-              `).join('')}
-            </tr>
-          `).join('')}
+        <tbody id="dbviewer-table-body">
+          ${renderDbRowsHTML(tableName, editableColumns, rows)}
         </tbody>
       </table>
     </div>
 
-    ${rows.length === 0 ? '<div class="empty-state">此表目前沒有資料。</div>' : ''}
+    <div id="dbviewer-empty-state"></div>
   `;
 
   // 新增記錄按鈕
   document.getElementById('btn-dbviewer-add').addEventListener('click', () => {
     showAddForm(tableName, editableColumns, fkOptions);
   });
+
+  // 列的操作事件（編輯 / 刪除）
+  bindDbRowEvents(tableName, rows, editableColumns, fkOptions);
+
+  // 搜尋（autocomplete + 即時過濾）
+  setupDbSearch(tableName, rows, editableColumns, fkOptions);
+}
+
+// 渲染表格 tbody 列
+function renderDbRowsHTML(tableName, editableColumns, rows, emptyMessage = '此表目前沒有資料。') {
+  if (rows.length === 0) {
+    return `<tr><td colspan="100" class="db-no-rows">${emptyMessage}</td></tr>`;
+  }
+  return rows.map((row, idx) => `
+    <tr data-id="${row.id}">
+      <td class="db-row-actions">
+        <button type="button" class="db-btn-edit" data-id="${row.id}" title="編輯">✏️</button>
+        <button type="button" class="db-btn-delete" data-id="${row.id}" title="刪除">🗑️</button>
+      </td>
+      ${editableColumns.map(c => `
+        <td class="db-cell" data-column="${c}" data-id="${row.id}" data-value="${escapeAttr(row[c] ?? '')}">
+          ${renderCellValue(tableName, c, row[c])}
+        </td>
+      `).join('')}
+    </tr>
+  `).join('');
+}
+
+// 綁定表格列的編輯 / 刪除事件
+function bindDbRowEvents(tableName, rows, editableColumns, fkOptions) {
+  const container = document.getElementById('dbviewer-content');
+  if (!container) return;
 
   // 編輯按鈕
   container.querySelectorAll('.db-btn-edit').forEach(btn => {
@@ -241,6 +267,88 @@ async function renderDbTable(tableName, columns, rows) {
       }
     });
   });
+}
+
+// ===== 表格搜尋（autocomplete + 即時過濾） =====
+function setupDbSearch(tableName, allRows, editableColumns, fkOptions) {
+  const container = document.getElementById('dbviewer-content');
+  if (!container) return;
+
+  const searchInput = container.querySelector('#dbviewer-search-input');
+  const clearBtn = container.querySelector('#dbviewer-search-clear');
+  const countEl = container.querySelector('#dbviewer-record-count');
+  if (!searchInput || !clearBtn || !countEl) return;
+
+  let totalCount = allRows.length;
+
+  // 收集該表常見欄位值作為 autocomplete 候選（名稱 / 編號 / 電話等優先）
+  function buildSuggestions() {
+    const suggestions = getSearchSuggestionColumns(editableColumns)
+      .map(c => allRows.map(r => r[c]))
+      .flat()
+      .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+      .map(v => String(v).trim());
+    return [...new Set(suggestions)];
+  }
+
+  // 依關鍵字過濾並重新渲染表格，同時保留編輯 / 刪除事件
+  function applyFilter() {
+    const q = searchInput.value.trim();
+    const qLower = q.toLowerCase();
+
+    const filteredRows = qLower
+      ? allRows.filter(row =>
+          editableColumns.some(c => {
+            const v = row[c];
+            return v !== null && v !== undefined && String(v).toLowerCase().includes(qLower);
+          })
+        )
+      : allRows;
+
+    const emptyMessage = qLower && filteredRows.length === 0
+      ? `沒有符合「${escapeHtml(q)}」的資料。`
+      : '此表目前沒有資料。';
+
+    const tbody = container.querySelector('#dbviewer-table-body');
+    if (tbody) tbody.innerHTML = renderDbRowsHTML(tableName, editableColumns, filteredRows, emptyMessage);
+
+    countEl.textContent = qLower
+      ? `符合 ${filteredRows.length} / 共 ${totalCount} 筆`
+      : `共 ${totalCount} 筆`;
+
+    const emptyEl = container.querySelector('#dbviewer-empty-state');
+    if (emptyEl) emptyEl.innerHTML = '';
+
+    clearBtn.style.display = qLower ? 'flex' : 'none';
+
+    // 重新綁定列的編輯 / 刪除事件
+    bindDbRowEvents(tableName, filteredRows, editableColumns, fkOptions);
+  }
+
+  // 輸入即時過濾
+  searchInput.addEventListener('input', applyFilter);
+
+  // 清除搜尋
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    applyFilter();
+    searchInput.focus();
+  });
+
+  // 掛載通用 autocomplete（點選建議值後套用過濾）
+  setupAutocomplete({
+    input: searchInput,
+    suggestions: buildSuggestions,
+    onSelect: () => applyFilter(),
+    emptyMessage: '沒有相符的欄位值，可繼續輸入自訂關鍵字。'
+  });
+}
+
+// 決定哪些欄位值進入 autocomplete 建議（名稱 / 編號類優先，其餘補齊）
+function getSearchSuggestionColumns(editableColumns) {
+  const priority = editableColumns.filter(c => /name|no|title|phone|email|address|category|status|level|type/.test(c));
+  const rest = editableColumns.filter(c => !priority.includes(c));
+  return [...priority, ...rest];
 }
 
 // 渲染單元格內容

@@ -96,6 +96,86 @@
   margin-left: 8px;
 }
 
+/* 工具列右側（搜尋 + 新增按鈕） */
+.dbviewer-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ===== 搜尋框（含 autocomplete 下拉） ===== */
+.dbviewer-search-wrap {
+  position: relative; /* 讓 .app-autocomplete-list 對齊 input */
+  display: flex;
+  align-items: center;
+}
+
+.dbviewer-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.dbviewer-search-input {
+  width: 240px;
+  min-height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 8px 34px 8px 34px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dbviewer-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.dbviewer-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.dbviewer-search-clear {
+  position: absolute;
+  right: 8px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface-glow);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.dbviewer-search-clear:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+[data-theme="dark"] .dbviewer-search-clear:hover {
+  color: #f87171;
+}
+
+/* 空表格（無任何資料 / 搜尋無結果） */
+.db-no-rows {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 12px !important;
+}
+
 /* ===== 資料表格 ===== */
 .dbviewer-table-wrap {
   overflow-x: auto;
@@ -505,6 +585,21 @@
   .dbviewer-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .dbviewer-toolbar-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dbviewer-search-wrap,
+  .dbviewer-search-input {
+    width: 100%;
+  }
+
+  .dbviewer-toolbar-actions .pill {
+    width: 100%;
   }
 
   .dbviewer-header-actions {

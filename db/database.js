@@ -58,6 +58,7 @@ db.serialize(() => {
       order_type TEXT,
       mawb TEXT,
       hawb TEXT,
+      dest TEXT,
       pickup_no TEXT,
       customer_company_id INTEGER,
       pickup_company_id INTEGER,
@@ -116,6 +117,7 @@ db.serialize(() => {
     ensureColumn('contact_note', 'TEXT');
     ensureColumn('customer_company_id', 'INTEGER');
     ensureColumn('cbm_dimensions', 'TEXT');
+    ensureColumn('dest', 'TEXT');
   });
 
   // 插入初始技能資料（若表格為空）

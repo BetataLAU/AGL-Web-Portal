@@ -62,6 +62,21 @@ function validateHawb(value) {
   return { valid: true, value: raw, error: null };
 }
 
+// 驗證 DEST：選填欄位；有值必須為 3 個英文字母（自動轉大楷），唯一特例：SVO2
+function validateDest(value) {
+  const raw = (value == null ? '' : String(value)).trim().toUpperCase();
+  if (!raw) {
+    return { valid: true, value: '', error: null };
+  }
+  if (raw === 'SVO2') {
+    return { valid: true, value: raw, error: null };
+  }
+  if (!/^[A-Z]{3}$/.test(raw)) {
+    return { valid: false, value: null, error: 'DEST 只接受 3 個英文字（特例：SVO2）' };
+  }
+  return { valid: true, value: raw, error: null };
+}
+
 function generateOrderNo(callback) {
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -108,14 +123,23 @@ function serializeOrder(row) {
     order_type: row.order_type,
     mawb: row.mawb,
     hawb: row.hawb,
+    dest: row.dest,
     pickup_no: row.pickup_no,
     pickup_datetime: row.pickup_datetime || null,
     customer_company_id: row.customer_company_id,
     customer_company_name: row.customer_company_name || null,
     pickup_company_id: row.pickup_company_id,
     pickup_company_name: row.pickup_company_name || null,
+    pickup_company_address: row.pickup_company_address || null,
+    pickup_company_contact: row.pickup_company_contact || null,
+    pickup_company_phone: row.pickup_company_phone || null,
+    pickup_company_email: row.pickup_company_email || null,
     delivery_company_id: row.delivery_company_id,
     delivery_company_name: row.delivery_company_name || null,
+    delivery_company_address: row.delivery_company_address || null,
+    delivery_company_contact: row.delivery_company_contact || null,
+    delivery_company_phone: row.delivery_company_phone || null,
+    delivery_company_email: row.delivery_company_email || null,
     cargo_desc: row.cargo_desc,
     quantity: row.quantity,
     weight_kg: row.weight_kg,
@@ -142,8 +166,20 @@ function serializeOrder(row) {
 const ORDER_SELECT_SQL = `
   SELECT o.*,
          cc.name AS customer_company_name,
+         cc.address AS customer_company_address,
+         cc.contact_person AS customer_company_contact,
+         cc.phone AS customer_company_phone,
+         cc.email AS customer_company_email,
          pc.name AS pickup_company_name,
+         pc.address AS pickup_company_address,
+         pc.contact_person AS pickup_company_contact,
+         pc.phone AS pickup_company_phone,
+         pc.email AS pickup_company_email,
          dc.name AS delivery_company_name,
+         dc.address AS delivery_company_address,
+         dc.contact_person AS delivery_company_contact,
+         dc.phone AS delivery_company_phone,
+         dc.email AS delivery_company_email,
          strftime('%Y-%m-%dT%H:%M:%fZ', o.created_at) AS created_at,
          strftime('%Y-%m-%dT%H:%M:%fZ', o.updated_at) AS updated_at
   FROM orders o
@@ -159,6 +195,7 @@ module.exports = {
   formatMawb,
   validateMawb,
   validateHawb,
+  validateDest,
   generateOrderNo,
   serializeOrder,
   ORDER_SELECT_SQL

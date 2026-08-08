@@ -658,13 +658,16 @@ function companySelectOptions(selectedId) {
   return `<option value="">-- 搜尋/選擇公司 --</option>${options}`;
 }
 
-function renderNewOrderForm(prefill = null) {
+function renderNewOrderForm(prefill = null, preserveCurrentType = false) {
   const container = document.getElementById('orders-new-form');
   if (!container) return;
   if (!prefill) {
     // 新增模式：重置編輯狀態，避免誤將「新增」當作對上一單的「更新」（會覆蓋舊訂單資料）
     editingOrderId = null;
-    currentOrderType = 'pickup';
+    // 切換訂單類型時（preserveCurrentType=true）保留目前類型，其餘情況重設為收貨
+    if (!preserveCurrentType) {
+      currentOrderType = 'pickup';
+    }
   }
   duplicateConfirmed = false; // 新表單重置重複確認狀態
 
@@ -708,6 +711,11 @@ function renderNewOrderForm(prefill = null) {
               <label>HAWB#</label>
               <input type="text" id="order-hawb" placeholder="如 ABC123456789（選填）" maxlength="13" />
               <div class="orders-field-hint" id="hawb-hint">限英文字母或數字（自動轉大楷），最多 13 字（選填）</div>
+            </div>
+            <div class="orders-form-field">
+              <label>DEST（選填）</label>
+              <input type="text" id="order-dest" placeholder="如 HKG" maxlength="4" />
+              <div class="orders-field-hint" id="dest-hint">只接受 3 個英文字（特例：SVO2）</div>
             </div>
             <div class="orders-form-field full">
               <label>需要提貨的客戶 *</label>
@@ -881,6 +889,21 @@ function escapeAttr(str) {
     .replace(/"/g, '\x22quot;')
     .replace(/</g, '\x26lt;')
     .replace(/>/g, '\x26gt;');
+}
+
+// 驗證 DEST：選填欄位；有值必須為 3 個英文字母（自動轉大楷），唯一特例：SVO2
+function validateDest(value) {
+  const raw = (value == null ? '' : String(value)).trim().toUpperCase();
+  if (!raw) {
+    return { valid: true, value: '', error: null };
+  }
+  if (raw === 'SVO2') {
+    return { valid: true, value: raw, error: null };
+  }
+  if (!/^[A-Z]{3}$/.test(raw)) {
+    return { valid: false, value: null, error: 'DEST 只接受 3 個英文字（特例：SVO2）' };
+  }
+  return { valid: true, value: raw, error: null };
 }
 
 // ===== 帶電種類及件數編輯器 =====
@@ -1338,6 +1361,7 @@ function getCurrentFormData() {
     order_type: currentOrderType,
     mawb: document.getElementById('order-mawb').value.trim(),
     hawb: document.getElementById('order-hawb').value.trim(),
+    dest: document.getElementById('order-dest')?.value.trim() || '',
     pickup_no: document.getElementById('order-pickup-no').value.trim(),
     pickup_datetime: pickupDatetime,
     customer_company_id: customerCompanyId,
@@ -1374,8 +1398,8 @@ function setupNewOrderFormEvents() {
       document.querySelectorAll('.orders-choice-btn[data-order-type]').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
       currentOrderType = btn.dataset.orderType;
-      // 重新渲染表單（切換欄位標籤）
-      renderNewOrderForm();
+      // 重新渲染表單（切換欄位標籤），保留目前的訂單類型（避免被重設回收貨）
+      renderNewOrderForm(null, true);
     });
   });
 
@@ -1469,6 +1493,39 @@ function setupNewOrderFormEvents() {
     input: document.getElementById('order-hawb'),
     hintEl: document.getElementById('hawb-hint')
   });
+
+  // DEST 輸入即時過濾 + 失焦驗證（只接受 3 個英文字，特例：SVO2）
+  const destInput = document.getElementById('order-dest');
+  if (destInput) {
+    // 輸入時：保留英文字母（A-Z）及數字 2（容納特例 SVO2）、自動轉大楷、最多 4 字
+    destInput.addEventListener('input', () => {
+      const filtered = destInput.value.replace(/[^a-zA-Z2]/g, '').toUpperCase().slice(0, 4);
+      if (destInput.value !== filtered) destInput.value = filtered;
+      const hint = document.getElementById('dest-hint');
+      if (hint) hint.style.color = '';
+    });
+
+    // 失焦即時驗證
+    destInput.addEventListener('blur', () => {
+      const val = destInput.value.trim();
+      const hint = document.getElementById('dest-hint');
+      if (!hint) return;
+      if (!val) {
+        hint.style.color = '';
+        hint.textContent = '只接受 3 個英文字（特例：SVO2）';
+        return;
+      }
+      const result = validateDest(val);
+      if (result.valid) {
+        destInput.value = result.value;
+        hint.style.color = '#16a34a';
+        hint.textContent = `✅ 有效 DEST：${result.value}`;
+      } else {
+        hint.style.color = '#dc2626';
+        hint.textContent = `❌ ${result.error}`;
+      }
+    });
+  }
 
   // ===== 三個欄位（MAWB / HAWB / 客戶提貨號）blur 即時重複檢查 =====
   // 共用 debounce：快速跳欄位時只發一次請求（變數在全域，submit handler 需 clearTimeout 防止 blur 卡片覆蓋「仍然繼續」卡片）
@@ -1705,6 +1762,18 @@ function setupNewOrderFormEvents() {
         }
       }
 
+      // DEST 驗證：選填；有值必須為 3 個英文字（特例：SVO2）
+      const destValue = document.getElementById('order-dest').value.trim();
+      if (destValue) {
+        const destResult = validateDest(destValue);
+        if (!destResult.valid) {
+          alert(`❌ ${destResult.error}`);
+          document.getElementById('order-dest').focus();
+          return;
+        }
+        data.dest = destResult.value;
+      }
+
       // 定義提交函數（「仍然繼續」時直接呼叫，避免重跑整個 handler 與重複彈 MAWB 確認）
       const performSubmit = async () => {
         try {
@@ -1763,7 +1832,8 @@ function showOrderSuccess(orderNo, orderId) {
     const summary = buildOrderSummary(order);
     const output = document.getElementById('orders-summary-output');
     if (output) {
-      output.innerHTML = `<div class="orders-summary-text">${escapeHtml(summary)}</div>`;
+      // 顯示 HTML 表格（不轉義，讓 <table> 正常渲染）
+      output.innerHTML = `<div class="orders-summary-html">${summary}</div>`;
     }
 
     document.getElementById('btn-order-email-summary').addEventListener('click', () => {
@@ -1789,60 +1859,197 @@ function showOrderSuccess(orderNo, orderId) {
   });
 }
 
-// ===== 電郵總結 =====
+// ===== 電郵總結（HTML 表格格式，供 Outlook 等郵件程式顯示） =====
+function escHtml(str) {
+  return String(str == null || str === '' ? '-' : str)
+    .replace(/&/g, '\x26amp;')
+    .replace(/</g, '\x26lt;')
+    .replace(/>/g, '\x26gt;');
+}
+
+function buildCompanyDetailHtml(title, companyName, address, contact, phone, email) {
+  const hasName = !!companyName;
+  if (!hasName) return '';
+  return `
+    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">${title}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;width:110px;">名稱</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(companyName)}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(address)}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">聯絡人</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(contact)}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(phone)}</td></tr>
+    ${email ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電郵</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(email)}</td></tr>` : ''}
+  `;
+}
+
 function buildOrderSummary(order) {
-  const line = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━';
   const typeLabel = ORDER_TYPE_LABEL[order.order_type] || order.order_type;
   const powLabel = formatPowerItems(order);
   const urgentLabel = order.urgent === 'yes' ? '🔴 是 - 需優先處理' : '⚪ 否 - 普通';
 
-  let lines = [];
-  lines.push(line);
-  lines.push(`📦 訂單總結 ${order.order_no}`);
-  lines.push(line);
-  lines.push(`類型    ：${typeLabel}`);
-  lines.push(`MAWB#   ：${displayMawb(order.mawb)}`);
-  lines.push(`HAWB#   ：${order.hawb || '-'}`);
-  lines.push(`提貨號  ：${order.pickup_no || '-'}`);
-  if (order.pickup_datetime) lines.push(`提貨時間：${formatPickupDatetime(order.pickup_datetime)}`);
-  lines.push(line);
-  if (order.customer_company_name) lines.push(`客戶公司：${order.customer_company_name}`);
-  lines.push(`收貨公司：${order.delivery_company_name || order.pickup_company_name || '-'}`);
-  lines.push(`地址    ：${order.address || '-'}`);
-  lines.push(`聯絡人  ：${order.receiver_name || '-'}`);
-  lines.push(`電話    ：${order.receiver_phone || '-'}`);
-  if (order.receiver_note) lines.push(`收貨人備註：${order.receiver_note}`);
-  if (order.contact_note) lines.push(`聯絡人備註：${order.contact_note}`);
-  lines.push(line);
-  lines.push(`貨品    ：${order.cargo_desc || '-'}`);
-  lines.push(`件數    ：${order.quantity || '0'} 件`);
-  lines.push(`重量    ：${order.weight_kg || '0'} KG`);
-  lines.push(`CBM     ：${order.cbm || '0'}`);
-  if (order.cbm_dimensions && order.cbm_dimensions.length) {
-    lines.push(line);
-    lines.push(formatCbmDimensions(order.cbm_dimensions));
-  }
-  lines.push(`⚡ 電力  ：${powLabel}`);
-  lines.push(`🚨 趕機  ：${urgentLabel}`);
-  if (order.notes) lines.push(`備註    ：${order.notes}`);
-  lines.push(line);
-  lines.push(`運輸公司：${order.transport_company || '-'}`);
-  lines.push(`狀態    ：${STATUS_LABEL[order.status] || order.status}`);
-  lines.push(`建立日期：${formatDateTime(order.created_at)}`);
-  lines.push(line);
-  return lines.join('\n');
+  const pickupTitle = order.order_type === 'delivery' ? '📍 取貨公司（FULL DETAILS）' : '📍 收貨公司（FULL DETAILS）';
+  const deliveryTitle = order.order_type === 'delivery' ? '📍 送貨目的地（FULL DETAILS）' : '📍 交回/轉交目的地（FULL DETAILS）';
+
+  // 收貨公司與目的地 FULL DETAILS
+  const pickupDetail = buildCompanyDetailHtml(
+    pickupTitle,
+    order.pickup_company_name,
+    order.pickup_company_address,
+    order.pickup_company_contact,
+    order.pickup_company_phone,
+    order.pickup_company_email
+  );
+  const deliveryDetail = buildCompanyDetailHtml(
+    deliveryTitle,
+    order.delivery_company_name,
+    order.delivery_company_address,
+    order.delivery_company_contact,
+    order.delivery_company_phone,
+    order.delivery_company_email
+  );
+
+  // 收貨人（receiver）資料備份顯示
+  const receiverDetail = (order.receiver_name || order.receiver_phone || order.address) ? `
+    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">📋 收貨人資料</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;width:110px;">收貨人</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_name)}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_phone)}</td></tr>
+    <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.address)}</td></tr>
+    ${order.receiver_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">收貨人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_note)}</td></tr>` : ''}
+    ${order.contact_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">聯絡人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.contact_note)}</td></tr>` : ''}
+  ` : '';
+
+  // DIM(cm) 表格化
+  const dimHtml = (order.cbm_dimensions && order.cbm_dimensions.length) ? `
+    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">📐 DIM(cm)</td></tr>
+    ${order.cbm_dimensions.map(d => `
+      <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">尺寸</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(`${d.len} x ${d.width} x ${d.height}`)} / ${escHtml(d.qty)} 件</td></tr>
+    `).join('')}
+  ` : '';
+
+  return `
+    <div style="font-family:Arial,sans-serif;">
+      <h3 style="margin:0 0 12px;">📦 訂單總結 ${escHtml(order.order_no)}</h3>
+      <table style="border-collapse:collapse;font-size:14px;max-width:640px;">
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">🧾 提單資訊</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;width:110px;">類型</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(typeLabel)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">MAWB#</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(displayMawb(order.mawb))}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">HAWB#</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.hawb)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">DEST</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.dest)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">提貨號</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.pickup_no)}</td></tr>
+        ${order.pickup_datetime ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">提貨時間</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(formatPickupDatetime(order.pickup_datetime))}</td></tr>` : ''}
+        ${order.customer_company_name ? `
+        <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">🏢 需要收貨的客戶</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">客戶公司</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.customer_company_name)}</td></tr>` : ''}
+        ${pickupDetail}
+        ${deliveryDetail}
+        ${receiverDetail}
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">📦 貨物資料</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">貨品</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.cargo_desc)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">件數</td><td style="padding:6px 10px;border:1px solid #ccc;">${order.quantity || 0} 件</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">重量</td><td style="padding:6px 10px;border:1px solid #ccc;">${order.weight_kg || 0} KG</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">CBM</td><td style="padding:6px 10px;border:1px solid #ccc;">${order.cbm || 0} cbm</td></tr>
+        ${dimHtml}
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">⚡ 其他資訊</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">⚡ 電力</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(powLabel)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">🚨 趕機</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(urgentLabel)}</td></tr>
+        ${order.notes ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.notes)}</td></tr>` : ''}
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">狀態</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(STATUS_LABEL[order.status] || order.status)}</td></tr>
+        <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">建立日期</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(formatDateTime(order.created_at))}</td></tr>
+      </table>
+    </div>
+  `;
 }
 
-function sendOrderEmail(order, summary) {
+// 開啟「選擇郵件應用程式」Modal（用戶可選 Outlook Classic 或系統預設郵件）
+async function sendOrderEmail(order, summary) {
   // 嘗試從公司資料找運輸公司 email
   const transportCompany = transportCompanies.find(c => c.name === order.transport_company);
   const mailTo = transportCompany && transportCompany.email ? transportCompany.email : '';
 
-  const subject = encodeURIComponent(`📦 訂單總結 ${order.order_no} - ${ORDER_TYPE_LABEL[order.order_type]} - ${order.delivery_company_name || order.pickup_company_name || ''}`);
+  // ===== SUBJECT 新格式： [AGL - 收貨ORDER (URGENT)] 客戶 / A > B / MAWB# / 件數 | 重量 | CBM
+  const subjectType = order.order_type === 'delivery' ? '送貨ORDER' : '收貨ORDER';
+  const urgentPart = order.urgent === 'yes' ? ' (URGENT)' : '';
+  const subjectCustomer = order.customer_company_name || '-';
+  const subjectRoute = `${order.pickup_company_name || '-'} > ${order.delivery_company_name || '-'}`;
+  const subjectMawb = displayMawb(order.mawb);
+  const subjectCargo = `${order.quantity || 0}件 | ${order.weight_kg || 0} KG | ${order.cbm || 0} cbm`;
+  const subject = encodeURIComponent(`[AGL - ${subjectType}${urgentPart}] ${subjectCustomer} / ${subjectRoute} / ${subjectMawb} / ${subjectCargo}`);
   const body = encodeURIComponent(summary);
-
   const mailtoLink = `mailto:${mailTo}?subject=${subject}&body=${body}`;
-  window.location.href = mailtoLink;
+
+  // 查詢系統可用的郵件應用程式
+  let apps = [];
+  try {
+    const result = await apiFetch('/api/orders/email-apps');
+    apps = result.data || [];
+  } catch (err) {
+    console.warn('查詢郵件應用程式失敗：', err.message);
+  }
+  if (!apps.length) {
+    // 查不到 → 直接使用預設 mailto
+    window.location.href = mailtoLink;
+    return;
+  }
+
+  // 彈出選擇 Modal
+  openModal({
+    title: '📧 選擇郵件應用程式',
+    body: `
+      <p style="margin:0 0 12px; font-size:0.9rem; color:var(--text-muted);">請選擇要開啟哪一個郵件應用程式發送總結：</p>
+      <div class="email-app-picker">
+        ${apps.map(app => `
+          <button type="button" class="email-app-btn" data-client="${escapeAttr(app.id)}" data-label="${escapeAttr(app.label)}">
+            ${app.id === 'outlook-classic'
+              ? '<svg class="email-app-icon" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="28" height="28"><rect width="48" height="48" rx="8" fill="#0078D4"/><path d="M8 15a3 3 0 0 1 3-3h26a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V15z" fill="white"/><path d="M8 16.5 24 27l16-10.5" stroke="#0078D4" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 38l8-8M37 38l-8-8" stroke="#0078D4" stroke-width="3" fill="none" stroke-linecap="round"/></svg>'
+              : '<span class="email-app-icon-default">📨</span>'}
+            ${escapeHtml(app.label)}
+          </button>
+        `).join('')}
+      </div>
+    `,
+    actions: [
+      {
+        label: '✖ 取消',
+        className: 'pill',
+        onClick: (modal) => modal.close()
+      }
+    ]
+  });
+
+  // 綁定應用程式按鈕事件
+  document.querySelectorAll('.email-app-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const client = btn.dataset.client;
+      const originalLabel = btn.textContent;
+
+      if (client === 'outlook-classic') {
+        // 顯示執行中狀態（防止重複點擊）
+        btn.disabled = true;
+        btn.textContent = '⏳ 正在開啟 Outlook Classic...';
+        console.log('[sendOrderEmail] 正在啟動 Outlook Classic，mailto:', mailtoLink.slice(0, 80) + '...');
+        try {
+          const result = await apiFetch('/api/orders/open-email-client', {
+            method: 'POST',
+            body: JSON.stringify({ client, mailtoUrl: mailtoLink })
+          });
+          console.log('[sendOrderEmail] Outlook Classic 啟動成功：', result);
+          alert('✅ Outlook Classic 已啟動（新郵件視窗應已彈出）');
+        } catch (err) {
+          console.error('[sendOrderEmail] Outlook Classic 啟動失敗：', err);
+          alert(`❌ 開啟 Outlook Classic 失敗：${err.message}`);
+          btn.disabled = false;
+          btn.textContent = originalLabel;
+          return; // 失敗時不關閉 Modal，讓用戶可以改選其他選項
+        }
+      } else if (client === 'default') {
+        // 系統預設郵件 → 瀏覽器 mailto 協議
+        console.log('[sendOrderEmail] 使用系統預設郵件');
+        window.location.href = mailtoLink;
+      }
+      // 關閉 Modal
+      const modalRoot = document.querySelector('.modal-overlay');
+      if (modalRoot) modalRoot.remove();
+      document.body.classList.remove('modal-open');
+    });
+  });
 }
 
 // ===== 訂單列表 =====
@@ -1921,6 +2128,7 @@ function renderOrdersList(orders) {
         <div class="orders-card-meta">
           <span>🧾 MAWB: ${escapeHtml(displayMawb(order.mawb))}</span>
           <span>| HAWB: ${escapeHtml(order.hawb || '-')}</span>
+          <span>| DEST: ${escapeHtml(order.dest || '-')}</span>
           <span>| 提貨: ${escapeHtml(order.pickup_no || '-')}</span>
         </div>
         <div class="orders-card-meta">
@@ -2004,6 +2212,10 @@ function buildOrderDetailHtml(order) {
         <span class="detail-label">HAWB#</span>
         <span class="detail-value">${escapeHtml(order.hawb || '-')}</span>
       </div>
+      <div class="orders-detail-field">
+        <span class="detail-label">DEST</span>
+        <span class="detail-value">${escapeHtml(order.dest || '-')}</span>
+      </div>
       <div class="orders-detail-field full">
         <span class="detail-label">客戶提貨號</span>
         <span class="detail-value">${escapeHtml(order.pickup_no || '-')}</span>
@@ -2058,11 +2270,7 @@ function buildOrderDetailHtml(order) {
         <span class="detail-label">地址</span>
         <span class="detail-value">${escapeHtml(order.address || '-')}</span>
       </div>
-      <div class="orders-detail-field">
-        <span class="detail-label">運輸公司</span>
-        <span class="detail-value">${escapeHtml(order.transport_company || '-')}</span>
-      </div>
-      <div class="orders-detail-field">
+      <div class="orders-detail-field full orders-detail-status">
         <span class="detail-label">狀態</span>
         <span class="detail-value">
           <select class="order-status-select ${escapeHtml(order.status)}" data-order-id="${order.id}">
@@ -2167,6 +2375,7 @@ function loadOrderToForm(order) {
       // 後補MAWB# → 輸入框留空（提交時再確認）
       document.getElementById('order-mawb').value = (order.mawb && !isLateMawb(order.mawb)) ? formatMawb(order.mawb) : '';
       document.getElementById('order-hawb').value = String(order.hawb || '').toUpperCase();
+      document.getElementById('order-dest').value = String(order.dest || '').toUpperCase();
       document.getElementById('order-pickup-no').value = order.pickup_no || '';
       document.getElementById('order-mawb').dispatchEvent(new Event('change'));
 
@@ -2248,6 +2457,18 @@ function loadOrderToForm(order) {
               return;
             }
             data.mawb = mawbResult.formatted;
+          }
+
+          // DEST 驗證：選填；有值必須為 3 個英文字（特例：SVO2）
+          const destValue = document.getElementById('order-dest')?.value.trim() || '';
+          if (destValue) {
+            const destResult = validateDest(destValue);
+            if (!destResult.valid) {
+              alert(`❌ ${destResult.error}`);
+              document.getElementById('order-dest').focus();
+              return;
+            }
+            data.dest = destResult.value;
           }
 
           // 定義提交函數（「仍然繼續」時直接呼叫，避免重跑整個 handler 與重複彈 MAWB 確認）

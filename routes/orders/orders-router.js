@@ -1,10 +1,13 @@
 const express = require('express');
+const { exec, execFile } = require('child_process');
+const fs = require('fs');
 const db = require('../../db/database');
 const router = express.Router();
 const {
   MAWB_LATE_LABEL,
   validateMawb,
   validateHawb,
+  validateDest,
   generateOrderNo,
   serializeOrder,
   ORDER_SELECT_SQL
@@ -32,6 +35,99 @@ router.get('/', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ data: rows.map(serializeOrder) });
   });
+});
+
+// 掃描系統上的 Outlook Classic 執行檔路徑
+function findOutlookClassic() {
+  const candidates = [
+    'C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE',
+    'C:\\Program Files (x86)\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE',
+    'C:\\Program Files\\Microsoft Office\\Office16\\OUTLOOK.EXE',
+    'C:\\Program Files (x86)\\Microsoft Office\\Office16\\OUTLOOK.EXE'
+  ];
+  return candidates.find(p => fs.existsSync(p)) || null;
+}
+
+// GET /api/orders/email-apps → 列出現有可用的郵件應用程式
+router.get('/email-apps', (req, res) => {
+  const apps = [{ id: 'default', label: '系統預設郵件' }];
+  if (findOutlookClassic()) {
+    apps.push({ id: 'outlook-classic', label: 'Outlook Classic' });
+  }
+  res.json({ data: apps });
+});
+
+// POST /api/orders/open-email-client → 用指定郵件應用程式開啟 mailto URL
+router.post('/open-email-client', (req, res) => {
+  const { client, mailtoUrl } = req.body;
+  console.log('[open-email-client] 收到請求：', { client, mailtoUrl: mailtoUrl ? mailtoUrl.slice(0, 80) + '...' : mailtoUrl });
+  if (!mailtoUrl) {
+    return res.status(400).json({ error: '缺少 mailtoUrl' });
+  }
+
+  if (client === 'outlook-classic') {
+    const outlookExe = findOutlookClassic();
+    if (!outlookExe) {
+      console.error('[open-email-client] 找不到 Outlook Classic 執行檔');
+      return res.status(404).json({ error: '找不到 Outlook Classic 執行檔' });
+    }
+    console.log('[open-email-client] 使用 Outlook Classic 路徑：', outlookExe);
+
+    // Outlook Classic 支援 mailto 協議：OUTLOOK.EXE /c ipm.note /m "recipient?subject=...&body=..."
+    const mailtoCmd = String(mailtoUrl).replace(/^mailto:/i, '');
+
+    // ===== 多層 fallback 啟動策略 =====
+    // 層級 1：execFile 直接執行 OUTLOOK.EXE（不經過 cmd shell，避免 %/& 轉義問題）
+    // 層級 2：同上但 mailto 參數加雙引號
+    // 層級 3：exec 'start outlook:'（Outlook Protocol，GEMINI 建議）
+    // 層級 4：回傳錯誤
+    const tryLayers = [
+      {
+        name: 'execFile 直接執行',
+        run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', mailtoCmd], { windowsHide: true }, cb)
+      },
+      {
+        name: 'execFile 帶引號參數',
+        run: (cb) => execFile(outlookExe, ['/c', 'ipm.note', '/m', `"${mailtoCmd}"`], { windowsHide: true }, cb)
+      },
+      {
+        name: 'Outlook Protocol (start outlook:)',
+        run: (cb) => exec('start outlook:', { windowsHide: true }, cb)
+      }
+    ];
+
+    let layerIndex = 0;
+    const tryNextLayer = (prevErr) => {
+      if (layerIndex >= tryLayers.length) {
+        // 所有層級都失敗
+        console.error('[open-email-client] 所有啟動方式皆失敗：', prevErr && prevErr.message);
+        return res.status(500).json({
+          error: `開啟 Outlook Classic 失敗：${prevErr ? prevErr.message : '未知錯誤'}`
+        });
+      }
+      const layer = tryLayers[layerIndex++];
+      console.log(`[open-email-client] 嘗試層級 ${layerIndex}/${tryLayers.length}：${layer.name}`);
+      try {
+        layer.run((err) => {
+          if (err) {
+            console.warn(`[open-email-client] ${layer.name} 失敗：`, err.message);
+            tryNextLayer(err);
+            return;
+          }
+          console.log(`[open-email-client] ✅ ${layer.name} 成功`);
+          res.json({ success: true, layer: layer.name });
+        });
+      } catch (e) {
+        console.warn(`[open-email-client] ${layer.name} 拋出例外：`, e.message);
+        tryNextLayer(e);
+      }
+    };
+    tryNextLayer(null);
+  } else {
+    // 系統預設郵件由前端自行處理（window.location.href = mailto:）
+    console.log('[open-email-client] 使用系統預設郵件（前端 mailto:)');
+    res.json({ success: true });
+  }
 });
 
 // GET /api/orders/check-duplicate?mawb=&hawb=&pickup_no=&customer_company_id=&exclude_id=
@@ -95,7 +191,7 @@ router.get('/check-duplicate', (req, res) => {
 // POST /api/orders
 router.post('/', (req, res) => {
   const {
-    order_type, mawb, hawb, pickup_no, pickup_datetime,
+    order_type, mawb, hawb, dest, pickup_no, pickup_datetime,
     customer_company_id, pickup_company_id, delivery_company_id,
     cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
     power_type, power_code, power_items, urgent,
@@ -121,6 +217,12 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: hawbResult.error });
   }
   const finalHawb = hawbResult.value;
+  // DEST# 驗證：選填；有值必須為 3 個英文字（唯一特例：SVO2）
+  const destResult = validateDest(dest);
+  if (!destResult.valid) {
+    return res.status(400).json({ error: destResult.error });
+  }
+  const finalDest = destResult.value;
   if (!pickup_company_id && !delivery_company_id) {
     return res.status(400).json({ error: '請選擇收/送貨公司' });
   }
@@ -139,16 +241,16 @@ router.post('/', (req, res) => {
 
     const stmt = db.prepare(`
       INSERT INTO orders (
-        order_no, order_type, mawb, hawb, pickup_no, pickup_datetime,
+        order_no, order_type, mawb, hawb, dest, pickup_no, pickup_datetime,
         customer_company_id, pickup_company_id, delivery_company_id,
         cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
         power_type, power_code, power_items, urgent,
         receiver_name, receiver_phone, address, receiver_note, contact_note,
         notes, transport_company, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      orderNo, order_type, finalMawb, finalHawb, pickup_no,
+      orderNo, order_type, finalMawb, finalHawb, finalDest, pickup_no,
       pickup_datetime || null,
       customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
@@ -182,7 +284,7 @@ router.get('/:id', (req, res) => {
 router.put('/:id', (req, res) => {
   const { id } = req.params;
   const {
-    order_type, mawb, hawb, pickup_no, pickup_datetime,
+    order_type, mawb, hawb, dest, pickup_no, pickup_datetime,
     customer_company_id, pickup_company_id, delivery_company_id,
     cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
     power_type, power_code, power_items, urgent,
@@ -208,10 +310,16 @@ router.put('/:id', (req, res) => {
     return res.status(400).json({ error: hawbResult.error });
   }
   const finalHawb = hawbResult.value;
+  // DEST# 驗證：選填；有值必須為 3 個英文字（唯一特例：SVO2）
+  const destResult = validateDest(dest);
+  if (!destResult.valid) {
+    return res.status(400).json({ error: destResult.error });
+  }
+  const finalDest = destResult.value;
 
   const stmt = db.prepare(`
     UPDATE orders SET
-      order_type = ?, mawb = ?, hawb = ?, pickup_no = ?, pickup_datetime = ?,
+      order_type = ?, mawb = ?, hawb = ?, dest = ?, pickup_no = ?, pickup_datetime = ?,
       customer_company_id = ?, pickup_company_id = ?, delivery_company_id = ?,
       cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?, cbm_dimensions = ?,
       power_type = ?, power_code = ?, power_items = ?, urgent = ?,
@@ -221,7 +329,7 @@ router.put('/:id', (req, res) => {
     WHERE id = ?
   `);
   stmt.run(
-    order_type, finalMawb, finalHawb, pickup_no,
+    order_type, finalMawb, finalHawb, finalDest, pickup_no,
     pickup_datetime || null,
     customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
     cargo_desc, quantity, weight_kg, cbm,

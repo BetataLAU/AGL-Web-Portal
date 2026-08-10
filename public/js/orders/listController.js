@@ -21,7 +21,7 @@ import {
   deleteOrder as deleteOrderApi,
   createOrder
 } from './api.js';
-import { formatPowerItems, buildOrderSummary } from './formatters.js';
+import { formatPowerItems, buildOrderSummary, buildOrderSummaryText } from './formatters.js';
 import { renderNewOrderForm, loadOrderToForm, sendOrderEmail } from './formController.js';
 
 // ===== Tab 切換 =====
@@ -314,7 +314,7 @@ export function setupOrderDetailActions(order) {
       if (action === 'email') {
         sendOrderEmail(order, buildOrderSummary(order));
       } else if (action === 'copy') {
-        navigator.clipboard.writeText(buildOrderSummary(order)).then(() => {
+        navigator.clipboard.writeText(buildOrderSummaryText(order)).then(() => {
           alert('總結內容已複製！');
         }).catch(() => alert('複製失敗'));
       } else if (action === 'edit') {

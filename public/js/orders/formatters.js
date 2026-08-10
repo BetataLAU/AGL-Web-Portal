@@ -82,7 +82,7 @@ export function companySelectOptions(selectedId) {
 }
 
 // ===== 訂單總結 HTML =====
-export function buildCompanyDetailHtml(title, companyName, address, contact, phone, email) {
+export function buildCompanyDetailHtml(title, companyName, address, contact, phone, email, notes) {
   const hasName = !!companyName;
   if (!hasName) return '';
   return `
@@ -92,7 +92,115 @@ export function buildCompanyDetailHtml(title, companyName, address, contact, pho
     <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">聯絡人</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(contact)}</td></tr>
     <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(phone)}</td></tr>
     ${email ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電郵</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(email)}</td></tr>` : ''}
+    ${notes ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(notes).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
   `;
+}
+
+// 建立訂單純文字總結（複製用，適合貼到 WhatsApp 等通訊軟體，不含 HTML）
+export function buildOrderSummaryText(order) {
+  const typeLabel = ORDER_TYPE_LABEL[order.order_type] || order.order_type;
+  const powLabel = formatPowerItems(order);
+  const urgentLabel = order.urgent === 'yes' ? '🔴 是 - 需優先處理' : '⚪ 否 - 普通';
+  // 純文字顯示：null/空字串 → '-'
+  const fmt = (val) => (val == null || val === '' ? '-' : String(val));
+
+  const pickupTitle = order.order_type === 'delivery' ? '📍 取貨公司（FULL DETAILS）' : '📍 收貨公司（FULL DETAILS）';
+  const deliveryTitle = order.order_type === 'delivery' ? '📍 送貨目的地（FULL DETAILS）' : '📍 交回/轉交目的地（FULL DETAILS）';
+
+  // 公司詳細資料（純文字，名稱不存在時整個區塊省略）
+  const companyDetailText = (title, companyName, address, contact, phone, email, notes) => {
+    if (!companyName) return '';
+    return [
+      title,
+      `名稱：${fmt(companyName)}`,
+      `地址：${fmt(address)}`,
+      `聯絡人：${fmt(contact)}`,
+      `電話：${fmt(phone)}`,
+      email ? `電郵：${fmt(email)}` : '',
+      notes ? `備註：${fmt(notes)}` : ''
+    ].filter(Boolean).join('\n');
+  };
+
+  const pickupDetail = companyDetailText(
+    pickupTitle,
+    order.pickup_company_name,
+    order.pickup_company_address,
+    order.pickup_company_contact,
+    order.pickup_company_phone,
+    order.pickup_company_email,
+    order.pickup_company_notes
+  );
+  const deliveryDetail = companyDetailText(
+    deliveryTitle,
+    order.delivery_company_name,
+    order.delivery_company_address,
+    order.delivery_company_contact,
+    order.delivery_company_phone,
+    order.delivery_company_email,
+    order.delivery_company_notes
+  );
+
+  // 收貨人（receiver）資料
+  const receiverLines = [];
+  if (order.receiver_name || order.receiver_phone || order.address) {
+    receiverLines.push('📋 收貨人資料');
+    receiverLines.push(`收貨人：${fmt(order.receiver_name)}`);
+    receiverLines.push(`電話：${fmt(order.receiver_phone)}`);
+    receiverLines.push(`地址：${fmt(order.address)}`);
+    if (order.receiver_note) receiverLines.push(`收貨人備註：${fmt(order.receiver_note)}`);
+    if (order.contact_note) receiverLines.push(`聯絡人備註：${fmt(order.contact_note)}`);
+  }
+
+  // DIM(cm) 純文字
+  const dimLines = (order.cbm_dimensions && order.cbm_dimensions.length)
+    ? ['📐 DIM(cm)', ...order.cbm_dimensions.map(d => `尺寸：${fmt(`${d.len} x ${d.width} x ${d.height}`)} / ${fmt(d.qty)} 件`)]
+    : [];
+
+  // 區塊分隔線（手機友善：不要太長）
+  const SEPARATOR = '---';
+
+  // 各區塊內容（空區塊會被過濾，選填區塊自動省略）
+  const sections = [
+    [`📦 訂單總結 ${fmt(order.order_no)}`],
+    [
+      '🧾 提單資訊',
+      `類型：${fmt(typeLabel)}`,
+      `MAWB#：${fmt(displayMawb(order.mawb))}`,
+      `HAWB#：${fmt(order.hawb)}`,
+      `DEST：${fmt(order.dest)}`,
+      `提貨號：${fmt(order.pickup_no)}`,
+      order.pickup_datetime ? `提貨時間：${fmt(formatPickupDatetime(order.pickup_datetime))}` : ''
+    ],
+    order.customer_company_name
+      ? ['🏢 需要收貨的客戶', `客戶公司：${fmt(order.customer_company_name)}`]
+      : [],
+    pickupDetail ? pickupDetail.split('\n') : [],
+    deliveryDetail ? deliveryDetail.split('\n') : [],
+    receiverLines.length ? receiverLines : [],
+    [
+      '📦 貨物資料',
+      `貨品：${fmt(order.cargo_desc)}`,
+      `件數：${order.quantity || 0} 件`,
+      `重量：${order.weight_kg || 0} KG`,
+      `CBM：${order.cbm || 0} cbm`
+    ],
+    dimLines.length ? dimLines : [],
+    [
+      '⚡ 其他資訊',
+      `⚡ 電力：${fmt(powLabel)}`,
+      `🚨 趕機：${fmt(urgentLabel)}`,
+      order.notes ? `備註：${fmt(order.notes)}` : '',
+      `狀態：${fmt(STATUS_LABEL[order.status] || order.status)}`,
+      `建立日期：${fmt(formatDateTime(order.created_at))}`
+    ]
+  ];
+
+  // 以 --- 分隔各區塊
+  const blocks = sections
+    .filter(sec => sec.some(line => line))
+    .map(sec => sec.filter(Boolean).join('\n'));
+
+  return blocks.join(`\n${SEPARATOR}\n`);
 }
 
 // 建立訂單 HTML 總結（電郵/複製用，含 <table> 樣式）
@@ -111,7 +219,8 @@ export function buildOrderSummary(order) {
     order.pickup_company_address,
     order.pickup_company_contact,
     order.pickup_company_phone,
-    order.pickup_company_email
+    order.pickup_company_email,
+    order.pickup_company_notes
   );
   const deliveryDetail = buildCompanyDetailHtml(
     deliveryTitle,
@@ -119,7 +228,8 @@ export function buildOrderSummary(order) {
     order.delivery_company_address,
     order.delivery_company_contact,
     order.delivery_company_phone,
-    order.delivery_company_email
+    order.delivery_company_email,
+    order.delivery_company_notes
   );
 
   // 收貨人（receiver）資料備份顯示
@@ -128,8 +238,8 @@ export function buildOrderSummary(order) {
     <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;width:110px;">收貨人</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_name)}</td></tr>
     <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_phone)}</td></tr>
     <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.address)}</td></tr>
-    ${order.receiver_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">收貨人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_note)}</td></tr>` : ''}
-    ${order.contact_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">聯絡人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.contact_note)}</td></tr>` : ''}
+    ${order.receiver_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">收貨人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.receiver_note).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
+    ${order.contact_note ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">聯絡人備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.contact_note).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
   ` : '';
 
   // DIM(cm) 表格化
@@ -166,7 +276,7 @@ export function buildOrderSummary(order) {
         <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:7px 10px;border:1px solid #ccc;text-align:center;">⚡ 其他資訊</td></tr>
         <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">⚡ 電力</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(powLabel)}</td></tr>
         <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">🚨 趕機</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(urgentLabel)}</td></tr>
-        ${order.notes ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.notes)}</td></tr>` : ''}
+        ${order.notes ? `<tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(order.notes).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
         <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">狀態</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(STATUS_LABEL[order.status] || order.status)}</td></tr>
         <tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fafafa;">建立日期</td><td style="padding:6px 10px;border:1px solid #ccc;">${escHtml(formatDateTime(order.created_at))}</td></tr>
       </table>

@@ -1,4 +1,3 @@
-// ===== 訂單表單 Controller（建立/編輯/提交流程 + 入口組裝） =====
 // escapeHtml 為 window 全域函式（main.js）
 // validateMawb / formatMawb / isLateMawb / displayMawb 為 window 全域函式（utils/mawb-utils.js）
 // validateHawb / setupHawbInput 為 window 全域函式（utils/hawb-utils.js）
@@ -33,7 +32,7 @@ import {
   getEmailApps,
   openEmailClient
 } from './api.js';
-import { getCompanyById, escapeAttr, buildOrderSummary, isTransportCategory } from './formatters.js';
+import { getCompanyById, escapeAttr, buildOrderSummary, buildOrderSummaryText, isTransportCategory } from './formatters.js';
 import { validateDest } from './validation.js';
 import { setupCompanyAutocomplete } from './components/companyAutocomplete.js';
 import {
@@ -809,13 +808,15 @@ export function showOrderSuccess(orderNo, orderId) {
     document.getElementById('btn-order-email-summary').addEventListener('click', () => {
       sendOrderEmail(order, summary);
     });
+    // 複製用純文字總結（不含 HTML，適合貼到 WhatsApp 等通訊軟體）
+    const summaryText = buildOrderSummaryText(order);
     document.getElementById('btn-order-copy-summary').addEventListener('click', async () => {
       try {
-        await navigator.clipboard.writeText(summary);
+        await navigator.clipboard.writeText(summaryText);
         alert('總結內容已複製！可使用 WhatsApp 等發送。');
       } catch (err) {
         const textarea = document.createElement('textarea');
-        textarea.value = summary;
+        textarea.value = summaryText;
         document.body.appendChild(textarea);
         textarea.select();
         document.execCommand('copy');
@@ -833,6 +834,11 @@ export function showOrderSuccess(orderNo, orderId) {
 function htmlToText(html) {
   if (!html) return '';
   const dom = new DOMParser().parseFromString(html, 'text/html');
+  // 將 <br> 轉為換行符，讓純文字 body 保留原有 ENTER
+  dom.querySelectorAll('br').forEach(br => {
+    const nl = document.createTextNode('\n');
+    br.replaceWith(nl);
+  });
   dom.querySelectorAll('table').forEach(table => {
     const rows = table.querySelectorAll('tr');
     rows.forEach(tr => {
@@ -853,14 +859,15 @@ export async function sendOrderEmail(order, summary) {
   const htmlBody = summary;
   const plainText = htmlToText(summary);
 
-  // ===== SUBJECT 新格式： [AGL - 收貨ORDER (URGENT)] 客戶 / A > B / MAWB# / 件數 | 重量 | CBM
+  // ===== SUBJECT 新格式： [AGL - 收貨ORDER (URGENT)] 客戶 / 提貨日期 / M# MAWB / 件數 | 重量 | CBM
   const subjectType = order.order_type === 'delivery' ? '送貨ORDER' : '收貨ORDER';
   const urgentPart = order.urgent === 'yes' ? ' (URGENT)' : '';
   const subjectCustomer = order.customer_company_name || '-';
-  const subjectRoute = `${order.pickup_company_name || '-'} > ${order.delivery_company_name || '-'}`;
-  const subjectMawb = displayMawb(order.mawb);
+  // 提貨日期（只取日期部分，不含時間；無值 → '-'）
+  const subjectPickup = order.pickup_datetime ? String(order.pickup_datetime).slice(0, 10) : '-';
+  const subjectMawb = `M# ${displayMawb(order.mawb)}`;
   const subjectCargo = `${order.quantity || 0}件 | ${order.weight_kg || 0} KG | ${order.cbm || 0} cbm`;
-  const subject = `[AGL - ${subjectType}${urgentPart}] ${subjectCustomer} / ${subjectRoute} / ${subjectMawb} / ${subjectCargo}`;
+  const subject = `[AGL - ${subjectType}${urgentPart}] ${subjectCustomer} / ${subjectPickup} / ${subjectMawb} / ${subjectCargo}`;
 
   // 系統預設郵件 → mailto（收件人留空，body 用純文字）
   const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(plainText)}`;

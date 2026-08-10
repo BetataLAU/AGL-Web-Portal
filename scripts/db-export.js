@@ -118,7 +118,18 @@ db.serialize(() => {
             }
             lines.push('');
           }
-          fs.writeFileSync(DUMP_PATH, lines.join('\n'), 'utf8');
+          const newContent = lines.join('\n');
+          // 避免「匯出時間」註解造成內容永遠變更：比對時忽略時間戳行
+          if (fs.existsSync(DUMP_PATH)) {
+            const oldContent = fs.readFileSync(DUMP_PATH, 'utf8');
+            const stripTs = (c) => c.replace(/-- 匯出時間: .*/, '-- 匯出時間: <ts>');
+            if (stripTs(oldContent) === stripTs(newContent)) {
+              console.log(`\n↷ ${DUMP_PATH} 無實質變更（資料內容相同），略過寫入`);
+              db.close();
+              return;
+            }
+          }
+          fs.writeFileSync(DUMP_PATH, newContent, 'utf8');
           console.log(`\n✅ 匯出完成: ${DUMP_PATH}`);
           console.log('   接著請 commit 並 push 這個檔案，夥伴 pull 後執行 npm run db:import 即可同步資料。');
           db.close();

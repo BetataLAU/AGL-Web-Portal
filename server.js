@@ -1,8 +1,15 @@
 const express = require('express');
 const path = require('path');
+const { execFile } = require('child_process');
 
 // 初始化 SQLite 數據庫（建表 + seed）
 require('./db/database');
+
+// ===== 啟動時自動安裝 git hooks（換電腦免手動安裝，失敗不影響伺服器） =====
+execFile(process.execPath, [path.join(__dirname, 'scripts', 'install-hooks.js')], { windowsHide: true, timeout: 15000 }, (hookErr, stdout, stderr) => {
+  if (stdout && stdout.trim()) console.log(stdout.trim());
+  if (stderr && stderr.trim()) console.error(stderr.trim());
+});
 
 // 路由模組
 const skillsRouter = require('./routes/skills');

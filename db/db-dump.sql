@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-10T13:08:16.689Z
+-- 匯出時間: 2026-08-10T15:55:38.910Z
 -- 共 5 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -50,11 +50,9 @@ INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", 
 INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (15, 'customer', '港龍 - KONG LUNG', '葵涌货柜码头路88号永得利广场二期2楼11,12号位', 'Charlie', '852-84901845', '', '此票货物已到港，烦请帮忙安排，谢谢！', '2026-08-10 06:36:22');
 
 INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (16, 'warehouse', '劍龍 - KL', '葵涌一號貨櫃碼頭現代貨倉大廈一期1樓09-10室', '', '852-21229093', 'hq@kimlung.com', '🚨🚨備注: 大廈高度限制4.3M (高櫃不能進入)🚨🚨
-
 劍龍登記費: 
 20:00前 - HKD 400.00
 20:00後 - HKD 600.00
-
 MTL大樓入閘費:
 HKD 80.00', '2026-08-10 06:36:22');
 
@@ -150,9 +148,11 @@ INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no
 
 INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (21, 'AGL-20260809-021', 'pickup', '160-0000 0000', 'CCC111', 'JST123456', 4, 2, 3, '0', 15, 55, 0.1, NULL, 'dry', 'A67', '[{"type":"no","main":"","code":"無電","qty":""},{"type":"dry","main":"","code":"A67","qty":"6"}]', 'yes', '', '', '', '呢個係建立文字範本二', '', 'pending', '2026-08-08 18:20:40', '2026-08-08 18:22:14', '', '', '2026-08-09 05:45', 'SVO');
 
-INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (22, 'AGL-20260810-006', 'pickup', '176-6558 7594', 'BGJST01060731', '61091657', 4, 15, 16, '0', 1, 91, 0.18, '[{"len":56,"width":53,"height":60,"qty":1}]', 'lithium', 'PI970', '[{"type":"lithium","main":"ELM","code":"PI970","qty":"1"}]', 'no', '', '', '', '收貨前, 請提供司機資料', '', 'pending', '2026-08-10 06:36:22', '2026-08-10 06:36:22', '', '', '2026-08-10 21:45', 'KWI');
+INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (22, 'AGL-20260810-006', 'pickup', '176-6558 7594', 'BGJST01060731', '61091657', 4, 15, 16, '0', 1, 91, 0.18, '[{"len":56,"width":53,"height":60,"qty":1}]', 'lithium', 'PI970', '[{"type":"lithium","main":"ELM","code":"PI970","qty":"1"}]', 'no', '', '', '', '收貨前, 請提供司機資料', '', 'completed', '2026-08-10 06:36:22', '2026-08-10 15:42:30', '', '', '2026-08-10 21:45', 'KWI');
 
 INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (23, 'AGL-20260810-007', 'delivery', '161-0000 0000', '161AAA00000', 'JST123000', 4, 15, 17, '0', 15, 100, 0.52, NULL, 'lithium', 'PI967', '[{"type":"lithium","main":"ELI","code":"PI967","qty":"15"}]', 'yes', '', '', '', 'RCL放5006', '', 'pending', '2026-08-10 07:16:52', '2026-08-10 07:16:52', '', '', '2026-08-10 21:00', 'IKA');
+
+INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (24, 'AGL-20260810-008', 'pickup', '162-0000 0000', '1234567890123', 'JST260810002', 4, 17, 16, 'CONNECTOR', 65, 450, 6, '[{"len":120,"width":100,"height":100,"qty":5}]', 'lithium', 'PI967', '[{"type":"lithium","main":"ELI","code":"PI967","qty":"10"}]', 'no', '', '', '', '機場提入口貨', '', 'pending', '2026-08-10 15:45:15', '2026-08-10 15:45:15', '', '', '2026-08-11 13:30', 'GOT');
 
 
 -- ===== 資料表: skills =====
@@ -195,6 +195,14 @@ CREATE TABLE templates (
 -- (無資料)
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 24);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
+
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);

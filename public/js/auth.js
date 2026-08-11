@@ -22,7 +22,7 @@ async function fetchCurrentUser() {
 // ===== 我的帳號 Modal（顯示帳號資訊 + 修改密碼） =====
 function showAccountModal(user) {
   const overlay = document.createElement('div');
-  overlay.className = 'app-modal-overlay';
+  overlay.className = 'account-modal-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px;';
   overlay.innerHTML = `
     <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:20px;width:100%;max-width:420px;padding:28px;box-shadow:0 30px 60px rgba(2,6,23,0.4);box-sizing:border-box;">

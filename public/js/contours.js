@@ -107,10 +107,12 @@ function renderContourResults(images, query) {
       const filename = btn.getAttribute('data-filename');
       if (!filename) return;
       const url = `${window.location.origin}/api/contour-image/${encodeURIComponent(filename)}`;
-      navigator.clipboard.writeText(url).then(() => {
-        showTemporaryNotice(btn.closest('.contour-result-card') || document.body, 'Image link copied to clipboard.');
-      }).catch(() => {
-        alert('Unable to copy the image link.');
+      copyTextToClipboard(url).then(ok => {
+        if (ok) {
+          showTemporaryNotice(btn.closest('.contour-result-card') || document.body, 'Image link copied to clipboard.');
+        } else {
+          alert('Unable to copy the image link.');
+        }
       });
     });
   });
@@ -123,10 +125,12 @@ function copyContourLinks() {
   }
 
   const links = currentContourData.map(img => `${window.location.origin}/api/contour-image/${encodeURIComponent(img.filename)}`);
-  navigator.clipboard.writeText(links.join('\n')).then(() => {
-    showTemporaryNotice(document.getElementById('contour-results-grid') || document.body, 'All image links copied to clipboard.');
-  }).catch(() => {
-    alert('Unable to copy contour links.');
+  copyTextToClipboard(links.join('\n')).then(ok => {
+    if (ok) {
+      showTemporaryNotice(document.getElementById('contour-results-grid') || document.body, 'All image links copied to clipboard.');
+    } else {
+      alert('Unable to copy contour links.');
+    }
   });
 }
 
@@ -193,10 +197,12 @@ async function exportSelectedContourZip() {
 
 // ===== 圖片 Modal =====
 let contourModalKeyHandler = null;
+let currentContourModalInfo = null; // { url, title, filename } — 供分享按鈕使用
 
 function setupContourModal() {
   const overlay = document.getElementById('contour-image-modal');
   const closeBtn = document.getElementById('contour-modal-close');
+  const shareBtn = document.getElementById('contour-modal-share');
   if (!overlay || !closeBtn) return;
 
   closeBtn.addEventListener('click', closeContourModal);
@@ -205,6 +211,10 @@ function setupContourModal() {
       closeContourModal();
     }
   });
+
+  if (shareBtn) {
+    shareBtn.addEventListener('click', shareContourImage);
+  }
 }
 
 function openContourModal(src, title, code, filename) {
@@ -217,6 +227,13 @@ function openContourModal(src, title, code, filename) {
   imageEl.alt = title || code || 'Contour preview';
   titleEl.textContent = code ? `${code} · ${title}` : title;
 
+  // 記錄目前圖片資訊供分享按鈕使用
+  currentContourModalInfo = {
+    url: `${window.location.origin}/api/contour-image/${encodeURIComponent(filename || '')}`,
+    title: code ? `${code} · ${title}` : title,
+    filename: filename || ''
+  };
+
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
 
@@ -226,6 +243,38 @@ function openContourModal(src, title, code, filename) {
     }
   };
   document.addEventListener('keydown', contourModalKeyHandler);
+}
+
+// ===== 分享目前圖片（手機可分享到 WhatsApp / WeChat / DingTalk 等） =====
+async function shareContourImage() {
+  if (!currentContourModalInfo) return;
+
+  const { url, title, filename } = currentContourModalInfo;
+
+  // 1) Web Share API：手機瀏覽器原生分享（可選 WhatsApp/WeChat/DingTalk 等）
+  if (navigator.share) {
+    const shareData = { title: title || 'Contour Image', url };
+    if (filename) shareData.text = filename;
+    try {
+      await navigator.share(shareData);
+      return; // 使用者完成分享或取消，不需提示
+    } catch (err) {
+      // AbortError = 使用者取消分享；其他錯誤才 fallback 複製
+      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+        console.error('[contours] share failed:', err);
+      } else {
+        return; // 使用者取消，不用 fallback
+      }
+    }
+  }
+
+  // 2) fallback：複製圖片連結到剪貼簿（供手動貼到通訊軟件）
+  const ok = await copyTextToClipboard(url);
+  if (ok) {
+    showTemporaryNotice(document.getElementById('contour-image-modal'), `已複製圖片連結（${filename}）`);
+  } else {
+    alert('無法複製連結，請長按圖片或手動分享。');
+  }
 }
 
 function closeContourModal() {

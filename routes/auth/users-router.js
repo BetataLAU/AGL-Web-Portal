@@ -138,10 +138,10 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   });
 });
 
-// PUT /api/auth/users/:id → 更新使用者（角色、顯示名稱、啟用狀態）
+// PUT /api/auth/users/:id → 更新使用者（公司、角色、顯示名稱、啟用狀態）
 router.put('/:id', requireRole('admin'), (req, res) => {
   const { id } = req.params;
-  const { display_name, role, is_active } = req.body;
+  const { display_name, role, is_active, company_id } = req.body;
 
   const sets = [];
   const params = [];
@@ -163,24 +163,57 @@ router.put('/:id', requireRole('admin'), (req, res) => {
     sets.push('is_active = ?');
     params.push(is_active ? 1 : 0);
   }
-  if (sets.length === 0) {
+  // 可選：更新所屬公司
+  let newCompanyId = null;
+  if (company_id !== undefined) {
+    newCompanyId = parseInt(company_id, 10);
+    if (!newCompanyId) return res.status(400).json({ error: '請選擇公司' });
+  }
+  if (sets.length === 0 && newCompanyId === null) {
     return res.status(400).json({ error: '沒有可更新的欄位' });
   }
 
-  // 保護：不可停用或降級自己（避免把唯一 admin 鎖死）
+  // 保護：不可停用/降級/改公司自己（避免把唯一 admin 鎖死或把自己移出公司）
   if (req.session.user.id === Number(id) &&
-      (is_active === false || (role !== undefined && role !== 'admin'))) {
-    return res.status(400).json({ error: '不能停用自己的帳號或修改自己的角色' });
+      (is_active === false || (role !== undefined && role !== 'admin') || newCompanyId !== null)) {
+    return res.status(400).json({ error: '不能停用自己的帳號、修改自己的角色或公司' });
   }
 
-  params.push(id);
-  const stmt = db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`);
-  stmt.run(...params, function (updateErr) {
-    if (updateErr) return res.status(500).json({ error: updateErr.message });
-    if (!this.changes) return res.status(404).json({ error: '使用者不存在' });
-    res.json({ success: true, changes: this.changes });
+  const finishUpdate = () => {
+    if (newCompanyId !== null) {
+      sets.push('company_id = ?');
+      params.push(newCompanyId);
+    }
+    params.push(id);
+    const stmt = db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`);
+    stmt.run(...params, function (updateErr) {
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      if (!this.changes) return res.status(404).json({ error: '使用者不存在' });
+      res.json({ success: true, changes: this.changes });
+    });
+    stmt.finalize();
+  };
+
+  // 若要改公司：驗證公司存在 + 新的 (company_id, user_id) 不與其他使用者重複
+  if (newCompanyId === null) {
+    finishUpdate();
+    return;
+  }
+  db.get('SELECT id FROM companies WHERE id = ?', [newCompanyId], (err, company) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!company) return res.status(400).json({ error: '公司不存在' });
+
+    db.get(
+      `SELECT id FROM users
+       WHERE company_id = ? AND user_id = (SELECT user_id FROM users WHERE id = ?) AND id != ?`,
+      [newCompanyId, id, id],
+      (dupErr, dupRow) => {
+        if (dupErr) return res.status(500).json({ error: dupErr.message });
+        if (dupRow) return res.status(400).json({ error: '此公司在這個 User ID 已存在' });
+        finishUpdate();
+      }
+    );
   });
-  stmt.finalize();
 });
 
 module.exports = router;

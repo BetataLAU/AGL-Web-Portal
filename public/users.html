@@ -352,7 +352,7 @@
       });
     }
 
-    // ===== 編輯使用者 =====
+    // ===== 編輯使用者（可改公司 / 顯示名稱 / 角色） =====
     function showEditModal(user) {
       const overlay = document.createElement('div');
       overlay.className = 'overlay';
@@ -363,7 +363,10 @@
 
           <div class="field">
             <label>公司</label>
-            <input type="text" value="${escapeHtml(user.company_name || '')}" disabled />
+            <select id="f-company">
+              ${companiesData.map(c => `<option value="${c.id}" ${Number(c.id) === Number(user.company_id) ? 'selected' : ''}>${escapeHtml(c.name)}${c.company_code ? ` (${escapeHtml(c.company_code)})` : ''}</option>`).join('')}
+            </select>
+            <div class="hint">變更公司後，此使用者的登入 Company ID 將隨之改變。</div>
           </div>
 
           <div class="field">
@@ -400,6 +403,7 @@
       overlay.querySelector('#modal-save').addEventListener('click', async () => {
         errorBox.classList.remove('show');
         const payload = {
+          company_id: overlay.querySelector('#f-company').value,
           display_name: overlay.querySelector('#f-display').value.trim(),
           role: overlay.querySelector('#f-role').value
         };

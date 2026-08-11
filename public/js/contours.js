@@ -85,7 +85,7 @@ function renderContourResults(images, query) {
           <span>${escapeHtml(img.title)}</span>
         </div>
         <div class="contour-actions">
-          <a class="pill btn-primary" href="${imageUrl}" download="${escapeHtml(img.filename)}">Download</a>
+          <a class="pill btn-primary contour-download-link" href="${imageUrl}" download="${escapeHtml(img.filename)}" data-filename="${escapeHtml(img.filename)}">Download</a>
           <button type="button" class="pill copy-link-btn" data-filename="${escapeHtml(img.filename)}">Copy URL</button>
         </div>
       </div>
@@ -114,6 +114,16 @@ function renderContourResults(images, query) {
           alert('Unable to copy the image link.');
         }
       });
+    });
+  });
+
+  // Download 改用 blob 方式：iOS Safari 對無 Content-Disposition header 的圖片，
+  // <a download> 可能直接開啟圖片（看似無反應）。
+  grid.querySelectorAll('.contour-download-link').forEach(anchor => {
+    anchor.addEventListener('click', (e) => {
+      e.preventDefault();
+      const filename = anchor.getAttribute('data-filename') || '';
+      downloadContourImage(anchor.href, filename);
     });
   });
 }
@@ -245,39 +255,100 @@ function openContourModal(src, title, code, filename) {
   document.addEventListener('keydown', contourModalKeyHandler);
 }
 
-// ===== 分享目前圖片（手機可分享到 WhatsApp / WeChat / DingTalk 等） =====
+// ===== 裝置偵測 =====
+// iPhone / iPad 的 iOS Safari 在 non-secure context（http:// 內網 IP）下
+// 不提供 navigator.share，只能靠「長按圖片儲存」後手動分享到其他 APP。
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS 偽裝成 Mac
+}
+
+// ===== 嘗試分享圖片「檔案」本身到其他 APP（Web Share API Level 2）=====
+// 回傳 'shared'：已分享或使用者取消（流程結束，不需再 fallback）
+// 回傳 'unsupported'：不支援或失敗，需要 fallback 到 URL 分享 / 選單
+async function tryShareContourImageFile(url, filename) {
+  if (!navigator.share || !navigator.canShare) return 'unsupported';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return 'unsupported';
+    const blob = await res.blob();
+    if (!blob.type || !blob.type.startsWith('image/')) return 'unsupported';
+
+    const fileName = filename || 'contour-image.jpg';
+    const file = new File([blob], fileName, { type: blob.type });
+    if (!navigator.canShare({ files: [file] })) return 'unsupported';
+
+    await navigator.share({ files: [file], title: 'Contour Image' });
+    return 'shared';
+  } catch (err) {
+    if (err.name === 'AbortError') return 'shared'; // 使用者取消 → 視為流程結束
+    console.warn('[contours] file share failed:', err.name, err.message);
+    return 'unsupported';
+  }
+}
+
+// ===== 分享目前圖片（手機可直接分享圖片到 WhatsApp / WeChat / DingTalk 等） =====
 async function shareContourImage() {
   if (!currentContourModalInfo) return;
 
   const { url, title, filename } = currentContourModalInfo;
 
-  // 1) Web Share API：手機瀏覽器原生分享（可選 WhatsApp/WeChat/DingTalk 等）
+  // iOS Safari 在 non-secure context（http:// 內網 IP）下沒有 navigator.share，
+  // 直接顯示 iPhone 專屬指引：長按圖片儲存 → 手動分享到 WhatsApp/WeChat
+  if (isIOS() && !navigator.share) {
+    showShareMenu(url, title, filename);
+    return;
+  }
+
+  // 1) 優先分享圖片「檔案」本身（目標 APP 直接收到圖片，而非網址）
+  //    Android Chrome / Safari iOS 15+（https）支援 navigator.share + files
+  const fileShareResult = await tryShareContourImageFile(url, filename);
+  if (fileShareResult === 'shared') return;
+
+  // 2) 檔案分享不支援/失敗 → 再試 Web Share API 分享網址
+  //    注意：手機透過內網 http://IP（non-secure context）訪問，或部分 Android WebView，
+  //    即使 navigator.share 存在，對 http:// 網址仍可能拋 NotAllowedError / DataError。
+  //    只有 AbortError 才是「使用者取消」；其餘錯誤一律 fallback 到分享選單，確保有反應。
   if (navigator.share) {
     try {
       await navigator.share({ title: title || 'Contour Image', text: filename || '', url });
-      return; // 成功分享（或使用者取消）不需額外提示
+      return; // 分享成功
     } catch (err) {
-      // AbortError/NotAllowedError = 使用者取消分享 → 靜默返回
-      if (err.name === 'AbortError' || err.name === 'NotAllowedError') return;
-      // 其他錯誤（DataError / 權限被拒等）→ 落入分享選單 fallback，確保有反饋
-      console.error('[contours] share failed:', err);
+      if (err.name === 'AbortError') return; // 使用者取消 → 靜默
+      console.warn('[contours] url share failed, fallback to menu:', err.name, err.message);
     }
   }
 
-  // 2) Web Share 失敗/不可用 → 顯示分享選單（系統分享 / 複製連結 / 下載圖片）
+  // 3) Web Share 失敗/不可用 → 顯示分享選單（系統分享 / 複製連結 / 下載圖片）
   showShareMenu(url, title, filename);
 }
 
-// 分享選單：保證使用者一定有反饋（Web Share 失敗或手機不支援時）
+// 分享選單：保證使用者一定有反饋（Web Share 失敗、手機不支援或 iOS non-secure context）
 function showShareMenu(url, title, filename) {
+  const isIphone = isIOS();
+
+  const systemBtnHtml = isIphone
+    ? // iPhone（無 navigator.share）→ 主要動作是「長按圖片儲存」後手動分享
+      `
+      <p class="contour-share-hint"><i class="fa-solid fa-hand-pointer"></i> iPhone：請長按下方圖片「儲存圖片」，再到 WhatsApp / WeChat 選擇照片傳送。</p>
+      <img class="contour-share-preview-img" src="${escapeHtml(url)}" alt="長按儲存此圖片" />
+      <button type="button" class="pill btn-primary contour-share-option" data-share="ios-save">
+        <i class="fa-solid fa-image"></i> 📸 長按圖片儲存後手動分享
+      </button>
+      `
+    : // Android / 桌面 → 系統分享（檔案）
+      `
+      <button type="button" class="pill btn-primary contour-share-option" data-share="system">
+        <i class="fa-solid fa-share-nodes"></i> 📱 系統分享（WhatsApp / WeChat / DingTalk…）
+      </button>
+      `;
+
   openModal({
     title: '📤 分享圖片',
     body: `
       <div class="contour-share-menu">
         <p class="contour-share-sub">${escapeHtml(title || 'Contour Image')}</p>
-        <button type="button" class="pill btn-primary contour-share-option" data-share="system">
-          <i class="fa-solid fa-share-nodes"></i> 📱 系統分享（WhatsApp / WeChat / DingTalk…）
-        </button>
+        ${systemBtnHtml}
         <button type="button" class="pill contour-share-option" data-share="copy">
           <i class="fa-solid fa-link"></i> 📋 複製圖片連結
         </button>
@@ -296,42 +367,75 @@ function showShareMenu(url, title, filename) {
       // 關閉選單 modal
       document.querySelectorAll('.app-modal-overlay').forEach(el => el.remove());
 
-      if (action === 'system') {
-        // 再試一次 Web Share API
+      if (action === 'ios-save') {
+        // iPhone：直接在新分頁開啟圖片，讓使用者長按儲存；同時提示步驟
+        window.open(url, '_blank');
+        alert('圖片已開啟。請在圖片上長按 → 「儲存圖片」，再到 WhatsApp / WeChat 選擇照片傳送。');
+      } else if (action === 'system') {
+        // Android / 桌面：1) 優先分享圖片「檔案」本身
+        const fileShareResult = await tryShareContourImageFile(url, filename);
+        if (fileShareResult === 'shared') return;
+
+        // 2) 檔案分享不支援/失敗 → 再試 Web Share API 分享網址
         if (navigator.share) {
           try {
             await navigator.share({ title: title || 'Contour Image', text: filename || '', url });
             return;
           } catch (err) {
-            if (err.name === 'AbortError' || err.name === 'NotAllowedError') return; // 使用者取消
-            console.error('[contours] share failed:', err);
+            // 只有 AbortError 是使用者取消；其餘錯誤繼續 fallback，確保有反饋
+            if (err.name === 'AbortError') return;
+            console.warn('[contours] system share failed:', err.name, err.message);
           }
         }
-        // 系統分享不可用 → fallback 複製連結
+        // 3) 系統分享不可用 → fallback 複製連結
         const ok = await copyTextToClipboard(url);
         if (ok) {
-          showTemporaryNotice(document.getElementById('contour-image-modal'), '已複製圖片連結！');
+          showTemporaryNotice(document.body, '已複製圖片連結！');
         } else {
           alert('此瀏覽器不支援系統分享，也無法複製連結。請長按圖片儲存後手動分享。');
         }
       } else if (action === 'copy') {
         const ok = await copyTextToClipboard(url);
         if (ok) {
-          showTemporaryNotice(document.getElementById('contour-image-modal'), '已複製圖片連結！');
+          showTemporaryNotice(document.body, '已複製圖片連結！');
         } else {
           alert('複製失敗，請長按圖片手動複製。');
         }
       } else if (action === 'download') {
-        // 下載圖片
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'contour-image.jpg';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        // 行動裝置建議使用 blob + objectURL 下載（<a download> 在 iOS Safari 上
+        // 對無 Content-Disposition header 的圖片可能無效/直接開啟圖片）
+        await downloadContourImage(url, filename || 'contour-image.jpg');
       }
     });
   });
+}
+
+// ===== 下載圖片（行動裝置相容） =====
+// iOS Safari 對 <a download> + 伺服器未附 Content-Disposition: attachment 的圖片，
+// 可能直接開啟圖片（看起來像無反應）。改用 fetch → blob → objectURL 方式，
+// 失敗時 fallback 直接導向圖片，確保一定有反應。
+async function downloadContourImage(url, filename) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    // 避免誤下載非圖片內容（例如 404 的 JSON/HTML 回應）
+    if (blob.type && !blob.type.startsWith('image/')) {
+      throw new Error(`Unexpected content type: ${blob.type}`);
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename || 'contour-image.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+  } catch (err) {
+    console.error('[contours] download failed:', err);
+    // Fallback：直接開啟圖片，讓使用者可長按儲存 / 選擇下載
+    window.location.href = url;
+  }
 }
 
 function closeContourModal() {

@@ -302,9 +302,9 @@ export function setupOrderDetailActions(order) {
       if (action === 'email') {
         sendOrderEmail(order, buildOrderSummary(order));
       } else if (action === 'copy') {
-        navigator.clipboard.writeText(buildOrderSummaryText(order)).then(() => {
-          alert('總結內容已複製！');
-        }).catch(() => alert('複製失敗'));
+        copyTextToClipboard(buildOrderSummaryText(order)).then(ok => {
+          alert(ok ? '總結內容已複製！' : '複製失敗，請手動複製。');
+        });
       } else if (action === 'edit') {
         loadOrderToForm(order);
       } else if (action === 'duplicate') {

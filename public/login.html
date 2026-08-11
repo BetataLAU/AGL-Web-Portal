@@ -224,9 +224,10 @@
           body: JSON.stringify({ companyCode, userId, password })
         });
 
-        // 登入失敗 → 顯示後端錯誤訊息（401/400/403 皆停留本頁）
+        // 登入失敗 → 顯示後端錯誤訊息（401/400/403/423 皆停留本頁）
+        // 423 = 帳號已鎖定（試錯上限）
         if (!res.ok) {
-          let msg = '登入失敗，請再試一次';
+          let msg = res.status === 423 ? '帳號已鎖定，請稍後再試或聯絡管理員' : '登入失敗，請再試一次';
           try {
             const errData = await res.json();
             if (errData.error) msg = errData.error;

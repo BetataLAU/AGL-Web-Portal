@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-11T10:15:04.349Z
+-- 匯出時間: 2026-08-11T10:19:46.727Z
 -- 共 6 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -211,11 +211,11 @@ CREATE TABLE users (
       display_name TEXT,
       role TEXT DEFAULT 'customer',
       is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, locked_until DATETIME, failed_attempts INTEGER DEFAULT 0,
       UNIQUE(company_id, user_id)
     );
 
-INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17');
+INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0);
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====

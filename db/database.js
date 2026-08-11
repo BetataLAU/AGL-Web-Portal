@@ -95,6 +95,7 @@ db.serialize(() => {
 
   // ===== 登入系統：使用者 =====
   // 角色：admin（管理員，可管理使用者與看所有資料）、staff（內部員工）、customer（客戶，只能看自己的訂單）
+  // failed_attempts：連續密碼錯誤次數；locked_until：帳號鎖定到期時間（試錯上限）
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,10 +105,34 @@ db.serialize(() => {
       display_name TEXT,
       role TEXT DEFAULT 'customer',
       is_active INTEGER DEFAULT 1,
+      failed_attempts INTEGER DEFAULT 0,
+      locked_until DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(company_id, user_id)
     )
   `);
+
+  // users 表相容性：補上試錯上限相關欄位
+  db.all("PRAGMA table_info(users)", [], (err, userCols) => {
+    if (err) {
+      console.error('PRAGMA table_info(users) failed:', err.message);
+      return;
+    }
+    const userColumns = userCols.map(c => c.name);
+    const ensureUserColumn = (name, type) => {
+      if (!userColumns.includes(name)) {
+        db.run(`ALTER TABLE users ADD COLUMN ${name} ${type}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`Failed to add ${name} column to users table:`, alterErr.message);
+          } else {
+            console.log(`Added ${name} column to users table`);
+          }
+        });
+      }
+    };
+    ensureUserColumn('failed_attempts', 'INTEGER DEFAULT 0');
+    ensureUserColumn('locked_until', 'DATETIME');
+  });
 
   // companies 表相容性：補上 company_code 欄位（登入用的公司短碼）
   db.all("PRAGMA table_info(companies)", [], (err, companyCols) => {

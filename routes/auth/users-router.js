@@ -125,7 +125,10 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   bcrypt.hash(password, 10, (hashErr, hash) => {
     if (hashErr) return res.status(500).json({ error: hashErr.message });
 
-    const stmt = db.prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+    // 重設密碼同時清除失敗計數與鎖定（管理員可藉此解鎖被鎖定的帳號）
+    const stmt = db.prepare(
+      "UPDATE users SET password_hash = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?"
+    );
     stmt.run(hash, id, function (updateErr) {
       if (updateErr) return res.status(500).json({ error: updateErr.message });
       if (!this.changes) return res.status(404).json({ error: '使用者不存在' });

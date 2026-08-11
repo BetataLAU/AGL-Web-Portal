@@ -169,16 +169,16 @@ async function renderDbTable(tableName, columns, rows) {
 
   container.innerHTML = `
     <div class="dbviewer-toolbar">
+      <div class="dbviewer-search-wrap">
+        <i class="fa-solid fa-magnifying-glass dbviewer-search-icon"></i>
+        <input type="text" class="dbviewer-search-input" id="dbviewer-search-input" placeholder="搜尋…" autocomplete="off" spellcheck="false" />
+        <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
+      </div>
       <div>
         <strong>${TABLE_LABELS[tableName] || tableName}</strong>
         <span class="db-record-count" id="dbviewer-record-count">共 ${rows.length} 筆</span>
       </div>
       <div class="dbviewer-toolbar-actions">
-        <div class="dbviewer-search-wrap">
-          <i class="fa-solid fa-magnifying-glass dbviewer-search-icon"></i>
-          <input type="text" class="dbviewer-search-input" id="dbviewer-search-input" placeholder="搜尋…" autocomplete="off" spellcheck="false" />
-          <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
-        </div>
         <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
       </div>
     </div>

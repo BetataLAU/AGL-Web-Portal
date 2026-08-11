@@ -1,7 +1,7 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-11T05:05:52.776Z
--- 共 5 張資料表
+-- 匯出時間: 2026-08-11T10:15:04.349Z
+-- 共 6 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
 
@@ -17,46 +17,48 @@ CREATE TABLE companies (
       email TEXT,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    , company_code TEXT);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (1, 'customer', 'BCD1234', '', '', '', '', '', '2026-08-07 16:41:58');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (1, 'customer', 'BCD1234', '', '', '', '', '', '2026-08-07 16:41:58', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (2, 'customer', 'XX LOG', 'XX LOG', 'XX', '111', '11', 'remark 111', '2026-08-07 16:41:58');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (2, 'customer', 'XX LOG', 'XX LOG', 'XX', '111', '11', 'remark 111', '2026-08-07 16:41:58', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (3, 'warehouse', 'KL', 'KLL ADDR', 'KL PIC', '222', '22@', 'TEST REMARK 2', '2026-08-07 16:41:58');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (3, 'warehouse', 'KL', 'KLL ADDR', 'KL PIC', '222', '22@', 'TEST REMARK 2', '2026-08-07 16:41:58', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (4, 'customer', 'JST', '', '', '', '', '', '2026-08-07 16:43:19');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (4, 'customer', 'JST', '', '', '', '', '', '2026-08-07 16:43:19', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (5, 'warehouse', '遠雄自貿港區倉儲', '桃園市大園區航翔路 101 號', '陳建宏', '03-393-8800', 'tfc@farglory.com.tw', '航空貨運站專用倉', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (5, 'warehouse', '遠雄自貿港區倉儲', '桃園市大園區航翔路 101 號', '陳建宏', '03-393-8800', 'tfc@farglory.com.tw', '航空貨運站專用倉', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (6, 'warehouse', '华辉物流中心', '深圳市宝安区机场物流园 8 栋', '王海涛', '+86-755-2998-1122', 'ops@huahui-sz.com', '', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (6, 'warehouse', '华辉物流中心', '深圳市宝安区机场物流园 8 栋', '王海涛', '+86-755-2998-1122', 'ops@huahui-sz.com', '', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (7, 'warehouse', '冠捷倉儲', '香港葵涌葵昌路 50 號', '李志明', '+852-2612-3300', 'wh@tps.com.hk', 'Dangerous Goods 收貨點', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (7, 'warehouse', '冠捷倉儲', '香港葵涌葵昌路 50 號', '李志明', '+852-2612-3300', 'wh@tps.com.hk', 'Dangerous Goods 收貨點', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (8, 'customer', '虹光精密工業股份有限公司', '新竹科學園區研新一路 20 號', '林佳穎', '03-578-2388', 'supply@avision.com.tw', 'ISO 認證廠商', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (8, 'customer', '虹光精密工業股份有限公司', '新竹科學園區研新一路 20 號', '林佳穎', '03-578-2388', 'supply@avision.com.tw', 'ISO 認證廠商', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (9, 'customer', '天鈺科技股份有限公司', '', '', '', '', '', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (9, 'customer', '天鈺科技股份有限公司', '', '', '', '', '', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (10, 'customer', '聯亞光電工業股份有限公司', '台南市善化區南科九路 12 號', '劉怡君', '06-505-1666', 'procure@landmark-tw.com', '需預約進廠', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (10, 'customer', '聯亞光電工業股份有限公司', '台南市善化區南科九路 12 號', '劉怡君', '06-505-1666', 'procure@landmark-tw.com', '需預約進廠', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (11, 'customer', '宏碁智通股份有限公司', '新北市汐止區新台五路一段 88 號 22 樓', '吳佩珊', '02-2696-1234', 'scm@acerits.com', '', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (11, 'customer', '宏碁智通股份有限公司', '新北市汐止區新台五路一段 88 號 22 樓', '吳佩珊', '02-2696-1234', 'scm@acerits.com', '', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (12, 'customer', '緯創資通股份有限公司', '新竹科學園區新安路 5 號', '黃國倫', '03-578-3456', 'logistics@wistron.com', 'Bonded 快遞件', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (12, 'customer', '緯創資通股份有限公司', '新竹科學園區新安路 5 號', '黃國倫', '03-578-3456', 'logistics@wistron.com', 'Bonded 快遞件', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (13, 'customer', '泰金寶電通股份有限公司', '新北市深坑區北深路三段 147 號', '許文龍', '02-2662-6688', 'dispatch@ccet.com.tw', '', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (13, 'customer', '泰金寶電通股份有限公司', '新北市深坑區北深路三段 147 號', '許文龍', '02-2662-6688', 'dispatch@ccet.com.tw', '', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (14, 'customer', '樺漢科技股份有限公司', '新北市中和區建一路 186 號 9 樓', '鄭雅文', '02-8226-7799', 'purchasing@enoc.com', '午休不收貨', '2026-08-07 17:03:36');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (14, 'customer', '樺漢科技股份有限公司', '新北市中和區建一路 186 號 9 樓', '鄭雅文', '02-8226-7799', 'purchasing@enoc.com', '午休不收貨', '2026-08-07 17:03:36', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (15, 'customer', '港龍 - KONG LUNG', '葵涌货柜码头路88号永得利广场二期2楼11,12号位', 'Charlie', '852-84901845', '', '此票货物已到港，烦请帮忙安排，谢谢！', '2026-08-10 06:36:22');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (15, 'customer', '港龍 - KONG LUNG', '葵涌货柜码头路88号永得利广场二期2楼11,12号位', 'Charlie', '852-84901845', '', '此票货物已到港，烦请帮忙安排，谢谢！', '2026-08-10 06:36:22', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (16, 'warehouse', '劍龍 - KL', '葵涌一號貨櫃碼頭現代貨倉大廈一期1樓09-10室', '', '852-21229093', 'hq@kimlung.com', '🚨🚨備注: 大廈高度限制4.3M (高櫃不能進入)🚨🚨
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (16, 'warehouse', '劍龍 - KL', '葵涌一號貨櫃碼頭現代貨倉大廈一期1樓09-10室', '', '852-21229093', 'hq@kimlung.com', '🚨🚨備注: 大廈高度限制4.3M (高櫃不能進入)🚨🚨
 劍龍登記費: 
 20:00前 - HKD 400.00
 20:00後 - HKD 600.00
 MTL大樓入閘費:
-HKD 80.00', '2026-08-10 06:36:22');
+HKD 80.00', '2026-08-10 06:36:22', NULL);
 
-INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at") VALUES (17, 'customer', 'HACTL', 'SuperTerminal 1 9 Chun Wan Road Hong Kong International Airport Hong Kong', '', '27532421', '', '', '2026-08-10 07:16:52');
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (17, 'customer', 'HACTL', 'SuperTerminal 1 9 Chun Wan Road Hong Kong International Airport Hong Kong', '', '27532421', '', '', '2026-08-10 07:16:52', NULL);
+
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (18, 'customer', 'AGL Logistics', NULL, NULL, NULL, NULL, NULL, '2026-08-11 09:58:17', 'AGL');
 
 
 -- ===== 資料表: note_templates =====
@@ -157,6 +159,8 @@ INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no
 INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (25, 'AGL-20260811-001', 'pickup', '163-0000 0000', 'HFS000001', 'Qwttt1222-3', 4, 15, 16, '0', 12, 550, 7.26, '[{"len":110,"width":110,"height":100,"qty":6}]', 'lithium', 'A123', '[{"type":"dry","main":"","code":"A123","qty":"12"},{"type":"lithium","main":"ELI","code":"PI967","qty":"10"}]', 'yes', '', '', '', '先去收貨，詳細資料候補
 收貨前, 請提供司機資料', '', 'in_progress', '2026-08-11 04:42:05', '2026-08-11 05:01:14', '', '', '2026-08-11 15:30', 'DUS');
 
+INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (28, 'AGL-20260811-002', 'pickup', '後補MAWB#', '', 'P-NEW1', 19, 19, NULL, '新貨物', 1, 1, 0.01, NULL, 'no', NULL, NULL, 'no', '', '', '', '', '', 'pending', '2026-08-11 09:59:54', '2026-08-11 09:59:54', '', '', NULL, '');
+
 
 -- ===== 資料表: skills =====
 DROP TABLE IF EXISTS "skills";
@@ -197,12 +201,29 @@ CREATE TABLE templates (
 
 -- (無資料)
 
+-- ===== 資料表: users =====
+DROP TABLE IF EXISTS "users";
+CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      role TEXT DEFAULT 'customer',
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, user_id)
+    );
+
+INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17');
+
+
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 20);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 25);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 28);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
 
@@ -221,4 +242,6 @@ INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 23);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('users', 3);
 

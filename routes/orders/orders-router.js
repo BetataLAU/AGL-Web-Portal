@@ -15,6 +15,32 @@ const {
   ORDER_SELECT_SQL
 } = require('./utils');
 
+// ===== 客戶資料隔離 =====
+// customer 角色只能存取「自己公司」的訂單（依 customer_company_id = session.company_id 過濾）
+// admin / staff 可看全部訂單
+function buildCustomerScope(req, params) {
+  const { user } = req.session || {};
+  if (user && user.role === 'customer') {
+    params.push(user.company_id);
+    return ' AND o.customer_company_id = ?';
+  }
+  return '';
+}
+
+// 客戶只能操作自己公司的訂單；回傳 true 代表有權限
+function verifyOrderAccess(req, res, orderId, cb) {
+  const { user } = req.session || {};
+  if (!user || user.role !== 'customer') return cb(true);
+  db.get(
+    "SELECT id FROM orders WHERE id = ? AND customer_company_id = ?",
+    [orderId, user.company_id],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      cb(!!row);
+    }
+  );
+}
+
 // ===== 訂單 API =====
 // GET /api/orders?search=&status=
 router.get('/', (req, res) => {
@@ -31,6 +57,8 @@ router.get('/', (req, res) => {
     sql += " AND o.status = ?";
     params.push(status);
   }
+  // 客戶資料隔離：只回傳自己公司的訂單
+  sql += buildCustomerScope(req, params);
   sql += " ORDER BY o.created_at DESC LIMIT 100";
 
   db.all(sql, params, (err, rows) => {
@@ -258,12 +286,18 @@ router.get('/check-duplicate', (req, res) => {
 router.post('/', (req, res) => {
   const {
     order_type, mawb, hawb, dest, pickup_no, pickup_datetime,
-    customer_company_id, pickup_company_id, delivery_company_id,
+    customer_company_id: requestCustomerCompanyId, pickup_company_id, delivery_company_id,
     cargo_desc, quantity, weight_kg, cbm, cbm_dimensions,
     power_type, power_code, power_items, urgent,
     receiver_name, receiver_phone, address, receiver_note, contact_note,
     notes, transport_company, status = 'pending'
   } = req.body;
+
+  // 客戶資料隔離：customer 下單時，客戶公司強制為自己的公司（不可幫別人下單）
+  const sessionUser = req.session && req.session.user;
+  const customerCompanyId = (sessionUser && sessionUser.role === 'customer')
+    ? sessionUser.company_id
+    : requestCustomerCompanyId;
 
   if (!order_type || !pickup_no) {
     return res.status(400).json({ error: '請填寫訂單類型與客戶提貨號' });
@@ -318,7 +352,7 @@ router.post('/', (req, res) => {
     stmt.run(
       orderNo, order_type, finalMawb, finalHawb, finalDest, pickup_no,
       pickup_datetime || null,
-      customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
+      customerCompanyId || null, pickup_company_id || null, delivery_company_id || null,
       cargo_desc, quantity, weight_kg, cbm,
       cbm_dimensions ? JSON.stringify(cbm_dimensions) : null,
       power_type, power_code || null,
@@ -339,16 +373,25 @@ router.post('/', (req, res) => {
 // GET /api/orders/:id
 router.get('/:id', (req, res) => {
   const { id } = req.params;
-  db.get(ORDER_SELECT_SQL + ' WHERE o.id = ?', [id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Order not found' });
-    res.json({ data: serializeOrder(row) });
+  verifyOrderAccess(req, res, id, (hasAccess) => {
+    if (!hasAccess) return res.status(404).json({ error: '訂單不存在' });
+    db.get(ORDER_SELECT_SQL + ' WHERE o.id = ?', [id], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: 'Order not found' });
+      res.json({ data: serializeOrder(row) });
+    });
   });
 });
 
 // PUT /api/orders/:id
 router.put('/:id', (req, res) => {
   const { id } = req.params;
+  verifyOrderAccess(req, res, id, (hasAccess) => {
+    if (!hasAccess) return res.status(404).json({ error: '訂單不存在' });
+    doUpdate();
+  });
+
+  function doUpdate() {
   const {
     order_type, mawb, hawb, dest, pickup_no, pickup_datetime,
     customer_company_id, pickup_company_id, delivery_company_id,
@@ -383,47 +426,51 @@ router.put('/:id', (req, res) => {
   }
   const finalDest = destResult.value;
 
-  const stmt = db.prepare(`
-    UPDATE orders SET
-      order_type = ?, mawb = ?, hawb = ?, dest = ?, pickup_no = ?, pickup_datetime = ?,
-      customer_company_id = ?, pickup_company_id = ?, delivery_company_id = ?,
-      cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?, cbm_dimensions = ?,
-      power_type = ?, power_code = ?, power_items = ?, urgent = ?,
-      receiver_name = ?, receiver_phone = ?, address = ?, receiver_note = ?, contact_note = ?,
-      notes = ?, transport_company = ?, status = ?,
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-  stmt.run(
-    order_type, finalMawb, finalHawb, finalDest, pickup_no,
-    pickup_datetime || null,
-    customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
-    cargo_desc, quantity, weight_kg, cbm,
-    cbm_dimensions ? JSON.stringify(cbm_dimensions) : null,
-    power_type, power_code || null,
-    power_items ? JSON.stringify(power_items) : null,
-    urgent,
-    receiver_name || '', receiver_phone || '', address || '',
-    receiver_note || '', contact_note || '',
-    notes || '', transport_company || '', status,
-    id,
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true, changes: this.changes });
-    }
-  );
-  stmt.finalize();
+    const stmt = db.prepare(`
+      UPDATE orders SET
+        order_type = ?, mawb = ?, hawb = ?, dest = ?, pickup_no = ?, pickup_datetime = ?,
+        customer_company_id = ?, pickup_company_id = ?, delivery_company_id = ?,
+        cargo_desc = ?, quantity = ?, weight_kg = ?, cbm = ?, cbm_dimensions = ?,
+        power_type = ?, power_code = ?, power_items = ?, urgent = ?,
+        receiver_name = ?, receiver_phone = ?, address = ?, receiver_note = ?, contact_note = ?,
+        notes = ?, transport_company = ?, status = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(
+      order_type, finalMawb, finalHawb, finalDest, pickup_no,
+      pickup_datetime || null,
+      customer_company_id || null, pickup_company_id || null, delivery_company_id || null,
+      cargo_desc, quantity, weight_kg, cbm,
+      cbm_dimensions ? JSON.stringify(cbm_dimensions) : null,
+      power_type, power_code || null,
+      power_items ? JSON.stringify(power_items) : null,
+      urgent,
+      receiver_name || '', receiver_phone || '', address || '',
+      receiver_note || '', contact_note || '',
+      notes || '', transport_company || '', status,
+      id,
+      function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, changes: this.changes });
+      }
+    );
+    stmt.finalize();
+  }
 });
 
 // DELETE /api/orders/:id
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
-  const stmt = db.prepare("DELETE FROM orders WHERE id = ?");
-  stmt.run(id, function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true, changes: this.changes });
+  verifyOrderAccess(req, res, id, (hasAccess) => {
+    if (!hasAccess) return res.status(404).json({ error: '訂單不存在' });
+    const stmt = db.prepare("DELETE FROM orders WHERE id = ?");
+    stmt.run(id, function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, changes: this.changes });
+    });
+    stmt.finalize();
   });
-  stmt.finalize();
 });
 
 module.exports = router;

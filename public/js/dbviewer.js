@@ -74,20 +74,10 @@ const TEXTAREA_COLUMNS = new Set([
   'description'
 ]);
 
-async function apiDbFetch(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
-  });
-  if (!res.ok) {
-    let errorMsg = '請求失敗';
-    try {
-      const errData = await res.json();
-      if (errData.error) errorMsg = errData.error;
-    } catch (e) { /* ignore */ }
-    throw new Error(errorMsg);
-  }
-  return res.json();
+// 統一使用 apiFetch（定義於 utils/api.js）：
+// 自動帶 JSON header + 401 未登入時跳轉登入頁（資料庫檢視器僅限 admin/staff）
+function apiDbFetch(url, options = {}) {
+  return apiFetch(url, options);
 }
 
 // 載入表清單

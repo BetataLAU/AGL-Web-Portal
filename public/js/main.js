@@ -65,6 +65,15 @@ function setupPageNavigation() {
   showSection('section-home');
 }
 
+// ===== 受保護區塊初始化（訂單系統 / 資料庫檢視器） =====
+// 僅在「已登入」時由 auth.js 呼叫：
+// - 未登入時不初始化 → 不會發出受保護 API 請求 → 公開頁面（HOME/AI/Capabilities/Contour）仍可正常瀏覽
+// - 若直接呼叫會觸發 apiFetch 401 自動跳轉登入頁
+window.initProtectedSections = function () {
+  if (typeof setupOrdersSection === 'function') setupOrdersSection();
+  if (typeof setupDbViewerSection === 'function') setupDbViewerSection();
+};
+
 // ===== 入口 =====
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
@@ -78,12 +87,12 @@ document.addEventListener('DOMContentLoaded', () => {
   setupBackgroundParticles();
   setupScrollProgressBar();
 
-  // 各功能頁
+  // 公開功能頁（不需登入）
   fetchSkills();
   setupChat();
   setupFilters();
   setupContourSection();
   setupContourModal();
-  setupOrdersSection();
-  setupDbViewerSection();
+
+  // 受保護區塊（訂單/資料庫）由 auth.js 視登入狀態延後初始化
 });

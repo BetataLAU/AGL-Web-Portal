@@ -78,11 +78,39 @@
 
 | 路徑前綴 | 模組 | 說明 |
 |----------|------|------|
+| `/api/auth` | `routes/auth/auth-router.js` | 登入/登出/目前登入者（公開） |
+| `/api/auth/users` | `routes/auth/users-router.js` | 使用者管理（admin only） |
 | `/api/skills` | `routes/skills.js` | 技能 API |
 | `/api/contours` | `routes/contours.js` | Contour 影像 |
 | `/api/contour-image` | `routes/contours.js` | 舊路徑的 Contour 影像 |
-| `/api/orders` | `routes/orders/index.js` | 訂單系統（見下） |
-| `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（白名單保護） |
+| `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
+| `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
+
+## 登入系統（routes/auth/）
+
+Session-based 認證（express-session + bcryptjs），保護訂單系統與資料庫檢視器。
+
+| 檔名 | 職責 |
+|------|------|
+| `auth-router.js` | 登入（Company Code + User ID + Password）、登出、`/me` 查詢登入狀態 |
+| `users-router.js` | 使用者 CRUD（admin only）、重設密碼、啟用/停用 |
+| `middleware.js` | `requireAuth` / `requireRole` 權限檢查 |
+
+**角色**：`admin`（使用者管理/資料庫）、`staff`（內部員工，含資料庫）、`customer`（客戶，只能看自己公司的訂單）。
+
+**資料隔離**：`routes/orders/orders-router.js` 對 customer 角色強制 `AND o.customer_company_id = session.company_id` 過濾；單筆操作（GET/PUT/DELETE）先驗證訂單屬於自己的公司；新增訂單時 `customer_company_id` 強制為 session 內的公司。
+
+**資料表**：`users`（company_id, user_id, password_hash, display_name, role, is_active）；`companies` 新增 `company_code` 欄位（登入用公司短碼）。
+
+**預設管理員**：`scripts/seed-admin.js` 啟動時自動建立 `AGL / admin / admin123`（僅全新環境）。
+
+**前端**：`login.html`（獨立登入頁）、`users.html`（使用者管理，admin only）、`js/auth.js`（Sidebar 登入狀態與鎖頭控制）、`js/utils/api.js`（401 自動跳轉登入頁）、`main.js`（受保護區塊僅登入後初始化）。
+
+**注意**：
+- `auth.js` 的 `fetchCurrentUser` 不可用 `apiFetch`（401 會跳轉）；需用原生 fetch 且 401 回 null
+- `login.html` 不可引入 `api.js`（登入失敗 401 會造成無限跳轉），用原生 fetch
+- Session 使用 MemoryStore（僅適合單機開發）；正式部署多 process 需換 store
+- `.clinerules` 內 users.html 的 `escapeHtml` 須用 `\x26` 跳脫避免 XML 解碼
 
 ## 訂單系統（routes/orders/）
 

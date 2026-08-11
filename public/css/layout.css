@@ -93,6 +93,108 @@
   transform: translateX(3px);
 }
 
+/* ===== Sidebar 登入區塊 ===== */
+.sidebar-login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-login-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--text-main);
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed var(--border-color);
+  font-size: 0.9rem;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.sidebar-login-btn:hover {
+  background: var(--surface-glow);
+  border-color: var(--primary);
+  border-style: solid;
+  transform: translateX(3px);
+}
+
+.sidebar-logged-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-glow);
+  border: 1px solid var(--border-color);
+}
+
+.sidebar-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sidebar-user-info strong {
+  font-size: 0.85rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-info span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-logout-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.sidebar-logout-btn:hover {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.5);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+/* 受保護導航鎖頭 */
+.nav-lock-icon {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.nav-item-locked {
+  cursor: pointer;
+}
+
+.nav-item-locked .nav-lock-icon {
+  opacity: 1;
+  color: var(--primary, #2563eb);
+}
+
+/* 使用者管理 nav-item（與其他 nav-item 一致） */
+#nav-users {
+  display: flex;
+}
+
 .sidebar-footer {
   margin-top: auto;
   font-size: 0.85rem;

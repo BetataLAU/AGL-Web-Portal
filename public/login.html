@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登入 - AGL Portal</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20fill='%2366f'%20/%3E%3Ctext%20x='50%25'%20y='55%25'%20font-size='10'%20text-anchor='middle'%20fill='white'%20font-family='Arial'%3EG%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/base.css">
+  <style>
+    /* ===== 登入頁專用樣式 ===== */
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+    }
+
+    .login-wrapper {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .login-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 36px 32px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .login-logo {
+      text-align: center;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+
+    .login-title {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin: 0 0 4px;
+    }
+
+    .login-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: 0 0 28px;
+    }
+
+    .login-field {
+      margin-bottom: 18px;
+    }
+
+    .login-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .login-field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: var(--input-bg);
+      color: var(--text-main);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .login-field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--surface-glow);
+    }
+
+    .login-error {
+      display: none;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #dc2626;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .login-error.show { display: block; }
+
+    .login-submit {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      background: var(--primary-gradient);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+    }
+
+    .login-submit:hover { transform: translateY(-2px); }
+    .login-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .login-hint {
+      margin-top: 20px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      opacity: 0.75;
+    }
+
+    .login-back {
+      display: inline-block;
+      margin-top: 16px;
+      text-align: center;
+      width: 100%;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+
+    .login-back:hover { color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <div class="login-logo">✨ AGL</div>
+      <h1 class="login-title">登入系統</h1>
+      <p class="login-subtitle">請輸入您的公司與帳號資料</p>
+
+      <div class="login-error" id="login-error"></div>
+
+      <form id="login-form" autocomplete="on">
+        <div class="login-field">
+          <label for="login-company">Company ID</label>
+          <input type="text" id="login-company" name="company" placeholder="例如：AGL" maxlength="10" required
+                 autocomplete="organization" autocapitalize="characters" spellcheck="false" />
+        </div>
+
+        <div class="login-field">
+          <label for="login-userid">User ID</label>
+          <input type="text" id="login-userid" name="userid" placeholder="您的帳號" maxlength="20" required
+                 autocomplete="username" spellcheck="false" />
+        </div>
+
+        <div class="login-field">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" name="password" placeholder="您的密碼" maxlength="20" required
+                 autocomplete="current-password" />
+        </div>
+
+        <button type="submit" class="login-submit" id="login-submit-btn">登入</button>
+      </form>
+
+      <div class="login-hint">第一次使用？請聯絡管理員取得帳號與密碼。</div>
+      <a href="index.html" class="login-back">← 返回主網站（僅瀏覽公開頁面）</a>
+    </div>
+  </div>
+
+  <script>
+    // ===== 登入頁邏輯 =====
+    // 注意：不使用 api.js 的 apiFetch（其 401 會自動跳轉登入頁，導致無限循環）
+    // 登入失敗（帳號/密碼錯誤 → 401）應留在本頁顯示錯誤訊息
+
+    const form = document.getElementById('login-form');
+    const errorBox = document.getElementById('login-error');
+    const submitBtn = document.getElementById('login-submit-btn');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.add('show');
+    }
+
+    function hideError() {
+      errorBox.classList.remove('show');
+    }
+
+    // 若已登入 → 直接回主站（401 表示未登入，停留本頁）
+    (async function checkAlreadyLoggedIn() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) window.location.href = 'index.html';
+        }
+      } catch (e) { /* 停留在登入頁 */ }
+    })();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideError();
+
+      const companyCode = document.getElementById('login-company').value.trim();
+      const userId = document.getElementById('login-userid').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      if (!companyCode || !userId || !password) {
+        showError('請填寫 Company ID、User ID 與密碼');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '登入中...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyCode, userId, password })
+        });
+
+        // 登入失敗 → 顯示後端錯誤訊息（401/400/403 皆停留本頁）
+        if (!res.ok) {
+          let msg = '登入失敗，請再試一次';
+          try {
+            const errData = await res.json();
+            if (errData.error) msg = errData.error;
+          } catch (e) { /* ignore */ }
+          throw new Error(msg);
+        }
+
+        // 登入成功 → 若原本從內部頁面被導向過來，回到該頁；否則回主站
+        // 重要：redirect 僅取「相對路徑」（不含 origin/port），
+        //       避免使用者從不同 port 開啟網站時，登入後被導向錯誤的 port 而失敗
+        const redirectRaw = sessionStorage.getItem('login-redirect') || '';
+        sessionStorage.removeItem('login-redirect');
+
+        // 若為舊格式的絕對 URL（含 http://...），剝離 origin 僅保留 pathname+hash
+        let redirectPath = redirectRaw;
+        try {
+          if (/^https?:\/\//i.test(redirectRaw)) {
+            redirectPath = new URL(redirectRaw).pathname + new URL(redirectRaw).search + new URL(redirectRaw).hash;
+          }
+        } catch (e) { /* 保留原值 */ }
+
+        if (redirectPath && redirectPath.indexOf('login.html') === -1) {
+          window.location.href = redirectPath;
+        } else {
+          window.location.href = 'index.html';
+        }
+      } catch (err) {
+        showError(err.message || '登入失敗，請再試一次');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '登入';
+      }
+    });
+  </script>
+</body>
+</html>

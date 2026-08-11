@@ -93,6 +93,40 @@ db.serialize(() => {
     )
   `);
 
+  // ===== 登入系統：使用者 =====
+  // 角色：admin（管理員，可管理使用者與看所有資料）、staff（內部員工）、customer（客戶，只能看自己的訂單）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company_id INTEGER NOT NULL,
+      user_id TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      role TEXT DEFAULT 'customer',
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, user_id)
+    )
+  `);
+
+  // companies 表相容性：補上 company_code 欄位（登入用的公司短碼）
+  db.all("PRAGMA table_info(companies)", [], (err, companyCols) => {
+    if (err) {
+      console.error('PRAGMA table_info(companies) failed:', err.message);
+      return;
+    }
+    const columns = companyCols.map(c => c.name);
+    if (!columns.includes('company_code')) {
+      db.run("ALTER TABLE companies ADD COLUMN company_code TEXT", (alterErr) => {
+        if (alterErr) {
+          console.error('Failed to add company_code column:', alterErr.message);
+        } else {
+          console.log('Added company_code column to companies table');
+        }
+      });
+    }
+  });
+
   // orders 表相容性：確保新資料庫（少了欄位）補上
   db.all("PRAGMA table_info(orders)", [], (err, ordersCols) => {
     if (err) {

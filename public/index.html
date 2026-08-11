@@ -40,6 +40,22 @@
         <input id="theme-color-input" type="color" value="#0ea5e9" title="Choose accent color">
       </div>
 
+      <!-- 登入狀態 -->
+      <div class="sidebar-login" id="sidebar-login">
+        <a href="login.html" class="sidebar-login-btn" id="sidebar-login-btn">
+          <i class="fa-solid fa-right-to-bracket"></i> <span id="sidebar-login-text">登入</span>
+        </a>
+        <div class="sidebar-logged-in" id="sidebar-logged-in" style="display:none;">
+          <div class="sidebar-user-info">
+            <strong id="sidebar-user-name">-</strong>
+            <span id="sidebar-user-company">-</span>
+          </div>
+          <button type="button" class="sidebar-logout-btn" id="btn-logout" title="登出">
+            <i class="fa-solid fa-right-from-bracket"></i> 登出
+          </button>
+        </div>
+      </div>
+
       <!-- 目錄導航 -->
             <nav class="sidebar-nav">
               <a href="#section-home" class="nav-item active">
@@ -54,11 +70,16 @@
               <a href="#section-contour" class="nav-item">
                 <i class="fa-solid fa-mountain-city"></i> <span>Contour</span>
               </a>
-              <a href="#section-orders" class="nav-item">
+              <a href="#section-orders" class="nav-item" id="nav-orders">
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-orders-lock" title="需要登入"></i>
               </a>
-              <a href="#section-dbviewer" class="nav-item">
+              <a href="#section-dbviewer" class="nav-item" id="nav-dbviewer">
                 <i class="fa-solid fa-database"></i> <span>資料庫</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-dbviewer-lock" title="需要管理員/員工權限"></i>
+              </a>
+              <a href="users.html" class="nav-item" id="nav-users" style="display:none;">
+                <i class="fa-solid fa-users-gear"></i> <span>使用者管理</span>
               </a>
             </nav>
 
@@ -246,6 +267,7 @@
   <script src="./js/utils/time-picker.js"></script>
   <script src="./js/utils/autocomplete.js"></script>
   <script src="./js/utils/clipboard-utils.js"></script>
+  <script src="./js/auth.js"></script>
   <script src="./js/skills.js"></script>
   <script src="./js/contours.js"></script>
   <script src="./js/chat.js"></script>

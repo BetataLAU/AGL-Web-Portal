@@ -45,7 +45,7 @@ import { renderCbmDimPreview } from './components/cbmModal.js';
 import { setupNoteTemplateSearch } from './components/noteTemplates.js';
 import { addPowerItem, renderPowerItemsList } from './components/powerItemsEditor.js';
 import { showDuplicateCard } from './components/duplicateModal.js';
-import { fetchOrders, setupOrdersTabs, setupOrdersSearch } from './listController.js';
+import { fetchOrders, setupOrdersTabs, setupOrdersSearch, setupOrdersAutoRefresh } from './listController.js';
 
 // ===== 重複檢查參數收集（DOM → params，供 api.checkDuplicateOrder 使用） =====
 // 原 orders.js checkDuplicateOrder：從表單讀取 MAWB/HAWB/提貨號/客戶後組查詢參數
@@ -1114,6 +1114,7 @@ export function loadOrderToForm(order) {
 export function setupOrdersSection() {
   setupOrdersTabs();
   setupOrdersSearch();
+  setupOrdersAutoRefresh(10000); // 每 10 秒自動同步其他設備的更新
   renderNewOrderForm();
 }
 

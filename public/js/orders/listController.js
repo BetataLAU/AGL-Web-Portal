@@ -46,7 +46,11 @@ export function setupOrdersTabs() {
 }
 
 // ===== 訂單列表 =====
-export async function fetchOrders() {
+// lastOrdersSignature：輪詢時比對資料是否變更（避免無變化時重繪使展開的卡片閃爍/收合）
+let lastOrdersSignature = '';
+
+// silent = true 表示自動輪詢背景更新：資料有變更才重繪；失敗不影響目前畫面
+export async function fetchOrders(silent = false) {
   const container = document.getElementById('orders-list-container');
   if (!container) return;
 
@@ -75,10 +79,39 @@ export async function fetchOrders() {
         return String(o.pickup_datetime).slice(0, 10) === dateFilterValue;
       });
     }
-    renderOrdersList(visible);
+
+    if (silent) {
+      // 背景輪詢：資料無變更則不重繪（保留展開狀態與捲動位置）
+      const signature = JSON.stringify(result);
+      if (signature !== lastOrdersSignature) {
+        lastOrdersSignature = signature;
+        renderOrdersList(visible);
+        const syncEl = document.getElementById('orders-auto-sync');
+        if (syncEl) syncEl.textContent = '🔄 已自動同步 ' + formatDateTime(new Date().toISOString());
+      }
+    } else {
+      // 手動載入 / 切換 Tab：強制重繪並記錄簽名
+      lastOrdersSignature = JSON.stringify(result);
+      renderOrdersList(visible);
+      const syncEl = document.getElementById('orders-auto-sync');
+      if (syncEl) syncEl.textContent = '🔄 已自動同步 ' + formatDateTime(new Date().toISOString());
+    }
   } catch (err) {
-    container.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(err.message)}</div>`;
+    if (!silent) {
+      container.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(err.message)}</div>`;
+    }
+    // silent 失敗：靜默忽略，下次輪詢再試
   }
+}
+
+// ===== 訂單列表自動更新（每 10 秒輪詢，僅在列表分頁 active 時執行） =====
+export function setupOrdersAutoRefresh(intervalMs = 10000) {
+  setInterval(() => {
+    // 只在「訂單列表」分頁為顯示狀態時輪詢（判斷面板 active）
+    const listPanel = document.getElementById('orders-tab-list');
+    if (!listPanel || !listPanel.classList.contains('active')) return;
+    fetchOrders(true);
+  }, intervalMs);
 }
 
 export function renderOrdersList(orders) {

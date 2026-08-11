@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-11T04:02:28.680Z
+-- 匯出時間: 2026-08-11T04:50:15.822Z
 -- 共 5 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -154,6 +154,9 @@ INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no
 
 INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (24, 'AGL-20260810-008', 'pickup', '162-0000 0000', '1234567890123', 'JST260810002', 4, 17, 16, 'CONNECTOR', 65, 450, 6, '[{"len":120,"width":100,"height":100,"qty":5}]', 'lithium', 'PI967', '[{"type":"lithium","main":"ELI","code":"PI967","qty":"10"}]', 'no', '', '', '', '機場提入口貨', '', 'pending', '2026-08-10 15:45:15', '2026-08-10 15:45:15', '', '', '2026-08-11 13:30', 'GOT');
 
+INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (25, 'AGL-20260811-001', 'pickup', '163-0000 0000', 'HFS000001', 'Qwttt1222-3', 4, 15, 16, '0', 12, 550, 7.26, '[{"len":110,"width":110,"height":100,"qty":6}]', 'lithium', 'A123', '[{"type":"dry","main":"","code":"A123","qty":"12"},{"type":"lithium","main":"ELI","code":"PI967","qty":"10"}]', 'yes', '', '', '', '先去收貨，詳細資料候補
+收貨前, 請提供司機資料', '', 'pending', '2026-08-11 04:42:05', '2026-08-11 04:42:05', '', '', '2026-08-11 15:30', 'DUS');
+
 
 -- ===== 資料表: skills =====
 DROP TABLE IF EXISTS "skills";
@@ -199,7 +202,7 @@ INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 24);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 25);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
 

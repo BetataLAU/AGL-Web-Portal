@@ -23,6 +23,12 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// 防止瀏覽器快取 API 回應（手機瀏覽器對 GET 請求可能回傳舊快取，導致新資料看不到）
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // ===== API 路由掛載 =====
 app.use('/api/skills', skillsRouter);
 app.use('/api/contours', contoursRouter);

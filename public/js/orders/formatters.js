@@ -189,7 +189,7 @@ export function buildOrderSummaryText(order) {
     ],
     dimLines.length ? dimLines : [],
     [
-      '⚡ 其他資訊',
+      'ℹ️ 其他資訊',
       `⚡ 電力：${fmt(powLabel)}`,
       `🚨 趕機：${fmt(urgentLabel)}`,
       order.notes ? `備註：${fmt(order.notes)}` : '',
@@ -282,7 +282,7 @@ export function buildOrderSummary(order) {
           <td style="padding:4px 8px;border:1px solid #ccc;">${order.quantity || 0} 件 ｜ ${order.weight_kg || 0} KG ｜ ${order.cbm || 0} cbm</td>
         </tr>
         ${dimHtml}
-        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">⚡ 其他資訊</td></tr>
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">ℹ️ 其他資訊</td></tr>
         <tr>
           <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">電力 / 趕機</td>
           <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(powLabel)} ｜ ${escHtml(urgentLabel)}</td>

@@ -237,14 +237,6 @@ export function buildOrderDetailHtml(order) {
         <span class="detail-label">🚨 趕機</span>
         <span class="detail-value">${order.urgent === 'yes' ? '🔴 是' : '⚪ 否'}</span>
       </div>
-      <div class="orders-detail-field">
-        <span class="detail-label">收貨人</span>
-        <span class="detail-value">${escapeHtml(order.receiver_name || '-')}</span>
-      </div>
-      <div class="orders-detail-field">
-        <span class="detail-label">電話</span>
-        <span class="detail-value">${escapeHtml(order.receiver_phone || '-')}</span>
-      </div>
       ${order.receiver_note ? `
       <div class="orders-detail-field full">
         <span class="detail-label">收貨人備註</span>
@@ -255,10 +247,6 @@ export function buildOrderDetailHtml(order) {
         <span class="detail-label">聯絡人備註</span>
         <span class="detail-value">${escapeHtml(order.contact_note)}</span>
       </div>` : ''}
-      <div class="orders-detail-field full">
-        <span class="detail-label">地址</span>
-        <span class="detail-value">${escapeHtml(order.address || '-')}</span>
-      </div>
       <div class="orders-detail-field full orders-detail-status">
         <span class="detail-label">狀態</span>
         <span class="detail-value">

@@ -8,7 +8,7 @@ function debounce(fn, delay = 300) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, match => ({
+  return String(str == null ? '' : str).replace(/[&<>"']/g, match => ({
     '\x26': '\x26amp;', '\x3C': '\x26lt;', '\x3E': '\x26gt;', '\x22': '\x26quot;', "'": '\x26#39;'
   }[match]));
 }

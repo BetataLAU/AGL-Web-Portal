@@ -10,15 +10,16 @@ const DB_PATH = path.resolve(__dirname, '..', 'database.db');
 const DUMP_PATH = path.resolve(__dirname, '..', 'db', 'db-dump.sql');
 
 // 簡單 SQL 語句分割器：僅在有換行的分號處切割，並忽略註解行
+// 支援 LF（\n）與 CRLF（\r\n）兩種行尾，避免 Windows 環境下切割失敗
 function splitSqlStatements(sql) {
   return sql
-    .split('\n')
+    .split(/\r?\n/)
     .filter((line) => {
       const trimmed = line.trim();
       return trimmed !== '' && !trimmed.startsWith('--');
     })
     .join('\n')
-    .split(';\n')
+    .split(/;\r?\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
     .map((s) => s + ';');

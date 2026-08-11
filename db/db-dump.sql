@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-10T15:55:38.910Z
+-- 匯出時間: 2026-08-11T04:02:28.680Z
 -- 共 5 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -195,6 +195,14 @@ CREATE TABLE templates (
 -- (無資料)
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 24);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
+
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 17);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);

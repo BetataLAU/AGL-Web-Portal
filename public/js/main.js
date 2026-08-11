@@ -54,11 +54,12 @@ function setupPageNavigation() {
 
   navItems.forEach(item => {
     item.addEventListener('click', (e) => {
-      e.preventDefault();
       const href = item.getAttribute('href');
       if (href && href.startsWith('#')) {
+        e.preventDefault();
         showSection(href.substring(1));
       }
+      // href 非 # 開頭（如 users.html / login.html）→ 不攔截，讓瀏覽器正常跳轉
     });
   });
 

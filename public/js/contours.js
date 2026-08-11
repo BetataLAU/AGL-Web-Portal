@@ -253,28 +253,85 @@ async function shareContourImage() {
 
   // 1) Web Share API：手機瀏覽器原生分享（可選 WhatsApp/WeChat/DingTalk 等）
   if (navigator.share) {
-    const shareData = { title: title || 'Contour Image', url };
-    if (filename) shareData.text = filename;
     try {
-      await navigator.share(shareData);
-      return; // 使用者完成分享或取消，不需提示
+      await navigator.share({ title: title || 'Contour Image', text: filename || '', url });
+      return; // 成功分享（或使用者取消）不需額外提示
     } catch (err) {
-      // AbortError = 使用者取消分享；其他錯誤才 fallback 複製
-      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
-        console.error('[contours] share failed:', err);
-      } else {
-        return; // 使用者取消，不用 fallback
-      }
+      // AbortError/NotAllowedError = 使用者取消分享 → 靜默返回
+      if (err.name === 'AbortError' || err.name === 'NotAllowedError') return;
+      // 其他錯誤（DataError / 權限被拒等）→ 落入分享選單 fallback，確保有反饋
+      console.error('[contours] share failed:', err);
     }
   }
 
-  // 2) fallback：複製圖片連結到剪貼簿（供手動貼到通訊軟件）
-  const ok = await copyTextToClipboard(url);
-  if (ok) {
-    showTemporaryNotice(document.getElementById('contour-image-modal'), `已複製圖片連結（${filename}）`);
-  } else {
-    alert('無法複製連結，請長按圖片或手動分享。');
-  }
+  // 2) Web Share 失敗/不可用 → 顯示分享選單（系統分享 / 複製連結 / 下載圖片）
+  showShareMenu(url, title, filename);
+}
+
+// 分享選單：保證使用者一定有反饋（Web Share 失敗或手機不支援時）
+function showShareMenu(url, title, filename) {
+  openModal({
+    title: '📤 分享圖片',
+    body: `
+      <div class="contour-share-menu">
+        <p class="contour-share-sub">${escapeHtml(title || 'Contour Image')}</p>
+        <button type="button" class="pill btn-primary contour-share-option" data-share="system">
+          <i class="fa-solid fa-share-nodes"></i> 📱 系統分享（WhatsApp / WeChat / DingTalk…）
+        </button>
+        <button type="button" class="pill contour-share-option" data-share="copy">
+          <i class="fa-solid fa-link"></i> 📋 複製圖片連結
+        </button>
+        <button type="button" class="pill contour-share-option" data-share="download">
+          <i class="fa-solid fa-download"></i> ⬇️ 下載圖片
+        </button>
+      </div>
+    `,
+    className: 'contour-share-modal',
+    actions: [{ label: '✖ 取消', className: 'pill' }]
+  });
+
+  document.querySelectorAll('.contour-share-option').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.share;
+      // 關閉選單 modal
+      document.querySelectorAll('.app-modal-overlay').forEach(el => el.remove());
+
+      if (action === 'system') {
+        // 再試一次 Web Share API
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: title || 'Contour Image', text: filename || '', url });
+            return;
+          } catch (err) {
+            if (err.name === 'AbortError' || err.name === 'NotAllowedError') return; // 使用者取消
+            console.error('[contours] share failed:', err);
+          }
+        }
+        // 系統分享不可用 → fallback 複製連結
+        const ok = await copyTextToClipboard(url);
+        if (ok) {
+          showTemporaryNotice(document.getElementById('contour-image-modal'), '已複製圖片連結！');
+        } else {
+          alert('此瀏覽器不支援系統分享，也無法複製連結。請長按圖片儲存後手動分享。');
+        }
+      } else if (action === 'copy') {
+        const ok = await copyTextToClipboard(url);
+        if (ok) {
+          showTemporaryNotice(document.getElementById('contour-image-modal'), '已複製圖片連結！');
+        } else {
+          alert('複製失敗，請長按圖片手動複製。');
+        }
+      } else if (action === 'download') {
+        // 下載圖片
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'contour-image.jpg';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    });
+  });
 }
 
 function closeContourModal() {

@@ -75,3 +75,32 @@
   font-size: 0.95rem;
   flex: 1;
 }
+
+/* ===== 分享圖片選單（Contour Modal 用） ===== */
+.contour-share-modal {
+  width: min(92vw, 420px);
+}
+
+.contour-share-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contour-share-sub {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.contour-share-option {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  font-size: 0.95rem;
+}

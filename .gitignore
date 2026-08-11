@@ -3,4 +3,6 @@ node_modules/
 npm-debug.log*
 .DS_Store
 *.log
-.project-state.json 
+.project-state.json
+# SQLite database (use npm run db:export / db:import to sync)
+database.db

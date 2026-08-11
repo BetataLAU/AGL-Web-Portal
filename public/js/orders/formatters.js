@@ -85,14 +85,17 @@ export function companySelectOptions(selectedId) {
 export function buildCompanyDetailHtml(title, companyName, address, contact, phone, email, notes) {
   const hasName = !!companyName;
   if (!hasName) return '';
+  // 合併多值（null/空值略過；全部為空 → '-'）
+  const joinValues = (...vals) => {
+    const parts = vals.filter(v => v != null && String(v) !== '');
+    return parts.length ? parts.map(v => escHtml(v)).join(' ｜ ') : '-';
+  };
+  const notesHtml = notes ? escHtml(notes).replace(/\r\n|\r|\n/g, '<br>\n') : '';
   return `
-    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:3px 6px;border:1px solid #ccc;text-align:center;">${title}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;width:150px;white-space:nowrap;">名稱</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(companyName)}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(address)}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">聯絡人</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(contact)}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(phone)}</td></tr>
-    ${email ? `<tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">電郵</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(email)}</td></tr>` : ''}
-    ${notes ? `<tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(notes).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
+    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">${title}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;width:190px;">名稱 / 聯絡人 / 電郵</td><td style="padding:4px 8px;border:1px solid #ccc;">${joinValues(companyName, contact, email)}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(address)}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">電話 / 備註</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(phone)}${notesHtml ? ` ｜ ${notesHtml}` : ''}</td></tr>
   `;
 }
 
@@ -232,72 +235,63 @@ export function buildOrderSummary(order) {
     order.delivery_company_notes
   );
 
-  // 收貨人（receiver）資料備份顯示
+  // 收貨人（receiver）資料合併行顯示
   const receiverDetail = (order.receiver_name || order.receiver_phone || order.address) ? `
-    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:3px 6px;border:1px solid #ccc;text-align:center;">📋 收貨人資料</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">收貨人</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(order.receiver_name)}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">電話</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(order.receiver_phone)}</td></tr>
-    <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(order.address)}</td></tr>
-    ${order.receiver_note ? `<tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">收貨人備註</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(order.receiver_note).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
-    ${order.contact_note ? `<tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">聯絡人備註</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(order.contact_note).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
+    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">📋 收貨人資料</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;width:190px;">收貨人 / 電話</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(order.receiver_name)} ｜ ${escHtml(order.receiver_phone)}</td></tr>
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">地址</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(order.address)}</td></tr>
+    ${(order.receiver_note || order.contact_note) ? `
+    <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">收貨人 / 聯絡人備註</td><td style="padding:4px 8px;border:1px solid #ccc;">${order.receiver_note ? escHtml(order.receiver_note).replace(/\r\n|\r|\n/g, '<br>\n') : ''}${order.receiver_note && order.contact_note ? ' ｜ ' : ''}${order.contact_note ? escHtml(order.contact_note).replace(/\r\n|\r|\n/g, '<br>\n') : ''}</td></tr>
+    ` : ''}
   ` : '';
 
-  // DIM(cm) 表格化
+  // DIM(cm) 每筆一行（全部顯示）
   const dimHtml = (order.cbm_dimensions && order.cbm_dimensions.length) ? `
-    <tr><td colspan="2" style="background:#f0f4ff;font-weight:700;padding:3px 6px;border:1px solid #ccc;text-align:center;">📐 DIM(cm)</td></tr>
     ${order.cbm_dimensions.map(d => `
-      <tr><td style="padding:2px 6px;border:1px solid #ccc;background:#fafafa;">尺寸</td><td style="padding:2px 6px;border:1px solid #ccc;">${escHtml(`${d.len} x ${d.width} x ${d.height}`)} / ${escHtml(d.qty)} 件</td></tr>
+      <tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">DIM(cm)</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(`${d.len} x ${d.width} x ${d.height}`)} / ${escHtml(d.qty)} 件</td></tr>
     `).join('')}
   ` : '';
 
-  // 壓縮用樣式常數（節省 A4 空間）
-  const TH = 'background:#e8eefc;font-weight:700;padding:3px 6px;border:1px solid #ccc;text-align:center;';
-  // 左邊欄位拉長：讓「類型 / 提貨時間」等標籤一行過顯示（不換行）
-  const LBL = 'background:#fafafa;padding:2px 6px;border:1px solid #ccc;width:150px;white-space:nowrap;';
-  const VAL = 'padding:2px 6px;border:1px solid #ccc;';
-  // 組合一列：「標籤」+「值」（值內可含多組資料以 <span> 分隔）
-  const row = (label, value) => `<tr><td style="${LBL}">${label}</td><td style="${VAL}">${value}</td></tr>`;
-  // 多組資料合併在值欄內，以 | 分隔
-  const sep = `<span style="color:#888;"> &nbsp;|&nbsp; </span>`;
-
-  // 提單資訊合併為 3 列：
-  //   1) 類型 + 可提貨時間
-  //   2) MAWB# + HAWB# + DEST
-  //   3) 需要收貨的客戶 + 提貨號
-  const pickupTimeVal = order.pickup_datetime ? escHtml(formatPickupDatetime(order.pickup_datetime)) : escHtml('');
-  const billRows = [
-    row('類型 / 提貨時間', `${escHtml(typeLabel)}${sep}${pickupTimeVal}`),
-    row('MAWB# / HAWB# / DEST', `${escHtml(displayMawb(order.mawb))}${sep}${escHtml(order.hawb)}${sep}${escHtml(order.dest)}`),
-    row('客戶 / 提貨號', `${order.customer_company_name ? escHtml(order.customer_company_name) : escHtml('')}${sep}${escHtml(order.pickup_no)}`)
-  ].join('');
-
-  // 貨物資料合併為 2 列
-  const cargoRows = [
-    row('貨品', escHtml(order.cargo_desc)),
-    row('件數 / 重量 / CBM', `${order.quantity || 0} 件<span style="color:#888;"> &nbsp;|&nbsp; </span>${order.weight_kg || 0} KG<span style="color:#888;"> &nbsp;|&nbsp; </span>${order.cbm || 0} cbm`)
-  ].join('');
-
-  // 其他資訊合併為 2 列
-  const otherRows = [
-    row('⚡ 電力 / 趕機', `${escHtml(powLabel)}<span style="color:#888;"> &nbsp;|&nbsp; </span>${escHtml(urgentLabel)}`),
-    order.notes ? row('備註', escHtml(order.notes).replace(/\r\n|\r|\n/g, '<br>\n')) : '',
-    row('狀態 / 建立日期', `${escHtml(STATUS_LABEL[order.status] || order.status)}<span style="color:#888;"> &nbsp;|&nbsp; </span>${escHtml(formatDateTime(order.created_at))}`)
-  ].join('');
-
   return `
     <div style="font-family:Arial,sans-serif;">
-      <h3 style="margin:0 0 5px;font-size:14px;">📦 訂單總結 ${escHtml(order.order_no)}</h3>
-      <table style="border-collapse:collapse;font-size:11px;max-width:640px;width:100%;">
-        <tr><td colspan="2" style="${TH}">🧾 提單資訊</td></tr>
-        ${billRows}
+      <h3 style="margin:0 0 8px;font-size:15px;color:#1a4da0;">📦 訂單總結 ${escHtml(order.order_no)}</h3>
+      <table style="border-collapse:collapse;font-size:12px;max-width:640px;width:100%;">
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">🧾 提單資訊</td></tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;width:190px;">類型 / 提貨時間</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(typeLabel)} ｜ ${order.pickup_datetime ? escHtml(formatPickupDatetime(order.pickup_datetime)) : '-'}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">MAWB# / HAWB# / DEST</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(displayMawb(order.mawb))} ｜ ${escHtml(order.hawb)} ｜ ${escHtml(order.dest)}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">${order.customer_company_name ? '客戶 / 提貨號' : '提貨號'}</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${order.customer_company_name ? escHtml(order.customer_company_name) + ' ｜ ' : ''}${escHtml(order.pickup_no)}</td>
+        </tr>
         ${pickupDetail}
         ${deliveryDetail}
         ${receiverDetail}
-        <tr><td colspan="2" style="${TH}">📦 貨物資料</td></tr>
-        ${cargoRows}
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">📦 貨物資料</td></tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">貨品</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(order.cargo_desc)}</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">件數 / 重量 / CBM</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${order.quantity || 0} 件 ｜ ${order.weight_kg || 0} KG ｜ ${order.cbm || 0} cbm</td>
+        </tr>
         ${dimHtml}
-        <tr><td colspan="2" style="${TH}">⚡ 其他資訊</td></tr>
-        ${otherRows}
+        <tr><td colspan="2" style="background:#e8eefc;font-weight:700;padding:4px 8px;border:1px solid #ccc;text-align:center;">⚡ 其他資訊</td></tr>
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">電力 / 趕機</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(powLabel)} ｜ ${escHtml(urgentLabel)}</td>
+        </tr>
+        ${order.notes ? `<tr><td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">備註</td><td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(order.notes).replace(/\r\n|\r|\n/g, '<br>\n')}</td></tr>` : ''}
+        <tr>
+          <td style="padding:4px 8px;border:1px solid #ccc;background:#fafafa;">狀態 / 建立日期</td>
+          <td style="padding:4px 8px;border:1px solid #ccc;">${escHtml(STATUS_LABEL[order.status] || order.status)} ｜ ${escHtml(formatDateTime(order.created_at))}</td>
+        </tr>
       </table>
     </div>
   `;

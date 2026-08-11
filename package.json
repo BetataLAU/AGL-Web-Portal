@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "sync": "node scripts/sync-project-state.js"
+    "sync": "node scripts/sync-project-state.js",
+    "db:export": "node scripts/db-export.js",
+    "db:import": "node scripts/db-import.js",
+    "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {
     "express": "^4.18.2",

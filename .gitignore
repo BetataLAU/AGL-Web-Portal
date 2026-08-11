@@ -6,3 +6,5 @@ npm-debug.log*
 .project-state.json
 # SQLite database (use npm run db:export / db:import to sync)
 database.db
+# SQLite session store (connect-sqlite3)
+db/sessions.db

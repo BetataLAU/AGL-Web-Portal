@@ -2,6 +2,7 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const { execFile } = require('child_process');
+const SQLiteStore = require('connect-sqlite3')(session);
 
 // 初始化 SQLite 數據庫（建表 + seed）
 require('./db/database');
@@ -34,11 +35,18 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ===== Session 中間件（登入系統用） =====
-// MemoryStore：僅供開發/單機使用；正式部署若有多個 process 需改用其他 store
+// 使用 SQLite 持久化 store（db/sessions.db）：
+// - 伺服器重啟後登入狀態仍保留，不需重新登入
+// - 多個 process / 重啟皆可共享 session
 app.use(session({
   secret: process.env.SESSION_SECRET || 'agl-web-portal-dev-secret',
   resave: false,
   saveUninitialized: false,
+  store: new SQLiteStore({
+    db: 'sessions.db',
+    dir: path.join(__dirname, 'db'),
+    table: 'sessions'
+  }),
   cookie: {
     httpOnly: true,
     sameSite: 'lax',

@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="css/base.css">
   <style>
     body { min-height: 100vh; overflow: auto; }
-    .container { max-width: 1000px; margin: 0 auto; padding: 24px 16px; position: relative; z-index: 1; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; position: relative; z-index: 1; }
 
     .page-header {
       background: var(--card-bg);
@@ -40,6 +40,8 @@
 
     .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(15,23,42,0.1); }
     .btn-primary { background: var(--primary-gradient); color: #fff; border: none; font-weight: 700; }
+    .btn-danger { background: rgba(220,38,38,0.1); color: #dc2626; border: 1px solid rgba(220,38,38,0.3); }
+    .btn-danger:hover { background: rgba(220,38,38,0.18); }
 
     .users-card {
       background: var(--card-bg);
@@ -49,8 +51,32 @@
       box-shadow: var(--shadow);
     }
 
+    .users-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+    .users-toolbar input[type="search"], .users-toolbar select {
+      padding: 9px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--input-bg);
+      color: var(--text-main);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .users-toolbar input[type="search"] { flex: 1; min-width: 220px; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      background: var(--card-bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .tab-btn.active { background: var(--primary-gradient); color: #fff; border-color: transparent; font-weight: 700; }
+
     .users-table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
     th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
     th { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
     tr:hover td { background: rgba(37,99,235,0.04); }
@@ -70,6 +96,7 @@
     .status-badge { font-size: 0.8rem; }
     .status-active { color: #16a34a; }
     .status-disabled { color: #dc2626; }
+    .status-locked { color: #f59e0b; font-weight: 700; }
 
     .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .row-actions .btn { padding: 6px 12px; font-size: 0.8rem; }
@@ -89,7 +116,7 @@
       border: 1px solid var(--border-color);
       border-radius: 20px;
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       max-height: 90vh;
       overflow-y: auto;
       padding: 28px;
@@ -119,6 +146,17 @@
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
     .hint { color: var(--text-muted); font-size: 0.78rem; margin-top: 6px; }
 
+    .perms-box {
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+    .perms-box label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 400; margin: 0; }
+    .perms-box input[type="checkbox"] { width: auto; }
+
     .form-error {
       display: none;
       background: rgba(239,68,68,0.12);
@@ -132,6 +170,14 @@
 
     .form-error.show { display: block; }
     .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; }
+
+    /* ===== 審計日誌 ===== */
+    .audit-table { min-width: 0; }
+    .audit-table td, .audit-table th { padding: 8px 10px; font-size: 0.82rem; white-space: nowrap; }
+    .audit-detail { white-space: normal; min-width: 200px; }
+
+    .success-note { background: rgba(22,163,74,0.1); border: 1px solid rgba(22,163,74,0.3); color: #16a34a; border-radius: 10px; padding: 10px 14px; font-size: 0.85rem; margin-bottom: 16px; display: none; }
+    .success-note.show { display: block; }
   </style>
 </head>
 <body>
@@ -143,37 +189,89 @@
       </div>
       <div>
         <a href="index.html" class="btn">← 回主站</a>
+        <button type="button" class="btn" id="btn-import-users">📥 匯入 Excel</button>
         <button type="button" class="btn btn-primary" id="btn-add-user">＋ 新增使用者</button>
       </div>
     </div>
 
     <div class="users-card">
-      <div class="users-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>公司</th>
-              <th>Company Code</th>
-              <th>User ID</th>
-              <th>顯示名稱</th>
-              <th>角色</th>
-              <th>狀態</th>
-              <th>建立時間</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="users-tbody">
-            <tr><td colspan="8"><div class="empty-state">載入中...</div></td></tr>
-          </tbody>
-        </table>
+      <div class="tabs">
+        <button type="button" class="tab-btn active" data-tab="users">👥 使用者</button>
+        <button type="button" class="tab-btn" data-tab="audit">📜 審計日誌</button>
+      </div>
+
+      <div id="tab-users">
+        <div class="users-toolbar">
+          <input type="search" id="users-search-input" placeholder="搜尋 User ID / 名稱 / 公司 / Company Code..." />
+          <select id="users-role-filter">
+            <option value="">全部角色</option>
+            <option value="admin">管理員</option>
+            <option value="staff">內部員工</option>
+            <option value="customer">客戶</option>
+          </select>
+        </div>
+
+        <div class="success-note" id="import-result-note"></div>
+
+        <div class="users-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>公司</th>
+                <th>Company Code</th>
+                <th>User ID</th>
+                <th>顯示名稱</th>
+                <th>角色</th>
+                <th>狀態 / 鎖定</th>
+                <th>上次登入</th>
+                <th>建立時間</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="9"><div class="empty-state">載入中...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="tab-audit" style="display:none;">
+        <div class="users-table-wrap">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>操作者</th>
+                <th>動作</th>
+                <th>對象</th>
+                <th>詳細</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody">
+              <tr><td colspan="5"><div class="empty-state">載入中...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
+  <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" style="display:none;" />
+
   <script src="js/utils/api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script>
     // ===== 使用者管理頁邏輯（admin only）=====
     const ROLE_LABELS = { admin: '管理員', staff: '內部員工', customer: '客戶' };
+    const PERM_LABELS = {
+      orders_view: '訂單：查看',
+      orders_edit: '訂單：編輯',
+      orders_create: '訂單：新增',
+      orders_delete: '訂單：刪除',
+      companies_edit: '公司：編輯',
+      db_view: '資料庫：查看',
+      users_manage: '使用者：管理'
+    };
     let usersData = [];
     let companiesData = [];
 
@@ -186,6 +284,22 @@
         '"': '\x26quot;',
         "'": '\x26#39;'
       }[m]));
+    }
+
+    // 格式化上次登入時間
+    function formatDateTime(iso) {
+      if (!iso) return '-';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '-';
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // 鎖定剩餘時間（分鐘）
+    function lockedRemainingMin(lockedUntil) {
+      if (!lockedUntil) return 0;
+      const t = new Date(lockedUntil).getTime() - Date.now();
+      return t > 0 ? Math.ceil(t / 60000) : 0;
     }
 
     // ===== 登入檢查 =====
@@ -219,8 +333,12 @@
     }
 
     // ===== 載入使用者清單 =====
-    async function loadUsers() {
-      const result = await apiFetch('/api/auth/users');
+    async function loadUsers(filters = {}) {
+      const params = new URLSearchParams();
+      if (filters.search) params.set('search', filters.search);
+      if (filters.role) params.set('role', filters.role);
+      const qs = params.toString();
+      const result = await apiFetch(`/api/auth/users${qs ? '?' + qs : ''}`);
       usersData = result.data || [];
       renderUsers();
     }
@@ -228,32 +346,37 @@
     function renderUsers() {
       const tbody = document.getElementById('users-tbody');
       if (usersData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">目前沒有使用者，點「＋ 新增使用者」建立第一個帳號。</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">目前沒有使用者，點「＋ 新增使用者」建立第一個帳號。</div></td></tr>';
         return;
       }
 
-      tbody.innerHTML = usersData.map(u => `
+      const now = Date.now();
+      tbody.innerHTML = usersData.map(u => {
+        const lockedMin = lockedRemainingMin(u.locked_until);
+        const lockHtml = lockedMin > 0
+          ? `<span class="status-locked">🔒 鎖定 ${lockedMin} 分</span>`
+          : `<span class="status-badge ${u.is_active ? 'status-active' : 'status-disabled'}">${u.is_active ? '● 啟用' : '○ 停用'}</span>`;
+        return `
         <tr>
           <td>${escapeHtml(u.company_name || '-')}</td>
           <td><code>${escapeHtml(u.company_code || '-')}</code></td>
           <td><strong>${escapeHtml(u.user_id)}</strong></td>
           <td>${escapeHtml(u.display_name || '-')}</td>
           <td><span class="role-badge role-${u.role}">${ROLE_LABELS[u.role] || u.role}</span></td>
-          <td>
-            <span class="status-badge ${u.is_active ? 'status-active' : 'status-disabled'}">
-              ${u.is_active ? '● 啟用' : '○ 停用'}
-            </span>
-          </td>
-          <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
+          <td>${lockHtml}</td>
+          <td>${formatDateTime(u.last_login_at)}</td>
+          <td>${u.created_at ? formatDateTime(u.created_at) : '-'}</td>
           <td class="row-actions">
             <button type="button" class="btn" data-action="edit" data-id="${u.id}">編輯</button>
             <button type="button" class="btn" data-action="reset" data-id="${u.id}">重設密碼</button>
             <button type="button" class="btn" data-action="toggle" data-id="${u.id}">
               ${u.is_active ? '停用' : '啟用'}
             </button>
+            <button type="button" class="btn btn-danger" data-action="delete" data-id="${u.id}">刪除</button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       // 綁定操作事件
       tbody.querySelectorAll('[data-action]').forEach(btn => {
@@ -264,6 +387,7 @@
           if (btn.dataset.action === 'edit') showEditModal(user);
           else if (btn.dataset.action === 'reset') showResetPasswordModal(user);
           else if (btn.dataset.action === 'toggle') toggleUser(user);
+          else if (btn.dataset.action === 'delete') deleteUser(user);
         });
       });
     }
@@ -339,7 +463,7 @@
         if (!payload.password) { showModalError(errorBox, '請填寫密碼'); return; }
 
         try {
-          const result = await apiFetch('/api/auth/users', {
+          await apiFetch('/api/auth/users', {
             method: 'POST',
             body: JSON.stringify(payload)
           });
@@ -352,8 +476,13 @@
       });
     }
 
-    // ===== 編輯使用者（可改公司 / 顯示名稱 / 角色） =====
+    // ===== 編輯使用者（公司 / 顯示名稱 / 角色 / 權限） =====
     function showEditModal(user) {
+      const perms = user.permissions || {};
+      const permBox = Object.keys(PERM_LABELS).map(key =>
+        `<label><input type="checkbox" data-perm="${key}" ${perms[key] ? 'checked' : ''} /> ${PERM_LABELS[key]}</label>`
+      ).join('');
+
       const overlay = document.createElement('div');
       overlay.className = 'overlay';
       overlay.innerHTML = `
@@ -388,6 +517,12 @@
             </select>
           </div>
 
+          <div class="field">
+            <label>細粒度權限</label>
+            <div class="perms-box">${permBox}</div>
+            <div class="hint">不調整的項目會保留目前設定。admin 角色預設全開、staff 關閉「使用者管理」、customer 只能查看自己公司訂單。</div>
+          </div>
+
           <div class="modal-actions">
             <button type="button" class="btn" id="modal-cancel">取消</button>
             <button type="button" class="btn btn-primary" id="modal-save">💾 儲存</button>
@@ -407,8 +542,15 @@
           display_name: overlay.querySelector('#f-display').value.trim(),
           role: overlay.querySelector('#f-role').value
         };
+        // 收集權限勾選
+        const perms = {};
+        overlay.querySelectorAll('[data-perm]').forEach(cb => {
+          perms[cb.dataset.perm] = cb.checked;
+        });
+        payload.permissions = perms;
+
         try {
-          const result = await apiFetch(`/api/auth/users/${user.id}`, {
+          await apiFetch(`/api/auth/users/${user.id}`, {
             method: 'PUT',
             body: JSON.stringify(payload)
           });
@@ -456,7 +598,7 @@
         const password = overlay.querySelector('#f-password').value;
         if (!password) { showModalError(errorBox, '請填寫新密碼'); return; }
         try {
-          const result = await apiFetch(`/api/auth/users/${user.id}/reset-password`, {
+          await apiFetch(`/api/auth/users/${user.id}/reset-password`, {
             method: 'PUT',
             body: JSON.stringify({ password })
           });
@@ -473,7 +615,7 @@
       const action = user.is_active ? '停用' : '啟用';
       if (!confirm(`確定要${action}帳號「${user.user_id}」（${user.company_name || ''}）嗎？`)) return;
       try {
-        const result = await apiFetch(`/api/auth/users/${user.id}`, {
+        await apiFetch(`/api/auth/users/${user.id}`, {
           method: 'PUT',
           body: JSON.stringify({ is_active: !user.is_active })
         });
@@ -484,9 +626,130 @@
       }
     }
 
+    // ===== 刪除使用者 =====
+    async function deleteUser(user) {
+      if (!confirm(`確定要刪除帳號「${user.user_id}」（${user.company_name || ''}）？\n此操作無法復原！`)) return;
+      try {
+        await apiFetch(`/api/auth/users/${user.id}`, { method: 'DELETE' });
+        alert('使用者已刪除');
+        await loadUsers();
+      } catch (err) {
+        alert(`刪除失敗：${err.message}`);
+      }
+    }
+
+    // ===== Excel 匯入（批次建立） =====
+    function handleImportExcel(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(ws);
+          if (!rows.length) {
+            alert('檔案中沒有資料');
+            return;
+          }
+          // 對照欄位名稱（中英相容）：公司 / Company / Company Code / User ID / 密碼 / 顯示名稱 / 角色
+          const pick = (r, keys) => {
+            for (const k of keys) {
+              if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return String(r[k]).trim();
+            }
+            return '';
+          };
+          const users = rows.map(r => {
+            // 以公司名或 Company Code 找 company_id
+            const companyName = pick(r, ['公司', 'Company', '公司名稱']);
+            const companyCode = pick(r, ['Company Code', '公司代碼', '公司碼']);
+            let companyId = '';
+            if (companyCode) {
+              const c = companiesData.find(x => (x.company_code || '').toUpperCase() === companyCode.toUpperCase());
+              if (c) companyId = c.id;
+            }
+            if (!companyId && companyName) {
+              const c = companiesData.find(x => x.name === companyName);
+              if (c) companyId = c.id;
+            }
+            return {
+              company_id: companyId,
+              user_id: pick(r, ['User ID', '帳號', 'userId', 'user_id']),
+              password: pick(r, ['密碼', 'Password', 'password']),
+              display_name: pick(r, ['顯示名稱', '名稱', 'display_name']),
+              role: (pick(r, ['角色', 'Role', 'role']) || 'customer').toLowerCase()
+            };
+          });
+
+          // 過濾完全空白的列
+          const validUsers = users.filter(u => u.user_id || u.password);
+
+          if (!validUsers.length) {
+            alert('找不到有效資料列（需要 User ID / 密碼欄位）');
+            return;
+          }
+
+          if (!confirm(`將批次建立 ${validUsers.length} 個使用者，確定繼續？`)) return;
+
+          apiFetch('/api/auth/users/batch', {
+            method: 'POST',
+            body: JSON.stringify({ users: validUsers })
+          }).then(result => {
+            const note = document.getElementById('import-result-note');
+            note.innerHTML = `✅ 批次完成：成功 <strong>${result.success_count}</strong> 筆，失敗 <strong>${result.fail_count}</strong> 筆` +
+              (result.fail_count ? '<br>' + result.results.filter(r => r.error).map(r => `• ${escapeHtml(r.user_id || '(無ID)')}：${escapeHtml(r.error)}`).join('<br>') : '');
+            note.classList.add('show');
+            loadUsers();
+          }).catch(err => {
+            alert(`匯入失敗：${err.message}`);
+          });
+        } catch (err) {
+          alert(`無法解析 Excel：${err.message}`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // ===== 審計日誌 =====
+    async function loadAuditLog() {
+      const tbody = document.getElementById('audit-tbody');
+      tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">載入中...</div></td></tr>';
+      try {
+        const result = await apiFetch('/api/auth/audit-log?limit=100');
+        const logs = result.data || [];
+        if (!logs.length) {
+          tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state">尚無審計記錄。</div></td></tr>';
+          return;
+        }
+        tbody.innerHTML = logs.map(l => `
+          <tr>
+            <td>${formatDateTime(l.created_at)}</td>
+            <td>${escapeHtml(l.actor_display || l.actor_user_id || '-')}</td>
+            <td>${escapeHtml(l.action || '-')}</td>
+            <td>${escapeHtml(l.target_type || '')}${l.target_id ? `#${escapeHtml(l.target_id)}` : ''}</td>
+            <td class="audit-detail">${escapeHtml(l.detail || '-')}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">載入失敗：${escapeHtml(err.message)}</div></td></tr>`;
+      }
+    }
+
     function showModalError(box, msg) {
       box.textContent = msg;
       box.classList.add('show');
+    }
+
+    // ===== Tab 切換 =====
+    function setupTabs() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const tab = btn.dataset.tab;
+          document.getElementById('tab-users').style.display = tab === 'users' ? '' : 'none';
+          document.getElementById('tab-audit').style.display = tab === 'audit' ? '' : 'none';
+          if (tab === 'audit') loadAuditLog();
+        });
+      });
     }
 
     // ===== 入口 =====
@@ -499,7 +762,26 @@
       } catch (err) {
         alert(`載入失敗：${err.message}`);
       }
+
       document.getElementById('btn-add-user').addEventListener('click', showAddModal);
+      document.getElementById('btn-import-users').addEventListener('click', () => document.getElementById('import-file-input').click());
+      document.getElementById('import-file-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleImportExcel(file);
+        e.target.value = '';
+      });
+
+      // 搜尋 / 角色篩選
+      const searchInput = document.getElementById('users-search-input');
+      const roleFilter = document.getElementById('users-role-filter');
+      let searchTimer = null;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadUsers({ search: searchInput.value.trim(), role: roleFilter.value }), 300);
+      });
+      roleFilter.addEventListener('change', () => loadUsers({ search: searchInput.value.trim(), role: roleFilter.value }));
+
+      setupTabs();
     })();
   </script>
 </body>

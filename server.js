@@ -25,7 +25,7 @@ const ordersRouter = require('./routes/orders');
 const dbViewerRouter = require('./routes/dbviewer');
 const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
-const { requireAuth, requireRole } = require('./routes/auth/middleware');
+const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -62,8 +62,10 @@ app.use('/api/contours', contoursRouter);
 app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 
 // ===== 受保護路由：必須登入 =====
-app.use('/api/orders', requireAuth, ordersRouter);           // 登入即可（內部另做角色/公司資料隔離）
-app.use('/api/db', requireRole('admin', 'staff'), dbViewerRouter); // 資料庫檢視器僅限內部人員
+// 訂單：登入即可（requireAuth），內部另做角色/公司資料隔離與細粒度權限
+app.use('/api/orders', requireAuth, ordersRouter);
+// 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
+app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 
 // ===== 伺服器啟動 =====
 const HOST = process.env.HOST || '0.0.0.0';

@@ -19,6 +19,60 @@ async function fetchCurrentUser() {
   }
 }
 
+// ===== 我的帳號 Modal（顯示帳號資訊 + 修改密碼） =====
+function showAccountModal(user) {
+  const overlay = document.createElement('div');
+  overlay.className = 'app-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:300;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:20px;width:100%;max-width:420px;padding:28px;box-shadow:0 30px 60px rgba(2,6,23,0.4);box-sizing:border-box;">
+      <h2 style="margin:0 0 16px;font-size:1.2rem;color:var(--text-main);">👤 我的帳號</h2>
+      <div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:20px;line-height:1.7;">
+        <div>公司：<strong style="color:var(--text-main);">${escapeHtml(user.company_name || '-')}</strong>（${escapeHtml(user.company_code || '-')}）</div>
+        <div>帳號：<strong style="color:var(--text-main);">${escapeHtml(user.user_id)}</strong></div>
+        <div>名稱：${escapeHtml(user.display_name || '-')}</div>
+        <div>角色：${escapeHtml(AUTH_ROLE_LABELS[user.role] || user.role || '-')}</div>
+      </div>
+      <div id="acct-error" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);color:#dc2626;border-radius:10px;padding:10px 14px;font-size:0.85rem;margin-bottom:16px;"></div>
+      <div style="border-top:1px solid var(--border-color);padding-top:16px;margin-bottom:16px;">
+        <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:6px;">目前密碼</label>
+        <input type="password" id="acct-current" style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:10px;background:var(--input-bg);color:var(--text-main);font-size:0.95rem;margin-bottom:12px;box-sizing:border-box;" />
+        <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:6px;">新密碼</label>
+        <input type="password" id="acct-new" maxlength="20" style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:10px;background:var(--input-bg);color:var(--text-main);font-size:0.95rem;margin-bottom:6px;box-sizing:border-box;" />
+        <div style="color:var(--text-muted);font-size:0.78rem;">4-20 位，須包含英文與數字。</div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" id="acct-cancel" style="padding:10px 18px;border:1px solid var(--border-color);border-radius:10px;background:var(--card-bg);color:var(--text-main);cursor:pointer;">關閉</button>
+        <button type="button" id="acct-save" style="padding:10px 18px;border:none;border-radius:10px;background:var(--primary-gradient, #2563eb);color:#fff;cursor:pointer;font-weight:700;">🔑 改密碼</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const errBox = overlay.querySelector('#acct-error');
+  overlay.querySelector('#acct-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector('#acct-save').addEventListener('click', async () => {
+    errBox.style.display = 'none';
+    const current = overlay.querySelector('#acct-current').value;
+    const next = overlay.querySelector('#acct-new').value;
+    if (!current) { errBox.textContent = '請填寫目前密碼'; errBox.style.display = 'block'; return; }
+    if (!next) { errBox.textContent = '請填寫新密碼'; errBox.style.display = 'block'; return; }
+    try {
+      await apiFetch('/api/auth/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ current_password: current, new_password: next })
+      });
+      alert('密碼已更新');
+      overlay.remove();
+    } catch (err) {
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    }
+  });
+}
+
 // 初始化 Sidebar 登入狀態 + 受保護區塊鎖頭
 async function setupAuthUI() {
   const user = await fetchCurrentUser();
@@ -44,17 +98,17 @@ async function setupAuthUI() {
     const ordersLock = document.getElementById('nav-orders-lock');
     if (ordersLock) ordersLock.style.display = 'none';
 
-    // 資料庫：僅 admin / staff 解鎖；customer 顯示鎖頭並攔截點擊
+    // 資料庫：僅具備 db_view 權限解鎖；否則顯示鎖頭並攔截
     const dbLock = document.getElementById('nav-dbviewer-lock');
-    if (dbLock) dbLock.style.display = 'none';
     const navDb = document.getElementById('nav-dbviewer');
+    const canViewDb = !!(user.permissions ? user.permissions.db_view : (user.role !== 'customer'));
+    if (dbLock) dbLock.style.display = canViewDb ? 'none' : '';
     if (navDb) {
-      if (user.role === 'customer') {
-        if (dbLock) dbLock.style.display = '';
+      if (!canViewDb) {
         navDb.classList.add('nav-item-locked');
         navDb.addEventListener('click', (e) => {
           e.preventDefault();
-          alert('資料庫僅限管理員/內部員工使用');
+          alert('資料庫僅限具備檢視權限的人員使用');
         });
       }
     }
@@ -62,6 +116,12 @@ async function setupAuthUI() {
     // 使用者管理：僅 admin 顯示
     const navUsers = document.getElementById('nav-users');
     if (navUsers) navUsers.style.display = user.role === 'admin' ? 'flex' : 'none';
+
+    // 我的帳號（顯示資訊 + 改密碼）
+    const accountBtn = document.getElementById('btn-account');
+    if (accountBtn) {
+      accountBtn.addEventListener('click', () => showAccountModal(user));
+    }
 
     // 登出按鈕
     const logoutBtn = document.getElementById('btn-logout');

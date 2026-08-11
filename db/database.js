@@ -93,9 +93,24 @@ db.serialize(() => {
     )
   `);
 
+  // ===== 登入系統：審計日誌 =====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_user_id TEXT,
+      actor_display TEXT,
+      action TEXT,
+      target_type TEXT,
+      target_id TEXT,
+      detail TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // ===== 登入系統：使用者 =====
   // 角色：admin（管理員，可管理使用者與看所有資料）、staff（內部員工）、customer（客戶，只能看自己的訂單）
   // failed_attempts：連續密碼錯誤次數；locked_until：帳號鎖定到期時間（試錯上限）
+  // last_login_at：上次登入時間；permissions：JSON 權限開關（細粒度權限用）
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,12 +122,14 @@ db.serialize(() => {
       is_active INTEGER DEFAULT 1,
       failed_attempts INTEGER DEFAULT 0,
       locked_until DATETIME,
+      last_login_at DATETIME,
+      permissions TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(company_id, user_id)
     )
   `);
 
-  // users 表相容性：補上試錯上限相關欄位
+  // users 表相容性：補上試錯上限 / 上次登入 / 權限欄位
   db.all("PRAGMA table_info(users)", [], (err, userCols) => {
     if (err) {
       console.error('PRAGMA table_info(users) failed:', err.message);
@@ -132,6 +149,8 @@ db.serialize(() => {
     };
     ensureUserColumn('failed_attempts', 'INTEGER DEFAULT 0');
     ensureUserColumn('locked_until', 'DATETIME');
+    ensureUserColumn('last_login_at', 'DATETIME');
+    ensureUserColumn('permissions', 'TEXT');
   });
 
   // companies 表相容性：補上 company_code 欄位（登入用的公司短碼）

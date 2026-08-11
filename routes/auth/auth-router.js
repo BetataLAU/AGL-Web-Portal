@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../../db/database');
 const router = express.Router();
+const { requireAuth } = require('./middleware');
+const { resolvePermissions } = require('./helpers');
 
 // ===== 試錯上限（防暴力破解） =====
 const MAX_FAILED_ATTEMPTS = 5;   // 連續錯誤 5 次
@@ -97,14 +99,14 @@ router.post('/login', (req, res) => {
             return;
           }
 
-          // ===== 密碼正確：清除失敗計數與鎖定 =====
+          // ===== 密碼正確：清除失敗計數與鎖定，紀錄上次登入時間 =====
           db.run(
-            "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?",
+            "UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = CURRENT_TIMESTAMP WHERE id = ?",
             [user.id],
             (resetErr) => {
               if (resetErr) return res.status(500).json({ error: resetErr.message });
 
-              // 5. 建立 session
+              // 5. 建立 session（含細粒度權限）
               req.session.user = {
                 id: user.id,
                 company_id: user.company_id,
@@ -112,7 +114,8 @@ router.post('/login', (req, res) => {
                 company_name: company.name,
                 user_id: user.user_id,
                 display_name: user.display_name || user.user_id,
-                role: user.role
+                role: user.role,
+                permissions: resolvePermissions(user)
               };
 
               res.json({
@@ -144,6 +147,45 @@ router.get('/me', (req, res) => {
     return res.status(401).json({ error: '未登入' });
   }
   res.json({ user: req.session.user });
+});
+
+// PUT /api/auth/me/password → 使用者自己修改密碼（需登入，驗證舊密碼）
+router.put('/me/password', requireAuth, (req, res) => {
+  const currentPassword = String(req.body.current_password || '');
+  const newPassword = String(req.body.new_password || '');
+
+  if (!currentPassword) return res.status(400).json({ error: '請填寫目前密碼' });
+
+  // 新密碼規則（與後台一致：英數混合 4-20 位）
+  if (!/^[A-Za-z0-9]{4,20}$/.test(newPassword)) {
+    return res.status(400).json({ error: '新密碼須為 4-20 位英文或數字' });
+  }
+  if (!/[A-Za-z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    return res.status(400).json({ error: '新密碼須包含英文與數字（例如 ag1234）' });
+  }
+
+  const userId = req.session.user.id;
+  db.get("SELECT id, password_hash FROM users WHERE id = ?", [userId], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(404).json({ error: '使用者不存在' });
+
+    bcrypt.compare(currentPassword, user.password_hash, (cmpErr, match) => {
+      if (cmpErr) return res.status(500).json({ error: cmpErr.message });
+      if (!match) return res.status(400).json({ error: '目前密碼不正確' });
+
+      bcrypt.hash(newPassword, 10, (hashErr, hash) => {
+        if (hashErr) return res.status(500).json({ error: hashErr.message });
+        db.run(
+          "UPDATE users SET password_hash = ? WHERE id = ?",
+          [hash, userId],
+          (updErr) => {
+            if (updErr) return res.status(500).json({ error: updErr.message });
+            res.json({ success: true });
+          }
+        );
+      });
+    });
+  });
 });
 
 module.exports = router;

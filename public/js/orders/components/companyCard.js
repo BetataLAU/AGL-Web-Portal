@@ -27,6 +27,7 @@ export function captureCompanySnapshot(hiddenId) {
     phone: company.phone || '',
     email: company.email || '',
     category: company.category || '',
+    company_code: company.company_code || '',
     notes: company.notes || ''
   });
 }
@@ -77,6 +78,10 @@ export function renderCompanyDetailCard(inputId, hiddenId) {
       </div>
       <div class="company-detail-grid">
         <div class="company-detail-field">
+          <label>Company Code（登入用）</label>
+          <input type="text" id="${inputId}-detail-code" value="${escapeAttr(company.company_code || '')}" placeholder="－" maxlength="20" />
+        </div>
+        <div class="company-detail-field">
           <label>地址</label>
           <input type="text" id="${inputId}-detail-address" value="${escapeAttr(company.address || '')}" placeholder="－" />
         </div>
@@ -121,6 +126,10 @@ export function renderCompanyDetailCard(inputId, hiddenId) {
     </div>
     <div class="company-detail-hint">此公司不在公司庫，提交訂單時會自動新增一筆資料。可現在補充以下資料：</div>
     <div class="company-detail-grid">
+      <div class="company-detail-field">
+        <label>Company Code（登入用，選填）</label>
+        <input type="text" id="${inputId}-detail-code" placeholder="例如：HUAZONG" maxlength="20" />
+      </div>
       <div class="company-detail-field">
         <label>地址</label>
         <input type="text" id="${inputId}-detail-address" placeholder="地址（可留空）" />
@@ -170,6 +179,7 @@ export function getCompanyDetailData(inputId) {
     phone: getVal('phone'),
     email: getVal('email'),
     notes: getVal('notes'),
+    company_code: getVal('code'),
     category: cats.join(',')
   };
 }
@@ -187,7 +197,8 @@ export function detectCompanyChanges(inputId, hiddenId) {
     ['contact_person', '聯絡人'],
     ['phone', '電話'],
     ['email', '電郵'],
-    ['notes', '備註']
+    ['notes', '備註'],
+    ['company_code', 'Company Code']
   ];
   const changes = [];
   const inputEl = document.getElementById(inputId);

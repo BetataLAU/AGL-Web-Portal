@@ -1,9 +1,24 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-11T12:27:43.866Z
--- 共 6 張資料表
+-- 匯出時間: 2026-08-11T13:01:59.550Z
+-- 共 7 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
+
+-- ===== 資料表: audit_log =====
+DROP TABLE IF EXISTS "audit_log";
+CREATE TABLE audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_user_id TEXT,
+      actor_display TEXT,
+      action TEXT,
+      target_type TEXT,
+      target_id TEXT,
+      detail TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+-- (無資料)
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -211,11 +226,11 @@ CREATE TABLE users (
       display_name TEXT,
       role TEXT DEFAULT 'customer',
       is_active INTEGER DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, locked_until DATETIME, failed_attempts INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, locked_until DATETIME, failed_attempts INTEGER DEFAULT 0, permissions TEXT, last_login_at DATETIME,
       UNIQUE(company_id, user_id)
     );
 
-INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0);
+INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0, NULL, NULL);
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====

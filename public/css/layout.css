@@ -123,8 +123,9 @@
 
 .sidebar-logged-in {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 12px;
@@ -349,4 +350,12 @@
   }
 
   .hero-header, .card { padding: 18px; }
+}
+
+/* 登入格子：按鈕列（我的帳號 / 登出 同一行） */
+.sidebar-logged-in-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
 }

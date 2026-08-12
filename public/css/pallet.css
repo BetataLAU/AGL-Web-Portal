@@ -1,0 +1,651 @@
+/* ===== 打板計劃樣式（沿用 Theme 變數，支援 Light/Dark/Ocean） ===== */
+
+/* ===== 整體版面：三欄（左｜中｜右） ===== */
+.pallet-layout {
+  display: grid;
+  grid-template-columns: 300px 150px 1fr;
+  gap: 14px;
+  align-items: start;
+  margin-top: 18px;
+}
+.pallet-col-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #64748b);
+  padding: 8px 10px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ===== 左欄：Booking Record ===== */
+.pallet-bookings-col {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--card-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 240px);
+}
+.pallet-bookings-toolbar {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pallet-bookings-toolbar-row {
+  display: flex;
+  gap: 6px;
+}
+.pallet-bookings-toolbar input[type="search"] {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-main);
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+.pallet-btn {
+  min-height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pallet-btn:hover { border-color: var(--primary, #2563eb); background: rgba(37, 99, 235, 0.06); }
+.pallet-btn-primary {
+  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
+  color: #fff;
+  border: none;
+  font-weight: 700;
+}
+.pallet-btn-primary:hover { opacity: 0.92; }
+.pallet-btn-danger { color: #dc2626; }
+.pallet-btn-danger:hover { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); }
+.pallet-btn-sm { font-size: 0.75rem; padding: 4px 8px; min-height: 28px; border-radius: 6px; }
+.pallet-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.pallet-bookings-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.pallet-booking-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  position: relative;
+}
+.pallet-booking-card:hover { border-color: var(--primary, #2563eb); }
+.pallet-booking-card.selected {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+.pallet-booking-card.dragging { opacity: 0.5; }
+.pallet-booking-mawb {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+.pallet-booking-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 5px;
+  line-height: 1.55;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.pallet-booking-meta b { color: var(--text-main); font-weight: 600; }
+.pallet-spl-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(234, 88, 12, 0.12);
+  color: #c2410c;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+.pallet-spl-badge.battery { background: rgba(220, 38, 38, 0.12); color: #dc2626; border-color: rgba(220, 38, 38, 0.35); }
+.pallet-spl-badge.no-power { background: rgba(16, 185, 129, 0.12); color: #059669; border-color: rgba(16, 185, 129, 0.35); }
+.pallet-spl-badge.default-spl { background: rgba(14, 165, 233, 0.12); color: #0284c7; border-color: rgba(14, 165, 233, 0.35); }
+
+.pallet-plan-ref-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  cursor: default;
+}
+.pallet-plan-ref-badge.locked-ref { background: rgba(15, 23, 42, 0.1); color: var(--text-muted); border-color: var(--border-color); }
+
+.pallet-bookings-summary {
+  border-top: 1px solid var(--border-color);
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  background: rgba(37, 99, 235, 0.05);
+  line-height: 1.65;
+}
+.pallet-bookings-summary .summary-title {
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+.pallet-bookings-summary .summary-numbers { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--text-muted); }
+.pallet-bookings-summary b { color: var(--text-main); }
+
+/* ===== 中間操作區 ===== */
+.pallet-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 44px;
+  align-items: stretch;
+}
+.pallet-actions-col select {
+  min-height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-main);
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pallet-action-btn {
+  min-height: 44px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 10px;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.pallet-action-btn:hover:not(:disabled) {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.08);
+}
+.pallet-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pallet-action-btn.add { background: var(--primary-gradient); color: #fff; border: none; }
+.pallet-action-btn.remove { color: #dc2626; }
+.pallet-action-btn.remove:hover:not(:disabled) { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); }
+
+/* ===== 右欄：Plan Containers ===== */
+.pallet-plans-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 300px;
+}
+.pallet-plans-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pallet-plans-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+.pallet-plan-card {
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.pallet-plan-card.dragover { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+.pallet-plan-card.status-locked { border-color: #059669; }
+.pallet-plan-card.status-completed { opacity: 0.82; border-color: #64748b; }
+.pallet-plan-card.status-cancelled { opacity: 0.5; }
+
+.pallet-plan-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(37, 99, 235, 0.04);
+}
+.pallet-plan-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.pallet-plan-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pallet-plan-title .plan-no { color: var(--primary, #2563eb); }
+.pallet-status-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.pallet-status-badge.draft { background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.35); }
+.pallet-status-badge.locked { background: rgba(5, 150, 105, 0.14); color: #059669; border: 1px solid rgba(5, 150, 105, 0.35); }
+.pallet-status-badge.completed { background: rgba(100, 116, 139, 0.14); color: #475569; border: 1px solid rgba(100, 116, 139, 0.3); }
+.pallet-status-badge.cancelled { background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); }
+
+.pallet-plan-header-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pallet-plan-countdown {
+  font-weight: 700;
+  color: #0284c7;
+}
+.pallet-plan-countdown.urgent { color: #dc2626; }
+.pallet-plan-overweight {
+  font-weight: 700;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+}
+.pallet-plan-actions { display: flex; gap: 4px; }
+.pallet-plan-action-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 5px 7px;
+  transition: all 0.15s;
+}
+.pallet-plan-action-btn:hover { background: rgba(37, 99, 235, 0.08); color: var(--primary, #2563eb); border-color: var(--border-color); }
+.pallet-plan-action-btn.lock-btn:hover { color: #059669; }
+.pallet-plan-action-btn.danger:hover { color: #dc2626; }
+
+.pallet-plan-body { padding: 0; }
+.pallet-plan-body.collapsed { display: none; }
+
+/* ===== Plan 標題資料區（列印標題） ===== */
+.pallet-plan-info-grid {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px 18px;
+  font-size: 0.8rem;
+}
+.pallet-plan-info-item { display: flex; gap: 6px; }
+.pallet-plan-info-item .label { color: var(--text-muted, #64748b); white-space: nowrap; }
+.pallet-plan-info-item .value { color: var(--text-main); font-weight: 600; }
+.pallet-contour-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  color: #0284c7;
+  padding: 2px 9px;
+  border-radius: 16px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pallet-contour-chip:hover { background: rgba(14, 165, 233, 0.2); }
+.pallet-contour-chip img {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.pallet-plan-remarks {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  background: rgba(245, 158, 11, 0.06);
+  white-space: pre-line;
+  line-height: 1.6;
+}
+.pallet-plan-remarks .remarks-label {
+  font-weight: 700;
+  color: var(--text-main);
+  margin-right: 6px;
+}
+
+/* ===== Plan 明細表格 ===== */
+.pallet-items-table-wrap { overflow-x: auto; }
+.pallet-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.pallet-items-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.06);
+  position: sticky;
+  top: 0;
+}
+.pallet-items-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+  vertical-align: top;
+}
+.pallet-items-table tr:hover td { background: rgba(37, 99, 235, 0.03); }
+.pallet-items-table tr.dragging-row td { opacity: 0.5; }
+.pallet-items-table .num { text-align: right; white-space: nowrap; }
+.pallet-items-table .mawb-cell { font-weight: 700; white-space: nowrap; }
+.pallet-items-table .drag-handle {
+  cursor: grab;
+  color: var(--text-muted, #94a3b8);
+  padding: 0 4px;
+}
+.pallet-items-table .cell-remark { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pallet-plan-total {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-color);
+  background: rgba(37, 99, 235, 0.05);
+  font-size: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pallet-plan-total .total-numbers { display: flex; gap: 14px; flex-wrap: wrap; }
+.pallet-plan-total b { color: var(--text-main); }
+.pallet-plan-total .total-label { color: var(--text-muted, #64748b); }
+
+/* ===== 空狀態 ===== */
+.pallet-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.85rem;
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  background: var(--card-bg);
+}
+.pallet-empty .empty-icon { font-size: 2rem; margin-bottom: 8px; }
+
+/* ===== Modal（新增/編輯） ===== */
+.pallet-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 400;
+  padding: 30px 16px;
+  overflow-y: auto;
+}
+.pallet-modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 540px;
+  padding: 24px 26px;
+  box-shadow: 0 30px 60px rgba(2, 6, 23, 0.4);
+  box-sizing: border-box;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+.pallet-modal.wide { max-width: 680px; }
+.pallet-modal h2 {
+  margin: 0 0 18px;
+  font-size: 1.15rem;
+  color: var(--text-main);
+}
+.pallet-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.pallet-form-field { display: flex; flex-direction: column; gap: 5px; }
+.pallet-form-field.full { grid-column: 1 / -1; }
+.pallet-form-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+.pallet-form-field input,
+.pallet-form-field select,
+.pallet-form-field textarea {
+  min-height: 40px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-main);
+  padding: 8px 11px;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: inherit;
+}
+.pallet-form-field textarea { min-height: 80px; resize: vertical; }
+.pallet-form-field input:focus,
+.pallet-form-field select:focus,
+.pallet-form-field textarea:focus {
+  outline: none;
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+.pallet-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.pallet-modal-error {
+  display: none;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  white-space: pre-line;
+}
+.pallet-modal-error.show { display: block; }
+
+/* Contour 圖片 Modal */
+.pallet-contour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 20px;
+}
+.pallet-contour-modal {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+.pallet-contour-modal img {
+  max-width: 80vw;
+  max-height: 75vh;
+  border-radius: 10px;
+  display: block;
+}
+.pallet-contour-modal-title {
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 10px 0 4px;
+  font-size: 0.9rem;
+}
+.pallet-contour-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(2, 6, 23, 0.6);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* ===== 拖曳視覺 ===== */
+.pallet-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  background: var(--card-bg);
+  border: 2px solid var(--primary, #2563eb);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.3);
+  opacity: 0.9;
+  max-width: 260px;
+}
+.pallet-drag-ghost b { color: var(--primary, #2563eb); }
+
+.draggable-plan-body.dragover .pallet-items-table-wrap {
+  outline: 2px dashed var(--primary, #2563eb);
+  outline-offset: -4px;
+  border-radius: 10px;
+}
+
+/* ===== 載入中 ===== */
+.pallet-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.9rem;
+  gap: 10px;
+}
+.pallet-loading .spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary, #2563eb);
+  border-radius: 50%;
+  animation: pallet-spin 0.8s linear infinite;
+}
+@keyframes pallet-spin { to { transform: rotate(360deg); } }
+
+/* ===== 響應式 ===== */
+@media (max-width: 1100px) {
+  .pallet-layout {
+    grid-template-columns: 1fr;
+  }
+  .pallet-actions-col {
+    flex-direction: row;
+    padding-top: 0;
+    flex-wrap: wrap;
+  }
+  .pallet-actions-col #pallet-target-plan-select { width: auto; flex: 1; min-width: 180px; }
+  .pallet-bookings-col { max-height: 50vh; }
+}
+
+@media (max-width: 640px) {
+  .pallet-form-grid { grid-template-columns: 1fr; }
+  .pallet-header-actions { margin-top: 10px; }
+}
+
+/* ===== 列印樣式：只印當前展開的 Plan ===== */
+@media print {
+  body * { visibility: hidden; }
+  #section-palletization,
+  #section-palletization * { visibility: visible; }
+  #section-palletization {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+  .pallet-layout { display: block; }
+  .pallet-bookings-col,
+  .pallet-actions-col,
+  .pallet-plans-header,
+  .pallet-plan-action-btn,
+  .pallet-plan-actions,
+  .pallet-plan-header .pallet-plan-countdown,
+  .pallet-overweight,
+  .drag-handle,
+  .pallet-header-actions,
+  .pallet-card .card-desc,
+  .pallet-card h2 { display: none !important; }
+
+  /* 只印非 collapsed 的 plan；其餘隱藏 */
+  .pallet-plan-card { display: none !important; }
+  .pallet-plan-card:not(.collapsed) {
+    display: block !important;
+    border: 1px solid #000;
+    page-break-inside: avoid;
+  }
+  .pallet-plan-card .pallet-plan-body { display: block !important; }
+  .pallet-plan-card .pallet-plan-header { cursor: default; }
+  .pallet-plan-info-grid { display: grid; }
+  .pallet-items-table th, .pallet-items-table td {
+    border: 1px solid #999;
+    color: #000 !important;
+  }
+  .pallet-items-table th { background: #e5e7eb !important; }
+  .pallet-plan-total { break-inside: avoid; }
+}

@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/utils/time-picker.css">
   <link rel="stylesheet" href="css/utils/autocomplete.css">
   <link rel="stylesheet" href="css/orders.css">
+  <link rel="stylesheet" href="css/pallet.css">
   <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -76,6 +77,10 @@
               <a href="#section-orders" class="nav-item" id="nav-orders">
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-orders-lock" title="需要登入"></i>
+              </a>
+              <a href="#section-palletization" class="nav-item" id="nav-palletization">
+                <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-palletization-lock" title="需要員工權限"></i>
               </a>
               <a href="#section-dbviewer" class="nav-item" id="nav-dbviewer">
                 <i class="fa-solid fa-database"></i> <span>資料庫</span>
@@ -177,6 +182,22 @@
         </div>
       </section>
 
+      <!-- 打板計劃頁面 -->
+      <section id="section-palletization" class="content-section">
+        <div class="card pallet-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-boxes-packing"></i> 🧱 打板計劃</h2>
+              <p class="card-desc">管理 Booking Record（MAWB）與打板計劃，透過拖曳/按鈕將貨物分配到各板。</p>
+            </div>
+            <div class="pallet-header-actions">
+              <button type="button" class="pill" id="btn-pallet-refresh"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
+            </div>
+          </div>
+          <div id="pallet-root"></div>
+        </div>
+      </section>
+
       <!-- 訂單系統頁面 -->
       <section id="section-orders" class="content-section">
         <div class="card orders-card">
@@ -275,6 +296,7 @@
   <script src="./js/contours.js"></script>
   <script src="./js/chat.js"></script>
   <script type="module" src="./js/orders.js"></script>
+  <script type="module" src="./js/pallet.js"></script>
   <script src="./js/dbviewer.js"></script>
   <script src="./js/main.js"></script>
 </body>

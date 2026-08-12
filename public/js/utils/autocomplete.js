@@ -33,15 +33,20 @@ function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMess
     if (onSelect) onSelect(value);
   }
 
-  function getMatches(query) {
-    const list = (typeof suggestions === 'function') ? suggestions() : suggestions;
+  async function getMatches(query) {
+    let list = (typeof suggestions === 'function') ? suggestions() : suggestions;
+    // 支援 async suggestions（回傳 Promise）
+    if (list && typeof list.then === 'function') {
+      list = await list;
+    }
+    list = list || [];
     const q = (query || '').trim().toLowerCase();
     if (!q) return list.slice(0, 10);
     return list.filter(s => String(s).toLowerCase().includes(q)).slice(0, 10);
   }
 
-  function showMatches() {
-    const matches = getMatches(input.value);
+  async function showMatches() {
+    const matches = await getMatches(input.value);
     currentItems = matches;
     listEl.innerHTML = '';
 
@@ -79,7 +84,8 @@ function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMess
 
   input.addEventListener('input', showMatches);
   input.addEventListener('focus', () => {
-    if (input.value.trim()) showMatches();
+    // 無論是否有輸入，聚焦即顯示候選清單（適用於客戶/公司等選擇型欄位）
+    showMatches();
   });
 
   input.addEventListener('keydown', (e) => {

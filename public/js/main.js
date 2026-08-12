@@ -66,13 +66,18 @@ function setupPageNavigation() {
   showSection('section-home');
 }
 
-// ===== 受保護區塊初始化（訂單系統 / 資料庫檢視器） =====
-// 僅在「已登入」時由 auth.js 呼叫：
+// ===== 受保護區塊初始化（訂單系統 / 資料庫檢視器 / 打板計劃） =====
+// 僅在「已登入」時由 auth.js 呼叫（user 為登入者資訊）：
 // - 未登入時不初始化 → 不會發出受保護 API 請求 → 公開頁面（HOME/AI/Capabilities/Contour）仍可正常瀏覽
 // - 若直接呼叫會觸發 apiFetch 401 自動跳轉登入頁
-window.initProtectedSections = function () {
+// - 打板計劃僅限 admin / staff，其餘角色不初始化
+window.initProtectedSections = function (user) {
   if (typeof setupOrdersSection === 'function') setupOrdersSection();
   if (typeof setupDbViewerSection === 'function') setupDbViewerSection();
+  const role = user && user.role;
+  if ((role === 'admin' || role === 'staff') && typeof setupPalletSection === 'function') {
+    setupPalletSection();
+  }
 };
 
 // ===== 入口 =====

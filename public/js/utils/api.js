@@ -33,11 +33,13 @@ async function apiFetch(url, options = {}) {
   }
 
   if (!res.ok) {
-    let errorMsg = '請求失敗';
+    let errorMsg = '';
     try {
       const errData = await res.json();
       if (errData.error) errorMsg = errData.error;
     } catch (e) { /* ignore */ }
+    // 後端無回傳 JSON（如 Express 預設 HTML error page）→ 附加 HTTP 狀態碼
+    if (!errorMsg) errorMsg = `請求失敗（HTTP ${res.status}）`;
     throw new Error(errorMsg);
   }
   return res.json();

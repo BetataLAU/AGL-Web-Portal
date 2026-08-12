@@ -88,15 +88,31 @@ async function setupAuthUI() {
     if (userNameEl) userNameEl.textContent = user.display_name || user.user_id;
     if (userCompanyEl) userCompanyEl.textContent = `${user.company_name}（${AUTH_ROLE_LABELS[user.role] || user.role}）`;
 
-    // 初始化受保護區塊（訂單系統 / 資料庫檢視器）
+    // 初始化受保護區塊（訂單系統 / 資料庫檢視器 / 打板計劃）
     // 定義於 main.js：僅在已登入時呼叫，避免未登入時發出受保護 API 請求
+    // 傳入 user 讓打板計劃僅對 admin/staff 初始化
     if (typeof window.initProtectedSections === 'function') {
-      window.initProtectedSections();
+      window.initProtectedSections(user);
     }
 
     // 解鎖訂單系統
     const ordersLock = document.getElementById('nav-orders-lock');
     if (ordersLock) ordersLock.style.display = 'none';
+
+    // 打板計劃：僅限 admin / staff 解鎖；否則顯示鎖頭並攔截
+    const palletLock = document.getElementById('nav-palletization-lock');
+    const navPallet = document.getElementById('nav-palletization');
+    const canPallet = user.role === 'admin' || user.role === 'staff';
+    if (palletLock) palletLock.style.display = canPallet ? 'none' : '';
+    if (navPallet) {
+      if (!canPallet) {
+        navPallet.classList.add('nav-item-locked');
+        navPallet.addEventListener('click', (e) => {
+          e.preventDefault();
+          alert('打板計劃僅限內部員工使用');
+        });
+      }
+    }
 
     // 資料庫：僅具備 db_view 權限解鎖；否則顯示鎖頭並攔截
     const dbLock = document.getElementById('nav-dbviewer-lock');
@@ -138,8 +154,8 @@ async function setupAuthUI() {
     if (loginBtn) loginBtn.style.display = 'flex';
     if (loggedInBox) loggedInBox.style.display = 'none';
 
-    // 訂單系統 / 資料庫：顯示鎖頭，點擊導向登入頁
-    ['nav-orders', 'nav-dbviewer'].forEach(id => {
+    // 訂單系統 / 資料庫 / 打板計劃：顯示鎖頭，點擊導向登入頁
+    ['nav-orders', 'nav-dbviewer', 'nav-palletization'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');

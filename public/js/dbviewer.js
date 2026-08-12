@@ -159,17 +159,17 @@ async function renderDbTable(tableName, columns, rows) {
 
   container.innerHTML = `
     <div class="dbviewer-toolbar">
-      <div class="dbviewer-search-wrap">
-        <i class="fa-solid fa-magnifying-glass dbviewer-search-icon"></i>
-        <input type="text" class="dbviewer-search-input" id="dbviewer-search-input" placeholder="搜尋…" autocomplete="off" spellcheck="false" />
-        <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
+      <div class="dbviewer-toolbar-left">
+        <div class="dbviewer-search-wrap">
+          <i class="fa-solid fa-magnifying-glass dbviewer-search-icon"></i>
+          <input type="text" class="dbviewer-search-input" id="dbviewer-search-input" placeholder="搜尋…" autocomplete="off" spellcheck="false" />
+          <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
+        </div>
+        <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
       </div>
       <div>
         <strong>${TABLE_LABELS[tableName] || tableName}</strong>
         <span class="db-record-count" id="dbviewer-record-count">共 ${rows.length} 筆</span>
-      </div>
-      <div class="dbviewer-toolbar-actions">
-        <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
       </div>
     </div>
 
@@ -190,9 +190,9 @@ async function renderDbTable(tableName, columns, rows) {
     <div id="dbviewer-empty-state"></div>
   `;
 
-  // 新增記錄按鈕
+  // 新增記錄按鈕（位於搜尋框右側）
   document.getElementById('btn-dbviewer-add').addEventListener('click', () => {
-    showAddForm(tableName, editableColumns, fkOptions);
+    openAddFormForTable(tableName);
   });
 
   // 列的操作事件（編輯 / 刪除）
@@ -838,6 +838,79 @@ function openNoteTemplatesModal() {
 
   loadNoteTemplates();
   renderNoteTemplateCount();
+}
+
+// 開啟「選擇資料表」Modal（尚未選擇任何表時按「＋ 新增記錄」使用）
+function showDbTablePicker() {
+  const tables = dbTablesData.filter(t => t.name !== 'templates');
+  if (tables.length === 0) {
+    alert('目前沒有可新增記錄的資料表。');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'db-form-overlay';
+  overlay.innerHTML = `
+    <div class="db-form-card db-table-picker-card">
+      <div class="db-form-header">
+        <h3>＋ 選擇要新增記錄的資料表</h3>
+        <button type="button" class="db-form-close" id="btn-db-table-picker-close">&times;</button>
+      </div>
+      <div class="db-table-picker-grid">
+        ${tables.map(t => `
+          <button type="button" class="db-table-picker-btn" data-table="${t.name}">
+            <span>${TABLE_LABELS[t.name] || t.name}</span>
+            <span class="db-table-count">${t.count}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div class="db-form-actions">
+        <button type="button" class="pill" id="btn-db-table-picker-cancel">取消</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeBtn = overlay.querySelector('#btn-db-table-picker-close');
+  const cancelBtn = overlay.querySelector('#btn-db-table-picker-cancel');
+  function closePicker() {
+    overlay.remove();
+  }
+  closeBtn.addEventListener('click', closePicker);
+  cancelBtn.addEventListener('click', closePicker);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePicker();
+  });
+
+  overlay.querySelectorAll('.db-table-picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tableName = btn.dataset.table;
+      closePicker();
+      openAddFormForTable(tableName);
+    });
+  });
+}
+
+// 開啟指定資料表的新增表單（載入欄位後顯示）
+async function openAddFormForTable(tableName) {
+  try {
+    const result = await apiDbFetch(`/api/db/tables/${tableName}`);
+    const { columns } = result.data;
+    const editableColumns = columns.filter(c => !HIDDEN_FIELDS.includes(c));
+
+    // 預載外鍵下拉選項
+    const fkOptions = {};
+    const fkCols = Object.keys(FK_FIELDS[tableName] || {});
+    for (const col of fkCols) {
+      if (columns.includes(col)) {
+        fkOptions[col] = `<option value="">-- 未選擇 --</option>${await buildFkOptions(tableName, col, '')}`;
+      }
+    }
+
+    showAddForm(tableName, editableColumns, fkOptions);
+  } catch (err) {
+    alert(`載入資料表失敗：${err.message}`);
+  }
 }
 
 // 初始化

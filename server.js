@@ -26,6 +26,7 @@ const ordersRouter = require('./routes/orders');
 const dbViewerRouter = require('./routes/dbviewer');
 const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
+const palletRouter = require('./routes/pallet');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -72,6 +73,8 @@ app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 // ===== 受保護路由：必須登入 =====
 // 訂單：登入即可（requireAuth），內部另做角色/公司資料隔離與細粒度權限
 app.use('/api/orders', requireAuth, ordersRouter);
+// 打板計劃：僅限 admin / staff（內部員工操作）
+app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
 app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 

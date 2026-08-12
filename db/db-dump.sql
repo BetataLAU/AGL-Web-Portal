@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-12T10:02:27.284Z
+-- 匯出時間: 2026-08-12T10:09:50.947Z
 -- 共 12 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -133,6 +133,30 @@ INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "targ
 
 INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (56, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #3', '2026-08-12 10:01:38');
 
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (57, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:03:29');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (58, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #4', '2026-08-12 10:04:07');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (59, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:05:48');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (60, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-12 10:05:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (61, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:05:53');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (62, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #3', '2026-08-12 10:06:00');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (63, 'admin', '系統管理員', 'pallet.booking.create', 'mawb_record', '5', '新增 Booking 176-2334 8835', '2026-08-12 10:06:55');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (64, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-12 10:07:51');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (65, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:07:53');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (66, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #5', '2026-08-12 10:07:56');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (67, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:07:59');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (68, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:08:06');
+
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -221,6 +245,8 @@ INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gros
 S/O# 994-3032 8572 (93 CTNS)
 需要幫忙做20% HAND SEARCH , 影貨
 相,LABEL相,開箱相,裝板相', '2026-08-12 09:13:01', '2026-08-12 09:13:01');
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (5, '176-2334 8835', 'HAWB001', 'AHL', 'DWC', 100, 1000, 150, 0.9, 'ELI', '', '2026-08-12 10:06:55', '2026-08-12 10:06:55');
 
 
 -- ===== 資料表: note_templates =====
@@ -335,7 +361,12 @@ CREATE TABLE pallet_plan_items (
       UNIQUE(plan_id, mawb_record_id)
     );
 
--- (無資料)
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (30, 4, 4, 1, '2026-08-12 10:05:53');
+
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (33, 4, 3, 2, '2026-08-12 10:07:59');
+
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (34, 4, 5, 3, '2026-08-12 10:08:06');
+
 
 -- ===== 資料表: pallet_plans =====
 DROP TABLE IF EXISTS "pallet_plans";
@@ -565,9 +596,9 @@ INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('remark_templates', 11);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plans', 4);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 56);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 68);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 4);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 5);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 26);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 34);
 

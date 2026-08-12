@@ -8,9 +8,9 @@
 import {
   getPlans, getPlanItems, getCollapsedPlanIds, isPlanCollapsed, togglePlanCollapsed
 } from './state.js';
-import { addItemsToPlan, removeItemFromPlan, reorderPlanItems } from './api.js';
+import { addItemsToPlan, removeItemFromPlan, reorderPlanItems, fetchPlanDetail } from './api.js';
 import { loadBookings } from './bookingsController.js';
-import { loadPlanDetail, afterPlanChange } from './plansController.js';
+import { loadPlanDetail, afterPlanChange, expandPlan } from './plansController.js';
 
 let dragType = null;          // 'booking' | 'plan-item' | 'plan-item-reorder'
 let dragBookings = [];        // 被拖曳的 booking ids
@@ -166,14 +166,20 @@ export function setupDragAndDrop() {
           if (plan && plan.status === 'draft') {
             e.preventDefault();
             try {
-              // 取得該 plan_item 對應的 mawb_record_id
-              const sourceDetail = getPlanItems(dragSourcePlanId);
-              const sourceItem = sourceDetail.find(it => it.plan_item_id === dragPlanItemId);
+              // 取得該 plan_item 對應的 mawb_record_id（來源明細可能未載入，先用快取、再 fetch 兜底）
+              let sourceItem = getPlanItems(dragSourcePlanId).find(it => it.plan_item_id === dragPlanItemId);
+              if (!sourceItem) {
+                const sourceDetail = await fetchPlanDetail(dragSourcePlanId);
+                sourceItem = (sourceDetail.items || []).find(it => it.plan_item_id === dragPlanItemId);
+              }
               if (sourceItem) {
                 await addItemsToPlan(planId, [sourceItem.id]);
                 await removeItemFromPlan(dragSourcePlanId, dragPlanItemId);
                 await afterPlanChange();
                 await loadBookings();
+                expandPlan(planId);   // 確保目標 Plan 展開並顯示明細
+              } else {
+                alert('找不到該 MAWB 的來源資料，無法移動');
               }
             } catch (err) {
               alert(err.message);

@@ -787,14 +787,22 @@ export async function handleRemoveSelectedFromPlan(planId) {
   }
 }
 
+// 展開指定 Plan（供拖曳目標使用）
+export async function expandPlan(planId) {
+  if (isPlanCollapsed(planId)) togglePlanCollapsed(planId);
+  expandedPlanId = planId;
+  await loadPlanDetail(planId);
+}
+
 // 資料變更後：重整 Plans + 明細
+// 先載明細（items 立即更新，避免舊資料殘留閃爍），再載列表更新 totals
 export async function afterPlanChange() {
   const expandedId = expandedPlanId;
-  await loadPlans();
   if (expandedId) {
     expandedPlanId = expandedId;
     await loadPlanDetail(expandedId);
   }
+  await loadPlans();
   updateTargetPlanDisplay();
 }
 

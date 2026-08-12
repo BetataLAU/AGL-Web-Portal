@@ -41,7 +41,8 @@
   display: flex;
   gap: 6px;
 }
-.pallet-bookings-toolbar input[type="search"] {
+.pallet-bookings-toolbar input[type="search"],
+.pallet-bookings-toolbar select {
   flex: 1;
   min-height: 36px;
   border: 1px solid var(--border-color);
@@ -52,6 +53,8 @@
   font-size: 0.85rem;
   box-sizing: border-box;
 }
+.pallet-bookings-toolbar select { padding: 4px 8px; }
+.pallet-bookings-toolbar-row > .pallet-btn { flex-shrink: 0; }
 .pallet-btn {
   min-height: 36px;
   border: 1px solid var(--border-color);
@@ -179,6 +182,27 @@
   width: 100%;
   box-sizing: border-box;
 }
+.pallet-target-plan-display {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  background: var(--card-bg);
+  color: var(--text-muted, #64748b);
+  text-align: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pallet-target-plan-display[data-has-target="1"] {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text-main);
+  font-weight: 700;
+}
 .pallet-action-btn {
   min-height: 44px;
   border: 1px solid var(--border-color);
@@ -244,6 +268,46 @@
   background: rgba(37, 99, 235, 0.04);
 }
 .pallet-plan-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.pallet-plan-arrow {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.pallet-plan-arrow:hover { color: var(--primary, #2563eb); border-color: var(--primary, #2563eb); }
+.pallet-selected-flag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.pallet-plan-card.is-selected-plan {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+.pallet-plan-card.is-selected-plan > .pallet-plan-header {
+  background: rgba(37, 99, 235, 0.1);
+}
+.pallet-plan-header-meta > span { display: inline-flex; align-items: center; gap: 3px; }
+.pallet-plan-header-meta .h-stats {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+.pallet-plan-header-meta .h-stats b { color: var(--text-main); }
 .pallet-plan-title {
   font-weight: 700;
   font-size: 0.9rem;
@@ -377,6 +441,8 @@
   vertical-align: top;
 }
 .pallet-items-table tr:hover td { background: rgba(37, 99, 235, 0.03); }
+.pallet-items-table tr.selected-row td { background: rgba(37, 99, 235, 0.1) !important; }
+.pallet-items-table tr.selected-row td:first-child { box-shadow: inset 3px 0 0 var(--primary, #2563eb); }
 .pallet-items-table tr.dragging-row td { opacity: 0.5; }
 .pallet-items-table .num { text-align: right; white-space: nowrap; }
 .pallet-items-table .mawb-cell { font-weight: 700; white-space: nowrap; }
@@ -392,13 +458,21 @@
   border-top: 1px solid var(--border-color);
   background: rgba(37, 99, 235, 0.05);
   font-size: 0.8rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
 }
-.pallet-plan-total .total-numbers { display: flex; gap: 14px; flex-wrap: wrap; }
+.pallet-plan-total .total-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr;
+  gap: 4px;
+  align-items: center;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.pallet-plan-total .total-grid.has-remove-col {
+  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr 40px;
+}
+.pallet-plan-total .total-cell { padding: 2px 4px; white-space: nowrap; }
+.pallet-plan-total .total-cell.num { text-align: right; }
+.pallet-plan-total .total-cell.total-dash { color: var(--text-muted, #94a3b8); font-weight: 400; text-align: center; }
 .pallet-plan-total b { color: var(--text-main); }
 .pallet-plan-total .total-label { color: var(--text-muted, #64748b); }
 

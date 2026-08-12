@@ -150,10 +150,12 @@ function renderPlanCard(plan, collapsed) {
             <span>📍 ${escapeHtml(plan.arrival_airport || '-')}</span>
             ${countdownHtml}
             ${overweightHtml}
-            <span>PCS <b>${formatNumber(totals.pcs, 0)}</b></span>
-            <span>毛重 <b>${formatWeight(totals.gross_weight)}</b>kg</span>
-            <span>體積 <b>${formatWeight(totals.volume_weight)}</b>kg</span>
-            <span>CBM <b>${formatNumber(totals.cbm, 2)}</b></span>
+            <span class="h-stats">
+              <span>PCS <b>${formatNumber(totals.pcs, 0)}</b></span>
+              <span>毛重 <b>${formatWeight(totals.gross_weight)}</b>kg</span>
+              <span>體積 <b>${formatWeight(totals.volume_weight)}</b>kg</span>
+              <span>CBM <b>${formatNumber(totals.cbm, 2)}</b></span>
+            </span>
           </span>
           ${isSelected ? '<span class="pallet-selected-flag">🎯 目標</span>' : ''}
         </div>

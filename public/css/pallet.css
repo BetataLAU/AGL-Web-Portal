@@ -1,68 +1,40 @@
 /* ===== 打板計劃樣式（沿用 Theme 變數，支援 Light/Dark/Ocean） ===== */
+/* v2：UI/UX 精簡 —— 降低色彩雜訊、Compact 間距、Clear 文字階層 */
+
+/* ===== 文字階層 ===== */
+.t-main { color: var(--text-main, #0f172a); font-weight: 600; }
+.t-value { color: var(--text-muted, #475569); }
+.t-subtle { color: var(--text-faint, #94a3b8); font-weight: 400; }
 
 /* ===== 整體版面：三欄（左｜中｜右） ===== */
 .pallet-layout {
   display: grid;
-  grid-template-columns: 300px 150px 1fr;
-  gap: 14px;
+  grid-template-columns: 300px 118px 1fr;
+  gap: 12px;
   align-items: start;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 .pallet-col-label {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-muted, #64748b);
-  padding: 8px 10px 6px;
+  padding: 6px 10px 5px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-/* ===== 左欄：Booking Record ===== */
-.pallet-bookings-col {
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  background: var(--card-bg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 240px);
-}
-.pallet-bookings-toolbar {
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.pallet-bookings-toolbar-row {
-  display: flex;
-  gap: 6px;
-}
-.pallet-bookings-toolbar input[type="search"],
-.pallet-bookings-toolbar select {
-  flex: 1;
-  min-height: 36px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--input-bg, var(--card-bg));
-  color: var(--text-main);
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-.pallet-bookings-toolbar select { padding: 4px 8px; }
-.pallet-bookings-toolbar-row > .pallet-btn { flex-shrink: 0; }
+/* ===== 共用按鈕 ===== */
 .pallet-btn {
-  min-height: 36px;
+  min-height: 32px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--card-bg);
   color: var(--text-main);
-  padding: 6px 10px;
-  font-size: 0.82rem;
+  padding: 5px 10px;
+  font-size: 0.8rem;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s;
@@ -77,19 +49,56 @@
 .pallet-btn-primary:hover { opacity: 0.92; }
 .pallet-btn-danger { color: #dc2626; }
 .pallet-btn-danger:hover { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); }
-.pallet-btn-sm { font-size: 0.75rem; padding: 4px 8px; min-height: 28px; border-radius: 6px; }
+.pallet-btn-sm { font-size: 0.72rem; padding: 3px 7px; min-height: 26px; border-radius: 6px; }
 .pallet-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== 左欄：Booking Record ===== */
+.pallet-bookings-col {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--card-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 230px);
+}
+.pallet-bookings-toolbar {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pallet-bookings-toolbar-row {
+  display: flex;
+  gap: 6px;
+}
+.pallet-bookings-toolbar input[type="search"],
+.pallet-bookings-toolbar select {
+  flex: 1;
+  min-height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text-main);
+  padding: 5px 9px;
+  font-size: 0.82rem;
+  box-sizing: border-box;
+}
+.pallet-bookings-toolbar select { padding: 3px 8px; }
+.pallet-bookings-toolbar-row > .pallet-btn { flex-shrink: 0; }
 
 .pallet-bookings-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 6px;
 }
+/* 卡片：精簡（2 行核心 + hover 展開次要） */
 .pallet-booking-card {
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  border-radius: 10px;
+  padding: 7px 9px;
+  margin-bottom: 6px;
   background: var(--card-bg);
   cursor: pointer;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
@@ -99,141 +108,186 @@
 .pallet-booking-card.selected {
   border-color: var(--primary, #2563eb);
   background: rgba(37, 99, 235, 0.08);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 .pallet-booking-card.dragging { opacity: 0.5; }
-.pallet-booking-mawb {
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--text-main);
+
+.pallet-booking-main {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
-.pallet-booking-mawb .pallet-spl-badge { margin-left: auto; flex-shrink: 0; }
-.pallet-booking-meta {
+.pallet-booking-main .booking-mawb {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text-main, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pallet-booking-main .booking-dest {
+  font-weight: 600;
   font-size: 0.78rem;
+  color: var(--text-muted, #475569);
+  flex-shrink: 0;
+}
+.pallet-booking-main .pallet-spl-badge { margin-left: auto; flex-shrink: 0; }
+.pallet-booking-main .pallet-booking-edit-btn { flex-shrink: 0; }
+
+.pallet-booking-meta {
+  font-size: 0.74rem;
   color: var(--text-muted, #64748b);
-  margin-top: 5px;
-  line-height: 1.55;
+  margin-top: 4px;
+  line-height: 1.5;
   display: flex;
   flex-wrap: wrap;
   gap: 4px 10px;
 }
 .pallet-booking-meta b { color: var(--text-main); font-weight: 600; }
+
+/* 次要資訊：預設隱藏，hover 展開 */
+.pallet-booking-detail {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+  margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  transition: max-height 0.2s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+.pallet-booking-card:hover .pallet-booking-detail {
+  max-height: 72px;
+  opacity: 1;
+  margin-top: 5px;
+}
+.pallet-booking-detail .detail-remark {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* SPL Badge：Neutral / Muted（不搶主單號焦點） */
 .pallet-spl-badge {
   display: inline-block;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 2px 7px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  padding: 1px 7px;
   border-radius: 20px;
-  background: rgba(234, 88, 12, 0.12);
-  color: #c2410c;
-  border: 1px solid rgba(234, 88, 12, 0.3);
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
-.pallet-spl-badge.battery { background: rgba(220, 38, 38, 0.12); color: #dc2626; border-color: rgba(220, 38, 38, 0.35); }
-.pallet-spl-badge.no-power { background: rgba(16, 185, 129, 0.12); color: #059669; border-color: rgba(16, 185, 129, 0.35); }
-.pallet-spl-badge.default-spl { background: rgba(14, 165, 233, 0.12); color: #0284c7; border-color: rgba(14, 165, 233, 0.35); }
 
+/* Plan 引用 Badge：Neutral */
 .pallet-plan-ref-badge {
   display: inline-block;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 1px 7px;
   border-radius: 6px;
-  background: rgba(139, 92, 246, 0.12);
-  color: #7c3aed;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
   cursor: default;
+  white-space: nowrap;
 }
-.pallet-plan-ref-badge.locked-ref { background: rgba(15, 23, 42, 0.1); color: var(--text-muted); border-color: var(--border-color); }
+.pallet-plan-ref-badge.locked-ref { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
 
+/* 底部總計：單行精簡 */
 .pallet-bookings-summary {
   border-top: 1px solid var(--border-color);
-  padding: 10px 12px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-bg);
+}
+.pallet-bookings-summary .summary-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.2;
+}
+.pallet-bookings-summary .summary-cell label {
+  font-size: 0.6rem;
+  color: var(--text-faint, #94a3b8);
+  font-weight: 600;
+}
+.pallet-bookings-summary .summary-cell b {
   font-size: 0.8rem;
-  background: rgba(37, 99, 235, 0.05);
-  line-height: 1.65;
-}
-.pallet-bookings-summary .summary-title {
-  font-weight: 700;
   color: var(--text-main);
-  margin-bottom: 2px;
+  font-weight: 700;
 }
-.pallet-bookings-summary .summary-numbers { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--text-muted); }
-.pallet-bookings-summary b { color: var(--text-main); }
 
-/* ===== 中間操作區 ===== */
+/* ===== 中間操作區（精簡） ===== */
 .pallet-actions-col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   padding-top: 44px;
   align-items: stretch;
 }
-.pallet-actions-col select {
-  min-height: 36px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--input-bg, var(--card-bg));
-  color: var(--text-main);
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  width: 100%;
-  box-sizing: border-box;
-}
+/* 目標顯示：僅選定時顯示一行小字 */
 .pallet-target-plan-display {
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  background: var(--card-bg);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 6px;
+  font-size: 0.72rem;
+  line-height: 1.4;
   color: var(--text-muted, #64748b);
   text-align: center;
   box-sizing: border-box;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pallet-target-plan-display[data-has-target="1"] {
   border-color: var(--primary, #2563eb);
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(37, 99, 235, 0.07);
   color: var(--text-main);
   font-weight: 700;
 }
 .pallet-action-btn {
-  min-height: 44px;
+  min-height: 30px;
   border: 1px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--card-bg);
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
-  padding: 8px 10px;
+  padding: 4px 8px;
   transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   text-align: center;
 }
 .pallet-action-btn:hover:not(:disabled) {
   border-color: var(--primary, #2563eb);
   background: rgba(37, 99, 235, 0.08);
 }
-.pallet-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.pallet-action-btn.add { background: var(--primary-gradient); color: #fff; border: none; }
-.pallet-action-btn.remove { color: #dc2626; }
+.pallet-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pallet-action-btn.add:not(:disabled) { background: var(--primary-gradient); color: #fff; border: none; }
+.pallet-action-btn.remove:not(:disabled) { color: #dc2626; }
 .pallet-action-btn.remove:hover:not(:disabled) { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); }
 
 /* ===== 右欄：Plan Containers ===== */
 .pallet-plans-col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-height: 300px;
 }
 .pallet-plans-header {
@@ -243,12 +297,12 @@
 }
 .pallet-plans-header h3 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--text-main);
 }
 .pallet-plan-card {
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card-bg);
   overflow: hidden;
 }
@@ -257,23 +311,30 @@
 .pallet-plan-card.status-completed { opacity: 0.82; border-color: #64748b; }
 .pallet-plan-card.status-cancelled { opacity: 0.5; }
 
+/* ===== Plan Header（白底 + 精簡按鈕） ===== */
 .pallet-plan-header {
-  padding: 12px 14px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  background: rgba(37, 99, 235, 0.04);
+  gap: 8px;
+  background: transparent;
 }
-.pallet-plan-header-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.pallet-plan-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .pallet-plan-arrow {
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 28px;
-  height: 28px;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -283,212 +344,318 @@
   transition: color 0.15s, border-color 0.15s;
 }
 .pallet-plan-arrow:hover { color: var(--primary, #2563eb); border-color: var(--primary, #2563eb); }
-.pallet-selected-flag {
-  font-size: 0.68rem;
+
+.pallet-plan-title {
   font-weight: 700;
-  color: #fff;
-  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
-  padding: 2px 8px;
+  font-size: 0.86rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.pallet-plan-title .plan-no { color: var(--primary, #2563eb); }
+
+.pallet-selected-flag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  padding: 1px 7px;
   border-radius: 20px;
   white-space: nowrap;
 }
 .pallet-plan-card.is-selected-plan {
   border-color: var(--primary, #2563eb);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 .pallet-plan-card.is-selected-plan > .pallet-plan-header {
-  background: rgba(37, 99, 235, 0.1);
+  background: rgba(37, 99, 235, 0.05);
 }
-.pallet-plan-header-meta > span { display: inline-flex; align-items: center; gap: 3px; }
-.pallet-plan-header-meta .h-stats {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
-  padding-left: 12px;
-  border-left: 1px solid var(--border-color);
-}
-.pallet-plan-header-meta .h-stats b { color: var(--text-main); }
-.pallet-plan-title {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--text-main);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pallet-plan-title .plan-no { color: var(--primary, #2563eb); }
-.pallet-status-badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-.pallet-status-badge.draft { background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.35); }
-.pallet-status-badge.locked { background: rgba(5, 150, 105, 0.14); color: #059669; border: 1px solid rgba(5, 150, 105, 0.35); }
-.pallet-status-badge.completed { background: rgba(100, 116, 139, 0.14); color: #475569; border: 1px solid rgba(100, 116, 139, 0.3); }
-.pallet-status-badge.cancelled { background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); }
 
+/* Header meta：次要灰字 */
 .pallet-plan-header-meta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted, #64748b);
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   align-items: center;
 }
+.pallet-plan-header-meta > span { display: inline-flex; align-items: center; gap: 3px; }
+.pallet-plan-header-meta .header-flight,
+.pallet-plan-header-meta .header-dest { color: var(--text-muted, #64748b); }
+
+/* 倒數計時：非緊急為灰字；僅緊急紅字 */
 .pallet-plan-countdown {
-  font-weight: 700;
-  color: #0284c7;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
 }
-.pallet-plan-countdown.urgent { color: #dc2626; }
+.pallet-plan-countdown.urgent { color: #dc2626; font-weight: 700; }
+
+/* 超重警告：唯一醒目警示 */
 .pallet-plan-overweight {
   font-weight: 700;
   color: #dc2626;
   background: rgba(220, 38, 38, 0.1);
   padding: 2px 8px;
   border-radius: 8px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
-.pallet-plan-actions { display: flex; gap: 4px; }
+
+.pallet-plan-header-meta .h-stats {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+.pallet-plan-header-meta .h-stats b { color: var(--text-main); }
+
+/* 狀態 Badge：維持淺色但降低飽和 */
+.pallet-status-badge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.pallet-status-badge.draft { background: rgba(245, 158, 11, 0.1); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.28); }
+.pallet-status-badge.locked { background: rgba(5, 150, 105, 0.1); color: #059669; border: 1px solid rgba(5, 150, 105, 0.28); }
+.pallet-status-badge.completed { background: rgba(100, 116, 139, 0.1); color: #475569; border: 1px solid rgba(100, 116, 139, 0.24); }
+.pallet-status-badge.cancelled { background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.24); }
+
+/* ===== Plan 操作按鈕（精簡 2 + More） ===== */
+.pallet-plan-actions { display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
 .pallet-plan-action-btn {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--text-muted, #64748b);
   cursor: pointer;
-  font-size: 0.8rem;
-  padding: 5px 7px;
+  font-size: 0.78rem;
+  padding: 4px 6px;
   transition: all 0.15s;
 }
 .pallet-plan-action-btn:hover { background: rgba(37, 99, 235, 0.08); color: var(--primary, #2563eb); border-color: var(--border-color); }
-.pallet-plan-action-btn.lock-btn:hover { color: #059669; }
+.pallet-plan-action-btn.primary-action { color: var(--primary, #2563eb); }
 .pallet-plan-action-btn.danger:hover { color: #dc2626; }
 
+/* More dropdown */
+.pallet-more-menu { position: relative; display: inline-flex; }
+.pallet-more-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 150px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.18);
+  padding: 5px;
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+}
+.pallet-more-menu.open .pallet-more-dropdown { display: flex; }
+.pallet-more-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  color: var(--text-main);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pallet-more-dropdown button:hover { background: rgba(37, 99, 235, 0.07); color: var(--primary, #2563eb); }
+.pallet-more-dropdown button i { width: 14px; text-align: center; color: var(--text-muted); }
+
+/* ===== Plan Body ===== */
 .pallet-plan-body { padding: 0; }
 .pallet-plan-body.collapsed { display: none; }
 
-/* ===== Plan 標題資料區（列印標題） ===== */
+/* Metadata 單列摘要（Accordion 觸發） */
+.pallet-plan-meta-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.pallet-plan-meta-summary:hover { background: rgba(148, 163, 184, 0.05); }
+.pallet-plan-meta-summary .meta-company {
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 45%;
+}
+.pallet-plan-meta-summary .meta-planner,
+.pallet-plan-meta-summary .meta-max-weight { white-space: nowrap; }
+.pallet-plan-info-toggle {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* 詳細資訊 Grid（預設收合） */
 .pallet-plan-info-grid {
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px 18px;
-  font-size: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 5px 14px;
+  font-size: 0.76rem;
+  background: rgba(148, 163, 184, 0.04);
 }
+.pallet-plan-info-grid[hidden] { display: none; }
 .pallet-plan-info-item { display: flex; gap: 6px; }
 .pallet-plan-info-item .label { color: var(--text-muted, #64748b); white-space: nowrap; }
 .pallet-plan-info-item .value { color: var(--text-main); font-weight: 600; }
+
+/* Contour chip */
 .pallet-contour-chip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: rgba(14, 165, 233, 0.1);
-  border: 1px solid rgba(14, 165, 233, 0.3);
-  color: #0284c7;
-  padding: 2px 9px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 1px 8px;
   border-radius: 16px;
-  font-weight: 700;
-  font-size: 0.75rem;
+  font-weight: 600;
+  font-size: 0.72rem;
   cursor: pointer;
   transition: all 0.15s;
 }
-.pallet-contour-chip:hover { background: rgba(14, 165, 233, 0.2); }
-.pallet-contour-chip img {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  object-fit: cover;
-}
+.pallet-contour-chip:hover { background: rgba(37, 99, 235, 0.08); color: var(--primary, #2563eb); border-color: var(--primary, #2563eb); }
 
+/* 備註：白底 + 分隔線（移除黃色背景） */
 .pallet-plan-remarks {
-  padding: 10px 14px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border-color);
-  font-size: 0.8rem;
-  background: rgba(245, 158, 11, 0.06);
+  font-size: 0.77rem;
+  background: transparent;
   white-space: pre-line;
-  line-height: 1.6;
+  line-height: 1.55;
+  color: var(--text-muted, #64748b);
 }
 .pallet-plan-remarks .remarks-label {
   font-weight: 700;
   color: var(--text-main);
-  margin-right: 6px;
+  margin-right: 5px;
 }
 
-/* ===== Plan 明細表格 ===== */
+/* ===== Plan 明細表格（Compact） ===== */
 .pallet-items-table-wrap { overflow-x: auto; }
 .pallet-items-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 .pallet-items-table th {
   text-align: left;
-  padding: 8px 10px;
+  padding: 5px 8px;
   color: var(--text-muted, #64748b);
   font-weight: 700;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
-  background: rgba(148, 163, 184, 0.06);
+  background: rgba(148, 163, 184, 0.05);
   position: sticky;
   top: 0;
 }
 .pallet-items-table td {
-  padding: 7px 10px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-main);
   vertical-align: top;
 }
 .pallet-items-table tr:hover td { background: rgba(37, 99, 235, 0.03); }
-.pallet-items-table tr.selected-row td { background: rgba(37, 99, 235, 0.1) !important; }
+.pallet-items-table tr.selected-row td { background: rgba(37, 99, 235, 0.09) !important; }
 .pallet-items-table tr.selected-row td:first-child { box-shadow: inset 3px 0 0 var(--primary, #2563eb); }
 .pallet-items-table tr.dragging-row td { opacity: 0.5; }
 .pallet-items-table .num { text-align: right; white-space: nowrap; }
 .pallet-items-table .mawb-cell { font-weight: 700; white-space: nowrap; }
-.pallet-items-table .drag-handle {
-  cursor: grab;
-  color: var(--text-muted, #94a3b8);
-  padding: 0 4px;
+.pallet-items-table .cell-remark { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pallet-items-table .pallet-empty-row {
+  text-align: center;
+  color: var(--text-faint, #94a3b8);
+  padding: 16px;
 }
-.pallet-items-table .cell-remark { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ===== Plan 總計（白底 + 上方分隔線） ===== */
 .pallet-plan-total {
-  padding: 10px 14px;
+  padding: 7px 12px;
   border-top: 1px solid var(--border-color);
-  background: rgba(37, 99, 235, 0.05);
-  font-size: 0.8rem;
+  background: var(--card-bg);
+  font-size: 0.74rem;
 }
-.pallet-plan-total .total-grid {
+.pallet-plan-total .pallet-plan-total-inner {
   display: grid;
   grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-main);
 }
-.pallet-plan-total .total-grid.has-remove-col {
-  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr 40px;
+.pallet-plan-total .pallet-plan-total-inner.has-remove-col {
+  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr 28px;
 }
-.pallet-plan-total .total-cell { padding: 2px 4px; white-space: nowrap; }
-.pallet-plan-total .total-cell.num { text-align: right; }
-.pallet-plan-total .total-cell.total-dash { color: var(--text-muted, #94a3b8); font-weight: 400; text-align: center; }
-.pallet-plan-total b { color: var(--text-main); }
-.pallet-plan-total .total-label { color: var(--text-muted, #64748b); }
+.pallet-plan-total .total-label { color: var(--text-muted, #64748b); font-weight: 700; }
+.pallet-plan-total .total-value { padding: 1px 3px; white-space: nowrap; }
+.pallet-plan-total .total-value.num { text-align: right; }
 
-/* ===== 空狀態 ===== */
+/* ===== 空狀態 / 載入中 ===== */
 .pallet-empty {
   text-align: center;
-  padding: 40px 20px;
-  color: var(--text-muted, #94a3b8);
-  font-size: 0.85rem;
+  padding: 36px 16px;
+  color: var(--text-faint, #94a3b8);
+  font-size: 0.82rem;
   border: 1px dashed var(--border-color);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card-bg);
 }
-.pallet-empty .empty-icon { font-size: 2rem; margin-bottom: 8px; }
+.pallet-empty .empty-icon { font-size: 1.8rem; margin-bottom: 6px; }
 
-/* ===== Modal（新增/編輯） ===== */
+.pallet-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 16px;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.85rem;
+  gap: 10px;
+}
+.pallet-loading .spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--primary, #2563eb);
+  border-radius: 50%;
+  animation: pallet-spin 0.8s linear infinite;
+}
+@keyframes pallet-spin { to { transform: rotate(360deg); } }
+
+/* ===== Modal（新增/編輯/狀態） ===== */
 .pallet-modal-overlay {
   position: fixed;
   inset: 0;
@@ -533,12 +700,12 @@
 .pallet-form-field input,
 .pallet-form-field select,
 .pallet-form-field textarea {
-  min-height: 40px;
+  min-height: 38px;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   background: var(--input-bg, var(--card-bg));
   color: var(--text-main);
-  padding: 8px 11px;
+  padding: 7px 11px;
   font-size: 0.88rem;
   box-sizing: border-box;
   width: 100%;
@@ -642,26 +809,6 @@
   border-radius: 10px;
 }
 
-/* ===== 載入中 ===== */
-.pallet-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  color: var(--text-muted, #94a3b8);
-  font-size: 0.9rem;
-  gap: 10px;
-}
-.pallet-loading .spinner {
-  width: 22px;
-  height: 22px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--primary, #2563eb);
-  border-radius: 50%;
-  animation: pallet-spin 0.8s linear infinite;
-}
-@keyframes pallet-spin { to { transform: rotate(360deg); } }
-
 /* ===== 響應式 ===== */
 @media (max-width: 1100px) {
   .pallet-layout {
@@ -671,6 +818,7 @@
     flex-direction: row;
     padding-top: 0;
     flex-wrap: wrap;
+    align-items: center;
   }
   .pallet-actions-col #pallet-target-plan-select { width: auto; flex: 1; min-width: 180px; }
   .pallet-bookings-col { max-height: 50vh; }
@@ -715,7 +863,8 @@
   }
   .pallet-plan-card .pallet-plan-body { display: block !important; }
   .pallet-plan-card .pallet-plan-header { cursor: default; }
-  .pallet-plan-info-grid { display: grid; }
+  .pallet-plan-info-grid { display: grid !important; }
+  .pallet-plan-meta-summary { display: none !important; }
   .pallet-items-table th, .pallet-items-table td {
     border: 1px solid #999;
     color: #000 !important;

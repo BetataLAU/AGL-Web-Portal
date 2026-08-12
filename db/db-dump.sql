@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-12T10:09:50.947Z
+-- 匯出時間: 2026-08-12T12:31:54.220Z
 -- 共 12 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -540,10 +540,32 @@ CREATE TABLE users (
       UNIQUE(company_id, user_id)
     );
 
-INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0, NULL, '2026-08-12 09:00:57');
+INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0, NULL, '2026-08-12 12:10:00');
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 68);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 18);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 5);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 28);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 34);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plans', 4);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('remark_templates', 11);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('spl_codes', 19);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('users', 1);
+
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 18);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);

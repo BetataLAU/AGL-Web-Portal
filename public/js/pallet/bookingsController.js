@@ -12,7 +12,7 @@ import {
   getSelectedBookingsSummary, setSearchQuery, getSearchQuery,
   setDestFilter, getDestFilter, setSplCodes, setRemarkTemplates, getSelectedPlanId
 } from './state.js';
-import { formatNumber, formatWeight, splBadgeClass } from './formatters.js';
+import { formatNumber, formatWeight } from './formatters.js';
 import { showBookingModal as openBookingModal } from './bookingModal.js';
 
 let bookingsListEl = null;
@@ -40,14 +40,11 @@ export function renderBookingsColumn(container) {
         <div class="pallet-loading"><div class="spinner"></div> 載入中...</div>
       </div>
       <div class="pallet-bookings-summary" id="pallet-bookings-summary">
-        <div class="summary-title">📌 已選總計</div>
-        <div class="summary-numbers">
-          <span>MAWB：<b id="summary-count">0</b></span>
-          <span>PCS：<b id="summary-pcs">0</b></span>
-          <span>重量：<b id="summary-gw">0</b> kg</span>
-          <span>體積重：<b id="summary-vw">0</b> kg</span>
-          <span>CBM：<b id="summary-cbm">0</b></span>
-        </div>
+        <span class="summary-cell"><label>MAWB</label><b id="summary-count">0</b></span>
+        <span class="summary-cell"><label>PCS</label><b id="summary-pcs">0</b></span>
+        <span class="summary-cell"><label>G.WT</label><b id="summary-gw">0</b></span>
+        <span class="summary-cell"><label>V.WT</label><b id="summary-vw">0</b></span>
+        <span class="summary-cell"><label>CBM</label><b id="summary-cbm">0</b></span>
       </div>
     </div>
   `;
@@ -150,6 +147,7 @@ function bindBookingCardEvents() {
       toggleBookingSelection(id);
       card.classList.toggle('selected', getSelectedBookingIds().has(id));
       renderSummary();
+      notifySelectionChanged();
     });
   });
 
@@ -184,35 +182,41 @@ function bindBookingCardEvents() {
   });
 }
 
-// 單張 Booking 卡片 HTML
+// 單張 Booking 卡片 HTML（精簡：僅核心資訊 + hover 展開次要資訊）
 function renderBookingCard(b) {
   const selected = getSelectedBookingIds().has(b.id);
-  const splClass = splBadgeClass(b.spl);
   const planRefs = (b.plan_refs || []).filter(r => r.status !== 'cancelled');
   const refBadges = planRefs.map(ref => {
     const locked = ref.status === 'locked' || ref.status === 'completed';
-    return `<span class="pallet-plan-ref-badge ${locked ? 'locked-ref' : ''}" title="已入板：${escapeHtml(ref.plan_no)}（${escapeHtml(ref.status)}）">📌 ${escapeHtml(ref.plan_no)}${locked ? ' 🔒' : ''}</span>`;
+    return `<span class="pallet-plan-ref-badge ${locked ? 'locked-ref' : ''}" title="已入板：${escapeHtml(ref.plan_no)}（${escapeHtml(ref.status)}）">${escapeHtml(ref.plan_no)}${locked ? ' 🔒' : ''}</span>`;
   }).join(' ');
+
+  // 次要資訊（Hover 展開）：HAWB / 客戶 / 備註 / Plan 引用
+  const detailRows = [];
+  if (b.client) detailRows.push(`<span class="detail-client">${escapeHtml(b.client)}</span>`);
+  if (b.hawb) detailRows.push(`<span class="detail-hawb">HAWB ${escapeHtml(b.hawb)}</span>`);
+  if (b.remark) detailRows.push(`<span class="detail-remark">${escapeHtml(b.remark)}</span>`);
+  if (refBadges) detailRows.push(`<span class="detail-refs">${refBadges}</span>`);
 
   return `
     <div class="pallet-booking-card ${selected ? 'selected' : ''}" data-id="${b.id}" draggable="true">
-      <div class="pallet-booking-mawb">
+      <div class="pallet-booking-main">
         <button type="button" class="pallet-btn pallet-btn-sm pallet-booking-edit-btn" data-booking-id="${b.id}" title="修改此 MAWB 資料">✏️</button>
-        <span>✈️ ${escapeHtml(displayMawb(b.mawb))}${b.dest ? ' / ' + escapeHtml(b.dest) : ''}</span>
-        ${b.spl ? `<span class="pallet-spl-badge ${splClass}">${escapeHtml(b.spl)}</span>` : ''}
+        <span class="booking-mawb">${escapeHtml(displayMawb(b.mawb))}</span>
+        <span class="booking-dest">${escapeHtml(b.dest || '-')}</span>
+        ${b.spl ? `<span class="pallet-spl-badge">${escapeHtml(b.spl)}</span>` : ''}
       </div>
       <div class="pallet-booking-meta">
-        <span>${escapeHtml(b.client || '-')}</span>
-        <span>${formatNumber(b.pcs, 0)} / ${formatWeight(b.gross_weight)} k / v ${formatWeight(b.volume_weight)} k / ${formatNumber(b.cbm, 2)} cbm</span>
+        <span>PCS <b>${formatNumber(b.pcs, 0)}</b></span>
+        <span>G.WT <b>${formatWeight(b.gross_weight)}</b></span>
+        <span>CBM <b>${formatNumber(b.cbm, 2)}</b></span>
       </div>
-      ${b.hawb ? `<div class="pallet-booking-meta"><span>HAWB：<b>${escapeHtml(b.hawb)}</b></span></div>` : ''}
-      ${b.remark ? `<div class="pallet-booking-meta"><span>備註：${escapeHtml(b.remark)}</span></div>` : ''}
-      ${refBadges ? `<div class="pallet-booking-meta">${refBadges}</div>` : ''}
+      ${detailRows.length ? `<div class="pallet-booking-detail">${detailRows.join('')}</div>` : ''}
     </div>
   `;
 }
 
-// 更新總計列
+// 更新總計列（單行精簡）
 function renderSummary() {
   if (!selectedCountEl) return;
   const summary = getSelectedBookingsSummary();
@@ -221,6 +225,11 @@ function renderSummary() {
   summaryGwEl.textContent = formatWeight(summary.grossWeight);
   summaryVwEl.textContent = formatWeight(summary.volumeWeight);
   summaryCbmEl.textContent = formatNumber(summary.cbm, 2);
+}
+
+// 選取變更 → 通知中間按鈕啟用狀態
+function notifySelectionChanged() {
+  window.dispatchEvent(new CustomEvent('pallet:selection-changed'));
 }
 
 // 顯示「新增/編輯 Booking」Modal（薄包裝：交由 bookingModal.js 處理表單）

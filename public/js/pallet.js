@@ -4,11 +4,12 @@
 
 import { renderBookingsColumn, loadBookings, loadReferenceData } from './pallet/bookingsController.js';
 import {
-  renderPlansColumn, loadPlans, updateTargetPlanDisplay,
+  renderPlansColumn, loadPlans,
   handleAddSelectedToPlan, handleRemoveSelectedFromPlan
 } from './pallet/plansController.js';
 import { setupDragAndDrop } from './pallet/dragController.js';
 import { clearSelectedPlanItems } from './pallet/state.js';
+import { updateActionButtonsState } from './pallet/planActions.js';
 
 let initialized = false;
 
@@ -31,6 +32,11 @@ export function setupPalletSection() {
     });
   }
 
+  // 左欄選取變更 → 動態啟用/停用中間按鈕
+  window.addEventListener('pallet:selection-changed', () => {
+    updateActionButtonsState();
+  });
+
   // 初始載入
   loadReferenceData().then(() => {
     return Promise.all([loadBookings(), loadPlans()]);
@@ -40,7 +46,7 @@ export function setupPalletSection() {
 
   // 資料變更事件（例如 Booking 更新後重整 Plans 的目標顯示）
   window.addEventListener('pallet:data-changed', () => {
-    updateTargetPlanDisplay();
+    updateActionButtonsState();
   });
 }
 
@@ -57,20 +63,15 @@ function renderLayout(root) {
         <div id="pallet-bookings-col"></div>
       </div>
 
-      <!-- 中間：操作按鈕 -->
+      <!-- 中間：操作按鈕（精簡） -->
       <div class="pallet-actions-col">
-        <div class="pallet-target-display" id="pallet-target-plan-display" data-has-target="0">
-          📌 尚未選定目標（請點擊一個草稿計劃）
-        </div>
-        <button type="button" class="pallet-action-btn add" id="btn-pallet-add-selected" title="將左欄已選 MAWB 加入目標計劃">
+        <div class="pallet-target-display" id="pallet-target-plan-display" data-has-target="0"></div>
+        <button type="button" class="pallet-action-btn add" id="btn-pallet-add-selected" title="將左欄已選 MAWB 加入目標計劃" disabled>
           ▶ 加入所選
         </button>
-        <button type="button" class="pallet-action-btn remove" id="btn-pallet-remove-selected" title="將已選明細移出計劃">
+        <button type="button" class="pallet-action-btn remove" id="btn-pallet-remove-selected" title="將已選明細移出計劃" disabled>
           ◀ 移出所選
         </button>
-        <div style="font-size:0.72rem;color:var(--text-muted);text-align:center;line-height:1.5;">
-          💡 單擊計劃=選定目標<br/>雙擊左欄 MAWB = 直接加入
-        </div>
       </div>
 
       <!-- 右欄：Plans -->

@@ -12,6 +12,7 @@ let splCodes = [];
 let remarkTemplates = [];
 let contourSuggestionsCache = [];
 let selectedPlanId = null;   // 目前已選定（目標）的 Plan
+let expandedPlanId = null;   // 當前展開載入明細的 Plan
 
 export function setBookings(list) { bookings = list; }
 export function getBookings() { return bookings; }
@@ -64,6 +65,10 @@ export function getContourSuggestionsCache() { return contourSuggestionsCache; }
 // ===== 已選定（目標）Plan =====
 export function getSelectedPlanId() { return selectedPlanId; }
 export function setSelectedPlanId(id) { selectedPlanId = id; }
+
+// ===== 當前展開載入明細的 Plan =====
+export function getExpandedPlanId() { return expandedPlanId; }
+export function setExpandedPlanId(id) { expandedPlanId = id; }
 
 // ===== 工時選取（點擊 + Ctrl/Cmd 多選） =====
 export function toggleBookingSelection(bookingId) {

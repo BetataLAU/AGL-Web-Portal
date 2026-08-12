@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-12T12:31:54.220Z
+-- 匯出時間: 2026-08-12T12:33:13.845Z
 -- 共 12 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -157,6 +157,8 @@ INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "targ
 
 INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (68, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-12 10:08:06');
 
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (69, 'admin', '系統管理員', 'pallet.booking.update', 'mawb_record', '5', '更新 Booking 176-2334 8835', '2026-08-12 12:32:46');
+
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -246,7 +248,7 @@ S/O# 994-3032 8572 (93 CTNS)
 需要幫忙做20% HAND SEARCH , 影貨
 相,LABEL相,開箱相,裝板相', '2026-08-12 09:13:01', '2026-08-12 09:13:01');
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (5, '176-2334 8835', 'HAWB001', 'AHL', 'DWC', 100, 1000, 150, 0.9, 'ELI', '', '2026-08-12 10:06:55', '2026-08-12 10:06:55');
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (5, '176-2334 8835', 'HAWB001', 'AGL', 'DWC', 100, 1000, 150, 0.9, 'ELI', '', '2026-08-12 10:06:55', '2026-08-12 12:32:46');
 
 
 -- ===== 資料表: note_templates =====
@@ -544,7 +546,7 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 68);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 69);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 18);
 

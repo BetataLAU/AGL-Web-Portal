@@ -21,12 +21,18 @@ let plansColEl = null;
 // ===== 設定右欄容器（由 renderPlansColumn 呼叫） =====
 export function setPlansColElement(el) { plansColEl = el; }
 
-// ===== 載入 Plans（列表） =====
+// ===== 載入 Plans（列表）+ 自動載入展開 Plan 的明細 =====
 export async function loadPlans() {
   try {
     const list = await fetchPlans();
     setPlans(list);
     renderPlans();
+    // 自動載入所有「應展開」Plan 的明細，避免首次進入時誤顯示「尚無 MAWB」
+    const expandedPlans = list.filter(plan => {
+      if (plan.status !== 'draft') return getExpandedPlanId() === plan.id;
+      return !isPlanCollapsed(plan.id);
+    });
+    await Promise.all(expandedPlans.map(p => loadPlanDetail(p.id)));
   } catch (err) {
     if (plansColEl) {
       plansColEl.innerHTML = `<div class="pallet-empty">⚠️ 載入計劃失敗：${escapeHtml(err.message)}</div>`;

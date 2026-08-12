@@ -162,23 +162,19 @@ function renderPlanBody(plan) {
         <tbody>
           ${rows}
         </tbody>
+        <tfoot>
+          <tr class="pallet-total-row">
+            <td class="total-label" colspan="5">總計（<b>${items.length}</b> 單）</td>
+            <td class="num"><b>${formatNumber(totals.pcs, 0)}</b></td>
+            <td class="num"><b>${formatWeight(totals.gross_weight)}</b></td>
+            <td class="num"><b>${formatWeight(totals.volume_weight)}</b></td>
+            <td class="num"><b>${formatNumber(totals.cbm, 2)}</b></td>
+            <td class="t-subtle">—</td>
+            <td class="t-subtle">—</td>
+            ${isDraft ? '<td></td>' : ''}
+          </tr>
+        </tfoot>
       </table>
-    </div>
-    <div class="pallet-plan-total">
-      <div class="pallet-plan-total-inner ${isDraft ? 'has-remove-col' : ''}">
-        <span class="total-label">總計</span>
-        <span class="total-value"><b>${items.length}</b> 單</span>
-        <span class="total-value t-subtle">—</span>
-        <span class="total-value t-subtle">—</span>
-        <span class="total-value t-subtle">—</span>
-        <span class="total-value num"><b>${formatNumber(totals.pcs, 0)}</b></span>
-        <span class="total-value num"><b>${formatWeight(totals.gross_weight)}</b></span>
-        <span class="total-value num"><b>${formatWeight(totals.volume_weight)}</b></span>
-        <span class="total-value num"><b>${formatNumber(totals.cbm, 2)}</b></span>
-        <span class="total-value t-subtle">—</span>
-        <span class="total-value t-subtle">—</span>
-        ${isDraft ? '<span class="total-value"></span>' : ''}
-      </div>
     </div>
   `;
 }

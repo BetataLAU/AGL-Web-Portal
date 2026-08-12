@@ -602,27 +602,23 @@
   padding: 16px;
 }
 
-/* ===== Plan 總計（白底 + 上方分隔線） ===== */
-.pallet-plan-total {
-  padding: 7px 12px;
-  border-top: 1px solid var(--border-color);
-  background: var(--card-bg);
-  font-size: 0.74rem;
+/* ===== Plan 總計（tfoot：與明細欄位同 table 演算法對齊） ===== */
+.pallet-items-table tfoot {
+  border-top: 2px solid var(--border-color);
 }
-.pallet-plan-total .pallet-plan-total-inner {
-  display: grid;
-  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr;
-  gap: 3px;
-  align-items: center;
-  font-weight: 600;
+.pallet-items-table tfoot td {
+  padding: 5px 8px;
+  font-weight: 700;
   color: var(--text-main);
+  background: var(--card-bg);
+  white-space: nowrap;
 }
-.pallet-plan-total .pallet-plan-total-inner.has-remove-col {
-  grid-template-columns: 1.1fr 1.1fr 1.2fr 1.5fr 1fr 0.7fr 0.8fr 0.8fr 0.7fr 0.9fr 1.4fr 28px;
+.pallet-items-table tfoot td.total-label {
+  color: var(--text-muted, #64748b);
+  font-weight: 700;
 }
-.pallet-plan-total .total-label { color: var(--text-muted, #64748b); font-weight: 700; }
-.pallet-plan-total .total-value { padding: 1px 3px; white-space: nowrap; }
-.pallet-plan-total .total-value.num { text-align: right; }
+.pallet-items-table tfoot td.num { text-align: right; }
+.pallet-items-table tfoot td.t-subtle { font-weight: 400; }
 
 /* ===== 空狀態 / 載入中 ===== */
 .pallet-empty {
@@ -870,5 +866,6 @@
     color: #000 !important;
   }
   .pallet-items-table th { background: #e5e7eb !important; }
-  .pallet-plan-total { break-inside: avoid; }
+  .pallet-items-table tfoot { background: #fff !important; }
+  .pallet-items-table tfoot td { background: #fff !important; }
 }

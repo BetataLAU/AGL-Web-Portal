@@ -136,11 +136,18 @@ export function renderOrdersList(orders) {
       : `<span class="orders-tag ${order.power_type === 'dry' ? 'power-dry' : 'power-lithium'}">${escapeHtml(formatPowerItems(order))}</span>`;
     const urgentTag = order.urgent === 'yes' ? '<span class="orders-tag urgent">🚨 趕機</span>' : '';
 
+    // 提貨日期早於今天 → 標記已過期（僅比較日期層級，與日期篩選邏輯一致）
+    const todayStr = getTodayDateStr();
+    const pickupDate = order.pickup_datetime ? String(order.pickup_datetime).slice(0, 10) : '';
+    const isExpired = !!pickupDate && pickupDate < todayStr;
+    const expiredTag = isExpired ? '<span class="orders-expired-badge">⚠️ 已過期</span>' : '';
+
     return `
       <div class="orders-card-item" data-id="${order.id}">
         <div class="orders-card-header">
           <div class="orders-card-title">${titleLine}</div>
           <span class="order-status-badge ${escapeHtml(order.status)}" title="點擊收起卡片">${STATUS_LABEL[order.status] || order.status}</span>
+          ${expiredTag}
         </div>
         <div class="orders-card-meta">
           <span>📅 ${formatDateTime(order.created_at)}</span>

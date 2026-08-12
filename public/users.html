@@ -328,19 +328,28 @@
 
     // 載入公司清單（供新增使用者時選公司）
     async function loadCompanies() {
-      const result = await apiFetch('/api/orders/companies');
-      companiesData = result.data || [];
+      try {
+        const result = await apiFetch('/api/orders/companies');
+        companiesData = result.data || [];
+      } catch (err) {
+        companiesData = [];
+        alert(`載入公司清單失敗：${err.message}`);
+      }
     }
 
     // ===== 載入使用者清單 =====
     async function loadUsers(filters = {}) {
-      const params = new URLSearchParams();
-      if (filters.search) params.set('search', filters.search);
-      if (filters.role) params.set('role', filters.role);
-      const qs = params.toString();
-      const result = await apiFetch(`/api/auth/users${qs ? '?' + qs : ''}`);
-      usersData = result.data || [];
-      renderUsers();
+      try {
+        const params = new URLSearchParams();
+        if (filters.search) params.set('search', filters.search);
+        if (filters.role) params.set('role', filters.role);
+        const qs = params.toString();
+        const result = await apiFetch(`/api/auth/users${qs ? '?' + qs : ''}`);
+        usersData = result.data || [];
+        renderUsers();
+      } catch (err) {
+        alert(`載入使用者清單失敗：${err.message}`);
+      }
     }
 
     function renderUsers() {
@@ -392,11 +401,15 @@
       });
     }
 
+    // ===== Modal 共用：取消 / 點背景關閉 =====
+    function setupModalClose(overlay) {
+      overlay.querySelector('#modal-cancel').addEventListener('click', () => overlay.remove());
+      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    }
+
     // ===== 新增使用者 =====
-    function showAddModal() {
-      const overlay = document.createElement('div');
-      overlay.className = 'overlay';
-      overlay.innerHTML = `
+    function buildAddModalHtml() {
+      return `
         <div class="modal">
           <h2>＋ 新增使用者</h2>
           <div class="form-error" id="modal-error"></div>
@@ -442,11 +455,16 @@
           </div>
         </div>
       `;
+    }
+
+    function showAddModal() {
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      overlay.innerHTML = buildAddModalHtml();
       document.body.appendChild(overlay);
 
       const errorBox = overlay.querySelector('#modal-error');
-      overlay.querySelector('#modal-cancel').addEventListener('click', () => overlay.remove());
-      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      setupModalClose(overlay);
 
       overlay.querySelector('#modal-save').addEventListener('click', async () => {
         errorBox.classList.remove('show');
@@ -477,15 +495,8 @@
     }
 
     // ===== 編輯使用者（公司 / 顯示名稱 / 角色 / 權限） =====
-    function showEditModal(user) {
-      const perms = user.permissions || {};
-      const permBox = Object.keys(PERM_LABELS).map(key =>
-        `<label><input type="checkbox" data-perm="${key}" ${perms[key] ? 'checked' : ''} /> ${PERM_LABELS[key]}</label>`
-      ).join('');
-
-      const overlay = document.createElement('div');
-      overlay.className = 'overlay';
-      overlay.innerHTML = `
+    function buildEditModalHtml(user, permBox) {
+      return `
         <div class="modal">
           <h2>✏️ 編輯使用者 #${user.id}</h2>
           <div class="form-error" id="modal-error"></div>
@@ -529,11 +540,21 @@
           </div>
         </div>
       `;
+    }
+
+    function showEditModal(user) {
+      const perms = user.permissions || {};
+      const permBox = Object.keys(PERM_LABELS).map(key =>
+        `<label><input type="checkbox" data-perm="${key}" ${perms[key] ? 'checked' : ''} /> ${PERM_LABELS[key]}</label>`
+      ).join('');
+
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      overlay.innerHTML = buildEditModalHtml(user, permBox);
       document.body.appendChild(overlay);
 
       const errorBox = overlay.querySelector('#modal-error');
-      overlay.querySelector('#modal-cancel').addEventListener('click', () => overlay.remove());
-      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      setupModalClose(overlay);
 
       overlay.querySelector('#modal-save').addEventListener('click', async () => {
         errorBox.classList.remove('show');
@@ -543,11 +564,11 @@
           role: overlay.querySelector('#f-role').value
         };
         // 收集權限勾選
-        const perms = {};
+        const permsPayload = {};
         overlay.querySelectorAll('[data-perm]').forEach(cb => {
-          perms[cb.dataset.perm] = cb.checked;
+          permsPayload[cb.dataset.perm] = cb.checked;
         });
-        payload.permissions = perms;
+        payload.permissions = permsPayload;
 
         try {
           await apiFetch(`/api/auth/users/${user.id}`, {
@@ -564,10 +585,8 @@
     }
 
     // ===== 重設密碼 =====
-    function showResetPasswordModal(user) {
-      const overlay = document.createElement('div');
-      overlay.className = 'overlay';
-      overlay.innerHTML = `
+    function buildResetPasswordModalHtml(user) {
+      return `
         <div class="modal">
           <h2>🔑 重設密碼</h2>
           <p style="color:var(--text-muted);font-size:0.9rem;margin:0 0 16px;">
@@ -587,11 +606,16 @@
           </div>
         </div>
       `;
+    }
+
+    function showResetPasswordModal(user) {
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      overlay.innerHTML = buildResetPasswordModalHtml(user);
       document.body.appendChild(overlay);
 
       const errorBox = overlay.querySelector('#modal-error');
-      overlay.querySelector('#modal-cancel').addEventListener('click', () => overlay.remove());
-      overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+      setupModalClose(overlay);
 
       overlay.querySelector('#modal-save').addEventListener('click', async () => {
         errorBox.classList.remove('show');
@@ -639,6 +663,36 @@
     }
 
     // ===== Excel 匯入（批次建立） =====
+    // 對照欄位名稱（中英相容）：公司 / Company / Company Code / User ID / 密碼 / 顯示名稱 / 角色
+    function pickField(row, keys) {
+      for (const k of keys) {
+        if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return String(row[k]).trim();
+      }
+      return '';
+    }
+
+    // 將 Excel 列轉為使用者 payload（以公司名或 Company Code 找 company_id）
+    function rowToUserPayload(row) {
+      const companyName = pickField(row, ['公司', 'Company', '公司名稱']);
+      const companyCode = pickField(row, ['Company Code', '公司代碼', '公司碼']);
+      let companyId = '';
+      if (companyCode) {
+        const c = companiesData.find(x => (x.company_code || '').toUpperCase() === companyCode.toUpperCase());
+        if (c) companyId = c.id;
+      }
+      if (!companyId && companyName) {
+        const c = companiesData.find(x => x.name === companyName);
+        if (c) companyId = c.id;
+      }
+      return {
+        company_id: companyId,
+        user_id: pickField(row, ['User ID', '帳號', 'userId', 'user_id']),
+        password: pickField(row, ['密碼', 'Password', 'password']),
+        display_name: pickField(row, ['顯示名稱', '名稱', 'display_name']),
+        role: (pickField(row, ['角色', 'Role', 'role']) || 'customer').toLowerCase()
+      };
+    }
+
     function handleImportExcel(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -650,34 +704,7 @@
             alert('檔案中沒有資料');
             return;
           }
-          // 對照欄位名稱（中英相容）：公司 / Company / Company Code / User ID / 密碼 / 顯示名稱 / 角色
-          const pick = (r, keys) => {
-            for (const k of keys) {
-              if (r[k] !== undefined && r[k] !== null && String(r[k]).trim() !== '') return String(r[k]).trim();
-            }
-            return '';
-          };
-          const users = rows.map(r => {
-            // 以公司名或 Company Code 找 company_id
-            const companyName = pick(r, ['公司', 'Company', '公司名稱']);
-            const companyCode = pick(r, ['Company Code', '公司代碼', '公司碼']);
-            let companyId = '';
-            if (companyCode) {
-              const c = companiesData.find(x => (x.company_code || '').toUpperCase() === companyCode.toUpperCase());
-              if (c) companyId = c.id;
-            }
-            if (!companyId && companyName) {
-              const c = companiesData.find(x => x.name === companyName);
-              if (c) companyId = c.id;
-            }
-            return {
-              company_id: companyId,
-              user_id: pick(r, ['User ID', '帳號', 'userId', 'user_id']),
-              password: pick(r, ['密碼', 'Password', 'password']),
-              display_name: pick(r, ['顯示名稱', '名稱', 'display_name']),
-              role: (pick(r, ['角色', 'Role', 'role']) || 'customer').toLowerCase()
-            };
-          });
+          const users = rows.map(rowToUserPayload);
 
           // 過濾完全空白的列
           const validUsers = users.filter(u => u.user_id || u.password);

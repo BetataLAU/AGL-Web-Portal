@@ -9,7 +9,8 @@ import {
   getPlans, setPlans, getSelectedPlanId, getSelectedBookingIds, setSelectedPlanId,
   getSelectedPlanItemIds, togglePlanItemSelection, clearSelectedPlanItems,
   clearSelectedBookings, isPlanCollapsed, togglePlanCollapsed,
-  getExpandedPlanId, setExpandedPlanId, setPlanItems
+  getExpandedPlanId, setExpandedPlanId, setPlanItems,
+  closePlan, isPlanClosed, reopenPlan
 } from './state.js';
 import { buildPlanTextSummary } from './formatters.js';
 import { loadBookings } from './bookingsController.js';
@@ -68,7 +69,33 @@ export function setupMoreMenus(container) {
       e.stopPropagation();
       const isOpen = menu.classList.contains('open');
       closeAllMoreMenus(container);
-      if (!isOpen) menu.classList.add('open');
+      if (!isOpen) {
+        menu.classList.add('open');
+        // ===== fixed 定位：徹底脫離卡片 overflow:hidden 裁切 =====
+        // 用 toggle 按鈕的視窗座標，直接把 dropdown 釘在視窗層級
+        requestAnimationFrame(() => {
+          const btnRect = toggleBtn.getBoundingClientRect();
+          const viewportH = window.innerHeight || document.documentElement.clientHeight;
+          const dropdownH = dropdown.offsetHeight;
+          const spaceBelow = viewportH - btnRect.bottom;
+          dropdown.style.position = 'fixed';
+          dropdown.style.minWidth = '150px';
+          dropdown.style.right = `${Math.max(8, window.innerWidth - btnRect.right)}px`;
+          dropdown.style.left = 'auto';
+          // 若下方空間不足 → 向上展開
+          if (spaceBelow < dropdownH + 8) {
+            menu.classList.add('drop-up');
+            dropdown.style.top = `${Math.max(8, btnRect.top - dropdownH - 4)}px`;
+            dropdown.style.bottom = 'auto';
+          } else {
+            menu.classList.remove('drop-up');
+            dropdown.style.top = `${btnRect.bottom + 4}px`;
+            dropdown.style.bottom = 'auto';
+          }
+        });
+      } else {
+        menu.classList.remove('open');
+      }
     });
 
     dropdown.querySelectorAll('button[data-action]').forEach(btn => {
@@ -226,6 +253,11 @@ async function handlePlanAction(planId, action) {
     case 'more-toggle':
       // 由 setupMoreMenus 處理 dropdown 開關
       return;
+    case 'close-plan':
+      // 「✕」→ 隱藏此打板計劃（可從搜尋重新開啟）
+      closePlan(planId);
+      renderPlans();
+      break;
     case 'arrow-toggle': {
       const collapsed = isPlanCollapsed(planId);
       if (collapsed) {
@@ -315,7 +347,8 @@ async function handlePlanAction(planId, action) {
       break;
     }
     case 'delete': {
-      if (!confirm(`確定刪除計劃 ${plan.plan_no}？\n其內所有 MAWB 將移回左欄。此操作不可復原！`)) return;
+      // 單一但更明確的確認（避免誤刪）
+      if (!confirm(`⚠️ 確定刪除計劃 ${plan.plan_no}？\n\n其內所有 MAWB 將移回左欄。\n此操作不可復原！`)) return;
       try {
         await deletePlan(planId);
         clearSelectedPlanItems();

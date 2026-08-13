@@ -191,6 +191,10 @@
               <p class="card-desc">管理 Booking Record（MAWB）與打板計劃，透過拖曳/按鈕將貨物分配到各板。</p>
             </div>
             <div class="pallet-header-actions">
+              <button type="button" class="pallet-layout-toggle-btn" id="btn-pallet-layout-toggle" title="切換打板計劃排列方向" style="display:none;">
+                <i class="fa-solid fa-table-columns"></i> <span id="pallet-layout-toggle-label">左右排列</span>
+              </button>
+              <button type="button" class="pill" id="btn-pallet-sync-orders" title="將訂單系統的訂單同步為 Booking Record" style="display:none;"><i class="fa-solid fa-arrows-rotate"></i> ⇄ 同步訂單</button>
               <button type="button" class="pill" id="btn-pallet-refresh"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
             </div>
           </div>

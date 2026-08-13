@@ -235,6 +235,7 @@ db.serialize(() => {
       planner TEXT,
       remarks TEXT,
       status TEXT DEFAULT 'draft',
+      sort_order INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -251,6 +252,42 @@ db.serialize(() => {
       UNIQUE(plan_id, mawb_record_id)
     )
   `);
+
+  // mawb_records 表相容性：補上 order_id 欄位（訂單 ↔ 打板 雙向同步用）
+  db.all("PRAGMA table_info(mawb_records)", [], (err, mawbCols) => {
+    if (err) {
+      console.error('PRAGMA table_info(mawb_records) failed:', err.message);
+      return;
+    }
+    const mawbColumns = mawbCols.map(c => c.name);
+    if (!mawbColumns.includes('order_id')) {
+      db.run("ALTER TABLE mawb_records ADD COLUMN order_id INTEGER", (alterErr) => {
+        if (alterErr) {
+          console.error('Failed to add order_id column to mawb_records:', alterErr.message);
+        } else {
+          console.log('Added order_id column to mawb_records');
+        }
+      });
+    }
+  });
+
+  // pallet_plans 表相容性：補上 sort_order 欄位（整張卡片拖曳排序用）
+  db.all("PRAGMA table_info(pallet_plans)", [], (err, planCols) => {
+    if (err) {
+      console.error('PRAGMA table_info(pallet_plans) failed:', err.message);
+      return;
+    }
+    const planColumns = planCols.map(c => c.name);
+    if (!planColumns.includes('sort_order')) {
+      db.run("ALTER TABLE pallet_plans ADD COLUMN sort_order INTEGER DEFAULT 0", (alterErr) => {
+        if (alterErr) {
+          console.error('Failed to add sort_order column to pallet_plans:', alterErr.message);
+        } else {
+          console.log('Added sort_order column to pallet_plans');
+        }
+      });
+    }
+  });
 
   // ===== 打板計劃：SPL 特殊代碼（可維護清單） =====
   db.run(`

@@ -290,6 +290,69 @@
   gap: 10px;
   min-height: 300px;
 }
+/* 左右並排（橫向）排列：適合闊螢幕 */
+.pallet-plans-col.horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.pallet-plans-col.horizontal .pallet-plan-card {
+  flex: 1 1 480px;
+  max-width: 100%;
+}
+
+/* 排列切換按鈕 */
+.pallet-layout-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pallet-layout-toggle-btn:hover { border-color: var(--primary, #2563eb); color: var(--primary, #2563eb); }
+.pallet-layout-toggle-btn.active { background: var(--primary-gradient); color: #fff; border-color: transparent; }
+
+/* ===== 拖曳提示（左欄 Booking 卡片，置右上角） ===== */
+.pallet-drag-hint {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: grab;
+  user-select: none;
+  opacity: 0.7;
+  z-index: 2;
+}
+.pallet-booking-card { position: relative; }
+.pallet-booking-card:hover .pallet-drag-hint { opacity: 1; color: var(--primary, #2563eb); }
+.pallet-booking-card[draggable="true"] { cursor: grab; }
+.pallet-booking-card.dragging { opacity: 0.5; }
+
+/* ===== 跨板重複警告 ===== */
+.pallet-multi-plan-warn {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #b45309;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: help;
+}
+
+/* ===== 左欄公司名稱 BOLD ===== */
+.detail-client-name { font-weight: 700; }
 .pallet-plans-header {
   display: flex;
   justify-content: space-between;
@@ -300,6 +363,58 @@
   font-size: 0.9rem;
   color: var(--text-main);
 }
+.pallet-plans-header { margin-bottom: 10px; }
+.pallet-plans-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pallet-closed-plans-search {
+  position: relative;
+}
+.pallet-closed-plans-search input {
+  min-height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  padding: 5px 9px;
+  font-size: 0.8rem;
+}
+.pallet-closed-plans-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  min-width: 200px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.18);
+  padding: 5px;
+}
+.pallet-closed-plan-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  cursor: pointer;
+}
+.pallet-closed-plan-item:hover { background: rgba(37, 99, 235, 0.08); }
+.pallet-closed-plan-item small { color: var(--text-faint, #94a3b8); font-size: 0.7rem; }
+
+/* ✕ 關閉按鈕 */
+.pallet-plan-action-btn.close-plan-btn { color: var(--text-faint, #94a3b8); }
+.pallet-plan-action-btn.close-plan-btn:hover { color: #dc2626; }
 .pallet-plan-card {
   border: 1px solid var(--border-color);
   border-radius: 14px;
@@ -382,8 +497,36 @@
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
+  white-space: nowrap;   /* 航班/目的地/倒數保持單行 */
 }
 .pallet-plan-header-meta > span { display: inline-flex; align-items: center; gap: 3px; }
+
+/* ===== Plan Footer（垃圾桶右下角 + 紅色） ===== */
+.pallet-plan-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border-color);
+}
+.pallet-plan-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;   /* 常態紅色 */
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pallet-plan-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: #dc2626;
+}
 .pallet-plan-header-meta .header-flight,
 .pallet-plan-header-meta .header-dest { color: var(--text-muted, #64748b); }
 
@@ -595,28 +738,28 @@
 .pallet-items-table tr.dragging-row td { opacity: 0.5; }
 .pallet-items-table .num { text-align: right; white-space: nowrap; }
 .pallet-items-table .mawb-cell { font-weight: 700; white-space: nowrap; }
-.pallet-items-table .cell-remark { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pallet-items-table .pallet-empty-row {
-  text-align: center;
-  color: var(--text-faint, #94a3b8);
-  padding: 16px;
-}
-
-/* ===== Plan 總計（tfoot：與明細欄位同 table 演算法對齊） ===== */
-.pallet-items-table tfoot {
-  border-top: 2px solid var(--border-color);
-}
-.pallet-items-table tfoot td {
-  padding: 5px 8px;
-  font-weight: 700;
-  color: var(--text-main);
-  background: var(--card-bg);
+.pallet-items-table .drag-cell {
   white-space: nowrap;
+  vertical-align: middle;
 }
-.pallet-items-table tfoot td.total-label {
-  color: var(--text-muted, #64748b);
-  font-weight: 700;
+.pallet-items-table .drag-cell .drag-handle {
+  display: inline-block;
+  margin-right: 4px;
+  color: var(--text-faint, #94a3b8);
+  cursor: grab;
+  font-size: 0.8rem;
+  user-select: none;
+  vertical-align: middle;
 }
+.pallet-items-table .drag-cell .drag-handle:hover {
+  color: var(--primary, #2563eb);
+}
+.pallet-items-table tr[draggable="true"] { cursor: grab; }
+.pallet-items-table tr[draggable="true"]:active { cursor: grabbing; }
+.pallet-items-table tr[draggable="true"]:hover td {
+  background: rgba(37, 99, 235, 0.06);
+}
+.pallet-items-table tr[draggable="true"]:hover .drag-handle { color: var(--primary, #2563eb); }
 .pallet-items-table tfoot td.num { text-align: right; }
 .pallet-items-table tfoot td.t-subtle { font-weight: 400; }
 

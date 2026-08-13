@@ -46,6 +46,21 @@ export function showBookingModal(booking, { onSaved } = {}) {
   overlay.querySelector('#bk-save').addEventListener('click', async () => {
     const payload = collectPayload(overlay);
     if (!payload.mawb) { showError('MAWB# 必填'); return; }
+    // ===== MAWB# 儲存前重新驗證：格式錯誤不允許儲存 =====
+    if (typeof window.validateMawb === 'function') {
+      const mawbInput = overlay.querySelector('#bk-mawb');
+      const mawbResult = window.validateMawb(payload.mawb);
+      if (!mawbResult.valid) {
+        if (mawbInput) {
+          mawbInput.style.borderColor = '#dc2626';
+          mawbInput.focus();
+        }
+        showError(mawbResult.error || 'MAWB# 格式錯誤');
+        return;
+      }
+      // 驗證通過 → 統一格式後儲存
+      payload.mawb = mawbResult.formatted;
+    }
     try {
       if (isEdit) {
         await updateBooking(booking.id, payload);

@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-13T07:29:44.260Z
+-- 匯出時間: 2026-08-13T10:26:27.317Z
 -- 共 12 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -185,6 +185,140 @@ INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "targ
 
 INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (81, 'admin', '系統管理員', 'create_user', 'user', '2', '建立使用者 nelson（admin）', '2026-08-13 06:27:38');
 
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (82, 'admin', '系統管理員', 'pallet.plan.update', 'pallet_plan', '4', '更新打板計劃 AGL-20260812-02', '2026-08-13 07:30:24');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (83, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 07:38:26');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (84, 'admin', '系統管理員', 'pallet.plan.status_change', 'pallet_plan', '4', 'draft → locked（AGL-20260812-02）', '2026-08-13 07:39:25');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (85, 'admin', '系統管理員', 'pallet.plan.status_change', 'pallet_plan', '4', 'locked → draft（AGL-20260812-02）', '2026-08-13 07:39:57');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (86, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 2 筆 MAWB（重複 0 筆）', '2026-08-13 07:43:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (87, 'admin', '系統管理員', 'pallet.plan.create', 'pallet_plan', '5', '新增打板計劃 AGL-20260813-01', '2026-08-13 07:49:10');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (88, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 3 筆 MAWB（重複 0 筆）', '2026-08-13 07:49:43');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (89, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 07:50:05');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (90, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 07:50:34');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (91, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #8', '2026-08-13 07:51:10');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (92, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #4', '2026-08-13 07:52:37');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (93, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #6', '2026-08-13 07:52:37');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (94, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #7', '2026-08-13 07:52:37');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (95, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #3', '2026-08-13 07:52:37');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (96, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #6', '2026-08-13 07:52:43');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (97, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #4', '2026-08-13 07:52:44');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (98, 'admin', '系統管理員', 'pallet.booking.update', 'mawb_record', '8', '更新 Booking 176-1564 2490', '2026-08-13 07:53:10');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (99, 'admin', '系統管理員', 'pallet.booking.update', 'mawb_record', '8', '更新 Booking 176-1564 2490', '2026-08-13 07:53:28');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (100, 'admin', '系統管理員', 'pallet.booking.update', 'mawb_record', '8', '更新 Booking 176-1564 2491', '2026-08-13 07:53:39');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (101, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 08:02:43');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (102, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 08:26:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (103, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #8', '2026-08-13 09:20:15');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (104, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #7', '2026-08-13 09:20:15');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (105, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #3', '2026-08-13 09:20:17');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (106, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #5', '2026-08-13 09:20:17');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (107, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:20:22');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (108, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:20:27');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (109, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:20:33');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (110, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:20:36');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (111, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:20:40');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (112, 'admin', '系統管理員', 'pallet.sync_orders', 'orders', '', '同步訂單→打板：新增 25，更新 0，衝突 0', '2026-08-13 09:21:20');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (113, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:21:42');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (114, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:21:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (115, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #27', '2026-08-13 09:21:55');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (116, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:22:35');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (117, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:24:32');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (118, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:24:39');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (119, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:24:45');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (120, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:24:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (121, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:25:43');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (122, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:28:21');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (123, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:28:23');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (124, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:28:25');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (125, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #7', '2026-08-13 09:29:56');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (126, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #6', '2026-08-13 09:29:56');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (127, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #3', '2026-08-13 09:29:57');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (128, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:43:15');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (129, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:43:48');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (130, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #4', '2026-08-13 09:43:51');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (131, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #7', '2026-08-13 09:43:52');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (132, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #4', '2026-08-13 09:43:53');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (133, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 09:45:50');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (134, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 09:47:09');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (135, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 0 筆 MAWB（重複 1 筆）', '2026-08-13 10:05:57');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (136, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '5', 'AGL-20260813-01 移出 MAWB #5', '2026-08-13 10:05:57');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (137, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:06:00');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (138, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #27', '2026-08-13 10:06:00');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (139, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '5', 'AGL-20260813-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:25:26');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (140, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #6', '2026-08-13 10:25:26');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (141, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:25:40');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (142, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #4', '2026-08-13 10:25:40');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (143, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:25:41');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (144, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #3', '2026-08-13 10:25:41');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (145, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '3', 'AGL-20260812-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:25:42');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (146, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '4', 'AGL-20260812-02 移出 MAWB #5', '2026-08-13 10:25:42');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (147, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '4', 'AGL-20260812-02 加入 1 筆 MAWB（重複 0 筆）', '2026-08-13 10:25:44');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (148, 'admin', '系統管理員', 'pallet.plan.remove_item', 'pallet_plan', '3', 'AGL-20260812-01 移出 MAWB #3', '2026-08-13 10:25:44');
+
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -263,31 +397,81 @@ CREATE TABLE mawb_records (
       remark TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    , order_id INTEGER);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (2, '176-0000 0000', '0000000000123', 'KWE', 'AMS', 1, 100, 150, 0, 'ELI', 'REMARK', '2026-08-12 09:05:19', '2026-08-12 09:05:19');
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (2, '176-0000 0000', '0000000000123', 'KWE', 'AMS', 1, 100, 150, 0, 'ELI', 'REMARK', '2026-08-12 09:05:19', '2026-08-12 09:05:19', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (3, '176-6451 7585', '', 'KWE', 'VIE', 5, 1362, 477, 2.86, '', '今天自送到 JPS
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (3, '176-6451 7585', '', 'KWE', 'VIE', 5, 1362, 477, 2.86, '', '今天自送到 JPS
 5 PLTs
 120 x 80 x 60 / 4
 120 x 80 x 24 / 1
-不需要爆箱', '2026-08-12 09:12:10', '2026-08-12 09:12:10');
+不需要爆箱', '2026-08-12 09:12:10', '2026-08-12 09:12:10', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (4, '176-6534 5232', '', 'LORD OF EDWIN', 'STN', 93, 1671, 2000, 12, '', 'JPS 卸車 (27-JUL) / 代貼 UN3481 電
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (4, '176-6534 5232', '', 'LORD OF EDWIN', 'STN', 93, 1671, 2000, 12, '', 'JPS 卸車 (27-JUL) / 代貼 UN3481 電
 池 LABEL
 S/O# 994-3032 8572 (93 CTNS)
 需要幫忙做20% HAND SEARCH , 影貨
-相,LABEL相,開箱相,裝板相', '2026-08-12 09:13:01', '2026-08-12 09:13:01');
+相,LABEL相,開箱相,裝板相', '2026-08-12 09:13:01', '2026-08-12 09:13:01', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (5, '176-2334 8835', 'HAWB001', 'AGL', 'DWC', 100, 1000, 150, 0.9, 'ELI', '', '2026-08-12 10:06:55', '2026-08-12 12:32:46');
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (5, '176-2334 8835', 'HAWB001', 'AGL', 'DWC', 100, 1000, 150, 0.9, 'ELI', '', '2026-08-12 10:06:55', '2026-08-12 12:32:46', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (6, '176-6558 1482', 'HAWB65581482', 'JST', 'VIE', 99, 380, 460, 2.76, 'ELI', 'ELI 967 = 99 PKGS', '2026-08-12 12:43:50', '2026-08-12 12:43:50');
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (6, '176-6558 1482', 'HAWB65581482', 'JST', 'VIE', 99, 380, 460, 2.76, 'ELI', 'ELI 967 = 99 PKGS', '2026-08-12 12:43:50', '2026-08-12 12:43:50', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (7, '176-6534 5534', '', 'MAERSK', 'DOH', 4, 450, 750, 4.5, '', 'NO BATT', '2026-08-12 12:44:53', '2026-08-12 12:44:53');
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (7, '176-6534 5534', '', 'MAERSK', 'DOH', 4, 450, 750, 4.5, '', 'NO BATT', '2026-08-12 12:44:53', '2026-08-12 12:44:53', NULL);
 
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at") VALUES (8, '176-1564 2491', 'HAWB001', 'SD', 'DXB', 20, 325, 350, 2.1, 'ELI, ELM', 'ELI = 10 PKGS
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (8, '176-1564 2491', 'HAWB001', 'SD', 'DXB', 20, 325, 350, 2.1, 'ELI, ELM', 'ELI = 10 PKGS
 ELM = 10 PKGS
--代做LABEL', '2026-08-12 12:46:05', '2026-08-12 12:46:05');
+-代做LABEL', '2026-08-12 12:46:05', '2026-08-13 07:53:39', NULL);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (9, '158-0000 0000', '', 'JST', '', 100, 1500, 0, 18, '後補電池資訊', '提貨號: AAA1111', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 1);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (10, '312-4771 1963', '168989635078', '虹光精密工業股份有限公司', '', 3, 642.76, 0, 1.258, '', '提貨號: PK2608-0009', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 5);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (11, '414-8756 6625', '840579040549', '天鈺科技股份有限公司', '', 9, 150.35, 0, 7.306, '', '提貨號: PK2608-0010', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 6);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (12, '752-7575 4195', '571460922109', '樺漢科技股份有限公司', '', 19, 609.29, 0, 2.847, 'UN3481', '提貨號: PK2608-0012', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 8);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (13, '418-5324 0762', '388259025726', '天鈺科技股份有限公司', '', 4, 220.64, 0, 3.558, 'UN3480', '提貨號: PK2608-0011', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 7);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (14, '164-8873 1193', '207113939250', '宏碁智通股份有限公司', '', 15, 314.23, 0, 6.802, 'UN3481', '提貨號: PK2608-0014', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 10);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (15, '532-9980 2721', '722053481727', '樺漢科技股份有限公司', '', 1, 296.84, 0, 1.902, '', '提貨號: PK2608-0015', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 11);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (16, '194-6911 9746', '354787620126', 'BCD1234', '', 14, 142.22, 0, 0.727, '', '提貨號: PK2608-0016', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 12);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (17, '826-0842 6876', '63218405905', 'JST', '', 7, 321.98, 0, 2.575, 'UN3480', '提貨號: PK2608-0017', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 13);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (18, '575-8253 0486', 'HAWB111261960', '虹光精密工業股份有限公司', 'TPE', 5, 42.5, 0, 0.62, '', '提貨號: DMY-20260809-001', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 18);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (19, '836-0403 7364', 'HAWB111262261', '緯創資通股份有限公司', 'TPE', 12, 156.8, 0, 2.35, 'A67', '提貨號: DMY-20260809-002', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 19);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (20, '157-0000 0000', 'ABC22222', 'JST', '', 5, 10, 0, 1, '', '提貨號: JST11111', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 17);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (21, '091-4662 3290', '955708850054', '聯亞光電工業股份有限公司', '', 11, 365.25, 0, 5.419, '', '提貨號: PK2608-0004', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 14);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (22, '176-6558 7594', 'BGJST01060731', 'JST', 'KWI', 1, 91, 0, 0.18, 'PI970', '提貨號: 61091657', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 22);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (23, '702-2808 2596', 'HAWB111262482', '樺漢科技股份有限公司', 'HKG', 8, 76.3, 0, 1.18, 'PI967', '提貨號: DMY-20260809-003', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 20);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (24, '160-0000 0000', 'CCC111', 'JST', 'SVO', 15, 55, 0, 0.1, 'A67', '提貨號: JST123456', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 21);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (25, '394-7165 6852', '311236341379', '聯亞光電工業股份有限公司', '', 12, 720.11, 0, 5.328, 'UN3480', '提貨號: PK2608-0005', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 15);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (26, '163-0000 0000', 'HFS000001', 'JST', 'DUS', 12, 550, 0, 7.26, 'A123', '提貨號: Qwttt1222-3', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 25);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (27, '160-1564 2270', '', '立馳行 - RS SZX', '', 173, 2650, 0, 12, '後補電池資訊', '提貨號: 50339634', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 29);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (28, '162-0000 0000', '1234567890123', 'JST', 'GOT', 65, 450, 0, 6, 'PI967', '提貨號: JST260810002', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 24);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (29, '068-3455 8882', '450337598892', 'XX LOG', '', 14, 171.04, 0, 8.117, '', '提貨號: PK2608-0008', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 4);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (30, '294-7938 1864', '159080745768', '樺漢科技股份有限公司', '', 15, 499.22, 0, 4.679, '', '提貨號: PK2608-0003', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 2);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (31, '166-1467 6992', '920334184891', 'BCD1234', '', 2, 40.79, 0, 6.059, '', '提貨號: PK2608-0007', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 3);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (32, '161-0000 0000', '161AAA00000', 'JST', 'IKA', 15, 100, 0, 0.52, 'PI967', '提貨號: JST123000', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 23);
+
+INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (33, '157-1234 5675', '', 'AIR GLOBAL LIMITED - AGL', 'AMS', 1, 45, 0, 0.2, '後補電池資訊', '提貨號: 666', '2026-08-13 09:21:20', '2026-08-13 09:21:20', 30);
 
 
 -- ===== 資料表: note_templates =====
@@ -409,17 +593,23 @@ CREATE TABLE pallet_plan_items (
       UNIQUE(plan_id, mawb_record_id)
     );
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (30, 4, 4, 1, '2026-08-12 10:05:53');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (48, 3, 2, 0, '2026-08-13 08:02:43');
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (33, 4, 3, 2, '2026-08-12 10:07:59');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (54, 4, 2, 8, '2026-08-13 09:20:40');
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (34, 4, 5, 3, '2026-08-12 10:08:06');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (61, 3, 7, 1, '2026-08-13 09:24:50');
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (35, 4, 8, 4, '2026-08-12 12:48:50');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (67, 5, 8, 0, '2026-08-13 09:43:48');
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (38, 4, 7, 6, '2026-08-12 12:49:01');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (71, 5, 27, 1, '2026-08-13 10:06:00');
 
-INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (39, 4, 6, 7, '2026-08-12 12:49:01');
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (72, 5, 6, 2, '2026-08-13 10:25:26');
+
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (73, 4, 4, 12, '2026-08-13 10:25:40');
+
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (75, 3, 5, 3, '2026-08-13 10:25:42');
+
+INSERT INTO "pallet_plan_items" ("id", "plan_id", "mawb_record_id", "sort_order", "created_at") VALUES (76, 4, 3, 13, '2026-08-13 10:25:44');
 
 
 -- ===== 資料表: pallet_plans =====
@@ -446,8 +636,10 @@ CREATE TABLE pallet_plans (
 
 INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at") VALUES (3, 'AGL-20260812-01', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9859', '2026-08-14T15:45', 'DWC', 'MIX 1Q5', '', 3500, 8, 'YAT', '', 'draft', '2026-08-12 08:47:03', '2026-08-12 09:31:24');
 
-INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at") VALUES (4, 'AGL-20260812-02', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9841', '2026-08-17T03:00', 'DWC', 'MIX - 1H3', '', 2000, 8, 'KABO', '*裝防火網* , 每件貨貼2張AWB LABEL
-起飛前8個鐘要交到板 起飛前8個鐘要交到板', 'draft', '2026-08-12 09:14:28', '2026-08-12 09:14:28');
+INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at") VALUES (4, 'AGL-20260812-02', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9841', '2026-08-17T03:00', 'DWC', 'MIX - 1H3', '', 2500, 8, 'KABO', '*裝防火網* , 每件貨貼2張AWB LABEL
+起飛前8個鐘要交到板 起飛前8個鐘要交到板', 'draft', '2026-08-12 09:14:28', '2026-08-13 07:39:57');
+
+INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at") VALUES (5, 'AGL-20260813-01', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9999', '2026-08-18T05:00', 'DWC', '2Q5+1A2 限重6000 k', '', 6000, 8, 'e', '', 'draft', '2026-08-13 07:49:10', '2026-08-13 07:49:10');
 
 
 -- ===== 資料表: remark_templates =====
@@ -612,19 +804,19 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 81);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 148);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 20);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 8);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 33);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 30);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 39);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 76);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plans', 4);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plans', 5);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('remark_templates', 14);
 

@@ -6,6 +6,7 @@ export async function fetchBookings(params = {}) {
   if (params.search) query.set('search', params.search);
   if (params.dest) query.set('dest', params.dest);
   if (params.only_unassigned) query.set('only_unassigned', '1');
+  if (params.assignment && params.assignment !== '') query.set('assignment', params.assignment);
   if (params.exclude_plan_id) query.set('exclude_plan_id', params.exclude_plan_id);
   const qs = query.toString();
   const res = await apiFetch(`/api/pallet/bookings${qs ? '?' + qs : ''}`);
@@ -15,6 +16,15 @@ export async function fetchBookings(params = {}) {
 export async function fetchBookingDestinations() {
   const res = await apiFetch('/api/pallet/bookings/destinations');
   return res.data || [];
+}
+
+// ===== 訂單 ↔ 打板 雙向同步 =====
+export async function syncOrders(payload = {}) {
+  const res = await apiFetch('/api/pallet/sync-orders', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return res;
 }
 
 export async function createBooking(payload) {
@@ -97,6 +107,15 @@ export async function reorderPlanItems(planId, orderedPlanItemIds) {
   const res = await apiFetch(`/api/pallet/plans/${planId}/items/reorder`, {
     method: 'PUT',
     body: JSON.stringify({ ordered_plan_item_ids: orderedPlanItemIds })
+  });
+  return res;
+}
+
+// 整張 Plan 卡片排序（永久儲存）
+export async function reorderPlans(orderedPlanIds) {
+  const res = await apiFetch('/api/pallet/plans/reorder', {
+    method: 'PUT',
+    body: JSON.stringify({ ordered_plan_ids: orderedPlanIds })
   });
   return res;
 }

@@ -10,7 +10,8 @@ import {
 import {
   setBookings, getBookings, getSelectedBookingIds, toggleBookingSelection,
   getSelectedBookingsSummary, setSearchQuery, getSearchQuery,
-  setDestFilter, getDestFilter, setSplCodes, setRemarkTemplates, getSelectedPlanId
+  setDestFilter, getDestFilter, setAssignmentFilter, getAssignmentFilter,
+  setSplCodes, setRemarkTemplates, getSelectedPlanId, clearSelectedBookings
 } from './state.js';
 import { formatNumber, formatWeight } from './formatters.js';
 import { showBookingModal as openBookingModal } from './bookingModal.js';
@@ -30,9 +31,12 @@ export function renderBookingsColumn(container) {
           <input type="search" id="pallet-booking-search" placeholder="搜尋 MAWB / 客戶 / 目的地 / SPL..." />
         </div>
         <div class="pallet-bookings-toolbar-row">
-          <select id="pallet-dest-filter">
-            <option value="">全部目的地</option>
+          <select id="pallet-assignment-filter">
+            <option value="all">全部狀態</option>
+            <option value="unassigned">未有 PLAN</option>
+            <option value="assigned">已有 PLAN</option>
           </select>
+          <button type="button" class="pallet-btn" id="btn-pallet-unselect-all" style="display:none;" title="取消全部選取">✕ 取消全部</button>
           <button type="button" class="pallet-btn pallet-btn-primary" id="btn-pallet-new-booking">＋ 新增</button>
         </div>
       </div>
@@ -63,10 +67,11 @@ export function renderBookingsColumn(container) {
     await loadBookings();
   }, 350));
 
-  // 目的地篩選
-  const destSelect = document.getElementById('pallet-dest-filter');
-  destSelect.addEventListener('change', () => {
-    setDestFilter(destSelect.value);
+  // 入板狀態篩選（全部狀態 / 未有 PLAN / 已有 PLAN）
+  const assignmentSelect = document.getElementById('pallet-assignment-filter');
+  assignmentSelect.value = getAssignmentFilter();
+  assignmentSelect.addEventListener('change', () => {
+    setAssignmentFilter(assignmentSelect.value);
     loadBookings();
   });
 
@@ -74,6 +79,16 @@ export function renderBookingsColumn(container) {
   document.getElementById('btn-pallet-new-booking').addEventListener('click', () => {
     openBookingModal(null, { onSaved: handleBookingSaved });
   });
+
+  // ===== 取消全部選取按鈕 =====
+  const unselectAllBtn = document.getElementById('btn-pallet-unselect-all');
+  if (unselectAllBtn) {
+    unselectAllBtn.addEventListener('click', () => {
+      clearSelectedBookings();
+      renderBookings();
+      notifySelectionChanged();
+    });
+  }
 }
 
 // 載入 SPL / REMARK 清單與目的地
@@ -86,13 +101,8 @@ export async function loadReferenceData() {
     ]);
     setSplCodes(spls);
     setRemarkTemplates(remarks);
-    const destSelect = document.getElementById('pallet-dest-filter');
-    if (destSelect) {
-      const current = destSelect.value;
-      destSelect.innerHTML = '<option value="">全部目的地</option>' +
-        destinations.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-      destSelect.value = current;
-    }
+    // destinations 清單保留給搜尋提示使用（下拉已轉為「入板狀態」）
+    window.__palletDestinations = destinations || [];
   } catch (err) {
     console.error('[pallet] 載入參考資料失敗:', err);
   }
@@ -104,7 +114,7 @@ export async function loadBookings() {
     const params = {
       search: getSearchQuery(),
       dest: getDestFilter(),
-      only_unassigned: true
+      assignment: getAssignmentFilter() || 'all'
     };
     const list = await fetchBookings(params);
     setBookings(list);
@@ -191,9 +201,15 @@ function renderBookingCard(b) {
     return `<span class="pallet-plan-ref-badge ${locked ? 'locked-ref' : ''}" title="已入板：${escapeHtml(ref.plan_no)}（${escapeHtml(ref.status)}）">${escapeHtml(ref.plan_no)}${locked ? ' 🔒' : ''}</span>`;
   }).join(' ');
 
+  // 跨板重複提示：同時存在於 2 個或以上 Plan → 黃色驚嘆號 + tooltip 列出所有板號
+  const multiPlanHtml = planRefs.length >= 2
+    ? `<span class="pallet-multi-plan-warn" title="此 MAWB 同時存在於 ${planRefs.length} 個打板計劃：&#10;${planRefs.map(r => `• ${escapeHtml(r.plan_no)}（${escapeHtml(r.status)}）`).join('&#10;')}">⚠️${planRefs.length}板</span>`
+    : '';
+
   // 次要資訊（Hover 展開）：HAWB / 客戶 / 備註 / Plan 引用
   const detailRows = [];
-  if (b.client) detailRows.push(`<span class="detail-client">${escapeHtml(b.client)}</span>`);
+  // 公司名稱加粗顯示（BOLD）
+  if (b.client) detailRows.push(`<span class="detail-client"><b class="detail-client-name">${escapeHtml(b.client)}</b></span>`);
   if (b.hawb) detailRows.push(`<span class="detail-hawb">HAWB ${escapeHtml(b.hawb)}</span>`);
   if (b.remark) detailRows.push(`<span class="detail-remark">${escapeHtml(b.remark)}</span>`);
   if (refBadges) detailRows.push(`<span class="detail-refs">${refBadges}</span>`);
@@ -205,6 +221,8 @@ function renderBookingCard(b) {
         <span class="booking-mawb">${escapeHtml(displayMawb(b.mawb))}</span>
         <span class="booking-dest">${escapeHtml(b.dest || '-')}</span>
         ${b.spl ? `<span class="pallet-spl-badge">${escapeHtml(b.spl)}</span>` : ''}
+        ${multiPlanHtml}
+        <span class="pallet-drag-hint" title="可拖曳到打板計劃">⠿</span>
       </div>
       <div class="pallet-booking-meta">
         <span>PCS <b>${formatNumber(b.pcs, 0)}</b></span>
@@ -225,6 +243,11 @@ function renderSummary() {
   summaryGwEl.textContent = formatWeight(summary.grossWeight);
   summaryVwEl.textContent = formatWeight(summary.volumeWeight);
   summaryCbmEl.textContent = formatNumber(summary.cbm, 2);
+  // 「取消全部選取」按鈕：有選取時顯示
+  const unselectAllBtn = document.getElementById('btn-pallet-unselect-all');
+  if (unselectAllBtn) {
+    unselectAllBtn.style.display = summary.count > 0 ? '' : 'none';
+  }
 }
 
 // 選取變更 → 通知中間按鈕啟用狀態

@@ -6,8 +6,10 @@ let planDetails = {};       // { planId: { items: [...] } } 已載入的明細
 let selectedBookingIds = new Set();   // 左欄已選
 let selectedPlanItemIds = {};         // { planId: Set<planItemId> } 右欄已選
 let collapsedPlanIds = new Set();     // 已收合的 Plan
+let closedPlanIds = new Set();        // 已被「✕ 關閉」隱藏的 Plan（僅瀏覽器記住）
 let searchQuery = '';
 let destFilter = '';
+let assignmentFilter = 'all';   // all | unassigned | assigned
 let splCodes = [];
 let remarkTemplates = [];
 let contourSuggestionsCache = [];
@@ -47,11 +49,22 @@ export function togglePlanCollapsed(planId) {
   else collapsedPlanIds.add(planId);
 }
 
+// ===== 已關閉（隱藏）的 Plan =====
+export function isPlanClosed(planId) { return closedPlanIds.has(planId); }
+export function closePlan(planId) { closedPlanIds.add(planId); }
+export function reopenPlan(planId) { closedPlanIds.delete(planId); }
+export function getClosedPlans(plans) {
+  return (plans || []).filter(p => closedPlanIds.has(p.id));
+}
+
 export function setSearchQuery(q) { searchQuery = q; }
 export function getSearchQuery() { return searchQuery; }
 
 export function setDestFilter(d) { destFilter = d; }
 export function getDestFilter() { return destFilter; }
+
+export function setAssignmentFilter(a) { assignmentFilter = a; }
+export function getAssignmentFilter() { return assignmentFilter; }
 
 export function setSplCodes(list) { splCodes = list; }
 export function getSplCodes() { return splCodes; }

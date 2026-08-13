@@ -2,7 +2,7 @@
 // 職責：僅負責把 plan 資料轉為 HTML 字串，不處理事件
 
 import {
-  getPlanItems, getSelectedPlanItemIds, getSelectedPlanId
+  getPlanItems, getSelectedPlanItemIds, getSelectedPlanId, getPlans, isPlanClosed
 } from './state.js';
 import {
   STATUS_LABEL, formatNumber, formatWeight, splBadgeClass, getFlightCountdown
@@ -10,6 +10,8 @@ import {
 
 // ===== 單張 Plan Card HTML =====
 export function renderPlanCard(plan, collapsed) {
+  // 已被「✕ 關閉」隱藏的 Plan → 不渲染
+  if (isPlanClosed(plan.id)) return '';
   const statusClass = `status-${plan.status}`;
   const statusBadge = `<span class="pallet-status-badge ${plan.status}">${STATUS_LABEL[plan.status] || plan.status}</span>`;
 
@@ -50,15 +52,11 @@ export function renderPlanCard(plan, collapsed) {
             <span class="header-dest" title="目的地機場">📍 ${escapeHtml(plan.arrival_airport || '-')}</span>
             ${countdownHtml}
             ${overweightHtml}
-            <span class="h-stats">
-              <span>PCS <b>${formatNumber(totals.pcs, 0)}</b></span>
-              <span>G.WT <b>${formatWeight(totals.gross_weight)}</b>kg</span>
-              <span>CBM <b>${formatNumber(totals.cbm, 2)}</b></span>
-            </span>
           </span>
           ${isSelected ? '<span class="pallet-selected-flag">目標</span>' : ''}
         </div>
         <div class="pallet-plan-actions">
+          <button type="button" class="pallet-plan-action-btn close-plan-btn" data-action="close-plan" title="關閉此打板計劃（可從搜尋重新開啟）"><i class="fa-solid fa-xmark"></i></button>
           ${isDraft ? `
             <button type="button" class="pallet-plan-action-btn primary-action" data-action="edit" title="編輯計劃"><i class="fa-solid fa-pen"></i></button>
           ` : ''}
@@ -79,10 +77,12 @@ export function renderPlanCard(plan, collapsed) {
               <button type="button" data-action="status" title="變更狀態"><i class="fa-solid fa-flag"></i> 變更狀態</button>
             </div>
           </div>
-          <button type="button" class="pallet-plan-action-btn danger" data-action="delete" title="刪除計劃"><i class="fa-solid fa-trash"></i></button>
         </div>
       </div>
       ${showBody ? `<div class="pallet-plan-body">${bodyHtml}</div>` : ''}
+    </div>
+    <div class="pallet-plan-footer">
+      <button type="button" class="pallet-plan-delete-btn" data-action="delete" title="刪除計劃（不可復原）"><i class="fa-solid fa-trash"></i> 刪除</button>
     </div>
   `;
 }
@@ -103,8 +103,8 @@ function renderPlanBody(plan) {
       ? `<span class="pallet-spl-badge ${splClass}">${escapeHtml(it.spl)}</span>`
       : `<span class="t-subtle">-</span>`;
     return `
-      <tr data-plan-item-id="${it.plan_item_id}" class="${selected ? 'selected-row' : ''}">
-        <td class="t-subtle">${idx + 1}</td>
+      <tr data-plan-item-id="${it.plan_item_id}" class="${selected ? 'selected-row' : ''}" ${isDraft ? 'draggable="true"' : ''}>
+        <td class="t-subtle drag-cell">${isDraft ? '<span class="drag-handle" title="可拖曳到其他打板計劃或左欄">⠿</span>' : ''}${idx + 1}</td>
         <td class="mawb-cell">${escapeHtml(it.mawb || '-')}</td>
         <td class="t-value">${escapeHtml(it.hawb || '-')}</td>
         <td class="t-value">${escapeHtml(truncateText(it.client, 18))}</td>

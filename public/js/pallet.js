@@ -3,6 +3,7 @@
 // admin/staff 限定（由 main.js 的 initProtectedSections 依角色呼叫）
 
 import { renderBookingsColumn, loadBookings, loadReferenceData } from './pallet/bookingsController.js';
+import { syncOrders } from './pallet/api.js';
 import {
   renderPlansColumn, loadPlans,
   handleAddSelectedToPlan, handleRemoveSelectedFromPlan
@@ -29,6 +30,53 @@ export function setupPalletSection() {
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
       await Promise.all([loadBookings(), loadPlans()]);
+    });
+  }
+
+  // 「⇄ 同步訂單」按鈕：將訂單系統的訂單同步為 Booking Record
+  const syncBtn = document.getElementById('btn-pallet-sync-orders');
+  if (syncBtn) {
+    syncBtn.style.display = '';
+    syncBtn.addEventListener('click', async () => {
+      try {
+        syncBtn.disabled = true;
+        syncBtn.textContent = '⏳ 同步中...';
+        // 第一次同步（不覆寫衝突）
+        let result = await syncOrders({});
+        let counts = result;
+        // 若有衝突 → 詢問用戶是否覆寫
+        if (result && result.conflicts && result.conflicts.length) {
+          const conflictList = result.conflicts.map(c => `• ${c.mawb}（訂單 ${c.order_no}）`).join('\n');
+          const overwrite = confirm(`⚠️ ${result.conflicts.length} 筆 MAWB 已存在於打板但由其他來源建立：\n\n${conflictList}\n\n按「確定」= 以訂單資料覆寫這些 MAWB\n按「取消」= 略過衝突（保留現有）`);
+          if (overwrite) {
+            result = await syncOrders({ overwrite_conflicts: true });
+            counts = result;
+          }
+        }
+        alert(`✅ 同步完成！\n\n新增 ${counts.added || 0} 筆\n更新 ${counts.updated || 0} 筆\n衝突 ${(counts.conflicts || []).length} 筆`);
+        await Promise.all([loadBookings(), loadPlans()]);
+      } catch (err) {
+        alert(`❌ 同步失敗：${err.message}`);
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> ⇄ 同步訂單';
+      }
+    });
+  }
+
+  // 排列切換按鈕（上下/左右）
+  const layoutToggleBtn = document.getElementById('btn-pallet-layout-toggle');
+  const layoutToggleLabel = document.getElementById('pallet-layout-toggle-label');
+  if (layoutToggleBtn) {
+    layoutToggleBtn.style.display = '';
+    layoutToggleBtn.addEventListener('click', () => {
+      const plansList = document.getElementById('pallet-plans-list');
+      if (!plansList) return;
+      const isHorizontal = plansList.classList.toggle('horizontal');
+      layoutToggleBtn.classList.toggle('active', isHorizontal);
+      if (layoutToggleLabel) {
+        layoutToggleLabel.textContent = isHorizontal ? '上下排列' : '左右排列';
+      }
     });
   }
 

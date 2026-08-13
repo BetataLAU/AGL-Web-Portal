@@ -59,6 +59,7 @@ function serializeBooking(row) {
     cbm: row.cbm,
     spl: row.spl,
     remark: row.remark,
+    order_id: row.order_id || null,
     plan_refs: planRefs,
     created_at: row.created_at,
     updated_at: row.updated_at
@@ -142,10 +143,11 @@ const STATUS_LABEL = { draft: '草稿', locked: '已鎖定', completed: '已完�
 
 // ===== Booking Record（左欄 MAWB） =====
 
-// GET /api/pallet/bookings?search=&dest=&only_unassigned=1&exclude_plan_id=
+// GET /api/pallet/bookings?search=&dest=&assignment=all|unassigned|assigned&only_unassigned=1&exclude_plan_id=
 router.get('/bookings', (req, res) => {
   const search = (req.query.search || '').trim();
   const dest = (req.query.dest || '').trim();
+  const assignment = (req.query.assignment || '').trim();
   const onlyUnassigned = req.query.only_unassigned === '1';
   const excludePlanId = req.query.exclude_plan_id ? parseInt(req.query.exclude_plan_id, 10) : null;
   const params = [];
@@ -160,12 +162,30 @@ router.get('/bookings', (req, res) => {
     sql += ' AND b.dest = ?';
     params.push(dest);
   }
-  if (onlyUnassigned) {
-    // 只顯示「不存在於任何 已上鎖/已完成 Plan」的 MAWB
+
+  // ===== 入板狀態篩選（assignment）=====
+  // all：排除「已存在於 已上鎖/已完成 Plan」的 MAWB（等同舊 only_unassigned 行為）
+  // unassigned：只顯示「不存在於任何 Plan」的 MAWB
+  // assigned：只顯示「已存在於任何 Plan（含草稿）」的 MAWB
+  // 相容：only_unassigned=1 視為 assignment=all（舊呼叫端行為不變）
+  const effAssignment = assignment || (onlyUnassigned ? 'all' : '');
+  if (effAssignment === 'all') {
     sql += ` AND NOT EXISTS (
       SELECT 1 FROM pallet_plan_items pi
       JOIN pallet_plans p ON p.id = pi.plan_id
       WHERE pi.mawb_record_id = b.id AND p.status IN ('locked','completed')
+    )`;
+  } else if (effAssignment === 'unassigned') {
+    // 完全未入任何板
+    sql += ` AND NOT EXISTS (
+      SELECT 1 FROM pallet_plan_items pi
+      WHERE pi.mawb_record_id = b.id
+    )`;
+  } else if (effAssignment === 'assigned') {
+    // 已入任何板（含草稿）
+    sql += ` AND EXISTS (
+      SELECT 1 FROM pallet_plan_items pi
+      WHERE pi.mawb_record_id = b.id
     )`;
   }
   if (excludePlanId) {
@@ -266,6 +286,25 @@ router.put('/bookings/:id', (req, res) => {
         writeAuditLog(req, 'pallet.booking.update', 'mawb_record', id, `更新 Booking ${normalizedMawb}`);
         db.get(BOOKING_SELECT_SQL + ' WHERE b.id = ?', [id], (getErr, row) => {
           if (getErr) return res.status(500).json({ error: getErr.message });
+          // ===== 反向同步：若此 MAWB 由訂單建立（order_id），同步回對應訂單 =====
+          if (row && row.order_id) {
+            db.run(
+              `UPDATE orders SET
+                 hawb = ?, dest = ?, quantity = ?, weight_kg = ?, cbm = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?`,
+              [
+                (hawb || '').trim(),
+                (dest || '').trim().toUpperCase(),
+                parseInt(pcs, 10) || 0,
+                parseFloat(gross_weight) || 0,
+                parseFloat(cbm) || 0,
+                row.order_id
+              ],
+              (orderErr) => {
+                if (orderErr) console.error('[pallet] 反向同步訂單失敗:', orderErr.message);
+              }
+            );
+          }
           res.json({ success: true, data: serializeBooking(row) });
         });
       }
@@ -327,11 +366,32 @@ router.get('/plans', (req, res) => {
     sql += ' AND p.status = ?';
     params.push(status);
   }
-  sql += ' ORDER BY p.created_at DESC, p.id DESC';
+  sql += ' ORDER BY p.sort_order ASC, p.created_at DESC, p.id DESC';
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ data: rows.map(serializePlan) });
   });
+});
+
+// PUT /api/pallet/plans/reorder → 整張卡片排序（永久儲存）
+// body: { ordered_plan_ids: [3, 1, 2] }
+router.put('/plans/reorder', (req, res) => {
+  const { ordered_plan_ids } = req.body;
+  if (!Array.isArray(ordered_plan_ids) || !ordered_plan_ids.length) {
+    return res.status(400).json({ error: '缺少排序清單' });
+  }
+  const stmt = db.prepare("UPDATE pallet_plans SET sort_order = ? WHERE id = ?");
+  let done = 0;
+  ordered_plan_ids.forEach((pid, idx) => {
+    stmt.run(idx, pid, function (runErr) {
+      if (runErr) return res.status(500).json({ error: runErr.message });
+      if (++done === ordered_plan_ids.length) {
+        writeAuditLog(req, 'pallet.plans.reorder', 'pallet_plan', '', '整張卡片排序更新');
+        res.json({ success: true, changes: ordered_plan_ids.length });
+      }
+    });
+  });
+  stmt.finalize();
 });
 
 // POST /api/pallet/plans → 新增（自動產生 plan_no）
@@ -665,6 +725,103 @@ router.post('/remark-templates', (req, res) => {
       if (insertErr) return res.status(500).json({ error: insertErr.message });
       writeAuditLog(req, 'pallet.remark_templates.create', 'remark_template', this.lastID, `新增備註範本 ${(name || '').trim()}`);
       res.json({ success: true, id: this.lastID });
+    }
+  );
+});
+
+// POST /api/pallet/sync-orders → 訂單系統 → 打板（手動同步按鈕）
+// 掃描所有具真實 MAWB# 的訂單，自動建立/覆寫 mawb_records（依 order_id 識別）
+// 回傳 { added, updated, conflicts }（衝突：MAWB 已存在但非本訂單建立）
+const MAWB_LATE_LABEL = '後補MAWB#';
+router.post('/sync-orders', (req, res) => {
+  const { overwrite_conflicts } = req.body || {};
+  db.all(
+    `SELECT o.*, c.name AS customer_company_name
+     FROM orders o
+     LEFT JOIN companies c ON c.id = o.customer_company_id
+     WHERE o.mawb IS NOT NULL AND o.mawb != '' AND o.mawb != ?
+     ORDER BY o.id ASC`,
+    [MAWB_LATE_LABEL],
+    (err, orders) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      let added = 0, updated = 0;
+      const conflicts = [];
+      let pending = orders.length;
+
+      if (!pending) {
+        return res.json({ success: true, added: 0, updated: 0, conflicts: [] });
+      }
+
+      const finish = () => {
+        if (--pending === 0) {
+          writeAuditLog(req, 'pallet.sync_orders', 'orders', '', `同步訂單→打板：新增 ${added}，更新 ${updated}，衝突 ${conflicts.length}`);
+          res.json({ success: true, added, updated, conflicts });
+        }
+      };
+
+      orders.forEach(order => {
+        const mawb = String(order.mawb).trim();
+        const client = order.customer_company_name || '';
+        const remarkParts = [order.pickup_no ? `提貨號: ${order.pickup_no}` : ''].filter(Boolean);
+        const remark = remarkParts.length ? remarkParts.join(' | ') : '';
+        const spl = order.power_code || '';
+        const hawb = order.hawb || '';
+        const dest = order.dest || '';
+        const pcs = parseInt(order.quantity, 10) || 0;
+        const grossWeight = parseFloat(order.weight_kg) || 0;
+        const cbm = parseFloat(order.cbm) || 0;
+
+        db.get("SELECT id, order_id FROM mawb_records WHERE mawb = ?", [mawb], (findErr, existing) => {
+          if (findErr) return finish();
+          if (!existing) {
+            db.run(
+              `INSERT INTO mawb_records (mawb, hawb, client, dest, pcs, gross_weight, volume_weight, cbm, spl, remark, order_id)
+               VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+              [mawb, hawb, client, dest, pcs, grossWeight, cbm, spl, remark, order.id],
+              (insErr) => {
+                if (insErr) console.error('[sync-orders] 建立失敗:', insErr.message);
+                else added++;
+                finish();
+              }
+            );
+          } else if (existing.order_id === order.id) {
+            db.run(
+              `UPDATE mawb_records SET
+                 hawb = ?, client = ?, dest = ?, pcs = ?, gross_weight = ?, cbm = ?, spl = ?, remark = ?,
+                 updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?`,
+              [hawb, client, dest, pcs, grossWeight, cbm, spl, remark, existing.id],
+              (updErr) => {
+                if (updErr) console.error('[sync-orders] 更新失敗:', updErr.message);
+                else updated++;
+                finish();
+              }
+            );
+          } else if (overwrite_conflicts) {
+            db.run(
+              `UPDATE mawb_records SET
+                 hawb = ?, client = ?, dest = ?, pcs = ?, gross_weight = ?, cbm = ?, spl = ?, remark = ?,
+                 order_id = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?`,
+              [hawb, client, dest, pcs, grossWeight, cbm, spl, remark, order.id, existing.id],
+              (updErr) => {
+                if (updErr) console.error('[sync-orders] 衝突覆寫失敗:', updErr.message);
+                else updated++;
+                finish();
+              }
+            );
+          } else {
+            conflicts.push({
+              order_id: order.id,
+              order_no: order.order_no,
+              mawb,
+              existing_mawb_id: existing.id
+            });
+            finish();
+          }
+        });
+      });
     }
   );
 });

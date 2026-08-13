@@ -148,13 +148,17 @@ export function renderNewOrderForm(prefill = null, preserveCurrentType = false) 
               <label>📅 提貨日期</label>
               <input type="date" id="order-pickup-date" value="${getTodayDateStr()}" />
             </div>
-            <div class="orders-form-field">
+            <div class="orders-form-field pickup-time-field">
               <label>⏰ 提貨時間</label>
               <div class="pickup-time-picker">
                 <input type="text" id="order-pickup-time" value="${getNowTimeStr()}" readonly placeholder="--:--" />
                 <button type="button" class="pickup-time-clock" id="btn-pickup-time-clock" title="開啟時間選擇器">🕐</button>
                 <div class="pickup-time-popup" id="pickup-time-popup"></div>
               </div>
+              <label class="pickup-time-unknown">
+                <input type="checkbox" id="order-pickup-time-unknown" />
+                <span>提貨時間未知</span>
+              </label>
             </div>
           </div>
         </div>
@@ -352,10 +356,12 @@ export function getCurrentFormData() {
     powerCode = POWER_LATE_LABEL;
   }
 
+  const pickupUnknown = document.getElementById('order-pickup-time-unknown')?.checked || false;
   const pickupDate = document.getElementById('order-pickup-date')?.value || '';
   const pickupTime = document.getElementById('order-pickup-time')?.value || '';
+  // 勾選「提貨時間未知」→ 不送出任何日期/時間
   let pickupDatetime = '';
-  if (pickupDate) {
+  if (!pickupUnknown && pickupDate) {
     pickupDatetime = pickupTime ? `${pickupDate} ${pickupTime}` : pickupDate;
   }
 
@@ -454,6 +460,33 @@ export function setupNewOrderFormEvents() {
     clockBtn: document.getElementById('btn-pickup-time-clock'),
     popup: document.getElementById('pickup-time-popup')
   });
+
+  // ===== 「提貨時間未知」checkbox：勾選後清空並停用日期/時間欄位 =====
+  const pickupUnknownCheckbox = document.getElementById('order-pickup-time-unknown');
+  const pickupDateInput = document.getElementById('order-pickup-date');
+  const pickupTimeInput = document.getElementById('order-pickup-time');
+  const pickupClockBtn = document.getElementById('btn-pickup-time-clock');
+  if (pickupUnknownCheckbox) {
+    const applyPickupUnknown = (isUnknown) => {
+      // 勾選 → 清空並停用；取消 → 恢復並填回今天日期
+      if (isUnknown) {
+        if (pickupDateInput) pickupDateInput.value = '';
+        if (pickupTimeInput) pickupTimeInput.value = '';
+      } else {
+        if (pickupDateInput && !pickupDateInput.value) pickupDateInput.value = getTodayDateStr();
+        if (pickupTimeInput && !pickupTimeInput.value) pickupTimeInput.value = getNowTimeStr();
+      }
+      [pickupDateInput, pickupTimeInput, pickupClockBtn].forEach(el => {
+        if (el) el.disabled = isUnknown;
+      });
+      // 關閉可能開啟的時間選擇彈窗
+      const popup = document.getElementById('pickup-time-popup');
+      if (popup) popup.style.display = 'none';
+    };
+    pickupUnknownCheckbox.addEventListener('change', () => {
+      applyPickupUnknown(pickupUnknownCheckbox.checked);
+    });
+  }
 
   // 備註文字範本搜尋
   setupNoteTemplateSearch();
@@ -996,6 +1029,17 @@ export function loadOrderToForm(order) {
       if (pickupDateEl) pickupDateEl.value = pickupDate || getTodayDateStr();
       const pickupTimeEl = document.getElementById('order-pickup-time');
       if (pickupTimeEl) pickupTimeEl.value = pickupTime || '';
+
+      // 訂單沒有提貨日期/時間 → 自動勾選「提貨時間未知」並停用欄位
+      const pickupUnknownEl = document.getElementById('order-pickup-time-unknown');
+      if (pickupUnknownEl && !order.pickup_datetime) {
+        pickupUnknownEl.checked = true;
+        if (pickupDateEl) pickupDateEl.value = '';
+        if (pickupTimeEl) pickupTimeEl.value = '';
+        [pickupDateEl, pickupTimeEl, document.getElementById('btn-pickup-time-clock')].forEach(el => {
+          if (el) el.disabled = true;
+        });
+      }
 
       // 公司欄位（客戶 + 地點 A/B：input 顯示名稱 + hidden id）
       const companyFields = [

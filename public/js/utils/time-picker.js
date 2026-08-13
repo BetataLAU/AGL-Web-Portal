@@ -60,8 +60,8 @@ function setupTimePicker(options = {}) {
   });
 
   input.addEventListener('focus', () => {
-    // 初始游標放在分鐘段，方便直接上下調整
-    input.setSelectionRange(3, 5);
+    // 初始游標放在小時段（由「提貨日期」TAB 過來時直接調整小時）
+    input.setSelectionRange(0, 2);
   });
 
   // === 🕐 CLOCK 彈出 ===

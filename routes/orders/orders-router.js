@@ -115,13 +115,26 @@ router.post('/open-email-client', (req, res) => {
     try {
       const bodyFile = writeTempFile('agl-email-body.html', htmlBody || '');
       const subjectFile = writeTempFile('agl-email-subject.txt', subject);
+      const outlookExe = findOutlookClassic();
       const psFile = writeTempFile('agl-email-com.ps1', [
         "$ErrorActionPreference = 'Stop'",
         "$bodyFile = '" + bodyFile + "'",
         "$subjectFile = '" + subjectFile + "'",
+        "$outlookExe = '" + (outlookExe || '') + "'",
         "$bodyHtml = Get-Content -Path $bodyFile -Raw -Encoding UTF8",
         "$subject = Get-Content -Path $subjectFile -Raw -Encoding UTF8",
         "try {",
+        "  # 若 Outlook 尚未開啟，先啟動「可見」主程式實例，確保 Display() 會真的彈出郵件視窗",
+        "  # （直接 New-Object -ComObject 在 Outlook 未執行時會啟動無 UI 後台實例，Display() 不會彈窗）",
+        "  $proc = Get-Process -Name 'OUTLOOK' -ErrorAction SilentlyContinue",
+        "  if (-not $proc) {",
+        "    if ($outlookExe -and (Test-Path $outlookExe)) {",
+        "      Start-Process -FilePath $outlookExe",
+        "      Start-Sleep -Seconds 8",
+        "    } else {",
+        "      throw '找不到 Outlook 執行檔'",
+        "    }",
+        "  }",
         "  $outlook = New-Object -ComObject Outlook.Application",
         "  $mail = $outlook.CreateItem(0)",
         "  $mail.To = ''",

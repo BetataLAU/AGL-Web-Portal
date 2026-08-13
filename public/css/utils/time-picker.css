@@ -105,3 +105,41 @@
   cursor: pointer;
 }
 .pickup-time-done:hover { transform: translateY(-1px); }
+
+/* ===== 「提貨時間未知」checkbox ===== */
+.pickup-time-unknown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  margin-top: 2px;
+}
+.pickup-time-unknown input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* 勾選「提貨時間未知」後：停用欄位視覺淡化 */
+.pickup-time-picker input[type="text"]:disabled,
+.pickup-time-clock:disabled {
+  opacity: 0.5;
+  background: var(--border-color, #e5e7eb);
+  cursor: not-allowed;
+}
+.pickup-time-picker input[type="text"]:disabled {
+  color: var(--text-muted, #6b7280);
+}
+input[type="date"]:disabled {
+  opacity: 0.5;
+  background: var(--border-color, #e5e7eb);
+  cursor: not-allowed;
+  color: var(--text-muted, #6b7280);
+}

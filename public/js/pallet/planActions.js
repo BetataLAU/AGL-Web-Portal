@@ -16,6 +16,7 @@ import { buildPlanTextSummary } from './formatters.js';
 import { loadBookings } from './bookingsController.js';
 import { showPlanModal, showStatusModal, showContourPreview } from './planModal.js';
 import { renderPlanCard } from './planCardRenderer.js';
+import { bindPlanCardExtras } from './planSorting.js';
 
 let plansColEl = null;
 
@@ -55,59 +56,45 @@ export function renderPlans() {
   }).join('');
 
   bindPlanCardEvents(plansColEl);
+  bindPlanCardExtras(plansColEl, renderPlans);
   setupMoreMenus(plansColEl);
   updateActionButtonsState();
 }
 
-// ===== More 選單（dropdown） =====
+// ===== More 選單（dropdown：純 CSS .hidden 開關） =====
 export function setupMoreMenus(container) {
   container.querySelectorAll('.pallet-more-menu[data-more-menu]').forEach(menu => {
     const toggleBtn = menu.querySelector('[data-action="more-toggle"]');
     const dropdown = menu.querySelector('.pallet-more-dropdown');
+    const card = menu.closest('.pallet-plan-card');
 
     toggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isOpen = menu.classList.contains('open');
+      const isOpen = !dropdown.classList.contains('hidden');
+      // 先關閉其他已開啟的 menu
       closeAllMoreMenus(container);
+      // 再切換目前 menu
       if (!isOpen) {
-        menu.classList.add('open');
-        // ===== fixed 定位：徹底脫離卡片 overflow:hidden 裁切 =====
-        // 用 toggle 按鈕的視窗座標，直接把 dropdown 釘在視窗層級
-        requestAnimationFrame(() => {
-          const btnRect = toggleBtn.getBoundingClientRect();
-          const viewportH = window.innerHeight || document.documentElement.clientHeight;
-          const dropdownH = dropdown.offsetHeight;
-          const spaceBelow = viewportH - btnRect.bottom;
-          dropdown.style.position = 'fixed';
-          dropdown.style.minWidth = '150px';
-          dropdown.style.right = `${Math.max(8, window.innerWidth - btnRect.right)}px`;
-          dropdown.style.left = 'auto';
-          // 若下方空間不足 → 向上展開
-          if (spaceBelow < dropdownH + 8) {
-            menu.classList.add('drop-up');
-            dropdown.style.top = `${Math.max(8, btnRect.top - dropdownH - 4)}px`;
-            dropdown.style.bottom = 'auto';
-          } else {
-            menu.classList.remove('drop-up');
-            dropdown.style.top = `${btnRect.bottom + 4}px`;
-            dropdown.style.bottom = 'auto';
-          }
-        });
-      } else {
-        menu.classList.remove('open');
+        dropdown.classList.remove('hidden');
+        if (card) card.classList.add('has-open-menu');
       }
     });
 
     dropdown.querySelectorAll('button[data-action]').forEach(btn => {
       btn.addEventListener('click', () => {
-        menu.classList.remove('open');
+        dropdown.classList.add('hidden');
+        if (card) card.classList.remove('has-open-menu');
       });
     });
   });
 }
 
 export function closeAllMoreMenus(container) {
-  container.querySelectorAll('.pallet-more-menu.open').forEach(m => m.classList.remove('open'));
+  container.querySelectorAll('.pallet-more-dropdown').forEach(dd => {
+    dd.classList.add('hidden');
+    const c = dd.closest('.pallet-plan-card');
+    if (c) c.classList.remove('has-open-menu');
+  });
 }
 
 // ===== 綁定卡片事件（Header 選定 / 明細多選 / 箭頭 / Body 切換） =====
@@ -173,7 +160,8 @@ export function bindPlanCardEvents(container) {
   });
 
   // 操作按鈕（data-action：edit/lock/unlock/duplicate/print/excel/copy-summary/status/delete）
-  container.querySelectorAll('.pallet-plan-action-btn[data-action]').forEach(btn => {
+  // 排除 more-toggle：該按鈕由 setupMoreMenus 專責處理，避免雙重綁定
+  container.querySelectorAll('.pallet-plan-action-btn[data-action]:not([data-action="more-toggle"])').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const card = btn.closest('.pallet-plan-card');

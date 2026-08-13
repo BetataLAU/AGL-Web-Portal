@@ -7,6 +7,19 @@ import {
 import {
   STATUS_LABEL, formatNumber, formatWeight, splBadgeClass, getFlightCountdown
 } from './formatters.js';
+import { getMawbSort, sortItemsByMawb } from './planSorting.js';
+
+// ===== 跨板重複：過濾非取消的 Plan 引用 =====
+function activePlanRefs(item) {
+  return (item.plan_refs || []).filter(ref => ref.status !== 'cancelled');
+}
+
+// 方案 A：行內黃色警告標籤（重複存在於 2 板或以上才顯示）
+function dupWarnHtml(refs) {
+  if (refs.length < 2) return '';
+  const tooltip = `此 MAWB 同時存在於 ${refs.length} 個打板計劃：&#10;${refs.map(r => `• ${escapeHtml(r.plan_no)}（${escapeHtml(r.status)}）`).join('&#10;')}`;
+  return `<span class="pallet-multi-plan-warn" title="${tooltip}">⚠️${refs.length}板</span>`;
+}
 
 // ===== 單張 Plan Card HTML =====
 export function renderPlanCard(plan, collapsed) {
@@ -24,8 +37,17 @@ export function renderPlanCard(plan, collapsed) {
   const totals = plan.totals || {};
   const overweight = plan.max_gross_weight && Number(totals.gross_weight) > Number(plan.max_gross_weight);
   const overweightHtml = overweight
-    ? `<span class="pallet-plan-overweight" title="毛重已超過最大承重上限">⚠️ 超重 ${formatWeight(totals.gross_weight)} / 上限 ${formatWeight(plan.max_gross_weight)} kg</span>`
+    ? `<span class="pallet-plan-overweight" title="毛重已超過最大承重上限">⚠️ 超重 +${formatWeight(Number(totals.gross_weight) - Number(plan.max_gross_weight))} kg</span>`
     : '';
+
+  // ===== header meta 項目（航班 / 目的地 / 倒數 / 超重，以 | 分隔） =====
+  const headerMetaParts = [
+    `<span class="header-flight" title="航班資料">✈️ ${escapeHtml(plan.flight_no || '-')} ${escapeHtml(formatterShortDate(plan.flight_date))}</span>`,
+    `<span class="header-dest" title="目的地機場">📍 ${escapeHtml(plan.arrival_airport || '-')}</span>`
+  ];
+  if (countdownHtml) headerMetaParts.push(countdownHtml);
+  if (overweightHtml) headerMetaParts.push(overweightHtml);
+  const headerMetaHtml = headerMetaParts.map((part, i) => (i > 0 ? `<span class="header-meta-sep">|</span>${part}` : part)).join('');
 
   const isDraft = plan.status === 'draft';
   const showBody = !collapsed;
@@ -47,24 +69,17 @@ export function renderPlanCard(plan, collapsed) {
             <span class="plan-no">${escapeHtml(plan.plan_no)}</span>
             ${statusBadge}
           </span>
-          <span class="pallet-plan-header-meta">
-            <span class="header-flight" title="航班資料">✈️ ${escapeHtml(plan.flight_no || '-')} ${escapeHtml(formatterShortDate(plan.flight_date))}</span>
-            <span class="header-dest" title="目的地機場">📍 ${escapeHtml(plan.arrival_airport || '-')}</span>
-            ${countdownHtml}
-            ${overweightHtml}
-          </span>
           ${isSelected ? '<span class="pallet-selected-flag">目標</span>' : ''}
+          <span class="pallet-plan-header-meta">
+            ${headerMetaHtml}
+          </span>
         </div>
         <div class="pallet-plan-actions">
-          <button type="button" class="pallet-plan-action-btn close-plan-btn" data-action="close-plan" title="關閉此打板計劃（可從搜尋重新開啟）"><i class="fa-solid fa-xmark"></i></button>
-          ${isDraft ? `
-            <button type="button" class="pallet-plan-action-btn primary-action" data-action="edit" title="編輯計劃"><i class="fa-solid fa-pen"></i></button>
-          ` : ''}
-          <div class="pallet-more-menu" data-more-menu>
+          <div class="pallet-more-menu action-menu-wrapper" data-more-menu>
             <button type="button" class="pallet-plan-action-btn" data-action="more-toggle" title="更多操作">
               <i class="fa-solid fa-ellipsis"></i>
             </button>
-            <div class="pallet-more-dropdown">
+            <div class="pallet-more-dropdown hidden">
               ${isDraft ? `
                 <button type="button" data-action="lock" title="鎖定後不可修改"><i class="fa-solid fa-lock"></i> 上鎖</button>
               ` : `
@@ -77,35 +92,62 @@ export function renderPlanCard(plan, collapsed) {
               <button type="button" data-action="status" title="變更狀態"><i class="fa-solid fa-flag"></i> 變更狀態</button>
             </div>
           </div>
+          ${isDraft ? `
+            <button type="button" class="pallet-plan-action-btn primary-action" data-action="edit" title="編輯計劃"><i class="fa-solid fa-pen"></i></button>
+          ` : ''}
+          <button type="button" class="pallet-plan-action-btn close-plan-btn" data-action="close-plan" title="關閉此打板計劃（可從搜尋重新開啟）"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
       ${showBody ? `<div class="pallet-plan-body">${bodyHtml}</div>` : ''}
-    </div>
-    <div class="pallet-plan-footer">
-      <button type="button" class="pallet-plan-delete-btn" data-action="delete" title="刪除計劃（不可復原）"><i class="fa-solid fa-trash"></i> 刪除</button>
+      <div class="pallet-plan-footer">
+        <button type="button" class="pallet-plan-action-btn pallet-plan-delete-btn danger" data-action="delete" title="刪除計劃（不可復原）"><i class="fa-solid fa-trash"></i> 刪除</button>
+      </div>
     </div>
   `;
 }
 
-// ===== Plan Body（摘要 + 資訊 Accordion + 備註 + 明細表 + 總計） =====
+// ===== Plan Body（重複警告橫幅 + 摘要 + 資訊 Accordion + 備註 + 明細表 + 總計） =====
 function renderPlanBody(plan) {
   const items = getPlanItems(plan.id);
   const isDraft = plan.status === 'draft';
   const selectedSet = getSelectedPlanItemIds(plan.id);
+  const sortDir = getMawbSort(plan.id);
+  const sortedItems = sortItemsByMawb(items, sortDir);
   const contourChip = plan.contour_code
     ? `<span class="pallet-contour-chip" data-contour-code="${escapeHtml(plan.contour_code)}" title="點擊查看 Contour 圖片">🖼 ${escapeHtml(plan.contour_code)}</span>`
     : '';
 
-  const rows = items.length ? items.map((it, idx) => {
+  // ===== 方案 C：卡片內重複警告橫幅（展開時顯示於 Body 頂部） =====
+  const dupItems = sortedItems.filter(it => activePlanRefs(it).length >= 2);
+  const dupBannerHtml = dupItems.length
+    ? `
+    <div class="pallet-plan-dup-banner" data-action="toggle-dup-banner" title="點擊展開/收合重複 MAWB 清單">
+      <span>⚠️ 本板有 <b>${dupItems.length}</b> 個 MAWB 亦存在於其他打板計劃</span>
+      <i class="fa-solid fa-chevron-down"></i>
+    </div>
+    <div class="pallet-plan-dup-list" hidden>
+      ${dupItems.map(it => {
+        const otherRefs = activePlanRefs(it).filter(r => r.plan_id !== plan.id);
+        return `<div class="pallet-plan-dup-item">
+          <span class="dup-mawb">${escapeHtml(it.mawb || '-')}</span>
+          <span class="dup-refs">${otherRefs.map(r => `<span class="dup-ref">${escapeHtml(r.plan_no)}（${escapeHtml(r.status)}）</span>`).join('')}</span>
+        </div>`;
+      }).join('')}
+    </div>`
+    : '';
+
+  const rows = sortedItems.length ? sortedItems.map((it, idx) => {
     const selected = selectedSet.has(it.plan_item_id);
     const splClass = splBadgeClass(it.spl);
     const splHtml = it.spl
       ? `<span class="pallet-spl-badge ${splClass}">${escapeHtml(it.spl)}</span>`
       : `<span class="t-subtle">-</span>`;
+    const refs = activePlanRefs(it);
+    const dupHtml = dupWarnHtml(refs);
     return `
       <tr data-plan-item-id="${it.plan_item_id}" class="${selected ? 'selected-row' : ''}" ${isDraft ? 'draggable="true"' : ''}>
         <td class="t-subtle drag-cell">${isDraft ? '<span class="drag-handle" title="可拖曳到其他打板計劃或左欄">⠿</span>' : ''}${idx + 1}</td>
-        <td class="mawb-cell">${escapeHtml(it.mawb || '-')}</td>
+        <td class="mawb-cell">${escapeHtml(it.mawb || '-')}${dupHtml}</td>
         <td class="t-value">${escapeHtml(it.hawb || '-')}</td>
         <td class="t-value">${escapeHtml(truncateText(it.client, 18))}</td>
         <td class="t-value">${escapeHtml(it.dest || '-')}</td>
@@ -122,11 +164,24 @@ function renderPlanBody(plan) {
 
   const totals = plan.totals || {};
 
+  // ===== meta summary 次要項目（策劃 / 板型規格 / 上限，以 | 分隔） =====
+  const metaParts = [];
+  if (plan.planner) metaParts.push(`<span class="meta-planner">策劃：${escapeHtml(plan.planner)}</span>`);
+  if (plan.contour_text) metaParts.push(`<span class="meta-contour">板型規格：${escapeHtml(plan.contour_text)}</span>`);
+  if (plan.max_gross_weight) metaParts.push(`<span class="meta-max-weight">上限 ${formatWeight(plan.max_gross_weight)}kg</span>`);
+  const metaItemsHtml = metaParts.map((part, i) => (i > 0 ? `<span class="meta-sep">|</span>${part}` : part)).join('');
+
+  // ===== MAWB 排序表頭 =====
+  const sortIcon = sortDir === 'asc' ? 'fa-sort-up' : sortDir === 'desc' ? 'fa-sort-down' : 'fa-sort';
+  const sortTitle = sortDir === 'asc' ? '目前：小到大 — 點擊改為大到小'
+    : sortDir === 'desc' ? '目前：大到小 — 點擊取消排序'
+    : '點擊排序 MAWB（小到大）';
+
   return `
+    ${dupBannerHtml}
     <div class="pallet-plan-meta-summary" data-action="info-toggle" title="點擊展開/收合詳細資訊">
       <span class="meta-company">${escapeHtml(plan.company_name || '-')}</span>
-      ${plan.planner ? `<span class="meta-planner">策劃：${escapeHtml(plan.planner)}</span>` : ''}
-      ${plan.max_gross_weight ? `<span class="meta-max-weight">上限 ${formatWeight(plan.max_gross_weight)}kg</span>` : ''}
+      ${metaItemsHtml}
       <span class="pallet-plan-info-toggle">
         <i class="fa-solid fa-chevron-down"></i> 詳情
       </span>
@@ -146,7 +201,11 @@ function renderPlanBody(plan) {
         <thead>
           <tr>
             <th>#</th>
-            <th>MAWB</th>
+            <th class="mawb-th">
+              <button type="button" class="pallet-mawb-sort-btn" data-action="sort-mawb" title="${sortTitle}">
+                MAWB <i class="fa-solid ${sortIcon}"></i>
+              </button>
+            </th>
             <th>HAWB</th>
             <th>CLIENT</th>
             <th>DEST</th>

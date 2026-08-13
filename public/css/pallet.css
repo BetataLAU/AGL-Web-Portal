@@ -419,8 +419,10 @@
   border: 1px solid var(--border-color);
   border-radius: 14px;
   background: var(--card-bg);
-  overflow: hidden;
+  overflow: visible;   /* 避免裁切向下展開的 dropdown menu */
 }
+/* dropdown 開啟中的卡片提高層級，避免被後方卡片覆蓋 */
+.pallet-plan-card.has-open-menu { position: relative; z-index: 50; }
 .pallet-plan-card.dragover { border-color: var(--primary, #2563eb); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
 .pallet-plan-card.status-locked { border-color: #059669; }
 .pallet-plan-card.status-completed { opacity: 0.82; border-color: #64748b; }
@@ -489,8 +491,10 @@
   background: rgba(37, 99, 235, 0.05);
 }
 
-/* Header meta：次要灰字 */
+/* Header meta：次要灰字（與標題分開，獨立一行） */
 .pallet-plan-header-meta {
+  flex-basis: 100%;          /* 強制換行：與標題分開成下一行 */
+  margin-left: 32px;         /* 對齊標題（arrow 24px + gap 8px） */
   font-size: 0.72rem;
   color: var(--text-muted, #64748b);
   display: flex;
@@ -500,25 +504,26 @@
   white-space: nowrap;   /* 航班/目的地/倒數保持單行 */
 }
 .pallet-plan-header-meta > span { display: inline-flex; align-items: center; gap: 3px; }
-
-/* ===== Plan Footer（垃圾桶右下角 + 紅色） ===== */
+.pallet-plan-header-meta .header-meta-sep { color: var(--text-faint, #94a3b8); font-weight: 400; }
 .pallet-plan-footer {
   display: flex;
   justify-content: flex-end;
-  padding: 6px 10px 8px;
+  padding: 5px 10px 7px;
   border-top: 1px solid var(--border-color);
+  background: rgba(148, 163, 184, 0.03);
+  border-radius: 0 0 13px 13px;   /* 取代卡片 overflow:hidden 的圓角收尾 */
 }
 .pallet-plan-delete-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 30px;
-  padding: 4px 12px;
+  min-height: 28px;
+  padding: 3px 10px;
   border: 1px solid rgba(220, 38, 38, 0.35);
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgba(220, 38, 38, 0.08);
   color: #dc2626;   /* 常態紅色 */
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
@@ -529,6 +534,88 @@
 }
 .pallet-plan-header-meta .header-flight,
 .pallet-plan-header-meta .header-dest { color: var(--text-muted, #64748b); }
+
+/* ===== MAWB 表頭排序按鈕 ===== */
+.pallet-mawb-th { white-space: nowrap; }
+.pallet-mawb-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-size: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.15s, background 0.15s;
+}
+.pallet-mawb-sort-btn:hover { color: var(--primary, #2563eb); background: rgba(37, 99, 235, 0.08); }
+.pallet-mawb-sort-btn i { font-size: 0.7rem; color: var(--text-faint, #94a3b8); }
+.pallet-mawb-sort-btn:hover i { color: var(--primary, #2563eb); }
+
+/* ===== REMARK 截斷（Hover 顯示完整 tooltip） ===== */
+.pallet-items-table .cell-remark {
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
+}
+
+/* ===== 方案 C：卡片內重複 MAWB 警告橫幅 ===== */
+.pallet-plan-dup-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(234, 179, 8, 0.12);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.3);
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+.pallet-plan-dup-banner b { color: #b45309; }
+.pallet-plan-dup-banner i { margin-left: auto; font-size: 0.7rem; color: #b45309; }
+.pallet-plan-dup-banner:hover { background: rgba(234, 179, 8, 0.18); }
+.pallet-plan-dup-list {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: rgba(234, 179, 8, 0.05);
+  max-height: 140px;
+  overflow-y: auto;
+}
+.pallet-plan-dup-list[hidden] { display: none; }
+.pallet-plan-dup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.73rem;
+  padding: 3px 0;
+}
+.pallet-plan-dup-item .dup-mawb {
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+.pallet-plan-dup-item .dup-refs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pallet-plan-dup-item .dup-ref {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #92400e;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 20px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
 
 /* 倒數計時：非緊急為灰字；僅緊急紅字 */
 .pallet-plan-countdown {
@@ -587,24 +674,29 @@
 .pallet-plan-action-btn.primary-action { color: var(--primary, #2563eb); }
 .pallet-plan-action-btn.danger:hover { color: #dc2626; }
 
-/* More dropdown */
-.pallet-more-menu { position: relative; display: inline-flex; }
+/* More dropdown（action-menu-wrapper = pallet-more-menu 同義 wrapper） */
+.pallet-more-menu,
+.pallet-more-menu.action-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
 .pallet-more-dropdown {
   position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 30;
+  top: calc(100% + 4px);   /* 緊貼按鈕下方 */
+  right: 0;                /* 對齊 wrapper/按鈕右邊，往左展開 */
+  left: auto;
+  z-index: 999;
   min-width: 150px;
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 5px;
-  display: none;
+  display: flex;
   flex-direction: column;
   gap: 1px;
 }
-.pallet-more-menu.open .pallet-more-dropdown { display: flex; }
+.pallet-more-dropdown.hidden { display: none; }
 .pallet-more-dropdown button {
   display: flex;
   align-items: center;
@@ -649,7 +741,9 @@
   max-width: 45%;
 }
 .pallet-plan-meta-summary .meta-planner,
+.pallet-plan-meta-summary .meta-contour,
 .pallet-plan-meta-summary .meta-max-weight { white-space: nowrap; }
+.pallet-plan-meta-summary .meta-sep { color: var(--text-faint, #94a3b8); font-weight: 400; }
 .pallet-plan-info-toggle {
   margin-left: auto;
   font-weight: 600;

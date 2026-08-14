@@ -20,9 +20,13 @@ function redirectToLogin() {
 }
 
 async function apiFetch(url, options = {}) {
+  // FormData 上傳（如檔案的 multipart/form-data）時不可指定 Content-Type，
+  // 否則會覆蓋瀏覽器自動產生的 boundary，導致伺服器解析失敗（HTTP 400）
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const defaultHeaders = isFormData ? {} : { 'Content-Type': 'application/json' };
   const res = await fetch(url, {
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: defaultHeaders,
     ...options
   });
 

@@ -60,6 +60,50 @@ CBM     ：0.52
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
+## ✈️ Shipper Role Project（空運單據工具）
+
+整合於 Sidebar 的「Shipper Role Project」入口（需登入）。用於將客戶提供的 XLS 配對表轉成一系列出貨單據。
+
+### 使用流程
+
+1. **上傳 XLS**：拖曳 XLS/XLSX/XLSM 檔案（可多個）
+2. **預覽與定義欄位**：系統顯示表頭與資料，點選每一欄上方下拉選單指定類型（MAWB# / DEST / 件數 / 重量 / 帶電件數 / 航班號 / 航班日期 / REMARK / CNEE 名稱）。支援資料起始列設定。
+3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK）供核對
+4. **執行產生**：一次完成下列全部動作
+   - Report 寫入 `Shipper role service - Summary` 對應月份 sheet（列 6 起，同航班只填首列 A/B）
+   - SLI 填表（MAWB#、航班公司碼、DEST、CNEE、日期）→ `{MAWB#} SLI.pdf`
+   - ELI 填表（MAWB#、DEST、CNEE、CNEE 電話、日期）→ `{MAWB#} ELI.pdf`
+   - 合併同名 SLI+ELI → `{MAWB#}.pdf`（SLI/ELI 單獨檔自動刪除）
+   - 依航班分組打包 → `{航班號}-{DDMMM} x {份數}.zip`（如 `CX257-03AUG x 2.zip`）
+
+### 功能特色
+
+| 功能 | 說明 |
+|------|------|
+| 格式彈性 | 不限欄位順序，透過介面「定義欄位」適用各種來源格式 |
+| CNEE 對照區 | 支援 OPEN 單類的「DEST → CNEE 對照區」，依 DEST + REMARK 自動挑選正確 CNEE |
+| CNEE 電話 | 從 CNEE 文字內容自動抽取 TEL（如 `TEL: +44 208 897 0490`）填入 ELI N21 |
+| 巨集相容 | 直接以 Excel COM 開啟 xlsm 模板，避開 openpyxl/exceljs 巨集轉檔不相容 |
+| 權限 | 需登入；登入後 Sidebar 解鎖 |
+
+### API
+
+```http
+POST /api/xls-booking/upload                       # 上傳 XLS（multipart，欄位名 files）
+GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex   # 預覽 sheet
+POST /api/xls-booking/process                      # 執行完整工作流程
+GET  /api/xls-booking/download/:type/:jobId/:name  # 下載產出（report / zip）
+GET  /api/xls-booking/templates                    # 模板狀態檢查
+```
+
+### 技術備註
+
+- PDF 轉檔依賴 **Office 365 Excel COM**（pywin32），需在同一台安裝 Excel 的電腦執行。
+- 模板固定放置於 `data/templates/`：
+  - `cainiao-sli-eli-template.xlsm`（SLI = air sheet、ELI = ELI LETTER sheet）
+  - `shipper-role-summary-202608.xlsx`（report 模板，含各月份 sheet）
+- 產出檔案暫時存放於 `data/work/`，可透過下載連結取得。
+
 ## 📁 專案目錄結構
 
 ```text
@@ -179,6 +223,9 @@ GET /api/contour-image/...
 - 後端邏輯與資料庫初始化：server.js、db/database.js
 - 訂單系統後端：routes/orders.js
 - 訂單系統前端：public/js/orders.js、public/css/orders.css
+- Shipper Role Project 後端：routes/xls-booking.js、scripts/xls-workflow.js、scripts/sli-eli-generate.py、scripts/excel-to-pdf.py
+- Shipper Role Project 前端：public/js/xls-booking.js、public/css/xls-booking.css
+- Shipper Role Project 模板：data/templates/
 
 ## 🎨 主題相關
 

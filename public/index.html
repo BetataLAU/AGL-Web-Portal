@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/orders.css">
   <link rel="stylesheet" href="css/pallet.css">
   <link rel="stylesheet" href="css/dbviewer.css">
+  <link rel="stylesheet" href="css/xls-booking.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -77,6 +78,10 @@
               <a href="#section-orders" class="nav-item" id="nav-orders">
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-orders-lock" title="需要登入"></i>
+              </a>
+              <a href="#section-xls-booking" class="nav-item" id="nav-xls-booking">
+                <i class="fa-solid fa-file-export"></i> <span>Shipper Role Project</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-xls-booking-lock" title="需要登入"></i>
               </a>
               <a href="#section-palletization" class="nav-item" id="nav-palletization">
                 <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>
@@ -246,6 +251,43 @@
         </div>
       </section>
 
+      <!-- Shipper Role Project 頁面 -->
+      <section id="section-xls-booking" class="content-section">
+        <div class="card xls-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-file-export"></i> Shipper Role Project</h2>
+              <p class="card-desc">上傳客戶 XLS 配對表 → 定義欄位 → 產生 Report / SLI / ELI PDF（合併）→ 依航班打包 ZIP。</p>
+            </div>
+          </div>
+
+          <!-- Step 1: 上傳 -->
+          <h3>① 上傳 XLS 檔案</h3>
+          <div id="xls-drop-zone" class="xls-drop-zone">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>拖曳 XLS/XLSX/XLSM 檔案到這裡，或點擊選擇檔案</p>
+            <input type="file" id="xls-file-input" accept=".xls,.xlsx,.xlsm" multiple style="display:none" />
+          </div>
+          <div id="xls-file-list" class="xls-file-list"></div>
+
+          <!-- Step 2: 預覽與定義 -->
+          <h3>② 預覽與定義欄位</h3>
+          <div id="xls-preview-panel" class="xls-panel" style="display:none;"></div>
+
+          <!-- Step 3: 標準化預覽 -->
+          <h3>③ 標準化結果預覽</h3>
+          <div id="xls-standardized-panel" class="xls-panel" style="display:none;"></div>
+
+          <!-- Step 4: 執行 -->
+          <h3>④ 執行產生</h3>
+          <div class="xls-run-row">
+            <button type="button" class="pill btn-primary" id="xls-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 執行完整工作流程</button>
+            <span id="xls-status" class="xls-status"></span>
+          </div>
+          <div id="xls-result-panel" class="xls-panel" style="display:none;"></div>
+        </div>
+      </section>
+
       <!-- 資料庫檢視器頁面 -->
       <section id="section-dbviewer" class="content-section">
         <div class="card dbviewer-card">
@@ -302,6 +344,7 @@
   <script type="module" src="./js/orders.js"></script>
   <script type="module" src="./js/pallet.js"></script>
   <script src="./js/dbviewer.js"></script>
+  <script src="./js/xls-booking.js"></script>
   <script src="./js/main.js"></script>
 </body>
 </html>

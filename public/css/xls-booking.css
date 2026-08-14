@@ -1,0 +1,255 @@
+/* ===== Shipper Role Project 樣式 ===== */
+
+.xls-card {
+  max-width: 1200px;
+}
+
+.xls-card h3 {
+  margin: 28px 0 12px;
+  font-size: 1.05rem;
+  color: var(--text-main, inherit);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  padding-bottom: 8px;
+}
+
+/* 拖曳上傳區 */
+.xls-drop-zone {
+  border: 2px dashed var(--border-color, #cbd5e1);
+  border-radius: 14px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: var(--bg-muted, rgba(0,0,0,0.02));
+}
+.xls-drop-zone:hover,
+.xls-drop-zone.xls-dragging {
+  border-color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.06);
+}
+.xls-drop-zone i {
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  display: block;
+  color: var(--primary, #2563eb);
+}
+.xls-drop-zone p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* 檔案列表 */
+.xls-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+.xls-file-card {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: var(--card-bg, #fff);
+  min-width: 240px;
+  flex: 1;
+  max-width: 360px;
+}
+.xls-file-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.xls-file-header strong {
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+.xls-file-sheets {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+}
+.xls-file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.xls-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+/* 面板 */
+.xls-panel {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  background: var(--bg-muted, rgba(0,0,0,0.015));
+}
+.xls-panel h4 {
+  margin: 0 0 10px;
+  font-size: 0.98rem;
+}
+
+/* 未指派欄位標籤條 */
+.xls-unassigned-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+.xls-unassigned-label {
+  font-weight: 700;
+  color: #b45309;
+}
+.xls-unassigned-tag {
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  background: rgba(255, 255, 255, 0.6);
+  color: #92400e;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.xls-unassigned-tag:hover {
+  background: rgba(245, 158, 11, 0.2);
+  transform: translateY(-1px);
+}
+.xls-unassigned-ok {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.xls-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.xls-preview-header h4 {
+  margin: 0;
+}
+.xls-preview-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.xls-preview-note {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+  margin: 4px 0;
+}
+
+/* 預覽表格 */
+.xls-preview-table-wrap {
+  overflow: auto;
+  max-height: 480px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+}
+.xls-preview-table {
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  width: 100%;
+}
+.xls-preview-table th,
+.xls-preview-table td {
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 6px 8px;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.xls-preview-table thead th {
+  background: var(--bg-muted, #f1f5f9);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: center;
+  vertical-align: top;
+}
+.xls-preview-table .xls-row-num {
+  color: var(--text-muted, #64748b);
+  background: var(--bg-muted, #f8fafc);
+  text-align: center;
+  min-width: 40px;
+}
+.xls-col-type {
+  font-size: 0.78rem;
+  padding: 3px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--card-bg, #fff);
+  color: var(--text-main, inherit);
+  max-width: 120px;
+}
+.xls-col-letter {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  margin-top: 3px;
+}
+.xls-col-header-cell {
+  font-weight: 400;
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+.xls-preview-footer {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+/* 標準化表格 */
+.xls-standardized-table-wrap {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+}
+
+/* 執行區 */
+.xls-run-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.xls-status {
+  font-size: 0.9rem;
+  color: var(--text, inherit);
+}
+
+/* 結果區 */
+.xls-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+.xls-downloads a.pill {
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+}

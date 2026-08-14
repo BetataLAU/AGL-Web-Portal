@@ -27,6 +27,7 @@ const dbViewerRouter = require('./routes/dbviewer');
 const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
 const palletRouter = require('./routes/pallet');
+const xlsBookingRouter = require('./routes/xls-booking');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -75,6 +76,8 @@ app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 app.use('/api/orders', requireAuth, ordersRouter);
 // 打板計劃：僅限 admin / staff（內部員工操作）
 app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
+// Shipper Role Project（空運單據工具）：登入即可使用
+app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
 app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 

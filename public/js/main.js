@@ -74,6 +74,7 @@ function setupPageNavigation() {
 window.initProtectedSections = function (user) {
   if (typeof setupOrdersSection === 'function') setupOrdersSection();
   if (typeof setupDbViewerSection === 'function') setupDbViewerSection();
+  if (typeof setupXlsBookingSection === 'function') setupXlsBookingSection();
   const role = user && user.role;
   if ((role === 'admin' || role === 'staff') && typeof setupPalletSection === 'function') {
     setupPalletSection();

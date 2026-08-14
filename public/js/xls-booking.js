@@ -366,24 +366,72 @@ async function renderStandardizedPreview(fileIndex) {
   panel.style.display = 'block';
 }
 
-// ===== 執行 =====
+// ===== 執行（含進度條） =====
 async function runXlsWorkflow() {
   if (!xlsState.uploadId || !xlsState.defs.length) {
     alert('請先上傳檔案並定義至少一個檔案的欄位');
     return;
   }
   const btn = document.getElementById('xls-run-btn');
-  if (btn) btn.disabled = true;
   const status = document.getElementById('xls-status');
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = '啟動中...';
+
+  // 顯示進度區塊
+  let progressArea = document.getElementById('xls-progress-area');
+  if (!progressArea) {
+    progressArea = document.createElement('div');
+    progressArea.id = 'xls-progress-area';
+    progressArea.className = 'xls-progress-area';
+    const runRow = document.querySelector('.xls-run-row');
+    if (runRow) runRow.after(progressArea);
+  }
+  progressArea.innerHTML = `
+    <div class="xls-progress-label" id="xls-progress-label">排隊中...</div>
+    <div class="xls-progress-track"><div class="xls-progress-fill" id="xls-progress-fill" style="width:0%"></div></div>
+    <div class="xls-progress-pct" id="xls-progress-pct">0%</div>
+  `;
+  progressArea.style.display = 'block';
+
   try {
-    const res = await apiFetch('/api/xls-booking/process', {
+    // 啟動非同步 job
+    const startRes = await apiFetch('/api/xls-booking/process', {
       method: 'POST',
       body: JSON.stringify({ uploadId: xlsState.uploadId, defs: xlsState.defs }),
     });
-    if (status) status.textContent = `完成：${res.count} 份 PDF。` + (res.errors.length ? ` 有 ${res.errors.length} 個錯誤。` : '');
-    renderResult(res);
+    const jobId = startRes.jobId;
+
+    // 輪詢進度
+    let finished = false;
+    let jobResult = null;
+    for (let attempt = 0; attempt < 1200 && !finished; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const st = await apiFetch(`/api/xls-booking/status/${jobId}`);
+      const fill = document.getElementById('xls-progress-fill');
+      const label = document.getElementById('xls-progress-label');
+      const pct = document.getElementById('xls-progress-pct');
+      const p = Math.max(0, st.progress);
+      if (fill) fill.style.width = `${p}%`;
+      if (pct) pct.textContent = `${Math.round(p)}%`;
+      if (label) label.textContent = st.message || '處理中...';
+
+      if (st.status === 'done') { finished = true; jobResult = st.result; }
+      if (st.status === 'error') {
+        finished = true;
+        throw new Error(st.error || '執行失敗');
+      }
+    }
+
+    if (!jobResult) throw new Error('處理逾時，請檢查伺服器');
+    if (status) status.textContent = `完成：${jobResult.count} 份 PDF。` + (jobResult.errors.length ? ` 有 ${jobResult.errors.length} 個錯誤。` : '');
+    renderResult(jobResult);
+    // 完成後 3 秒自動隱藏進度條
+    setTimeout(() => { progressArea.style.display = 'none'; }, 3000);
   } catch (err) {
     if (status) status.textContent = '執行失敗：' + err.message;
+    progressArea.querySelector('.xls-progress-fill').style.width = '100%';
+    progressArea.querySelector('.xls-progress-fill').style.background = '#dc2626';
+    progressArea.querySelector('.xls-progress-label').textContent = '執行失敗：' + err.message;
   } finally {
     if (btn) btn.disabled = false;
   }

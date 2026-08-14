@@ -1,8 +1,10 @@
 // ===== Shipper Role Project - XLS Booking API 路由 =====
-// POST /api/xls-booking/upload   - 上傳 source xls（多檔）
-// GET  /api/xls-booking/preview  - 依 uploadId + sheetIndex 回傳 sheet 預覽
-// POST /api/xls-booking/process  - 執行完整工作流程（report + SLI/ELI + PDF + merge + zip）
-// GET  /api/xls-booking/download/:type/:name - 下載產出檔案（report / zip）
+// POST /api/xls-booking/upload                       - 上傳 source xls（多檔）
+// GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex  - 預覽 sheet
+// POST /api/xls-booking/process                      - 啟動非同步工作流程（回傳 jobId）
+// GET  /api/xls-booking/status/:jobId                - 輪詢進度（progress % / message / 結果）
+// GET  /api/xls-booking/download/:type/:jobId/:name  - 下載產出檔案（report / zip）
+// GET  /api/xls-booking/templates                    - 模板狀態檢查
 
 const express = require('express');
 const multer = require('multer');
@@ -47,6 +49,8 @@ const upload = multer({
 
 // 記憶 upload session（簡單記憶體暫存，重啟即清空）
 const uploadSessions = new Map(); // uploadId -> { files: [{id, originalName, path, sheets}] }
+// 非同步 job 狀態（jobId -> { progress, message, status, result, error }）
+const jobs = new Map();
 
 // ===== 讀取 xls 檔案的 sheet 清單與預覽 =====
 async function parseWorkbook(filePath) {
@@ -133,7 +137,7 @@ router.get('/preview/:uploadId/:fileId/:sheetIndex', async (req, res) => {
   }
 });
 
-// ===== API: 執行完整工作流程 =====
+// ===== API: 啟動非同步工作流程 =====
 router.post('/process', async (req, res) => {
   try {
     const { uploadId, defs } = req.body || {};
@@ -143,34 +147,58 @@ router.post('/process', async (req, res) => {
     const session = uploadSessions.get(uploadId);
     if (!session) return res.status(404).json({ error: '上傳工作階段已過期，請重新上傳' });
 
-    // 模板路徑（固定使用 data/templates 下的標準模板）
-    const reportTemplate = path.join(TEMPLATES_DIR, 'shipper-role-summary-202608.xlsx');
-    const sliTemplate = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
+    const jobId = crypto.randomBytes(8).toString('hex');
+    jobs.set(jobId, { progress: 0, message: '排隊中...', status: 'running', result: null, error: null });
 
-    // 為避免異動原始 report 模板，複製一份作為輸出
-    const reportCopy = path.join(WORK_DIR, `report-${crypto.randomBytes(4).toString('hex')}.xlsx`);
-    await fsp.copyFile(reportTemplate, reportCopy);
+    // 非同步執行，不阻塞回應
+    (async () => {
+      try {
+        const reportTemplate = path.join(TEMPLATES_DIR, 'shipper-role-summary-202608.xlsx');
+        const sliTemplate = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
+        const reportCopy = path.join(WORK_DIR, `report-${crypto.randomBytes(4).toString('hex')}.xlsx`);
+        await fsp.copyFile(reportTemplate, reportCopy);
 
-    const result = await runWorkflow({
-      files: session.files,
-      defs,
-      reportTemplate: reportCopy,
-      sliTemplate,
-    });
+        const result = await runWorkflow({
+          files: session.files,
+          defs,
+          reportTemplate: reportCopy,
+          sliTemplate,
+          onProgress: (pct, msg) => {
+            const job = jobs.get(jobId);
+            if (job) { job.progress = pct; job.message = msg; }
+          },
+        });
 
-    // 將 zip 檔移到可下載位置（work 目錄內）
-    const jobId = path.basename(result.workDir);
-    res.json({
-      jobId,
-      count: result.count,
-      zipPaths: result.zipPaths.map((p) => ({ name: path.basename(p), path: p })),
-      reportPath: result.reportPath,
-      errors: result.errors,
-      fileResults: result.results || [],
-    });
+        jobs.set(jobId, {
+          progress: 100,
+          message: '完成！',
+          status: 'done',
+          result: {
+            jobId,
+            count: result.count,
+            zipPaths: result.zipPaths.map((p) => ({ name: path.basename(p), path: p })),
+            reportPath: result.reportPath,
+            errors: result.errors,
+            fileResults: result.results || [],
+          },
+          error: null,
+        });
+      } catch (err) {
+        jobs.set(jobId, { progress: -1, message: err.message, status: 'error', result: null, error: err.message });
+      }
+    })();
+
+    res.json({ jobId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===== API: 輪詢進度 =====
+router.get('/status/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: '找不到 job' });
+  res.json({ progress: job.progress, message: job.message, status: job.status, result: job.result, error: job.error });
 });
 
 // ===== API: 下載產出檔案 =====
@@ -195,16 +223,14 @@ router.get('/download/:type/:jobId/:name', async (req, res) => {
   }
 });
 
-// ===== API: 取得模板資訊（前端顯示預設值） =====
+// ===== API: 取得模板資訊 =====
 router.get('/templates', async (req, res) => {
   try {
     const reportPath = path.join(TEMPLATES_DIR, 'shipper-role-summary-202608.xlsx');
     const sliPath = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
-    const reportExists = fs.existsSync(reportPath);
-    const sliExists = fs.existsSync(sliPath);
     res.json({
-      reportTemplate: { name: 'Shipper role service - Summary 202608.xlsx', exists: reportExists },
-      sliEliTemplate: { name: 'Cainiao Booking Template (SI).xlsm', exists: sliExists },
+      reportTemplate: { name: 'Shipper role service - Summary 202608.xlsx', exists: fs.existsSync(reportPath) },
+      sliEliTemplate: { name: 'Cainiao Booking Template (SI).xlsm', exists: fs.existsSync(sliPath) },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

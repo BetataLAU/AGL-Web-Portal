@@ -370,15 +370,16 @@ async function xlsxToPdf(inputPath, outputPath, sheet = null) {
 
 // ===== PDF 合併 =====
 
-/** 合併多個 PDF 檔為一個 */
+/** 合併多個 PDF 檔為一個並壓縮（用 pypdf 重寫，可顯著縮小大小） */
 async function mergePdfs(inputPaths, outputPath) {
-  const out = await PDFDocument.create();
-  for (const p of inputPaths) {
-    const src = await PDFDocument.load(await fsp.readFile(p));
-    const pages = await out.copyPages(src, src.getPageIndices());
-    pages.forEach((pg) => out.addPage(pg));
+  const py = process.env.PYTHON || 'python';
+  const script = path.join(__dirname, 'merge-pdf.py');
+  const args = ['--out', outputPath, ...inputPaths];
+  const { stdout, stderr } = await execFileAsync(py, [script, ...args], { timeout: 120000 });
+  if (stderr && stderr.includes('ERROR')) {
+    throw new Error(`PDF 合併/壓縮失敗: ${stderr}`);
   }
-  await fsp.writeFile(outputPath, await out.save());
+  return stdout;
 }
 
 // ===== ZIP 打包 =====
@@ -413,13 +414,17 @@ async function zipFiles(files, zipPath, zipRootName = '') {
  * @returns {Promise<{zipPath, reportPath, count, errors}>}
  */
 async function runWorkflow(opts) {
-  const { files, defs, reportTemplate, sliTemplate } = opts;
+  const { files, defs, reportTemplate, sliTemplate, onProgress } = opts;
 
   const results = [];
   const errors = [];
   const allRecords = [];
+  const reportProgress = (pct, msg) => {
+    if (typeof onProgress === 'function') onProgress(pct, msg);
+  };
 
   // Step 1: 讀取每個檔案，依定義標準化
+  reportProgress(3, '開始解析檔案...');
   for (const [i, def] of defs.entries()) {
     const file = files[def.fileIndex];
     if (!file) {
@@ -464,6 +469,7 @@ async function runWorkflow(opts) {
   }
 
   // Step 2: Report 寫入
+  reportProgress(15, `解析完成，共 ${allRecords.length} 筆，寫入 Report...`);
   let reportOut = reportTemplate;
   if (allRecords.length) {
     await writeReport(reportTemplate, allRecords);
@@ -505,6 +511,7 @@ async function runWorkflow(opts) {
   if (recordsPayload.length) {
     try {
       // 將 payload 寫入暫存 JSON 檔（execFileAsync 不支援 stdin input，改用檔案參數）
+      reportProgress(25, `產生 ${recordsPayload.length} 份 SLI/ELI PDF（Excel 轉檔中）...`);
       const payloadFile = path.join(workDir, 'sli-eli-payload.json');
       await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: recordsPayload }), 'utf-8');
       const py = process.env.PYTHON || 'python';
@@ -531,6 +538,7 @@ async function runWorkflow(opts) {
   }
 
   // Step 4: 合併 SLI+ELI → {MAWB}.pdf，刪除單獨檔
+  reportProgress(80, `合併 ${sliPdfs.length} 組 SLI + ELI PDF...`);
   const mergedPdfs = [];
   for (let i = 0; i < sliPdfs.length; i++) {
     // 依 sliPdfs 檔名取 MAWB
@@ -549,6 +557,7 @@ async function runWorkflow(opts) {
   }
 
   // Step 5: 依航班分組 zip
+  reportProgress(90, '依航班打包 ZIP...');
   const groups = new Map();
   for (const rec of allRecords) {
     if (!rec.flight) continue;
@@ -568,6 +577,7 @@ async function runWorkflow(opts) {
     zipPaths.push(zipPath);
   }
 
+  reportProgress(100, '完成！');
   return {
     zipPaths,
     reportPath: reportOut,

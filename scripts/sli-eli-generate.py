@@ -79,9 +79,9 @@ def main():
             for coord, val in sli_cells.items():
                 ws_sli.Range(coord).Value = to_excel_value(val)
 
-            # Export SLI PDF
+            # Export SLI PDF（品質: 1 = xlQualityMinimum，縮小檔案大小）
             sli_pdf = os.path.join(work_dir, f"{mawb} SLI.pdf")
-            ws_sli.ExportAsFixedFormat(0, sli_pdf)  # 0 = xlTypePDF
+            ws_sli.ExportAsFixedFormat(0, sli_pdf, 1)  # 0 = xlTypePDF, 1 = xlQualityMinimum
 
             # Save SLI xlsx (macro removed by Excel automatically for .xlsx)
             sli_xlsx = os.path.join(work_dir, f"{mawb} SLI.xlsx")
@@ -93,7 +93,7 @@ def main():
                 ws_eli.Range(coord).Value = to_excel_value(val)
 
             eli_pdf = os.path.join(work_dir, f"{mawb} ELI.pdf")
-            ws_eli.ExportAsFixedFormat(0, eli_pdf)
+            ws_eli.ExportAsFixedFormat(0, eli_pdf, 1)  # 1 = xlQualityMinimum
 
             eli_xlsx = os.path.join(work_dir, f"{mawb} ELI.xlsx")
             ws_eli.SaveAs(eli_xlsx, 51)

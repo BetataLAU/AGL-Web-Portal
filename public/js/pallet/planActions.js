@@ -9,9 +9,10 @@ import {
   getPlans, setPlans, getSelectedPlanId, getSelectedBookingIds, setSelectedPlanId,
   getSelectedPlanItemIds, togglePlanItemSelection, clearSelectedPlanItems,
   clearSelectedBookings, isPlanCollapsed, togglePlanCollapsed,
-  getExpandedPlanId, setExpandedPlanId, setPlanItems,
+  getExpandedPlanId, setExpandedPlanId, setPlanItems, getBookings,
   closePlan, isPlanClosed, reopenPlan
 } from './state.js';
+import { confirmAddDuplicates } from './planDupUtils.js';
 import { buildPlanTextSummary } from './formatters.js';
 import { loadBookings } from './bookingsController.js';
 import { showPlanModal, showStatusModal, showContourPreview } from './planModal.js';
@@ -371,6 +372,10 @@ export async function handleAddSelectedToPlan(planId) {
   if (!targetPlan || targetPlan.status !== 'draft') {
     return alert('目標計劃已上鎖/完成，請選擇其他草稿計劃');
   }
+  // 加入前攔截：若有 MAWB 已存在於其他打板計劃 → 提示確認
+  const selectedBookings = getBookings().filter(b => selectedIds.includes(b.id));
+  if (!confirmAddDuplicates(selectedBookings, targetId)) return;
+
   try {
     await addItemsToPlan(targetId, selectedIds);
     clearSelectedBookings();

@@ -446,7 +446,15 @@ router.get('/plans/:id', (req, res) => {
     db.all(
       `SELECT pi.id AS plan_item_id, pi.sort_order, b.*,
               strftime('%Y-%m-%dT%H:%M:%fZ', b.created_at) AS created_at,
-              strftime('%Y-%m-%dT%H:%M:%fZ', b.updated_at) AS updated_at
+              strftime('%Y-%m-%dT%H:%M:%fZ', b.updated_at) AS updated_at,
+              (SELECT json_group_array(json_object(
+                 'plan_id', p.id,
+                 'plan_no', p.plan_no,
+                 'status', p.status
+               ))
+               FROM pallet_plan_items pi2
+               JOIN pallet_plans p ON p.id = pi2.plan_id
+               WHERE pi2.mawb_record_id = b.id) AS plan_refs
        FROM pallet_plan_items pi
        JOIN mawb_records b ON b.id = pi.mawb_record_id
        WHERE pi.plan_id = ?

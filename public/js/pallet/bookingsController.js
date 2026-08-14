@@ -15,6 +15,7 @@ import {
 } from './state.js';
 import { formatNumber, formatWeight } from './formatters.js';
 import { showBookingModal as openBookingModal } from './bookingModal.js';
+import { confirmAddDuplicates } from './planDupUtils.js';
 
 let bookingsListEl = null;
 let selectedCountEl = null;
@@ -181,6 +182,9 @@ function bindBookingCardEvents() {
         return;
       }
       const id = Number(card.dataset.id);
+      // 加入前攔截：若此 MAWB 已存在於其他打板計劃 → 提示確認
+      const booking = getBookings().find(b => b.id === id);
+      if (!confirmAddDuplicates(booking ? [booking] : [], targetPlanId)) return;
       try {
         await addItemsToPlan(targetPlanId, [id]);
         await loadBookings();
@@ -201,8 +205,9 @@ function renderBookingCard(b) {
     return `<span class="pallet-plan-ref-badge ${locked ? 'locked-ref' : ''}" title="已入板：${escapeHtml(ref.plan_no)}（${escapeHtml(ref.status)}）">${escapeHtml(ref.plan_no)}${locked ? ' 🔒' : ''}</span>`;
   }).join(' ');
 
-  // 跨板重複提示：同時存在於 2 個或以上 Plan → 黃色驚嘆號 + tooltip 列出所有板號
-  const multiPlanHtml = planRefs.length >= 2
+  // 跨板重複提示：同時存在於 2 個或以上 Plan → 整卡淡黃色 + 黃色驚嘆號 + tooltip 列出所有板號
+  const isMultiPlan = planRefs.length >= 2;
+  const multiPlanHtml = isMultiPlan
     ? `<span class="pallet-multi-plan-warn" title="此 MAWB 同時存在於 ${planRefs.length} 個打板計劃：&#10;${planRefs.map(r => `• ${escapeHtml(r.plan_no)}（${escapeHtml(r.status)}）`).join('&#10;')}">⚠️${planRefs.length}板</span>`
     : '';
 
@@ -215,7 +220,7 @@ function renderBookingCard(b) {
   if (refBadges) detailRows.push(`<span class="detail-refs">${refBadges}</span>`);
 
   return `
-    <div class="pallet-booking-card ${selected ? 'selected' : ''}" data-id="${b.id}" draggable="true">
+    <div class="pallet-booking-card ${selected ? 'selected' : ''} ${isMultiPlan ? 'is-multi-plan' : ''}" data-id="${b.id}" draggable="true">
       <div class="pallet-booking-main">
         <button type="button" class="pallet-btn pallet-btn-sm pallet-booking-edit-btn" data-booking-id="${b.id}" title="修改此 MAWB 資料">✏️</button>
         <span class="booking-mawb">${escapeHtml(displayMawb(b.mawb))}</span>

@@ -351,6 +351,34 @@
   cursor: help;
 }
 
+/* 跨板重複：左欄整卡淡黃高亮 */
+.pallet-booking-card.is-multi-plan {
+  background: rgba(234, 179, 8, 0.08);
+  border-left: 3px solid #d97706;
+}
+.pallet-booking-card.is-multi-plan:hover {
+  background: rgba(234, 179, 8, 0.14);
+}
+.pallet-booking-card.is-multi-plan.selected {
+  background: rgba(234, 179, 8, 0.16);
+  border-color: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+}
+
+/* 跨板重複：Plan 明細整列淡黃高亮 */
+.pallet-items-table tr.dup-row td {
+  background: rgba(234, 179, 8, 0.07);
+}
+.pallet-items-table tr.dup-row:hover td {
+  background: rgba(234, 179, 8, 0.13);
+}
+.pallet-items-table tr.dup-row.selected-row td {
+  background: rgba(234, 179, 8, 0.16) !important;
+}
+.pallet-items-table tr.dup-row.selected-row td:first-child {
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
 /* ===== 左欄公司名稱 BOLD ===== */
 .detail-client-name { font-weight: 700; }
 .pallet-plans-header {

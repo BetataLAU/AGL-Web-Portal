@@ -8,11 +8,12 @@
 
 import {
   getPlans, getPlanItems, getCollapsedPlanIds, isPlanCollapsed, togglePlanCollapsed,
-  setPlans
+  setPlans, getBookings
 } from './state.js';
 import { addItemsToPlan, removeItemFromPlan, reorderPlanItems, fetchPlanDetail, reorderPlans } from './api.js';
 import { loadBookings } from './bookingsController.js';
 import { loadPlanDetail, afterPlanChange, expandPlan, renderPlans } from './plansController.js';
+import { confirmAddDuplicates } from './planDupUtils.js';
 
 let dragType = null;          // 'booking' | 'plan-item' | 'plan-card'
 let dragBookings = [];        // 被拖曳的 booking ids
@@ -189,6 +190,12 @@ export function setupDragAndDrop() {
         const planId = Number(targetPlanCard.dataset.planId);
         const plan = getPlans().find(p => p.id === planId);
         if (plan && plan.status === 'draft') {
+          // 加入前攔截：若拖曳的 MAWB 已存在於其他打板計劃 → 提示確認
+          const draggedBookings = getBookings().filter(b => srcBookings.includes(b.id));
+          if (!confirmAddDuplicates(draggedBookings, planId)) {
+            markDragover(targetPlanCard, false);
+            return;
+          }
           try {
             await addItemsToPlan(planId, srcBookings);
             await afterPlanChange();
@@ -225,6 +232,11 @@ export function setupDragAndDrop() {
                 sourceItem = (sourceDetail.items || []).find(it => it.plan_item_id === srcPlanItemId);
               }
               if (sourceItem) {
+                // 加入前攔截：移動時排除「來源板 + 目標板」，若仍存在於其他打板計劃 → 提示確認
+                if (!confirmAddDuplicates([sourceItem], [srcPlanId, planId])) {
+                  markDragover(targetPlanCard, false);
+                  return;
+                }
                 await addItemsToPlan(planId, [sourceItem.id]);
                 await removeItemFromPlan(srcPlanId, srcPlanItemId);
                 await afterPlanChange();

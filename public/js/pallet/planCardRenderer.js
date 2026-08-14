@@ -144,8 +144,9 @@ function renderPlanBody(plan) {
       : `<span class="t-subtle">-</span>`;
     const refs = activePlanRefs(it);
     const dupHtml = dupWarnHtml(refs);
+    const isDupRow = refs.length >= 2;
     return `
-      <tr data-plan-item-id="${it.plan_item_id}" class="${selected ? 'selected-row' : ''}" ${isDraft ? 'draggable="true"' : ''}>
+      <tr data-plan-item-id="${it.plan_item_id}" class="${selected ? 'selected-row' : ''} ${isDupRow ? 'dup-row' : ''}" ${isDraft ? 'draggable="true"' : ''}>
         <td class="t-subtle drag-cell">${isDraft ? '<span class="drag-handle" title="可拖曳到其他打板計劃或左欄">⠿</span>' : ''}${idx + 1}</td>
         <td class="mawb-cell">${escapeHtml(it.mawb || '-')}${dupHtml}</td>
         <td class="t-value">${escapeHtml(it.hawb || '-')}</td>

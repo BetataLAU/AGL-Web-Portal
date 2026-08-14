@@ -8,3 +8,8 @@ npm-debug.log*
 database.db
 # SQLite session store (connect-sqlite3)
 db/sessions.db
+
+# Shipper Role Project - 暫存/產出（不進 repo）
+data/work/
+data/uploads/
+data/test-*

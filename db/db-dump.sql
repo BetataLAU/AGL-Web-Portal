@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-08-14T10:43:22.137Z
+-- 匯出時間: 2026-08-18T04:23:00.435Z
 -- 共 12 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -430,6 +430,8 @@ INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", 
 INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (20, 'customer', '新鸿发', '青衣西草灣路,友聯船廠公司', '高佬', '34893823', '', '周一~周五10:00-20:00
 周六    10:00-18:00', '2026-08-13 06:25:02', NULL);
 
+INSERT INTO "companies" ("id", "category", "name", "address", "contact_person", "phone", "email", "notes", "created_at", "company_code") VALUES (21, 'customer', 'CADICASIA HONG KONG LTD', '香港新界葵涌葵榮路27-37號成美工業大廈 7字樓 A室', 'Ricky Ng', '852 2610 1004 ext.6773', '', '(出分单）', '2026-08-18 03:11:41', NULL);
+
 
 -- ===== 資料表: mawb_records =====
 DROP TABLE IF EXISTS "mawb_records";
@@ -520,8 +522,6 @@ INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gros
 INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (31, '166-1467 6992', '920334184891', 'BCD1234', '', 2, 40.79, 0, 6.059, '', '提貨號: PK2608-0007', '2026-08-13 09:21:20', '2026-08-14 06:34:15', 3);
 
 INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (32, '161-0000 0000', '161AAA00000', 'JST', 'IKA', 15, 100, 0, 0.52, 'PI967', '提貨號: JST123000', '2026-08-13 09:21:20', '2026-08-14 06:34:15', 23);
-
-INSERT INTO "mawb_records" ("id", "mawb", "hawb", "client", "dest", "pcs", "gross_weight", "volume_weight", "cbm", "spl", "remark", "created_at", "updated_at", "order_id") VALUES (33, '157-1234 5675', '', 'AIR GLOBAL LIMITED - AGL', 'AMS', 1, 45, 0, 0.2, '後補電池資訊', '提貨號: 666', '2026-08-13 09:21:20', '2026-08-14 06:34:15', 30);
 
 
 -- ===== 資料表: note_templates =====
@@ -630,6 +630,8 @@ INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no
 
 INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (30, 'AGL-20260813-002', 'pickup', '157-1234 5675', '', '666', 18, 20, 18, '0', 1, 45, 0.2, NULL, 'late', '後補電池資訊', '[]', 'yes', 'Beta LAU', '34685654', '九龍紅磡鶴翔街維港中心2座5樓503室', '', '', 'pending', '2026-08-13 06:34:31', '2026-08-13 06:34:31', '', '', '2026-08-13 20:30', 'AMS');
 
+INSERT INTO "orders" ("id", "order_no", "order_type", "mawb", "hawb", "pickup_no", "customer_company_id", "pickup_company_id", "delivery_company_id", "cargo_desc", "quantity", "weight_kg", "cbm", "cbm_dimensions", "power_type", "power_code", "power_items", "urgent", "receiver_name", "receiver_phone", "address", "notes", "transport_company", "status", "created_at", "updated_at", "receiver_note", "contact_note", "pickup_datetime", "dest") VALUES (31, 'AGL-20260818-001', 'pickup', '176-6558 1515', '', 'INV# 26HKC-09436', 4, 21, 16, '0', 30, 287, 0.94, NULL, 'late', '後補電池資訊', '[]', 'no', '', '', '', '此票货物请帮忙安排今天提货，提前1-2小时给司机资料，按以下订好的航班安排，谢谢！', '', 'pending', '2026-08-18 03:11:42', '2026-08-18 04:07:34', '', '', NULL, 'TUN');
+
 
 -- ===== 資料表: pallet_plan_items =====
 DROP TABLE IF EXISTS "pallet_plan_items";
@@ -697,8 +699,6 @@ INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date",
 
 INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at", "sort_order") VALUES (4, 'AGL-20260812-02', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9841', '2026-08-17T03:00', 'DWC', 'MIX - 1H3', '', 2500, 8, 'KABO', '*裝防火網* , 每件貨貼2張AWB LABEL
 起飛前8個鐘要交到板 起飛前8個鐘要交到板', 'draft', '2026-08-12 09:14:28', '2026-08-13 07:39:57', 0);
-
-INSERT INTO "pallet_plans" ("id", "plan_no", "company_name", "fax", "plan_date", "flight_no", "flight_date", "arrival_airport", "contour_text", "contour_code", "max_gross_weight", "handover_hours", "planner", "remarks", "status", "created_at", "updated_at", "sort_order") VALUES (5, 'AGL-20260813-01', 'AIR GLOBAL LIMITED 世航貨運有限公司', '', NULL, 'EK9999', '2026-08-18T05:00', 'DWC', '2Q5+1A2 限重6000 k', '', 6000, 8, 'e', '', 'draft', '2026-08-13 07:49:10', '2026-08-13 07:49:10', 0);
 
 
 -- ===== 資料表: remark_templates =====
@@ -857,7 +857,7 @@ CREATE TABLE users (
       UNIQUE(company_id, user_id)
     );
 
-INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0, NULL, '2026-08-14 10:42:50');
+INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (1, 18, 'admin', '$2b$10$KqitQ3CklAqO2dF.B6fn0efvXk8vGa687H7Fg.eLZRAAAoNaus/ki', '系統管理員', 'admin', 1, '2026-08-11 09:58:17', NULL, 0, NULL, '2026-08-18 03:08:01');
 
 INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_name", "role", "is_active", "created_at", "locked_until", "failed_attempts", "permissions", "last_login_at") VALUES (2, 18, 'nelson', '$2b$10$n6ERUS97EGQUQy5//Qn1beUDcSc1JKZptaqVD1iyccpg3vAi1jMee', 'Nelson WONG', 'admin', 1, '2026-08-13 06:27:38', NULL, 0, NULL, '2026-08-13 06:31:01');
 
@@ -867,13 +867,13 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 173);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 20);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 21);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 33);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 30);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 31);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 92);
 

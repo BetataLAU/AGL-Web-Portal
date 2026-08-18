@@ -535,16 +535,35 @@
   margin-top: 6px;
 }
 
-/* 卡片底部：流水號放左下角 */
+/* 卡片底部：流水號（左）＋ 訂單建立日期/時間（右） */
 .orders-card-footer {
   display: flex;
   justify-content: flex-start;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 10px;
 }
 
 .orders-card-order-no {
   font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.orders-card-meta-divider {
+  color: var(--border-color);
+  font-size: 0.9rem;
+  margin: 0 2px;
+}
+
+.orders-card-created {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.orders-card-created .orders-card-created-label {
   font-weight: 600;
   color: var(--text-muted);
 }

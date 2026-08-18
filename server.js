@@ -34,7 +34,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    // Express 預設不認得 .jfif 副檔名，會 fallback 成 application/octet-stream。
+    // 這裡明確指定 image/jpeg，確保瀏覽器（含行動裝置）能正確渲染背景圖片。
+    if (path.extname(filePath).toLowerCase() === '.jfif') {
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+  }
+}));
 
 // ===== Session 中間件（登入系統用） =====
 // 使用 SQLite 持久化 store（db/sessions.db）：

@@ -1,23 +1,10 @@
 /* ===== 資料庫檢視器樣式 ===== */
 
-/* 覆蓋 .card 的 overflow:hidden，讓表格橫向捲軸可正常運作 */
+/* 覆蓋 .card 的 overflow:hidden；
+   橫向捲動交由內層 .dbviewer-table-wrap（粗捲軸）接管，
+   捲軸固定在表格正下方，不需滾到頁面底部才看得到 */
 .dbviewer-card {
-  overflow: auto;
-  scrollbar-width: thin;
-}
-
-.dbviewer-card::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.dbviewer-card::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 999px;
-}
-
-.dbviewer-card::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
+  overflow: hidden;
 }
 
 /* ===== 標題列按鈕群組 ===== */
@@ -96,12 +83,58 @@
   margin-left: 8px;
 }
 
-/* 工具列左側（搜尋 + 新增按鈕） */
+/* 工具列左側（搜尋 + 新增按鈕 + 批量操作） */
 .dbviewer-toolbar-left {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* ===== 批量操作列 ===== */
+.dbviewer-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-color);
+}
+
+.db-batch-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.dbviewer-batch-bar .pill {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 0.88rem;
+}
+
+.dbviewer-batch-bar .pill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.db-batch-status-select {
+  min-height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 4px 10px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.db-batch-status-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== 搜尋框（含 autocomplete 下拉） ===== */
@@ -236,8 +269,47 @@
   border-bottom: none;
 }
 
+.dbviewer-table tbody tr {
+  transition: background 0.15s ease;
+}
+
 .dbviewer-table tbody tr:hover {
   background: var(--surface-glow);
+}
+
+/* ===== Checkbox 欄位 ===== */
+.db-checkbox-col {
+  width: 42px;
+  min-width: 42px;
+  text-align: center;
+  vertical-align: middle !important;
+}
+
+.db-checkbox-col input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: var(--primary);
+  vertical-align: middle;
+}
+
+/* 選中列高亮 */
+.db-row.selected {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+.db-row.selected:hover {
+  background: rgba(59, 130, 246, 0.13) !important;
+}
+
+[data-theme="dark"] .db-row.selected,
+[data-theme="ocean"] .db-row.selected {
+  background: rgba(96, 165, 250, 0.14) !important;
+}
+
+[data-theme="dark"] .db-row.selected:hover,
+[data-theme="ocean"] .db-row.selected:hover {
+  background: rgba(96, 165, 250, 0.2) !important;
 }
 
 .db-null {
@@ -663,6 +735,14 @@
 
   .dbviewer-toolbar-left .pill {
     width: 100%;
+  }
+
+  .dbviewer-batch-bar {
+    width: 100%;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
   }
 
   .dbviewer-header-actions {

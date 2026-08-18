@@ -15,7 +15,8 @@ const READONLY_COLUMNS = {
   companies: ['id', 'created_at'],
   templates: ['id', 'created_at'],
   note_templates: ['id', 'created_at'],
-  orders: ['id', 'created_at', 'updated_at', 'status']
+  // 訂單 status 允許修改（前端提供單筆編輯與批量改狀態）
+  orders: ['id', 'created_at', 'updated_at']
 };
 
 // 預設只讀欄位（未知表 fallback）
@@ -161,6 +162,94 @@ router.post('/tables/:name', resolveTable, (req, res) => {
     stmt.run(...values, function (insertErr) {
       if (insertErr) return res.status(500).json({ error: insertErr.message });
       res.json({ success: true, id: this.lastID });
+    });
+    stmt.finalize();
+  });
+});
+
+// ===== 批量操作（須註冊在單筆 PUT/DELETE 之前，避免 :id 攔截） =====
+
+// 解析並驗證 ids 陣列（body: { ids: [] }）
+function parseIds(body) {
+  const ids = Array.isArray(body?.ids) ? body.ids : [];
+  const numericIds = ids
+    .map(id => Number(id))
+    .filter(id => Number.isInteger(id) && id > 0);
+  return [...new Set(numericIds)];
+}
+
+// POST /api/db/tables/:name/batch-delete → 批量刪除
+// body: { "ids": [1, 2, 3] }
+router.post('/tables/:name/batch-delete', resolveTable, (req, res) => {
+  const { allowedTable } = req;
+  const ids = parseIds(req.body);
+  if (ids.length === 0) {
+    return res.status(400).json({ error: '沒有可刪除的記錄（ids 不可為空）' });
+  }
+
+  // 特殊保護：批量刪除公司前檢查是否被訂單/範本引用
+  if (allowedTable === 'companies') {
+    const placeholders = ids.map(() => '?').join(', ');
+    db.get(
+      `SELECT
+        (SELECT COUNT(*) FROM orders WHERE pickup_company_id IN (${placeholders}) OR delivery_company_id IN (${placeholders})) AS order_ref,
+        (SELECT COUNT(*) FROM templates WHERE company_id IN (${placeholders})) AS template_ref`,
+      [...ids, ...ids, ...ids],
+      (refErr, refRow) => {
+        if (refErr) return res.status(500).json({ error: refErr.message });
+        const refCount = (refRow.order_ref || 0) + (refRow.template_ref || 0);
+        if (refCount > 0) {
+          const parts = [];
+          if (refRow.order_ref > 0) parts.push(`訂單 ${refRow.order_ref} 筆`);
+          if (refRow.template_ref > 0) parts.push(`範本 ${refRow.template_ref} 個`);
+          return res.status(400).json({ error: `所選公司中有 ${refCount} 筆正被使用（${parts.join('、')}），無法刪除。請先刪除相關訂單/範本或改用其他公司。` });
+        }
+        doBatchDelete();
+      }
+    );
+    return;
+  }
+
+  doBatchDelete();
+
+  function doBatchDelete() {
+    const placeholders = ids.map(() => '?').join(', ');
+    const stmt = db.prepare(`DELETE FROM ${allowedTable} WHERE id IN (${placeholders})`);
+    stmt.run(...ids, function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, changes: this.changes, requested: ids.length });
+    });
+    stmt.finalize();
+  }
+});
+
+// PUT /api/db/tables/:name/batch-update → 批量更新
+// body: { "ids": [1, 2, 3], "data": { "status": "completed" } }
+router.put('/tables/:name/batch-update', resolveTable, (req, res) => {
+  const { allowedTable } = req;
+  const ids = parseIds(req.body);
+  if (ids.length === 0) {
+    return res.status(400).json({ error: '沒有可更新的記錄（ids 不可為空）' });
+  }
+
+  const data = req.body?.data || {};
+  getEditableColumns(allowedTable, (err, editableCols) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const keys = editableCols.filter(k => data[k] !== undefined && data[k] !== '');
+    if (keys.length === 0) {
+      return res.status(400).json({ error: '沒有可更新的欄位' });
+    }
+
+    const sets = keys.map(k => `${k} = ?`).join(', ');
+    const placeholders = ids.map(() => '?').join(', ');
+    const values = keys.map(k => data[k]);
+    values.push(...ids);
+
+    const stmt = db.prepare(`UPDATE ${allowedTable} SET ${sets} WHERE id IN (${placeholders})`);
+    stmt.run(...values, function (updateErr) {
+      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      res.json({ success: true, changes: this.changes, requested: ids.length });
     });
     stmt.finalize();
   });

@@ -151,6 +151,8 @@ db.serialize(() => {
     ensureUserColumn('locked_until', 'DATETIME');
     ensureUserColumn('last_login_at', 'DATETIME');
     ensureUserColumn('permissions', 'TEXT');
+    ensureUserColumn('sidebar_bg_url', 'TEXT'); // 登入卡背景圖（伺服器端持久化）
+    ensureUserColumn('sidebar_nav_order', 'TEXT'); // 側邊欄導航自訂排序（JSON 陣列，伺服器端持久化）
   });
 
   // companies 表相容性：補上 company_code 欄位（登入用的公司短碼）

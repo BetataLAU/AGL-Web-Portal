@@ -3,6 +3,10 @@ let dbTablesData = [];
 let currentDbTable = null;
 let currentDbRows = [];
 
+// 批量管理：目前顯示（過濾後）的列與已選取 id
+let currentDbFilteredRows = [];
+let currentDbSelectedIds = new Set();
+
 // 表的中文顯示名稱
 const TABLE_LABELS = {
   skills: '技能資料',
@@ -145,6 +149,10 @@ async function renderDbTable(tableName, columns, rows) {
   const container = document.getElementById('dbviewer-content');
   if (!container) return;
 
+  // 載入新資料時重置選擇狀態
+  currentDbFilteredRows = rows;
+  currentDbSelectedIds.clear();
+
   // 找出可編輯欄位（隱藏 system 欄位）
   const editableColumns = columns.filter(c => !HIDDEN_FIELDS.includes(c));
 
@@ -166,6 +174,22 @@ async function renderDbTable(tableName, columns, rows) {
           <button type="button" class="dbviewer-search-clear" id="dbviewer-search-clear" title="清除搜尋" aria-label="清除搜尋">×</button>
         </div>
         <button type="button" class="pill btn-primary" id="btn-dbviewer-add">＋ 新增記錄</button>
+
+        <div class="dbviewer-batch-bar" id="dbviewer-batch-bar" style="display:none;">
+          <span class="db-batch-count" id="db-batch-count">已選 0 筆</span>
+          ${tableName === 'orders' ? `
+            <select class="db-batch-status-select" id="db-batch-status-select" title="批量更改狀態">
+              <option value="">改狀態…</option>
+              <option value="pending">待處理</option>
+              <option value="in_progress">進行中</option>
+              <option value="completed">已完成</option>
+              <option value="cancelled">已取消</option>
+            </select>
+            <button type="button" class="pill btn-primary" id="btn-db-batch-status" disabled>套用</button>
+          ` : ''}
+          <button type="button" class="pill btn-danger" id="btn-db-batch-delete" disabled>🗑️ 批量刪除</button>
+          <button type="button" class="pill" id="btn-db-batch-clear">取消選擇</button>
+        </div>
       </div>
       <div>
         <strong>${TABLE_LABELS[tableName] || tableName}</strong>
@@ -177,6 +201,7 @@ async function renderDbTable(tableName, columns, rows) {
       <table class="dbviewer-table">
         <thead>
           <tr>
+            <th class="db-checkbox-col"><input type="checkbox" id="db-checkbox-all" title="全選 / 取消全選（目前顯示的資料）" /></th>
             <th>操作</th>
             ${editableColumns.map(c => `<th>${COLUMN_LABELS[c] || c}</th>`).join('')}
           </tr>
@@ -198,6 +223,9 @@ async function renderDbTable(tableName, columns, rows) {
   // 列的操作事件（編輯 / 刪除）
   bindDbRowEvents(tableName, rows, editableColumns, fkOptions);
 
+  // 批量操作列事件（全選 / 批量刪除 / 批量改狀態）
+  bindBatchBarEvents(tableName);
+
   // 搜尋（autocomplete + 即時過濾）
   setupDbSearch(tableName, rows, editableColumns, fkOptions);
 }
@@ -207,8 +235,13 @@ function renderDbRowsHTML(tableName, editableColumns, rows, emptyMessage = '此�
   if (rows.length === 0) {
     return `<tr><td colspan="100" class="db-no-rows">${emptyMessage}</td></tr>`;
   }
-  return rows.map((row, idx) => `
-    <tr data-id="${row.id}">
+  return rows.map((row, idx) => {
+    const isSelected = currentDbSelectedIds.has(Number(row.id));
+    return `
+    <tr data-id="${row.id}" class="db-row ${isSelected ? 'selected' : ''}">
+      <td class="db-checkbox-col">
+        <input type="checkbox" class="db-row-checkbox" data-id="${row.id}" ${isSelected ? 'checked' : ''} title="選擇此列" />
+      </td>
       <td class="db-row-actions">
         <button type="button" class="db-btn-edit" data-id="${row.id}" title="編輯">✏️</button>
         <button type="button" class="db-btn-delete" data-id="${row.id}" title="刪除">🗑️</button>
@@ -219,13 +252,32 @@ function renderDbRowsHTML(tableName, editableColumns, rows, emptyMessage = '此�
         </td>
       `).join('')}
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
-// 綁定表格列的編輯 / 刪除事件
+// 綁定表格列的編輯 / 刪除 / checkbox 事件
 function bindDbRowEvents(tableName, rows, editableColumns, fkOptions) {
   const container = document.getElementById('dbviewer-content');
   if (!container) return;
+
+  // 每列 checkbox 勾選 → 更新已選集合與批量工具列
+  container.querySelectorAll('.db-row-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const id = Number(cb.dataset.id);
+      if (cb.checked) {
+        currentDbSelectedIds.add(id);
+      } else {
+        currentDbSelectedIds.delete(id);
+        const allCb = container.querySelector('#db-checkbox-all');
+        if (allCb) {
+          allCb.checked = false;
+          allCb.indeterminate = false;
+        }
+      }
+      updateRowSelectionState(container);
+    });
+  });
 
   // 編輯按鈕
   container.querySelectorAll('.db-btn-edit').forEach(btn => {
@@ -257,6 +309,125 @@ function bindDbRowEvents(tableName, rows, editableColumns, fkOptions) {
       }
     });
   });
+}
+
+// ===== 批量操作：全選 / 批量刪除 / 批量改狀態 =====
+
+// 依目前已選 id 更新每列 selected class 與批量工具列狀態
+function updateRowSelectionState(container) {
+  const selectedCount = currentDbSelectedIds.size;
+
+  // 列高亮與 checkbox 同步
+  container.querySelectorAll('.db-row').forEach(tr => {
+    const id = Number(tr.dataset.id);
+    tr.classList.toggle('selected', currentDbSelectedIds.has(id));
+    const cb = tr.querySelector('.db-row-checkbox');
+    if (cb) cb.checked = currentDbSelectedIds.has(id);
+  });
+
+  const batchBar = container.querySelector('#dbviewer-batch-bar');
+  const countEl = container.querySelector('#db-batch-count');
+  const deleteBtn = container.querySelector('#btn-db-batch-delete');
+  const statusBtn = container.querySelector('#btn-db-batch-status');
+  const statusSel = container.querySelector('#db-batch-status-select');
+
+  if (batchBar) batchBar.style.display = selectedCount > 0 ? 'flex' : 'none';
+  if (countEl) countEl.textContent = `已選 ${selectedCount} 筆`;
+  if (deleteBtn) deleteBtn.disabled = selectedCount === 0;
+  if (statusBtn) statusBtn.disabled = selectedCount === 0;
+  if (statusSel) statusSel.disabled = selectedCount === 0;
+}
+
+// 綁定批量操作工具列事件（renderDbTable 時呼叫一次）
+function bindBatchBarEvents(tableName) {
+  const container = document.getElementById('dbviewer-content');
+  if (!container) return;
+
+  const allCb = container.querySelector('#db-checkbox-all');
+  const deleteBtn = container.querySelector('#btn-db-batch-delete');
+  const statusBtn = container.querySelector('#btn-db-batch-status');
+  const statusSel = container.querySelector('#db-batch-status-select');
+  const clearBtn = container.querySelector('#btn-db-batch-clear');
+
+  // 全選 / 取消全選（作用於目前顯示、過濾後的資料）
+  if (allCb) {
+    allCb.addEventListener('change', () => {
+      if (allCb.checked) {
+        currentDbFilteredRows.forEach(r => currentDbSelectedIds.add(Number(r.id)));
+        allCb.indeterminate = false;
+      } else {
+        currentDbFilteredRows.forEach(r => currentDbSelectedIds.delete(Number(r.id)));
+      }
+      // 更新每列 checkbox 的 checked 狀態
+      container.querySelectorAll('.db-row-checkbox').forEach(cb => {
+        cb.checked = allCb.checked;
+      });
+      updateRowSelectionState(container);
+    });
+  }
+
+  // 取消選擇
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      currentDbSelectedIds.clear();
+      if (allCb) {
+        allCb.checked = false;
+        allCb.indeterminate = false;
+      }
+      updateRowSelectionState(container);
+    });
+  }
+
+  // 批量刪除
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      const ids = [...currentDbSelectedIds];
+      if (ids.length === 0) return;
+      const displayNames = currentDbFilteredRows
+        .filter(r => ids.includes(Number(r.id)))
+        .map(r => r.name || r.order_no || r.title || `#${r.id}`)
+        .slice(0, 10)
+        .join('、');
+      const more = ids.length > 10 ? ` 等 ${ids.length} 筆` : '';
+      if (!confirm(`確定刪除這 ${ids.length} 筆？\n${displayNames}${more}\n此操作無法復原。`)) return;
+      try {
+        const result = await apiDbFetch(`/api/db/tables/${tableName}/batch-delete`, {
+          method: 'POST',
+          body: JSON.stringify({ ids })
+        });
+        alert(`已刪除 ${result.changes} 筆`);
+        currentDbSelectedIds.clear();
+        await loadDbTableData(tableName);
+        await loadDbTables();
+      } catch (err) {
+        alert(`批量刪除失敗：${err.message}`);
+      }
+    });
+  }
+
+  // 批量改狀態（訂單表專用）
+  if (statusBtn && statusSel) {
+    statusBtn.addEventListener('click', async () => {
+      const newStatus = statusSel.value;
+      if (!newStatus) { alert('請先選擇要套用的狀態'); return; }
+      const ids = [...currentDbSelectedIds];
+      if (ids.length === 0) return;
+      const statusLabels = { pending: '待處理', in_progress: '進行中', completed: '已完成', cancelled: '已取消' };
+      if (!confirm(`確定將這 ${ids.length} 筆訂單的狀態改為「${statusLabels[newStatus] || newStatus}」？`)) return;
+      try {
+        const result = await apiDbFetch(`/api/db/tables/${tableName}/batch-update`, {
+          method: 'PUT',
+          body: JSON.stringify({ ids, data: { status: newStatus } })
+        });
+        alert(`已更新 ${result.changes} 筆訂單狀態`);
+        currentDbSelectedIds.clear();
+        await loadDbTableData(tableName);
+        await loadDbTables();
+      } catch (err) {
+        alert(`批量更新失敗：${err.message}`);
+      }
+    });
+  }
 }
 
 // ===== 表格搜尋（autocomplete + 即時過濾） =====
@@ -294,6 +465,8 @@ function setupDbSearch(tableName, allRows, editableColumns, fkOptions) {
           })
         )
       : allRows;
+
+    currentDbFilteredRows = filteredRows;
 
     const emptyMessage = qLower && filteredRows.length === 0
       ? `沒有符合「${escapeHtml(q)}」的資料。`
@@ -578,7 +751,7 @@ function showEditForm(tableName, editableColumns, row, fkOptions) {
             }).join('')}
           </div>
           <div class="db-form-note">
-            ⚠️ <strong>注意</strong>：id / 建立時間 / 更新時間 / 訂單狀態由系統自動管理。
+            ⚠️ <strong>注意</strong>：id / 建立時間 / 更新時間由系統自動管理。
           </div>
         </div>
         <div class="db-form-actions">

@@ -9,7 +9,7 @@
 
 /* ===== Sidebar ===== */
 .sidebar {
-  width: 280px;
+  width: 308px; /* 原 280px +10% */
   padding: 24px 18px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
@@ -131,13 +131,16 @@
   border-radius: 12px;
   background: var(--surface-glow);
   border: 1px solid var(--border-color);
+  overflow: hidden; /* 讓 full-bleed 圖片被卡片圓角裁切，不會溢出 */
 }
 
+/* 上段：系統管理員 / 公司資訊 */
 .sidebar-user-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  text-align: center;
 }
 
 .sidebar-user-info strong {
@@ -154,6 +157,36 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 中段：背景圖片（full-bleed 貼住卡片左右兩邊） */
+.sidebar-bg-image {
+  position: relative;
+  width: calc(100% + 24px);
+  height: 90px;
+  margin-left: -12px;
+  margin-right: -12px;
+  border-radius: 0;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+.sidebar-bg-image-placeholder {
+  font-size: 1.6rem;
+  opacity: 0.35;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+
+.sidebar-bg-image[data-has-bg="1"] .sidebar-bg-image-placeholder {
+  display: none;
 }
 
 .sidebar-logout-btn {
@@ -176,10 +209,95 @@
 
 /* 受保護導航鎖頭 */
 .nav-lock-icon {
-  margin-left: auto;
   font-size: 0.75rem;
   color: var(--text-muted);
   opacity: 0.6;
+}
+
+/* ===== Sidebar 排序：右側容器（鎖頭 + 拖曳把手） ===== */
+.nav-right-wrap {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 科技感拖曳把手（grip vertical） */
+.nav-drag-handle {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02));
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  cursor: grab;
+  opacity: 0.55;
+  padding: 0;
+  overflow: hidden;
+  transition: opacity 0.25s ease, background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.nav-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* 光掃過效果（科技感） */
+.nav-drag-handle::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.4) 50%, transparent 80%);
+  transform: translateX(-120%);
+  transition: transform 0.45s ease;
+  pointer-events: none;
+}
+
+.nav-drag-handle:hover::before {
+  transform: translateX(120%);
+}
+
+.nav-drag-handle:hover {
+  opacity: 1;
+  color: #fff;
+  border-color: transparent;
+  background: var(--primary-gradient);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.4), 0 4px 10px rgba(37, 99, 235, 0.2);
+  transform: scale(1.1);
+}
+
+.nav-drag-handle i {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.nav-item:hover .nav-drag-handle {
+  opacity: 0.9;
+}
+
+/* 拖曳中的項目 */
+.nav-item.dragging {
+  opacity: 0.5;
+  border: 1px dashed var(--primary);
+  background: var(--surface-glow);
+}
+
+/* 拖曳插入位置指示線 */
+.nav-item.drag-over-top {
+  box-shadow: inset 0 3px 0 0 var(--primary);
+}
+
+.nav-item.drag-over-bottom {
+  box-shadow: inset 0 -3px 0 0 var(--primary);
 }
 
 .nav-item-locked {
@@ -196,6 +314,21 @@
   display: flex;
 }
 
+/* 登入卡背景圖（「我的帳號」可自訂） */
+.sidebar-logged-in[data-bg-image] {
+  border: 1px solid var(--border-color);
+}
+
+.sidebar-logged-in[data-bg-image] .sidebar-user-info strong,
+.sidebar-logged-in[data-bg-image] .sidebar-user-info span {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+/* 若無背景圖時維持原本樣式 */
+.sidebar-logged-in {
+  transition: background-image 0.3s ease;
+}
+
 .sidebar-footer {
   margin-top: auto;
   font-size: 0.85rem;
@@ -205,7 +338,7 @@
 /* ===== 主內容 ===== */
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 24px; /* 與頂部 padding 一致 */
   overflow: visible;
   min-height: 0;
   scroll-behavior: smooth;
@@ -217,6 +350,22 @@
 
 .content-section.active {
   display: block;
+}
+
+/* ===== HOME 背景圖片：佔滿整個頁面，padding 與頂部一致 ===== */
+#section-home {
+  /* 負 margin 抵銷 .main-content 的 padding，讓背景圖填滿整個主內容區域 */
+  margin: -24px;
+  padding: 24px; /* 與頂部 padding 一致 */
+  /* 容器高度跟隨圖片實際比例：視窗拉窄 → 容器等比變矮 → 圖片填滿無留白 */
+  aspect-ratio: var(--agl-bg-ratio, 1.78);
+  background-image: url('../image/AGL bg.jfif');
+  /* cover 保證填滿容器不留白；aspect-ratio 讓容器接近圖片比例 → 幾乎不裁切 */
+  background-size: cover;
+  background-position: right bottom;
+  background-repeat: no-repeat;
+  /* 深色半透明遮罩，確保玻璃卡片與文字可讀性 */
+  box-shadow: inset 0 0 0 1000px rgba(2, 6, 23, 0.35);
 }
 
 /* ===== 共用卡片 ===== */
@@ -234,11 +383,89 @@
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
 }
 
+/* 液態玻璃（Liquid Glass）：半透明＋強模糊＋頂部反光＋飽和背景 */
 .hero-header {
-  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.75));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0.05) 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.22));
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -20px 40px rgba(255,255,255,0.06),
+    0 20px 45px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
 }
 
-.hero-header:hover, .card:hover {
+/* HOME 背景圖上的卡片調更透明（僅影響 HOME 頁面頂部卡片） */
+#section-home .hero-header {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.28), rgba(255,255,255,0.1));
+  border: 1px solid rgba(255,255,255,0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    inset 0 -20px 40px rgba(255,255,255,0.04),
+    0 20px 45px rgba(15, 23, 42, 0.06);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+/* 深色主題：深色玻璃 */
+[data-theme="dark"] .hero-header {
+  background:
+    linear-gradient(180deg, rgba(148,163,184,0.16), rgba(148,163,184,0.04) 42%),
+    linear-gradient(135deg, rgba(15,23,42,0.6), rgba(15,23,42,0.3));
+  border: 1px solid rgba(148,163,184,0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(148,163,184,0.25),
+    inset 0 -20px 40px rgba(2,6,23,0.15),
+    0 20px 45px rgba(2, 6, 23, 0.35);
+}
+
+/* Ocean 主題：淡藍玻璃 */
+[data-theme="ocean"] .hero-header {
+  background:
+    linear-gradient(180deg, rgba(103,232,249,0.28), rgba(103,232,249,0.05) 42%),
+    linear-gradient(135deg, rgba(224,242,254,0.55), rgba(224,242,254,0.2));
+  border: 1px solid rgba(103,232,249,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -20px 40px rgba(14,165,233,0.06),
+    0 20px 45px rgba(8, 51, 68, 0.1);
+}
+
+/* hover：保留玻璃內陰影（inset），只增強外陰影與光暈 */
+.hero-header:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -20px 40px rgba(255,255,255,0.06),
+    0 30px 60px rgba(15, 23, 42, 0.16),
+    0 0 40px rgba(59, 130, 246, 0.18);
+}
+
+[data-theme="dark"] .hero-header:hover {
+  border-color: rgba(148,163,184,0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(148,163,184,0.25),
+    inset 0 -20px 40px rgba(2,6,23,0.15),
+    0 30px 60px rgba(2, 6, 23, 0.4),
+    0 0 40px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="ocean"] .hero-header:hover {
+  border-color: rgba(103,232,249,0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -20px 40px rgba(14,165,233,0.06),
+    0 30px 60px rgba(8, 51, 68, 0.14),
+    0 0 40px rgba(14, 165, 233, 0.25);
+}
+
+/* 其他 .card 維持原本 hover */
+.card:hover {
   transform: translateY(-4px);
   border-color: var(--primary);
   box-shadow: 0 30px 60px rgba(15, 23, 42, 0.14);
@@ -288,9 +515,6 @@
   opacity: 1;
 }
 
-[data-theme="dark"] .hero-header {
-  background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(15,23,42,0.75));
-}
 
 .hero-header {
   min-height: 280px;
@@ -299,6 +523,25 @@
   justify-content: center;
   align-items: flex-start;
   gap: 10px;
+}
+
+/* 玻璃上文字可讀性補強 */
+.hero-header h1 {
+  text-shadow: 0 2px 12px rgba(255,255,255,0.5);
+}
+
+.hero-header .subtitle,
+.hero-header .status-badge {
+  text-shadow: 0 1px 8px rgba(255,255,255,0.45);
+}
+
+[data-theme="dark"] .hero-header h1 {
+  text-shadow: 0 2px 12px rgba(2,6,23,0.55);
+}
+
+[data-theme="dark"] .hero-header .subtitle,
+[data-theme="dark"] .hero-header .status-badge {
+  text-shadow: 0 1px 8px rgba(2,6,23,0.5);
 }
 
 .gradient-text {
@@ -347,6 +590,12 @@
     padding: 16px;
     height: auto;
     overflow: visible;
+  }
+
+  /* 手機版同步調整負 margin，讓 HOME 背景圖仍然完整填滿 */
+  #section-home {
+    margin: -16px;
+    padding: 16px;
   }
 
   .hero-header, .card { padding: 18px; }

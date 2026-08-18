@@ -150,9 +150,6 @@ export function renderOrdersList(orders) {
           ${expiredTag}
         </div>
         <div class="orders-card-meta">
-          <span>📅 ${formatDateTime(order.created_at)}</span>
-        </div>
-        <div class="orders-card-meta">
           <span>🏢 需要提貨的客戶：${escapeHtml(order.customer_company_name || '-')}</span>
         </div>
         <div class="orders-card-meta">
@@ -170,6 +167,8 @@ export function renderOrdersList(orders) {
         </div>
         <div class="orders-card-footer">
           <span class="orders-card-order-no">流水號：${escapeHtml(order.order_no)}</span>
+          <span class="orders-card-meta-divider">|</span>
+          <span class="orders-card-created"><span class="orders-card-created-label">訂單建立日期/時間：</span>${formatDateTime(order.created_at)}</span>
         </div>
         <div class="orders-card-detail" id="order-detail-${order.id}"></div>
       </div>

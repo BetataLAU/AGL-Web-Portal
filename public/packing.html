@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D ULD 裝箱優化系統 - AGL</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/packing.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- 左側 Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="logo-text">📦 3D ULD Packing</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item">
+          <i class="fa-solid fa-house"></i> <span>返回主頁</span>
+        </a>
+        <a href="#packing-section" class="nav-item active">
+          <i class="fa-solid fa-boxes-stacked"></i> <span>裝箱求解</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 主內容 -->
+    <main class="packing-main">
+      <!-- 頁首工具列 -->
+      <header class="packing-header">
+        <h1><i class="fa-solid fa-boxes-stacked"></i> 3D ULD 裝箱優化</h1>
+        <div class="packing-header-actions">
+          <button id="btn-3d-view" class="btn btn-sm" title="3D 視圖"><i class="fa-solid fa-cube"></i></button>
+          <button id="btn-2d-view" class="btn btn-sm" title="俯視圖"><i class="fa-solid fa-border-all"></i></button>
+        </div>
+      </header>
+
+      <!-- 主工作區 -->
+      <div class="packing-workspace">
+        <!-- 左：輸入面板 -->
+        <section class="packing-panel input-panel">
+          <h2><i class="fa-solid fa-gears"></i> 參數設定</h2>
+
+          <!-- ULD 選擇 -->
+          <div class="form-group">
+            <label for="uld-select">ULD 類型</label>
+            <select id="uld-select"></select>
+          </div>
+
+          <!-- 快速示範 -->
+          <button id="btn-demo" class="btn btn-primary btn-block"><i class="fa-solid fa-wand-magic-sparkles"></i> 載入示範貨物</button>
+
+          <!-- 貨物列表 -->
+          <div class="form-group">
+            <label>貨物清單 <button id="btn-add-cargo" class="btn btn-xs"><i class="fa-solid fa-plus"></i> 新增</button></label>
+            <div id="cargo-list" class="cargo-list"></div>
+          </div>
+
+          <!-- 選項 -->
+          <div class="form-group">
+            <label for="support-ratio">最小支撐率</label>
+            <input type="number" id="support-ratio" value="0.7" min="0.5" max="0.95" step="0.05">
+          </div>
+
+          <button id="btn-solve" class="btn btn-success btn-block btn-lg"><i class="fa-solid fa-calculator"></i> 求解裝載計劃</button>
+        </section>
+
+        <!-- 中：3D 視圖 -->
+        <section class="packing-panel view-panel">
+          <div class="view-legend">
+            <span class="legend-item"><span class="legend-dot" style="background:#38bdf8"></span> ULD</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span> 地面層</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#22c55e"></span> 中層</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span> 高層</span>
+          </div>
+          <div id="three-container" class="three-container"></div>
+          <div class="view-controls">
+            <button id="btn-play" class="btn btn-sm" disabled><i class="fa-solid fa-play"></i> 播放</button>
+            <button id="btn-pause" class="btn btn-sm" disabled><i class="fa-solid fa-pause"></i> 暫停</button>
+            <button id="btn-reset" class="btn btn-sm" disabled><i class="fa-solid fa-rotate-left"></i> 重設</button>
+            <span class="speed-label">速度</span>
+            <select id="speed-select" class="btn btn-sm">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+            </select>
+            <span id="step-indicator" class="step-indicator">0 / 0</span>
+          </div>
+        </section>
+
+        <!-- 右：結果面板 -->
+        <section class="packing-panel result-panel">
+          <h2><i class="fa-solid fa-chart-simple"></i> 結果摘要</h2>
+          <div id="summary-box" class="summary-box">
+            <p class="hint">請先在左側設定並執行求解。</p>
+          </div>
+          <h2><i class="fa-solid fa-list"></i> 未能放置</h2>
+          <div id="unplaced-box" class="unplaced-box"></div>
+          <h2><i class="fa-solid fa-flag"></i> 策略比較</h2>
+          <div id="strategy-box" class="strategy-box"></div>
+        </section>
+      </div>
+
+      <!-- 貨物編輯 Modal -->
+      <div id="cargo-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+          <h3 id="cargo-modal-title">新增貨物</h3>
+          <div class="form-group">
+            <label>ID</label>
+            <input type="text" id="cargo-id" placeholder="PKG-001">
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>長度 mm</label><input type="number" id="cargo-l" value="500" min="1"></div>
+            <div class="form-group"><label>寬度 mm</label><input type="number" id="cargo-w" value="400" min="1"></div>
+            <div class="form-group"><label>高度 mm</label><input type="number" id="cargo-h" value="300" min="1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>重量 kg</label><input type="number" id="cargo-weight" value="20" min="0.1" step="0.1"></div>
+            <div class="form-group"><label>數量</label><input type="number" id="cargo-qty" value="1" min="1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group check-inline"><label><input type="checkbox" id="cargo-stackable" checked> 可堆疊</label></div>
+            <div class="form-group check-inline"><label><input type="checkbox" id="cargo-upright"> 必須直立</label></div>
+          </div>
+          <div class="form-group"><label>最大堆疊重量 kg（可留空）</label><input type="number" id="cargo-max-stack" placeholder="不限"></div>
+          <div class="modal-actions">
+            <button id="btn-cancel-cargo" class="btn">取消</button>
+            <button id="btn-save-cargo" class="btn btn-primary">加入</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Three.js via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- 通用 API 封裝（apiFetch：401 自動跳登入頁） -->
+  <script src="js/utils/api.js"></script>
+  <!-- Three.js 渲染器（先載入，packing-main 依賴它） -->
+  <script src="js/packing/packing-viewer.js"></script>
+  <script src="js/packing/packing-main.js"></script>
+</body>
+</html>

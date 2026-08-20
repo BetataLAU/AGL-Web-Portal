@@ -1,0 +1,42 @@
+
+=== GitHub search: ULD packing air cargo (0 total) ===
+
+=== GitHub search: 3d bin packing (390 total) ===
+  alexfrom0815/Online-3D-BPP-PCT | ★1045 | Python | Code implementation of "Learning Efficient Online 3D Bin Packing on Packing Configuration Trees". We propose to enhance the practical applicability of online 3D Bin Packing Problem (BPP) via learning 
+  alexfrom0815/Online-3D-BPP-DRL | ★605 | Python | This repository contains the implementation of paper Online 3D Bin Packing with Constrained Deep Reinforcement Learning.
+  skjolber/3d-bin-container-packing | ★557 | Java | A variant of the Largest Area Fit First (LAFF) algorithm + brute force algorithm
+  enzoruiz/3dbinpacking | ★459 | Python | A python library for 3D Bin Packing
+  jerry800416/3D-bin-packing | ★289 | Python | 3D Bin Packing improvements based on https://github.com/enzoruiz/3dbinpacking
+  olragon/binpackingjs | ★187 | TypeScript | 2D, 3D, 4D Bin Packing JS Library
+  dwave-examples/3d-bin-packing | ★148 | Python | Use the minimum number of bins to pack items with different dimensions, weights and properties.
+  Janet-19/3d-bin-packing-problem | ★133 | Jupyter Notebook | A python model of 3D Bin Packing problem
+
+=== GitHub search: pallet loading optimization (16 total) ===
+  oo850131/3D-Pallet-Loading | ★1 |  | This repository contains a C# implementation of a CPLEX model for 3D pallet loading optimization to minimize the number of pallets used.` - `A C# project for optimizing 3D pallet loading using IBM ILO
+  RG-MSc/multipleconstraintoptimization | ★1 | Jupyter Notebook | Optimizing local deliveries considering weight, pallet, time window and loading times constraints
+  Saleem1975/pallet-loading-warehouse-optimization | ★0 | Jupyter Notebook | Pallet loading optimization considering storage time, relative humidity, volume utilization, and pallet stability
+  f2308634668-eng/pallet-loading-optimization | ★0 |  | 
+  Vishvesh-Khanzode/Container-Loading-Optimization | ★0 |  | Palletization Model for container loading : Minimizing total volume occupied 
+  rexnfx79/palletizr-mcp | ★0 | JavaScript | MCP server for Palletizr - Container loading optimization and shipping calculations
+  yuriihehed/OnPallets-Freight-Optimization-Tool- | ★0 | TypeScript | Professional LTL load calculator with 3D trailer visualization, axle weight distribution, and freight pricing for 53' dry vans.
+  Durak-Imran/Aircraft-Cargo-Loading-Optimization-using-Mixed-Integer-Programming | ★0 | Python | This project uses Python and Pyomo to solve a complex Aircraft Cargo Loading Problem, to assign a specific set of cargo pallets to available positions within an aircraft while strictly adhering to saf
+
+=== GitHub search: air cargo loading (24 total) ===
+  danderfer/Comp_Sci_Sem_2 | ★201 | Python | According to all known laws of aviation, there is no way that a bee should be able to fly. Its wings are too small to get its fat little body off the ground. The bee, of course, flies anyway. Because 
+  fbrandt/ACLPP | ★6 |  | Benchmark Instances for the Air Cargo Load Planning Problem
+  TwgInternational/International-Logistics | ★1 |  | The international arm of the Logistics Management Institute in Hyderabad deals with the exports, imports; transportation and movement of goods of Logistics Management Institute in Hyderabad and materi
+  teaguestockwell/levels-v3-react | ★1 | TypeScript | Aircraft cargo loading and weight and balance for the US Air Force
+  MF4rhan/Project-2ndSemester | ★1 | C++ | A menu-driven supply chain & logistics management system in C++. Manage shipments, load cargo, and dispatch across ground, air, water, and drone transport assets with various different features. 2nd s
+  marinesurvey/marineinspection | ★1 |  | Marine Cargo Ship Surveyors Experts Superintendent and Consultant for Ship-owner and P&I Insurance AIM Control’s Expertise AIM Control is a leader in providing a high quality service, in the field of 
+  lim-03/AircraftCargoLoading | ★0 | Java | 
+  Bouyahia-Mokhlis-Yacine/aircraft-cargo-loading | ★0 | Python | 
+
+=== GitHub search: container loading 3d (93 total) ===
+  mahdims/3D-bin-packing | ★70 | Python | Tabu search and Genetic algorithm implementation for  container loading problem (3D bin packing)
+  hschneid/xflp | ★51 | Java | xflp is a heuristic solver for container loading problems in 3D with real world constraints
+  hiteshsuthar01/OK- | ★39 |  | <html lang="en-US"><head><script type="text/javascript" async="" src="https://script.4dex.io/localstore.js"></script> <title>HTML p tag</title> <meta charset="utf-8"> <meta name="viewport" content="wi
+  amir2510/script | ★18 |  | <!DOCTYPE html>  <html lang="en" dir="ltr" data-cast-api-enabled="true"> <head><meta name="viewport" content="width=device-width, initial-scale=1"><style name="www-roboto" >@font-face{font-family:'Rob
+  CorinnaKrebs/Visualizer | ★14 | Java | This tool visualizes solutions for the Vehicle Routing Problem combined with the 3D Container Loading Problem.
+  jdgp-hub/hint---Infotrader | ★9 |  |  WarningElements must have sufficient color contrast: Element has insufficient color contrast of 1.67 (foreground color: #777777, background color: #195888, font size: 9.8pt (13px), font weight: norma
+  HurriKane/skyfactory-2.4-faults | ★8 |  | [16/5/2015 18:44:34 PM] Loading Language: English [16/5/2015 18:44:34 PM] Loading Language: English [16/5/2015 18:44:34 PM] ATLauncher Version: 3.2.2.6 [16/5/2015 18:44:34 PM] Operating System: Window
+  SuperRogerio/css | ★8 |  | *{margin:0;padding:0}html{font-size:100%;height:100%}* html{scrollbar-3dlight-color:#;scrollbar-arrow-color:#;scrollbar-darkshadow-color:#;scrollbar-face-color:#;scrollbar-highlight-color:#;scrollbar-

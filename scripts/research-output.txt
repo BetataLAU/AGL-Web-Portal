@@ -1,0 +1,107 @@
+# BPP Research Fetch (2026-08-20T12:15:44.226110)
+
+
+=== arXiv query: all:"bin packing" AND all:"container loading" (1 results) ===
+  [2026-08-02] PackingGPT: 3D Packing Agent for Real Furniture in Last-Mile Delivery
+    URL: http://arxiv.org/abs/2608.01427v1
+    Abstract: 3D bin packing rectangular items into standardised containers to maximise space utilisation under geometric shipping automation. Loading a furniture purchase into a personal vehicle is the same task, but under more complex conditions that standard container loading algorithms ignore. This paper addresses the physically stable placement under these ...
+
+=== arXiv query: all:"3d bin packing" (6 results) ===
+  [2020-07-01] A Generalized Reinforcement Learning Algorithm for Online 3D Bin-Packing
+    URL: http://arxiv.org/abs/2007.00463v1
+    Abstract: We propose a Deep Reinforcement Learning (Deep RL) algorithm for solving the online 3D bin packing problem for an arbitrary number of bins and any bin size. The focus is on producing decisions that can be physically implemented by a robotic loading arm, a laboratory prototype used for testing the concept. The problem considered in this paper is nov...
+  [2024-09-09] GOPT: Generalizable Online 3D Bin Packing via Transformer-based Deep Reinforcement Learning
+    URL: http://arxiv.org/abs/2409.05344v2
+    Abstract: Robotic object packing has broad practical applications in the logistics and automation industry, often formulated by researchers as the online 3D Bin Packing Problem (3D-BPP). However, existing DRL-based methods primarily focus on enhancing performance in limited packing environments while neglecting the ability to generalize across multiple envir...
+  [2026-04-13] Diffusion Reinforcement Learning Based Online 3D Bin Packing Spatial Strategy Optimization
+    URL: http://arxiv.org/abs/2604.10953v1
+    Abstract: The online 3D bin packing problem is important in logistics, warehousing and intelligent manufacturing, with solutions shifting to deep reinforcement learning (DRL) which faces challenges like low sample efficiency. This paper proposes a diffusion reinforcement learning-based algorithm, using a Markov decision chain for packing modeling, height map...
+  [2020-06-26] Online 3D Bin Packing with Constrained Deep Reinforcement Learning
+    URL: http://arxiv.org/abs/2006.14978v5
+    Abstract: We solve a challenging yet practically useful variant of 3D Bin Packing Problem (3D-BPP). In our problem, the agent has limited information about the items to be packed into the bin, and an item must be packed immediately after its arrival without buffering or readjusting. The item's placement also subjects to the constraints of collision avoidance...
+  [2024-08-19] An Efficient Deep Reinforcement Learning Model for Online 3D Bin Packing Combining Object Rearrangement and Stable Placement
+    URL: http://arxiv.org/abs/2408.09694v1
+    Abstract: This paper presents an efficient deep reinforcement learning (DRL) framework for online 3D bin packing (3D-BPP). The 3D-BPP is an NP-hard problem significant in logistics, warehousing, and transportation, involving the optimal arrangement of objects inside a bin. Traditional heuristic algorithms often fail to address dynamic and physical constraint...
+  [2022-08-15] Online 3D Bin Packing Reinforcement Learning Solution with Buffer
+    URL: http://arxiv.org/abs/2208.07123v1
+    Abstract: The 3D Bin Packing Problem (3D-BPP) is one of the most demanded yet challenging problems in industry, where an agent must pack variable size items delivered in sequence into a finite bin with the aim to maximize the space utilization. It represents a strongly NP-Hard optimization problem such that no solution has been offered to date with high perf...
+
+=== arXiv query: all:"three-dimensional packing" AND all:"constraints" (1 results) ===
+  [2020-07-30] Symmetry break in the eight bubble compaction
+    URL: http://arxiv.org/abs/2007.15399v1
+    Abstract: Geometry and mechanics have both a relevant role in determining the three-dimensional packing of 8 bubbles displyaed in a foam structure. We assume that the spatial arrangement of bubbles obeys a geometrical principle maximizing the minimum mutual distance between the bubble centroids. The compacted structure is then obtained by radially packing th...
+
+=== arXiv query: ti:"ULD" AND all:"air cargo" (0 results) ===
+
+=== arXiv query: all:"air cargo" AND all:"packing optimization" (0 results) ===
+
+=== arXiv query: all:"center of gravity" AND all:"bin packing" (0 results) ===
+
+=== Crossref query: three dimensional bin packing center of gravity (5 results) ===
+  [] Two and three-dimensional bin packing problems : an efficient implementation of evolutionary algorithms
+    DOI: https://doi.org/10.51415/10321/3180
+    Abstract: The present research work deals with the implementation of heuristics and genetic algo- rithms to solve various bin packing problems (BPP). Bin packing problems are a class of optimization problems that have numerous applications in the industrial world, ranging from efficient cutting of mat...
+  [2024] Multi-Objective Dynamic Feedback Algorithm for Solving the Multi-Drop Three-Dimensional Multiple Bin-Size Bin Packing Problem
+    DOI: https://doi.org/10.2139/ssrn.4836603
+  [2011] Three-dimensional bin packing problem with variable bin length Application in industrial storage problem
+    DOI: https://doi.org/10.1109/logistiqua.2011.5939451
+  [2015] Parallel packing procedure for three dimensional bin packing problem
+    DOI: https://doi.org/10.1109/mmar.2015.7284036
+  [] GA based hybrid tier packing approach for three dimensional packing
+    DOI: https://doi.org/10.32657/10356/3141
+
+=== Crossref query: air cargo ULD loading optimization (5 results) ===
+  [] Wide-Body and Standard-Body Aircraft Lower Deck Cargo Compartment ULD Capacities
+    DOI: https://doi.org/10.4271/air1869b
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Information Report (AIR) covers information relative to ULDs (Unit Load Devices) container and pallet configurations, maximum usable container, pallet and bulk compartment volumes and tare weights f...
+  [] ULD for Aircraft Transportation of Horses
+    DOI: https://doi.org/10.4271/arp1621c
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Recommended Practice (ARP) defines minimum requirements for an aircraft transport ULD to transport horses properly and safely by air, to protect the horse(s) from injuries, and to protect the aircra...
+  [] Wide-Body and Standard-Body Aircraft Lower Deck Cargo Compartment ULD Capacities
+    DOI: https://doi.org/10.4271/air1869a
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This AIR covers information relative to container and pallet configurations (ULDs), maximum usable container, pallet and bulk compartment volumes and tare weights for the lower deck of various wide-body aircraft. Bulk...
+  [] Wide-Body and Standard-Body Aircraft Lower Deck Cargo Compartment ULD Capacities
+    DOI: https://doi.org/10.4271/air1869d
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Information Report (AIR) covers information relative to ULDs (Unit Load Devices) container and pallet configurations, maximum usable container, pallet and bulk compartment volumes and tare weights f...
+  [] Wide-Body and Standard-Body Aircraft Lower Deck Cargo Compartment ULD Capacities
+    DOI: https://doi.org/10.4271/air1869c
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Information Report (AIR) covers information relative to ULDs (Unit Load Devices) container and pallet configurations, maximum usable container, pallet and bulk compartment volumes and tare weights f...
+
+=== Crossref query: pallet loading problem air cargo stability (5 results) ===
+  [] Air Cargo Pallet Extensions
+    DOI: https://doi.org/10.4271/as1988b
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Standard (AS) establishes the dimensional and operational requirements for pallet extension devices. It provides support for items of cargo beyond either the short or the long sides of a pallet, all...
+  [] Air Cargo Pallet Extenders
+    DOI: https://doi.org/10.4271/as1988a
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This SAE Aerospace Standard (AS) establishes the dimensional and operational requirements for pallet extension devices. It provides support for items of cargo beyond either the short or the long sides of a pallet, all...
+  [] INTERLINE AIR CARGO PALLET NETS
+    DOI: https://doi.org/10.4271/as1492a
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This specification establishes dimensional, structural and environmental requirements for two types of interline pallet nets. Type II covers NAS 3610 code sizes and Type III covers other sizes not currently included i...
+  [] Interline Air Cargo Pallet Nets
+    DOI: https://doi.org/10.4271/as1492c
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This document establishes dimensional, structural, and environmental requirements for Type II/2 interline pallet nets. Type II/2 covers NAS3610/AS36100 code sizes.&lt;/div&gt; &lt;/div&gt; 
+  [] Interline Air Cargo Pallet Nets
+    DOI: https://doi.org/10.4271/as1492b
+    Abstract: &lt;div class="section abstract"&gt; &lt;div class="htmlview paragraph"&gt;This document establishes dimensional, structural, and environmental requirements for two types of interline pallet nets. Type II covers NAS 3610 code sizes and Type III covers other sizes not currently included in NA...
+
+=== Crossref query FAILED: container loading problem support constraint -> HTTP Error 429: Too Many Requests
+
+=== SemanticScholar query FAILED: 3D bin packing air freight ULD -> HTTP Error 429: 
+
+=== Semantic Scholar query: container loading problem stability constraints (5 results) ===
+  [2025] A Hybrid Approach for the Container Loading Problem for Enhancing the Dynamic Stability Representation
+    URL: https://www.semanticscholar.org/paper/9e19f63b3af3c77a73360958d0f8dfa82f8bfaad
+    Abstract: In the container loading problem (CLP), the construction of packing patterns is driven by the maximization of the volume occupied, and comprises several constraints such as loading feasibility, weight balance, cargo stability, operational safety, material handling, and the prevention of cargo damage...
+  [2025] Decision Support System to Solve Single-Container Loading Problem Considering Practical Constraints
+    URL: https://www.semanticscholar.org/paper/91c1ca4f31e863d9d16f2b9aa726329292fedf72
+    Abstract: The container loading problem (CLP) has a broad spectrum of applications in industry and has been studied for over 60 years due to its high complexity. This paper addresses a realistic single-container loading scenario with practical constraints, including orientation limitations, maximum stacking w...
+  [2021] Practical constraints in the container loading problem: Comprehensive formulations and exact algorithm
+    URL: https://www.semanticscholar.org/paper/f3167b26cf7eea1846e66eebf4c4de7e9946b781
+    Abstract: Abstract This paper addresses the Single Container Loading Problem. We present an exact approach that considers the resolution of integer linear programming and constraint programming models iteratively. A linear relaxation of the problem based on packing in planes is proposed. Moreover, a comprehen...
+  [2020] Automating the planning of container loading for Atlas Copco: Coping with real-life stacking and stability constraints
+    URL: https://www.semanticscholar.org/paper/5d38c75fb0e7c364390af92c322fe4a5663c11c9
+    Abstract: Abstract The Atlas Copco☆ distribution center in Allen, TX, supplies spare parts and consumables to mining and construction companies across the world. For some customers, packages are shipped in sea containers. Planning how to load the containers is difficult due to several factors: heterogeneity o...
+  [2016] A container loading algorithm with static mechanical equilibrium stability constraints
+    URL: https://www.semanticscholar.org/paper/54c0b907ef60575215658201bba56c5a5bca385c
+
+=== SemanticScholar query FAILED: air cargo pallet loading optimization -> HTTP Error 429: 

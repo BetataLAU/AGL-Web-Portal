@@ -28,6 +28,7 @@ const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
 const palletRouter = require('./routes/pallet');
 const xlsBookingRouter = require('./routes/xls-booking');
+const packingRouter = require('./routes/packing');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -86,6 +87,8 @@ app.use('/api/orders', requireAuth, ordersRouter);
 app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
 // Shipper Role Project（空運單據工具）：登入即可使用
 app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
+// 3D ULD Packing（打板優化）：登入即可使用
+app.use('/api/packing', requireAuth, packingRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
 app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 

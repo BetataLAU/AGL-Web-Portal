@@ -12,7 +12,8 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `server.js` | Express 入口：靜態服務、JSON body、掛載 7 組 API 路由；Port 被佔用自動 +1 |
+| `server.js` | Express 入口：靜態服務、JSON body、掛載 8 組 API 路由；Port 被佔用自動 +1 |
+| `bp3d/` | **3D ULD 裝箱引擎**（`geometries.js` 半空間幾何、`uld-definitions.js` ULD 規格庫、`constraints.js` 約束、`extreme-points.js` EP 演算法、`solver.js` 主求解器） |
 | `package.json` | 名稱 gemini-intro-site；依賴僅 express ^4.18.2、sqlite3 ^5.1.6 |
 | `database.db` | SQLite 資料庫（自動建立，勿手動編輯） |
 | `ORDER_SYSTEM_PLAN.md` | 訂單系統設計紀錄：欄位規格、電力分類、訂單類型邏輯、電郵總結格式 |
@@ -36,6 +37,7 @@
 | `orders/orders-router.js` | 訂單 CRUD |
 | `orders/companies.js` | 公司/地點 CRUD，`normalizeCategory` |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
+| `packing.js` | **3D ULD 裝箱 API**（POST /api/packing/pack-uld 求解、GET /ulds、GET /demo、GET /health） |
 
 ### 前端 `public/`
 
@@ -67,6 +69,10 @@
 | `js/utils/cbm-calculator.js` | CBM 計算機（`openCbmCalculator`） |
 | `js/utils/time-picker.js` | 自訂時間選擇器（`setupTimePicker`） |
 | `js/utils/autocomplete.js` | 輸入即篩選自動補全（`setupAutocomplete`） |
+| `packing.html` | **3D ULD 裝箱頁面**（ULD 選擇、貨物編輯、3D 視圖、逐步動畫控制） |
+| `css/packing.css` | 3D 裝箱系統樣式（含深色主題） |
+| `js/packing/packing-viewer.js` | Three.js 渲染器（ULD 線框、貨物 Box、逐步飛入動畫、點擊資訊） |
+| `js/packing/packing-main.js` | 頁面邏輯（ULD 載入、貨物 CRUD、API 求解、結果顯示、動畫控制） |
 
 ---
 
@@ -135,6 +141,38 @@ created_at, updated_at
 ### dbviewer.js（資料庫檢視器）
 - `isAllowedTable(name)`：白名單檢查，防止存取非預期表格
 - 支援欄位列出、編輯欄位、刪除（`doDelete`）
+
+---
+
+## 3.5 3D ULD 裝箱系統（bp3d）
+
+### 引擎模組 `bp3d/`
+| 檔案 | 說明 |
+|------|------|
+| `geometries.js` | 半空間幾何引擎：矩形/斜切（Extruded Profile）/輪廓 ULD 統一以平面不等式建模；`boxFits`（8 頂點驗證） |
+| `uld-definitions.js` | ULD 規格庫：PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/PMC-Q7/PAG-Q7 輪廓 |
+| `constraints.js` | 約束：支撐率 ≥70%、堆疊承重、總重量、地面壓力、CoG ±10% |
+| `extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
+| `solver.js` | 主求解器：4 種排序策略（density/large/weight/footprint）、數量展開、回傳 sequence |
+
+### API
+| Method | Path | 說明 |
+|--------|------|------|
+| GET | `/api/packing/health` | 健康檢查（需登入） |
+| GET | `/api/packing/ulds` | ULD 清單（含渲染資訊） |
+| GET | `/api/packing/demo` | 內建示範求解（PMC 托盤） |
+| POST | `/api/packing/pack-uld` | 主求解 API（ULD spec + 貨物清單 + 選項） |
+
+### 測試
+- `scripts/test-bp3d.js` — 引擎單元測試（16 項：幾何/斜切/方向/支撐/求解/重量）
+- `scripts/test-packing-api.js [port]` — API 整合測試（登入 + ULD + 求解 + 錯誤處理，16 項）
+
+### 空運特殊約束
+- **斜切幾何**：AKE/LD3 以 Y-Z 剖面多邊形擠出 + 8 頂點平面不等式驗證
+- **支撐率**：預設 70%（API options.min_support_ratio 可調）
+- **CoG**：X/Y 偏移需在幾何中心 ±10% 內（options.cog_tolerance_ratio 可調）
+- **Net Clearance**：預設 30mm（ULD 內部空間向內縮）
+- **逐步動畫**：solver 回傳 `sequence[]`，前端 Three.js 依序播放
 
 ---
 

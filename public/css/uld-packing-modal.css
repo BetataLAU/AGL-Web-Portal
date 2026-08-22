@@ -1,0 +1,209 @@
+/* ===== ULD 智能裝箱專案工作台：Modal 與按鈕樣式 ===== */
+/* 用途：uld-packing.html 未引入 packing.css，此檔案補齊其依賴的
+   .modal-overlay / .modal-box / .form-group / .form-row / .modal-actions
+   與 .btn 系列基礎樣式，確保「新增專案」等彈窗正常顯示。 */
+
+/* ===== 按鈕基礎 ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  background: var(--card-bg, #fff);
+  color: var(--text-main, #0f172a);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: var(--surface-glow, rgba(37, 99, 235, 0.08));
+  border-color: var(--primary, #2563eb);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.btn-xs {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+.btn-primary {
+  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-primary:hover {
+  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
+  color: #fff;
+  border-color: transparent;
+  opacity: 0.9;
+}
+
+.btn-success {
+  background: #22c55e;
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-success:hover {
+  background: #16a34a;
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #dc2626;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Modal 遮罩與卡片 ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal-box {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px;
+  width: 440px;
+  max-width: 94vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+}
+
+.modal-box h3 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+  color: var(--text-main, #0f172a);
+}
+
+.modal-box h4 {
+  margin: 14px 0 8px;
+  font-size: 0.95rem;
+  color: var(--text-main, #0f172a);
+}
+
+/* ===== 表單 ===== */
+.form-group {
+  margin-bottom: 10px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 3px;
+  font-weight: 600;
+  color: var(--text-muted, #475569);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.form-row .form-group {
+  margin-bottom: 10px;
+}
+
+.modal-box input[type="text"],
+.modal-box input[type="number"],
+.modal-box select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border, #d1d5db);
+  border-radius: 6px;
+  background: var(--input-bg, #fff);
+  color: var(--text-main, #0f172a);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.modal-box input[type="text"]:focus,
+.modal-box input[type="number"]:focus,
+.modal-box select:focus {
+  outline: none;
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.check-inline label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  font-size: 0.85rem;
+  margin-top: 22px;
+  color: var(--text-main, #0f172a);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ===== 深色 / Ocean 主題 ===== */
+[data-theme="dark"] .modal-box {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .modal-box input[type="text"],
+[data-theme="dark"] .modal-box input[type="number"],
+[data-theme="dark"] .modal-box select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme="ocean"] .modal-box {
+  background: #f0fdff;
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+/* ===== 響應式 ===== */
+@media (max-width: 520px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}

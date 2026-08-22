@@ -180,13 +180,14 @@
   // ===== 貨物編輯 =====
   function openCargoModal(editIndex) {
     el.cargoModal.style.display = 'flex';
+    // 內部以 mm 儲存，表單以 cm 顯示（編輯時 ÷10 轉換）
     if (editIndex !== undefined) {
       const c = state.cargoList[editIndex];
       el.cargoTitle.textContent = '編輯貨物';
       el.cargoId.value = c.id;
-      el.cargoL.value = c.length_mm;
-      el.cargoW.value = c.width_mm;
-      el.cargoH.value = c.height_mm;
+      el.cargoL.value = (c.length_mm / 10).toFixed(1);
+      el.cargoW.value = (c.width_mm / 10).toFixed(1);
+      el.cargoH.value = (c.height_mm / 10).toFixed(1);
       el.cargoWeight.value = c.weight_kg;
       el.cargoQty.value = c.quantity;
       el.cargoStackable.checked = c.is_stackable !== false;
@@ -196,9 +197,9 @@
     } else {
       el.cargoTitle.textContent = '新增貨物';
       el.cargoId.value = `PKG-${String(state.cargoList.length + 1).padStart(3, '0')}`;
-      el.cargoL.value = 500;
-      el.cargoW.value = 400;
-      el.cargoH.value = 300;
+      el.cargoL.value = 50;
+      el.cargoW.value = 40;
+      el.cargoH.value = 30;
       el.cargoWeight.value = 20;
       el.cargoQty.value = 1;
       el.cargoStackable.checked = true;
@@ -214,9 +215,10 @@
 
   function saveCargo() {
     const editIndex = el.cargoId.dataset.editIndex;
-    const l = Number(el.cargoL.value);
-    const w = Number(el.cargoW.value);
-    const h = Number(el.cargoH.value);
+    // 表單以 cm 輸入；內部/API 以 mm 儲存（×10 轉換）
+    const l = Number(el.cargoL.value) * 10;
+    const w = Number(el.cargoW.value) * 10;
+    const h = Number(el.cargoH.value) * 10;
     const weight = Number(el.cargoWeight.value);
     const qty = Number(el.cargoQty.value);
     if (!(l > 0) || !(w > 0) || !(h > 0)) return showToast('尺寸必須為正數', 'error');
@@ -258,10 +260,14 @@
     state.cargoList.forEach((c, i) => {
       const div = document.createElement('div');
       div.className = 'cargo-item';
+      // 內部以 mm 儲存，顯示轉為 cm
+      const lCm = (c.length_mm / 10).toFixed(1);
+      const wCm = (c.width_mm / 10).toFixed(1);
+      const hCm = (c.height_mm / 10).toFixed(1);
       div.innerHTML = `
         <div class="cargo-info">
           <div class="cargo-id">${escapeHtml(c.id)}</div>
-          <div class="cargo-meta">${c.length_mm}×${c.width_mm}×${c.height_mm}mm, ${c.weight_kg}kg × ${c.quantity}</div>
+          <div class="cargo-meta">${lCm}×${wCm}×${hCm}cm, ${c.weight_kg}kg × ${c.quantity}</div>
         </div>
         <div style="display:flex;gap:4px;">
           <button class="cargo-del" title="編輯"><i class="fa-solid fa-pen"></i></button>
@@ -274,7 +280,7 @@
     });
   }
 
-  // ===== 示範資料 =====
+  // ===== 示範資料（內部以 mm 儲存，長度值由 cm ×10） =====
   function loadDemoCargo() {
     state.cargoList = [
       { id: 'PKG-A', length_mm: 600, width_mm: 400, height_mm: 400, weight_kg: 45, quantity: 12, is_stackable: true },
@@ -365,7 +371,7 @@
       ['體積利用率', `${s.volumeUtilizationPct}%`],
       ['總重量', `${s.totalWeightKg} kg`],
       ['剩餘承重', `${s.remainingWeightKg} kg`],
-      ['CoG (X/Y)', `(${s.cog.xMm}, ${s.cog.yMm}) ${s.cog.ok ? '✓' : '⚠️'}`],
+      ['CoG (X/Y)', `(${(s.cog.xMm / 10).toFixed(1)}, ${(s.cog.yMm / 10).toFixed(1)}) cm ${s.cog.ok ? '✓' : '⚠️'}`],
       ['地面壓力', `${s.floorPressureKgM2} kg/m² ${s.floorPressureOk ? '✓' : '⚠️'}`],
       ['使用策略', data.strategyName || data.strategy],
       ['計算時間', `${data.elapsedMs} ms`],
@@ -421,7 +427,7 @@
   function showCargoInfo(step) {
     const msg = [
       `📦 ${step.id}`,
-      `尺寸：${step.l} × ${step.w} × ${step.h} mm`,
+      `尺寸：${(step.l / 10).toFixed(1)} × ${(step.w / 10).toFixed(1)} × ${(step.h / 10).toFixed(1)} cm`,
       `重量：${step.weightKg} kg`,
       `位置：(${Math.round(step.x)}, ${Math.round(step.y)}, ${Math.round(step.z)})`,
       `支撐率：${Math.round(step.supportRatio * 100)}%`,

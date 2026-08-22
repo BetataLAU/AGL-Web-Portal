@@ -1,0 +1,80 @@
+/* ===== ULD 智能裝箱：3D 視圖樣式（獨立案） ===== */
+
+.up3d-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+}
+
+.up3d-toolbar .btn.active {
+  border-color: var(--primary, #2563eb);
+  background: var(--surface-glow, rgba(37, 99, 235, 0.12));
+  color: var(--primary, #2563eb);
+}
+
+.up3d-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border, #e2e8f0);
+  margin: 0 4px;
+}
+
+.up3d-step {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.up3d-container {
+  height: 520px;
+  background: #0b1120;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.up3d-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+.up3d-legend .legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* tooltip（毛玻璃） */
+.up3d-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  color: #f1f5f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  min-width: 130px;
+}
+
+.up3d-tooltip .tt-title {
+  font-weight: 700;
+  margin-bottom: 3px;
+}

@@ -442,6 +442,10 @@ async function setupAuthUI() {
     const xlsLock = document.getElementById('nav-xls-booking-lock');
     if (xlsLock) xlsLock.style.display = 'none';
 
+    // 解鎖 ULD 智能裝箱（登入即可用）
+    const uldProjectsLock = document.getElementById('nav-uld-projects-lock');
+    if (uldProjectsLock) uldProjectsLock.style.display = 'none';
+
     // 解鎖 3D ULD 裝箱（登入即可用）
     const packingLock = document.getElementById('nav-packing-lock');
     if (packingLock) packingLock.style.display = 'none';

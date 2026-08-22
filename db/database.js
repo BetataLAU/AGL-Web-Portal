@@ -311,6 +311,79 @@ db.serialize(() => {
     )
   `);
 
+  // ===== ULD 裝箱專案（PRD §5） =====
+  // projects：頂層專案（一次航班/運單）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      mawb TEXT,
+      dest TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ulds：專案內使用的 ULD 容器（含輪廓幾何定義）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ulds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER,
+      uld_type TEXT,
+      label TEXT,
+      max_weight_kg REAL,
+      contour_config TEXT,
+      status TEXT DEFAULT 'pending',
+      seq INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // customers：HAWB / 客戶（每客戶一專屬色卡）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER,
+      hawb TEXT,
+      customer_name TEXT,
+      color_code TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // items：貨物明細（歸屬於客戶，可選指派 ULD）
+  db.run(`
+    CREATE TABLE IF NOT EXISTS items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER,
+      assigned_uld_id INTEGER,
+      pack_type TEXT,
+      length_cm REAL,
+      width_cm REAL,
+      height_cm REAL,
+      pcs INTEGER,
+      weight_kg REAL,
+      is_stackable INTEGER DEFAULT 1,
+      actual_type TEXT,
+      note TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // solutions：演算法產生的裝載方案
+  db.run(`
+    CREATE TABLE IF NOT EXISTS solutions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER,
+      solution_data TEXT,
+      utilization_rate REAL,
+      weight_utilization REAL,
+      cog_x REAL,
+      cog_y REAL,
+      cog_z REAL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // 插入初始技能資料（若表格為空）
   db.get("SELECT COUNT(*) AS count FROM skills", (err, row) => {
     if (row && row.count === 0) {

@@ -29,6 +29,10 @@ const usersRouter = require('./routes/auth/users-router');
 const palletRouter = require('./routes/pallet');
 const xlsBookingRouter = require('./routes/xls-booking');
 const packingRouter = require('./routes/packing');
+const packingProjectsRouter = require('./routes/packing-projects');
+const packingSolveRouter = require('./routes/packing-solve');
+const packingSolutionsRouter = require('./routes/packing-solutions');
+const packingPdfRouter = require('./routes/packing-pdf');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -89,6 +93,14 @@ app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
 app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
 // 3D ULD Packing（打板優化）：登入即可使用
 app.use('/api/packing', requireAuth, packingRouter);
+// ULD 裝箱專案管理（PRD §5）：登入即可使用
+app.use('/api/packing', requireAuth, packingProjectsRouter);
+// GA-LNS 非同步求解：登入即可使用
+app.use('/api/packing', requireAuth, packingSolveRouter);
+// 方案存檔（solutions）：登入即可使用
+app.use('/api/packing', requireAuth, packingSolutionsRouter);
+// 作業單 PDF 導出：登入即可使用
+app.use('/api/packing', requireAuth, packingPdfRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
 app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 

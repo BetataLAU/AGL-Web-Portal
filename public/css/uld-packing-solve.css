@@ -1,0 +1,103 @@
+/* ===== ULD 智能裝箱：求解面板樣式（獨立案） ===== */
+
+.solve-panel {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.solve-progress-bar {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.solve-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--primary-gradient, linear-gradient(135deg, #2563eb, #3b82f6));
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.solve-progress-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* 方案卡片 */
+.solve-solutions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.solve-solution-card {
+  border: 2px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: var(--input-bg, #fff);
+}
+
+.solve-solution-card:hover {
+  border-color: var(--primary, #2563eb);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow, 0 20px 45px rgba(15, 23, 42, 0.08));
+}
+
+.solve-solution-card.selected {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px var(--primary, #2563eb);
+}
+
+.solve-solution-card h4 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.solve-solution-card .sol-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #475569);
+}
+
+.solve-solution-card .sol-metrics b {
+  color: var(--text-main, #0f172a);
+}
+
+.solve-solution-card .sol-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.sol-badge {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface-glow, rgba(37, 99, 235, 0.1));
+  color: var(--text-muted, #64748b);
+}
+
+.sol-badge.ok {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.sol-badge.warn {
+  background: #fef3c7;
+  color: #b45309;
+}

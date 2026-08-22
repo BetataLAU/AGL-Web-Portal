@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ULD 智能裝箱專案 - AGL</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/utils/modal.css">
+  <link rel="stylesheet" href="css/uld-packing.css">
+  <link rel="stylesheet" href="css/uld-packing-modal.css">
+  <link rel="stylesheet" href="css/uld-packing-3d.css">
+  <link rel="stylesheet" href="css/uld-packing-solve.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- 左側 Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span class="logo-text">📦 ULD Packing</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="index.html" class="nav-item">
+          <i class="fa-solid fa-house"></i> <span>返回主頁</span>
+        </a>
+        <a href="uld-packing.html" class="nav-item active">
+          <i class="fa-solid fa-boxes-stacked"></i> <span>專案工作台</span>
+        </a>
+        <a href="packing.html" class="nav-item">
+          <i class="fa-solid fa-cube"></i> <span>單 ULD 裝箱</span>
+        </a>
+      </nav>
+    </aside>
+
+    <!-- 主內容：左目錄 + 右內容 -->
+    <main class="up-main">
+      <!-- 頁首 -->
+      <header class="up-header">
+        <h1><i class="fa-solid fa-boxes-stacked"></i> ULD 智能裝箱專案</h1>
+        <div class="up-header-actions">
+          <button id="btn-unit-toggle" class="btn btn-sm" title="切換單位">
+            <i class="fa-solid fa-scale-balanced"></i> <span id="unit-toggle-label">KG / V.W</span>
+          </button>
+          <button id="btn-new-project" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus"></i> 新增專案
+          </button>
+        </div>
+      </header>
+
+      <div class="up-body">
+        <!-- 左側目錄 -->
+        <aside class="up-sidebar">
+          <div class="up-sidebar-title">
+            <span>📁 專案目錄</span>
+          </div>
+          <div id="project-tree" class="up-tree">
+            <p class="up-tree-hint">尚無專案，點「新增專案」開始</p>
+          </div>
+        </aside>
+
+        <!-- 右側內容 -->
+        <section class="up-content">
+          <!-- 空狀態 -->
+          <div id="up-empty" class="up-empty">
+            <div class="up-empty-icon"><i class="fa-solid fa-cubes"></i></div>
+            <p>請在左側選擇專案，或建立新專案</p>
+          </div>
+
+          <!-- 專案詳情（動態渲染） -->
+          <div id="up-project-view" class="up-project-view" style="display:none;">
+            <!-- 專案標題列 -->
+            <div class="up-project-header">
+              <div>
+                <h2 id="pv-title">-</h2>
+                <span id="pv-dest" class="up-dest-badge">-</span>
+              </div>
+              <div class="up-project-actions">
+                <button id="btn-add-uld" class="btn btn-sm"><i class="fa-solid fa-plus"></i> 追加 ULD</button>
+                <button id="btn-add-customer" class="btn btn-sm"><i class="fa-solid fa-user-plus"></i> 新增客戶</button>
+                <button id="btn-add-item" class="btn btn-sm"><i class="fa-solid fa-box"></i> 新增貨物</button>
+                <button id="btn-smart-solve" class="btn btn-success btn-sm">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> 智能裝箱
+                </button>
+              </div>
+            </div>
+
+            <!-- 全局匯總列 -->
+            <div class="up-summary-bar" id="pv-summary">
+              <span class="sum-item">總毛重：<b id="sum-gross">0</b> kg</span>
+              <span class="sum-item">總體積重：<b id="sum-vw">0</b> kg</span>
+              <span class="sum-item">總 CBM：<b id="sum-cbm">0</b></span>
+              <span class="sum-item">ULD：<b id="sum-ulds">0</b> 台</span>
+              <span class="sum-item">貨物：<b id="sum-items">0</b> 件</span>
+              <span class="sum-item sum-alert" id="sum-alert" style="display:none;">⚠️ 超限</span>
+            </div>
+
+            <!-- 標籤頁：3D / ULD / 貨物 / 客戶 -->
+            <div class="up-tabs">
+              <button class="up-tab active" data-tab="view3d"><i class="fa-solid fa-cube"></i> 3D 視圖</button>
+              <button class="up-tab" data-tab="ulds"><i class="fa-solid fa-cube"></i> ULD 清單</button>
+              <button class="up-tab" data-tab="items"><i class="fa-solid fa-box"></i> 貨物清單</button>
+              <button class="up-tab" data-tab="customers"><i class="fa-solid fa-users"></i> 客戶</button>
+            </div>
+
+            <!-- 3D 分頁 -->
+            <div class="up-tab-pane active" id="tab-view3d">
+              <div class="up3d-toolbar">
+                <button class="btn btn-xs" data-view="3d"><i class="fa-solid fa-cube"></i> 3D</button>
+                <button class="btn btn-xs" id="btn-drag-mode" title="啟用/停用拖拽貨物">
+                  <i class="fa-solid fa-hand-point-up"></i> 拖拽
+                </button>
+                <button class="btn btn-xs" data-view="top"><i class="fa-solid fa-border-all"></i> 俯視</button>
+                <button class="btn btn-xs" data-view="side"><i class="fa-solid fa-arrows-up-down"></i> 側剖面</button>
+                <button class="btn btn-xs" id="btn-explode"><i class="fa-solid fa-arrows-up-down"></i> 爆炸</button>
+                <button class="btn btn-xs" id="btn-restore"><i class="fa-solid fa-rotate-left"></i> 復位</button>
+                <span class="up3d-divider"></span>
+                <button class="btn btn-xs" data-filter="size"><i class="fa-solid fa-ruler"></i> 尺寸</button>
+                <button class="btn btn-xs" data-filter="weight"><i class="fa-solid fa-weight-hanging"></i> 重量</button>
+                <button class="btn btn-xs" data-filter="custom"><i class="fa-solid fa-user"></i> 客戶</button>
+                <button class="btn btn-xs" data-filter="off"><i class="fa-solid fa-eye-slash"></i> 關</button>
+                <span class="up3d-divider"></span>
+                <button class="btn btn-xs" id="btn-anim-play"><i class="fa-solid fa-play"></i> 播放</button>
+                <button class="btn btn-xs" id="btn-anim-pause"><i class="fa-solid fa-pause"></i> 暫停</button>
+                <button class="btn btn-xs" id="btn-anim-prev"><i class="fa-solid fa-backward-step"></i></button>
+                <button class="btn btn-xs" id="btn-anim-next"><i class="fa-solid fa-forward-step"></i></button>
+                <span id="anim-step-indicator" class="up3d-step">0 / 0</span>
+              </div>
+              <div id="up3d-container" class="up3d-container"></div>
+              <div class="up3d-legend" id="up3d-legend"></div>
+            </div>
+
+            <!-- 智能裝箱：進度條 + 方案卡片 -->
+            <div id="solve-panel" class="solve-panel" style="display:none;">
+              <div class="solve-progress-bar">
+                <div class="solve-progress-fill" id="solve-progress-fill"></div>
+              </div>
+              <div class="solve-progress-info">
+                <span id="solve-progress-text">準備中...</span>
+                <button id="btn-solve-cancel" class="btn btn-xs btn-danger" style="display:none;">
+                  <i class="fa-solid fa-xmark"></i> 取消
+                </button>
+              </div>
+              <div class="solve-solutions" id="solve-solutions"></div>
+            </div>
+
+            <!-- ULD 分頁 -->
+            <div class="up-tab-pane" id="tab-ulds">
+              <div class="up-uld-grid" id="pv-ulds"></div>
+            </div>
+
+            <!-- 貨物分頁 -->
+            <div class="up-tab-pane" id="tab-items">
+              <div class="up-items-toolbar">
+                <button id="btn-clone-row" class="btn btn-xs"><i class="fa-solid fa-copy"></i> 複製列</button>
+                <button id="btn-paste-csv" class="btn btn-xs"><i class="fa-solid fa-paste"></i> 貼上 CSV</button>
+                <span class="up-muted">從 Excel 複製多行後按 Ctrl+V 貼上</span>
+              </div>
+              <div class="up-table-wrap">
+                <table class="up-table" id="pv-items-table">
+                  <thead>
+                    <tr>
+                      <th>選</th>
+                      <th>HAWB</th>
+                      <th>客戶</th>
+                      <th>類型</th>
+                      <th>長 cm</th>
+                      <th>寬 cm</th>
+                      <th>高 cm</th>
+                      <th>PCS</th>
+                      <th>單件 kg</th>
+                      <th>V.W</th>
+                      <th>CBM</th>
+                      <th>ULD</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pv-items-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 客戶分頁 -->
+            <div class="up-tab-pane" id="tab-customers">
+              <div class="up-customer-grid" id="pv-customers"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- 新增專案 Modal -->
+  <div id="modal-new-project" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>📁 新增專案</h3>
+      <div class="form-group">
+        <label>MAWB#</label>
+        <input type="text" id="np-mawb" placeholder="999-12345678">
+      </div>
+      <div class="form-group">
+        <label>DEST（目的站）</label>
+        <input type="text" id="np-dest" placeholder="LAX" maxlength="3">
+      </div>
+      <h4>ULD 清單</h4>
+      <div id="np-uld-rows" class="np-uld-rows"></div>
+      <button id="np-add-uld-row" class="btn btn-xs"><i class="fa-solid fa-plus"></i> 加一列 ULD</button>
+      <div class="modal-actions">
+        <button id="np-cancel" class="btn">取消</button>
+        <button id="np-create" class="btn btn-primary">建立</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增 ULD Modal -->
+  <div id="modal-add-uld" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>📦 追加 ULD</h3>
+      <div class="form-group">
+        <label>ULD 類型</label>
+        <select id="au-type"></select>
+      </div>
+      <div class="form-group">
+        <label>數量</label>
+        <input type="number" id="au-qty" value="1" min="1" max="50">
+      </div>
+      <div class="modal-actions">
+        <button id="au-cancel" class="btn">取消</button>
+        <button id="au-add" class="btn btn-primary">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增客戶 Modal -->
+  <div id="modal-add-customer" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>👥 新增客戶</h3>
+      <div class="form-group">
+        <label>HAWB#</label>
+        <input type="text" id="ac-hawb" placeholder="HKGLX123456">
+      </div>
+      <div class="form-group">
+        <label>客戶名稱</label>
+        <input type="text" id="ac-name" placeholder="ABC Logistics">
+      </div>
+      <div class="modal-actions">
+        <button id="ac-cancel" class="btn">取消</button>
+        <button id="ac-add" class="btn btn-primary">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增貨物 Modal -->
+  <div id="modal-add-item" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <h3>📦 新增貨物</h3>
+      <div class="form-group">
+        <label>客戶（HAWB）</label>
+        <select id="ai-customer"></select>
+      </div>
+      <div class="form-group">
+        <label>指派 ULD（可選）</label>
+        <select id="ai-uld"><option value="">待分配</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>包裝類型</label>
+          <select id="ai-pack-type"><option value="CTN">CTN 紙箱</option><option value="PLT">PLT 卡板</option></select>
+        </div>
+        <div class="form-group"><label>實際形態</label>
+          <input type="text" id="ai-actual" placeholder="如 Drum / Roll">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>長 cm</label><input type="number" id="ai-l" value="60" min="1"></div>
+        <div class="form-group"><label>寬 cm</label><input type="number" id="ai-w" value="40" min="1"></div>
+        <div class="form-group"><label>高 cm</label><input type="number" id="ai-h" value="40" min="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>PCS</label><input type="number" id="ai-pcs" value="1" min="1"></div>
+        <div class="form-group"><label>單件毛重 kg</label><input type="number" id="ai-weight" value="15" min="0.1" step="0.1"></div>
+      </div>
+      <div class="form-group check-inline">
+        <label><input type="checkbox" id="ai-stackable" checked> 可堆疊</label>
+      </div>
+      <div class="modal-actions">
+        <button id="ai-cancel" class="btn">取消</button>
+        <button id="ai-add" class="btn btn-primary">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用 API -->
+  <!--
+    Three.js 依賴改為「動態載入」：即使 CDN 失敗也不會阻斷下方自訂 script 執行，
+    確保「新增專案」等按鈕一定會綁定。3D 依賴載入完成後才初始化 3D viewer。
+  -->
+  <script>
+    window.__up3dDepsReady = new Promise((resolve) => {
+      var DEPS = [
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'
+      ];
+      var idx = 0;
+      function loadNext() {
+        if (idx >= DEPS.length) { resolve(true); return; }
+        var s = document.createElement('script');
+        s.src = DEPS[idx++];
+        s.onload = loadNext;
+        s.onerror = function () {
+          console.warn('3D 依賴載入失敗（3D 視圖不可用，不影響操作功能）');
+          resolve(false);
+        };
+        document.head.appendChild(s);
+      }
+      loadNext();
+    });
+  </script>
+  <script src="js/utils/api.js"></script>
+  <script src="js/uld-packing/state.js"></script>
+  <script src="js/uld-packing/calc.js"></script>
+  <script src="js/uld-packing/ui.js"></script>
+  <script src="js/uld-packing/project.js"></script>
+  <script src="js/uld-packing/viewer.js"></script>
+  <script src="js/uld-packing/viewer-controller.js"></script>
+  <script src="js/uld-packing/dragger.js"></script>
+  <script src="js/uld-packing/solve-ui.js"></script>
+  <script src="js/uld-packing/main.js"></script>
+</body>
+</html>

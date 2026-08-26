@@ -77,12 +77,14 @@ function renderContourResults(images, query) {
   countEl.textContent = `${images.length} contour image${images.length === 1 ? '' : 's'} found.`;
   grid.innerHTML = images.map((img, idx) => {
     const imageUrl = `/api/contour-image/${encodeURIComponent(img.filename)}`;
+    const source = img.source ? img.source.toUpperCase() : '';
     return `
       <div class="contour-result-card stagger-item" style="animation-delay: ${Math.min(idx * 40, 600)}ms">
         <img src="${imageUrl}" alt="${escapeHtml(img.title)}" loading="lazy" data-filename="${escapeHtml(img.filename)}" data-title="${escapeHtml(img.title)}" data-code="${escapeHtml(img.code)}" />
         <div class="contour-meta">
           <span class="contour-code">${escapeHtml(img.code)}</span>
           <span>${escapeHtml(img.title)}</span>
+          ${source ? `<span class="contour-source-badge contour-source-${escapeHtml(source.toLowerCase())}">${escapeHtml(source)}</span>` : ''}
         </div>
         <div class="contour-actions">
           <a class="pill btn-primary contour-download-link" href="${imageUrl}" download="${escapeHtml(img.filename)}" data-filename="${escapeHtml(img.filename)}">Download</a>

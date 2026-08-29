@@ -204,6 +204,33 @@
   max-height: 180px;
 }
 
+.contour-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.contour-source-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  color: #fff;
+}
+
+.contour-source-hactl {
+  background: #2563eb;
+}
+
+.contour-source-cx {
+  background: #7c3aed;
+}
+
 .contour-actions {
   display: flex;
   gap: 8px;

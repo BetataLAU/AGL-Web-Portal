@@ -69,7 +69,8 @@ def main():
 
         wb = excel.Workbooks.Open(template, ReadOnly=False, UpdateLinks=0)
 
-        for rec in records:
+        total = len(records)
+        for idx, rec in enumerate(records, 1):
             mawb = rec["mawb"]
             sli_cells = rec.get("sli", {})
             eli_cells = rec.get("eli", {})
@@ -98,7 +99,8 @@ def main():
             eli_xlsx = os.path.join(work_dir, f"{mawb} ELI.xlsx")
             ws_eli.SaveAs(eli_xlsx, 51)
 
-            print(f"OK: {mawb}")
+            print(f"OK: {mawb}", flush=True)
+            print(f"PROGRESS: {idx}/{total}", flush=True)
 
         wb.Close(SaveChanges=False)
         wb = None

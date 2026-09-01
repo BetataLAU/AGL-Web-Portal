@@ -533,13 +533,41 @@ async function runWorkflow(opts) {
   if (recordsPayload.length) {
     try {
       // 將 payload 寫入暫存 JSON 檔（execFileAsync 不支援 stdin input，改用檔案參數）
-      reportProgress(25, `產生 ${recordsPayload.length} 份 SLI/ELI PDF（Excel 轉檔中）...`);
+      reportProgress(25, `產生 ${recordsPayload.length} 份 SLI/ELI PDF（Excel 轉檔中，0/${recordsPayload.length}）...`);
       const payloadFile = path.join(workDir, 'sli-eli-payload.json');
       await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: recordsPayload }), 'utf-8');
       const py = process.env.PYTHON || 'python';
-      const { stdout, stderr } = await execFileAsync(py, [path.join(__dirname, 'sli-eli-generate.py'), '--payload', payloadFile], {
-        timeout: 600000, // 10 分鐘（大量 MAWB 時）
-        maxBuffer: 10 * 1024 * 1024,
+      const script = path.join(__dirname, 'sli-eli-generate.py');
+      // 改用 execFile 即時讀取 Python 的 PROGRESS 輸出，逐筆 MAWB 更新進度條（25% → 80%）
+      const NL = String.fromCharCode(10);
+      const { stdout, stderr } = await new Promise((resolve, reject) => {
+        const child = execFile(py, [script, '--payload', payloadFile], {
+          timeout: 600000, // 10 分鐘（大量 MAWB 時）
+          maxBuffer: 10 * 1024 * 1024,
+        }, (err, so, se) => {
+          if (err) {
+            reject(new Error((se && se.trim()) ? se.trim() : err.message));
+          } else {
+            resolve({ stdout: so, stderr: se });
+          }
+        });
+        let buf = '';
+        child.stdout.on('data', (chunk) => {
+          buf += chunk;
+          const lines = buf.split(NL);
+          buf = lines.pop();
+          for (const line of lines) {
+            const lt = line.trim(); // Windows Python 輸出為 CRLF，需去除 \r
+            if (lt.indexOf('PROGRESS: ') === 0) {
+              const parts = lt.slice('PROGRESS: '.length).split('/');
+              const done = Number(parts[0]);
+              const tot = Number(parts[1]);
+              if (done >= 0 && tot > 0) {
+                reportProgress(Math.round(25 + 55 * (done / tot)), `產生 SLI/ELI PDF（${done}/${tot}）...`);
+              }
+            }
+          }
+        });
       });
       if (stderr && stderr.includes('ERROR')) {
         throw new Error(`SLI/ELI 產生失敗: ${stderr}`);

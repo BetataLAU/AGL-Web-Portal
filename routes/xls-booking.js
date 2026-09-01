@@ -148,7 +148,8 @@ router.post('/process', async (req, res) => {
     if (!session) return res.status(404).json({ error: '上傳工作階段已過期，請重新上傳' });
 
     const jobId = crypto.randomBytes(8).toString('hex');
-    jobs.set(jobId, { progress: 0, message: '排隊中...', status: 'running', result: null, error: null });
+    const controller = new AbortController();
+    jobs.set(jobId, { progress: 0, message: '排隊中...', status: 'running', result: null, error: null, controller });
 
     // 非同步執行，不阻塞回應
     (async () => {
@@ -163,6 +164,7 @@ router.post('/process', async (req, res) => {
           defs,
           reportTemplate: reportCopy,
           sliTemplate,
+          signal: controller.signal,
           onProgress: (pct, msg) => {
             const job = jobs.get(jobId);
             if (job) { job.progress = pct; job.message = msg; }
@@ -184,7 +186,14 @@ router.post('/process', async (req, res) => {
           error: null,
         });
       } catch (err) {
-        jobs.set(jobId, { progress: -1, message: err.message, status: 'error', result: null, error: err.message });
+        const aborted = controller.signal.aborted;
+        jobs.set(jobId, {
+          progress: -1,
+          message: aborted ? '已中止' : err.message,
+          status: aborted ? 'cancelled' : 'error',
+          result: null,
+          error: aborted ? '已中止' : err.message,
+        });
       }
     })();
 
@@ -192,6 +201,17 @@ router.post('/process', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ===== API: 中止 job =====
+router.post('/cancel/:jobId', (req, res) => {
+  const job = jobs.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: '找不到 job' });
+  if (job.controller) job.controller.abort();
+  job.status = 'cancelled';
+  job.message = '已中止';
+  job.progress = -1;
+  res.json({ ok: true });
 });
 
 // ===== API: 輪詢進度 =====

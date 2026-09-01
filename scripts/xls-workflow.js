@@ -414,7 +414,15 @@ async function zipFiles(files, zipPath, zipRootName = '') {
  * @returns {Promise<{zipPath, reportPath, count, errors}>}
  */
 async function runWorkflow(opts) {
-  const { files, defs, reportTemplate, sliTemplate, onProgress } = opts;
+  const { files, defs, reportTemplate, sliTemplate, onProgress, signal } = opts;
+
+  const assertActive = () => {
+    if (signal && signal.aborted) {
+      const e = new Error('已中止');
+      e.aborted = true;
+      throw e;
+    }
+  };
 
   const results = [];
   const errors = [];
@@ -426,6 +434,7 @@ async function runWorkflow(opts) {
   // Step 1: 讀取每個檔案，依定義標準化
   reportProgress(3, '開始解析檔案...');
   for (const [i, def] of defs.entries()) {
+    assertActive();
     const file = files[def.fileIndex];
     if (!file) {
       errors.push(`檔案索引 ${def.fileIndex} 不存在`);
@@ -481,6 +490,7 @@ async function runWorkflow(opts) {
 
   // Step 2: Report 寫入
   reportProgress(15, `解析完成，共 ${allRecords.length} 筆，寫入 Report...`);
+  assertActive();
   let reportOut = reportTemplate;
   if (allRecords.length) {
     await writeReport(reportTemplate, allRecords);
@@ -488,6 +498,7 @@ async function runWorkflow(opts) {
 
   // Step 3: SLI / ELI xlsx + PDF
   await fsp.mkdir(WORK_DIR, { recursive: true });
+  assertActive();
   const workDir = await fsp.mkdtemp(path.join(WORK_DIR, 'job-'));
   const sliPdfs = [];
   const eliPdfs = [];
@@ -550,6 +561,7 @@ async function runWorkflow(opts) {
 
   // Step 4: 合併 SLI+ELI → {MAWB}.pdf，刪除單獨檔
   reportProgress(80, `合併 ${sliPdfs.length} 組 SLI + ELI PDF...`);
+  assertActive();
   const mergedPdfs = [];
   for (let i = 0; i < sliPdfs.length; i++) {
     // 依 sliPdfs 檔名取 MAWB
@@ -569,6 +581,7 @@ async function runWorkflow(opts) {
 
   // Step 5: 依航班分組 zip
   reportProgress(90, '依航班打包 ZIP...');
+  assertActive();
   const groups = new Map();
   for (const rec of allRecords) {
     if (!rec.flight) continue;

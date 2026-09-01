@@ -15,8 +15,9 @@ const archiver = require('archiver');
 
 // ===== 路徑設定 =====
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const TEMPLATE_DIR = path.join(PROJECT_ROOT, 'data', 'templates');
-const WORK_DIR = path.join(PROJECT_ROOT, 'data', 'work');
+const DATA_DIR = process.env.DATA_DIR || path.join(PROJECT_ROOT, 'data');
+const TEMPLATE_DIR = path.join(DATA_DIR, 'templates');
+const WORK_DIR = path.join(DATA_DIR, 'work');
 
 // 欄位類型定義
 const FIELD_TYPES = {

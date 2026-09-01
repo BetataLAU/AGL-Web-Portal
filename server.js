@@ -1,11 +1,33 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 const { execFile } = require('child_process');
 const SQLiteStore = require('connect-sqlite3')(session);
 
 // 初始化 SQLite 數據庫（建表 + seed）
 require('./db/database');
+
+// ===== 確保持久目錄（Railway Volume）就緒：首次啟動建立資料夾並複製模板 =====
+// 本地（無 DATA_DIR）時此段為 no-op，維持原路徑。
+const PERSIST_DIR = process.env.DATA_DIR;
+if (PERSIST_DIR) {
+  const templatesSrc = path.join(__dirname, 'data', 'templates');
+  const templatesDst = path.join(PERSIST_DIR, 'templates');
+  const workDst = path.join(PERSIST_DIR, 'work');
+  const uploadsDst = path.join(PERSIST_DIR, 'uploads');
+  const sessionsDst = path.join(PERSIST_DIR, 'db');
+  [templatesDst, workDst, uploadsDst, sessionsDst].forEach((d) => fs.mkdirSync(d, { recursive: true }));
+  // 模板是唯讀靜態檔：Volume 缺檔時從 repo 複製過去
+  if (fs.existsSync(templatesSrc)) {
+    fs.readdirSync(templatesSrc).forEach((f) => {
+      const src = path.join(templatesSrc, f);
+      const dst = path.join(templatesDst, f);
+      if (!fs.existsSync(dst)) fs.copyFileSync(src, dst);
+    });
+  }
+  console.log(`[persist] 使用持久目錄：${PERSIST_DIR}`);
+}
 
 // ===== 啟動時自動安裝 git hooks（換電腦免手動安裝，失敗不影響伺服器） =====
 execFile(process.execPath, [path.join(__dirname, 'scripts', 'install-hooks.js')], { windowsHide: true, timeout: 15000 }, (hookErr, stdout, stderr) => {
@@ -62,7 +84,7 @@ app.use(session({
   saveUninitialized: false,
   store: new SQLiteStore({
     db: 'sessions.db',
-    dir: path.join(__dirname, 'db'),
+    dir: process.env.SESSIONS_DIR || (process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'db') : path.join(__dirname, 'db')),
     table: 'sessions'
   }),
   cookie: {

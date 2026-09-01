@@ -18,7 +18,8 @@ const { runWorkflow } = require('../scripts/xls-workflow');
 const router = express.Router();
 
 // ===== 路徑設定 =====
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// DATA_DIR 可由環境變數覆寫（Railway：指向持久 Volume），本地維持 data/ 路徑
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const WORK_DIR = path.join(DATA_DIR, 'work');
 const TEMPLATES_DIR = path.join(DATA_DIR, 'templates');

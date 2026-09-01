@@ -1,9 +1,15 @@
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
 
 // 初始化 SQLite 數據庫
-const db = new sqlite3.Database('./database.db', (err) => {
+// 路徑可透過環境變數覆寫（Railway：DATA_DIR 指向持久 Volume，避免 rebuild 時重置）
+const DATA_DIR = process.env.DATA_DIR;
+const DB_PATH = process.env.DB_PATH || (DATA_DIR ? path.join(DATA_DIR, 'database.db') : path.join(__dirname, '..', 'database.db'));
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new sqlite3.Database(DB_PATH, (err) => {
   if (err) console.error('數據庫連接失敗:', err.message);
-  else console.log('已成功連接 SQLite 數據庫');
+  else console.log(`已成功連接 SQLite 數據庫（${DB_PATH}）`);
 });
 
 // 建表與預設數據初始化

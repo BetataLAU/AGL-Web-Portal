@@ -6,12 +6,37 @@
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
-const { execFile } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const ExcelJS = require('exceljs');
 const archiver = require('archiver');
 const { flightCompany } = require('./xls-utils');
+
+// ===== Python 直譯器解析 =====
+// Railway/Linux 容器常只有 python3（或 python symlink 未建立）；Windows 本地則慣用 python。
+// 依序嘗試：PYTHON 環境變數 → python3 → python。結果快取，避免每次呼叫都重測。
+let _cachedPython = null;
+function resolvePython() {
+  if (_cachedPython) return _cachedPython;
+  const candidates = [];
+  if (process.env.PYTHON) candidates.push(process.env.PYTHON);
+  candidates.push('python3', 'python');
+  for (const c of candidates) {
+    try {
+      execFileSync(c, ['--version'], { stdio: 'ignore', timeout: 8000, windowsHide: true });
+      _cachedPython = c;
+      return c;
+    } catch (e) {
+      // 找不到就試下一個
+    }
+  }
+  throw new Error(
+    '找不到可用的 Python（已嘗試 PYTHON 環境變數 / python3 / python）。' +
+    'Railway 部署請確認已使用根目錄 Dockerfile（含 python3、libreoffice、openpyxl、pypdf）重新部署；' +
+    '或在本機設定 PYTHON 環境變數指定 python 路徑。'
+  );
+}
 
 
 // ===== SLI / ELI 填表 =====
@@ -63,7 +88,7 @@ async function makeEli(templatePath, rec, outPath) {
 
 /** 呼叫 Python 橋接腳本，將 xlsx 轉 PDF */
 async function xlsxToPdf(inputPath, outputPath, sheet = null) {
-  const py = process.env.PYTHON || 'python';
+  const py = resolvePython();
   const args = [path.join(__dirname, 'excel-to-pdf.py'), inputPath, outputPath];
   if (sheet !== null) args.push(String(sheet));
   const { stdout, stderr } = await execFileAsync(py, args, { timeout: 120000 });
@@ -77,7 +102,7 @@ async function xlsxToPdf(inputPath, outputPath, sheet = null) {
 
 /** 合併多個 PDF 檔為一個並壓縮（用 pypdf 重寫，可顯著縮小大小） */
 async function mergePdfs(inputPaths, outputPath) {
-  const py = process.env.PYTHON || 'python';
+  const py = resolvePython();
   const script = path.join(__dirname, 'merge-pdf.py');
   const args = ['--out', outputPath, ...inputPaths];
   const { stdout, stderr } = await execFileAsync(py, [script, ...args], { timeout: 120000 });
@@ -126,6 +151,7 @@ function planZipParts(pdfs, maxBytes) {
   return chunks;
 }
 module.exports = {
+  resolvePython,
   loadTemplateCopy,
   makeSli,
   makeEli,

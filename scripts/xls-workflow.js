@@ -26,6 +26,7 @@ const {
 const { extractCneeLookupArea, matchCnee, normalizeLookupKey, DEST_COUNTRY_KEYWORDS } = require('./xls-cnee');
 const { writeReport } = require('./xls-report');
 const {
+  resolvePython,
   loadTemplateCopy,
   makeSli,
   makeEli,
@@ -333,7 +334,7 @@ async function runWorkflow(opts) {
       reportProgress(25, `產生 ${recordsPayload.length} 份 SLI/ELI PDF（Excel 轉檔中，0/${recordsPayload.length}）...`);
       const payloadFile = path.join(workDir, 'sli-eli-payload.json');
       await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: recordsPayload }), 'utf-8');
-      const py = process.env.PYTHON || 'python';
+      const py = resolvePython();
       const script = path.join(__dirname, 'sli-eli-generate.py');
       // 改用 execFile 即時讀取 Python 的 PROGRESS 輸出，逐筆 MAWB 更新進度條（25% → 80%）
       const NL = String.fromCharCode(10);
@@ -477,6 +478,7 @@ module.exports = {
   excelSerialToDate,
   formatDdmmyyyy,
   loadTemplateCopy,
+  resolvePython,
   xlsxToPdf,
   workbookToXlsx,
 };

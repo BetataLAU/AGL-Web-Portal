@@ -18,6 +18,7 @@ let xlsState = {
   uploadId: null,
   files: [],
   defs: [], // 每個檔案一個欄位定義
+  selections: {}, // fileIndex -> { all: [mawbKey], selected: Set<mawbKey> }（標準化預覽勾選）
 };
 
 // ===== 工具 =====
@@ -32,6 +33,13 @@ function xlsCellDisplay(v) {
   if (typeof v === 'object' && v instanceof Date) return v.toISOString().slice(0, 10);
   if (typeof v === 'object' && v.richText) return v.richText.map((t) => t.text).join('');
   return String(v);
+}
+
+// 標準化 MAWB#（與後端 normalizeMawb 一致，供勾選比對）
+function xlsNormMawb(v) {
+  const s = String(v == null ? '' : v).trim();
+  const m = s.match(/(\d{3})[- ]?(\d{8})/);
+  return m ? `${m[1]}-${m[2]}` : s.replace(/[^0-9]/g, '');
 }
 
 // ===== 上傳 =====
@@ -352,7 +360,7 @@ function xlsAssignNext(fileIndex, type) {
   renderPreviewPanel(fileIndex, preview);
 }
 
-// ===== 標準化預覽（前端簡易標準化，供使用者核對） =====
+// ===== 標準化預覽（前端簡易標準化，供使用者核對 + 勾選要執行的列） =====
 async function renderStandardizedPreview(fileIndex) {
   const f = xlsState.files[fileIndex];
   if (!f) return;
@@ -368,46 +376,101 @@ async function renderStandardizedPreview(fileIndex) {
     return null;
   };
 
+  // 動態欄位：所有已指派（非 ignore）的欄位類型，依 XLS_FIELD_TYPES 順序
+  const assignedTypes = XLS_FIELD_TYPES.filter((t) => t.value !== 'ignore' && Object.values(def.fieldMap).includes(t.value));
+
+  // 標準化列（僅包含有 MAWB 的列）
   const standardized = [];
   rows.slice((def.firstDataRow || 2) - 1).forEach((row) => {
     const mawb = extract(row, 'mawb');
     if (!mawb) return;
-    const d = extract(row, 'flight_date');
-    standardized.push({
-      date: d ? (d instanceof Date ? d.toISOString().slice(0, 10) : d) : '',
-      flight: extract(row, 'flight') || '',
-      mawb: String(mawb).replace(/[^0-9-]/g, ''),
-      dest: extract(row, 'dest') || '',
-      pcs: extract(row, 'pcs') || '',
-      weight: extract(row, 'weight') || '',
-      remark: extract(row, 'remark') || '',
+    const rec = { mawbKey: xlsNormMawb(mawb) };
+    assignedTypes.forEach((t) => {
+      rec[t.value] = xlsCellDisplay(extract(row, t.value));
     });
+    standardized.push(rec);
   });
+
+  // 勾選狀態：第一次建立時預設全選
+  if (!xlsState.selections[fileIndex]) {
+    xlsState.selections[fileIndex] = {
+      all: standardized.map((r) => r.mawbKey),
+      selected: new Set(standardized.map((r) => r.mawbKey)),
+    };
+  }
+  const sel = xlsState.selections[fileIndex];
+  const total = standardized.length;
+  const selectedCount = standardized.filter((r) => sel.selected.has(r.mawbKey)).length;
+  const allSelected = total > 0 && selectedCount === total;
 
   const panel = document.getElementById('xls-standardized-panel');
   if (!panel) return;
+  const otherTypes = assignedTypes.filter((t) => t.value !== 'mawb');
   panel.innerHTML = `
     <h4>標準化結果預覽（${xlsEscapeHtml(f.originalName)}）</h4>
+    <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）</p>
     <div class="xls-standardized-table-wrap">
       <table class="xls-preview-table">
-        <thead><tr><th>日期</th><th>航班號</th><th>MAWB#</th><th>DEST</th><th>件數</th><th>重量</th><th>REMARK</th></tr></thead>
+        <thead><tr>
+          <th class="xls-check-col">
+            <input type="checkbox" id="xls-select-all-${fileIndex}" ${allSelected ? 'checked' : ''} onchange="xlsToggleAll(${fileIndex})" title="全選 / 全部不選" />
+          </th>
+          <th>MAWB#</th>
+          ${otherTypes.map((t) => `<th>${xlsEscapeHtml(t.label)}</th>`).join('')}
+        </tr></thead>
         <tbody>
           ${standardized.slice(0, 50).map((r) => `
-            <tr><td>${xlsEscapeHtml(r.date)}</td><td>${xlsEscapeHtml(r.flight)}</td><td>${xlsEscapeHtml(r.mawb)}</td><td>${xlsEscapeHtml(r.dest)}</td><td>${xlsEscapeHtml(r.pcs)}</td><td>${xlsEscapeHtml(r.weight)}</td><td>${xlsEscapeHtml(r.remark)}</td></tr>
+            <tr>
+              <td class="xls-check-col">
+                <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${sel.selected.has(r.mawbKey) ? 'checked' : ''} onchange="xlsToggleRow(${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
+              </td>
+              <td>${xlsEscapeHtml(r.mawb || '')}</td>
+              ${otherTypes.map((t) => `<td>${xlsEscapeHtml(r[t.value] || '')}</td>`).join('')}
+            </tr>
           `).join('')}
         </tbody>
       </table>
     </div>
-    ${standardized.length > 50 ? `<p class="xls-preview-note">僅顯示前 50 筆，共 ${standardized.length} 筆。</p>` : ''}
-    ${standardized.some((r) => !r.cnee) ? '' : ''}
+    ${total > 50 ? `<p class="xls-preview-note">僅顯示前 50 筆，共 ${total} 筆（勾選範圍涵蓋全部 ${total} 筆）。</p>` : ''}
   `;
   panel.style.display = 'block';
+}
+
+// ===== 標準化預覽：勾選 / 取消勾選單一列 =====
+function xlsToggleRow(fileIndex, mawbKey) {
+  const sel = xlsState.selections[fileIndex];
+  if (!sel) return;
+  if (sel.selected.has(mawbKey)) sel.selected.delete(mawbKey);
+  else sel.selected.add(mawbKey);
+  renderStandardizedPreview(fileIndex);
+}
+
+// ===== 標準化預覽：全選 / 全部不選（頂部 checkbox） =====
+function xlsToggleAll(fileIndex) {
+  const sel = xlsState.selections[fileIndex];
+  if (!sel) return;
+  const allChecked = sel.all.length > 0 && sel.all.every((k) => sel.selected.has(k));
+  if (allChecked) {
+    sel.selected.clear();
+  } else {
+    sel.all.forEach((k) => sel.selected.add(k));
+  }
+  renderStandardizedPreview(fileIndex);
 }
 
 // ===== 執行（含進度條） =====
 async function runXlsWorkflow() {
   if (!xlsState.uploadId || !xlsState.defs.length) {
     alert('請先上傳檔案並定義至少一個檔案的欄位');
+    return;
+  }
+  // 檢查勾選：有勾選的列才會被執行
+  const totalSelected = xlsState.defs.reduce(
+    (n, d) => n + (xlsState.selections[d.fileIndex] ? xlsState.selections[d.fileIndex].selected.size : 0),
+    0
+  );
+  if (totalSelected === 0) {
+    alert('請先在「標準化結果預覽」勾選至少一行（有勾選的才會執行）');
     return;
   }
   const btn = document.getElementById('xls-run-btn');
@@ -432,10 +495,15 @@ async function runXlsWorkflow() {
   progressArea.style.display = 'block';
 
   try {
+    // 將每個檔案的勾選狀態（selectedMawbs）帶入 defs
+    const bodyDefs = xlsState.defs.map((d) => ({
+      ...d,
+      selectedMawbs: xlsState.selections[d.fileIndex] ? Array.from(xlsState.selections[d.fileIndex].selected) : [],
+    }));
     // 啟動非同步 job
     const startRes = await apiFetch('/api/xls-booking/process', {
       method: 'POST',
-      body: JSON.stringify({ uploadId: xlsState.uploadId, defs: xlsState.defs }),
+      body: JSON.stringify({ uploadId: xlsState.uploadId, defs: bodyDefs }),
     });
     const jobId = startRes.jobId;
 

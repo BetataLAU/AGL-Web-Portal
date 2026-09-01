@@ -279,6 +279,19 @@
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
 }
+.xls-check-col {
+  width: 36px;
+  min-width: 36px;
+  text-align: center;
+}
+.xls-standardized-count {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin: 6px 0;
+}
+.xls-standardized-count b {
+  color: var(--text-main, inherit);
+}
 
 /* 執行區 */
 .xls-run-row {

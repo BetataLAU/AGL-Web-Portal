@@ -446,12 +446,17 @@ async function runWorkflow(opts) {
       }
       rows.push(vals);
     });
-    const recs = standardizeRows(rows, {
+    let recs = standardizeRows(rows, {
       headerRow: def.headerRow,
       firstDataRow: def.firstDataRow,
       fieldMap: def.fieldMap,
       cneeLookup: def.cneeLookup,
     });
+    // 只處理「標準化預覽」中被勾選的 MAWB（有 TICK 的才會執行操作）
+    if (Array.isArray(def.selectedMawbs)) {
+      const sel = new Set(def.selectedMawbs.map((m) => normalizeMawb(m)));
+      recs = recs.filter((r) => r.mawb && sel.has(r.mawb));
+    }
 
     // 從 CNEE 內容抽取電話
     recs.forEach((r) => {
@@ -583,6 +588,7 @@ async function runWorkflow(opts) {
     reportPath: reportOut,
     count: pdfCount,
     errors,
+    results,   // 每個檔案的處理筆數（套用勾選過濾後）
     workDir,
   };
 }

@@ -338,6 +338,7 @@
 /* ===== 主內容 ===== */
 .main-content {
   flex: 1;
+  min-width: 0; /* 允許內容欄收窄，讓寬表格內部出現水平捲軸（不會被 overflow-x:hidden 裁切） */
   padding: 24px; /* 與頂部 padding 一致 */
   overflow: visible;
   min-height: 0;

@@ -39,6 +39,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
+  defParamCharset: 'utf8', // 正確解碼中文（簡體/繁體）檔名，避免亂碼
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();

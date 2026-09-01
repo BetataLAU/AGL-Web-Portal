@@ -151,14 +151,14 @@ function renderPreviewPanel(fileIndex, data) {
 
   // ===== 未指派欄位清單 =====
   const allTypes = XLS_FIELD_TYPES.filter((t) => t.value !== 'ignore');
-  const assignedValues = new Set(Object.values(def.fieldMap));
+  const assignedValues = new Set(Object.values(def.fieldMap).filter((v) => v && v !== 'ignore'));
   const unassignedTypes = allTypes.filter((t) => !assignedValues.has(t.value));
 
   let html = `
     <div class="xls-unassigned-bar">
       ${unassignedTypes.length
         ? `<span class="xls-unassigned-label">未指派：</span>${unassignedTypes
-            .map((t) => `<button type="button" class="xls-unassigned-tag" onclick="xlsAssignNext(${fileIndex}, '${t.value}')" title="點擊指派到第一個符合的欄位">${t.label}</button>`)
+            .map((t) => `<span class="xls-unassigned-tag" draggable="true" ondragstart="xlsDragStart(event, '${t.value}')" onclick="xlsAssignNext(${fileIndex}, '${t.value}')" title="拖曳到欄位，或點擊指派到第一個符合的欄位">${t.label}</span>`)
             .join('')}`
         : '<span class="xls-unassigned-ok">✅ 所有欄位類型已指派完成</span>'}
     </div>
@@ -169,24 +169,24 @@ function renderPreviewPanel(fileIndex, data) {
         <label>資料起始列 <input type="number" id="xls-first-data-row" value="${def.firstDataRow || 2}" min="1" style="width:70px" /></label>
         <button type="button" class="pill" onclick="xlsConfirmDataRow(${fileIndex})">套用</button>
       </div>
-      <p class="xls-preview-note">點選每一欄上方的下拉選單指定欄位類型，然後按「套用欄位定義」。</p>
+      <p class="xls-preview-note">將上方「未指派」標籤拖曳到欄位，或點擊標籤自動指派；雙擊欄位標籤可取消指派，然後按「套用欄位定義」。</p>
     </div>
     <div class="xls-preview-table-wrap">
       <table class="xls-preview-table">
         <thead>
           <tr>
             <th>列</th>
-            ${data.rows[0] ? data.rows[0].map((_, ci) => `
-              <th>
-                <select data-col="${ci}" class="xls-col-type" onchange="xlsUpdateUnassignedBar(${fileIndex})">
-                  <option value="ignore">忽略</option>
-                  ${XLS_FIELD_TYPES.filter((t) => t.value !== 'ignore').map((t) => `
-                    <option value="${t.value}" ${def.fieldMap[ci] === t.value ? 'selected' : ''}>${t.label}</option>
-                  `).join('')}
-                </select>
-                <div class="xls-col-letter">${xlsColName(ci)}</div>
-              </th>
-            `).join('') : ''}
+            ${data.rows[0] ? data.rows[0].map((_, ci) => {
+              const curType = def.fieldMap[ci] || 'ignore';
+              const curDef = XLS_FIELD_TYPES.find((x) => x.value === curType);
+              return `
+                <th class="xls-col-th" data-col="${ci}" ondragover="xlsDragOver(event)" ondragleave="xlsDragLeave(event)" ondrop="xlsAssignCol(${fileIndex}, ${ci}, event)">
+                  ${curType !== 'ignore' && curDef
+                    ? `<span class="xls-col-type xls-tag-assigned" data-col="${ci}" data-type="${curDef.value}" title="雙擊取消指派" ondblclick="xlsUnassignCol(${fileIndex}, ${ci})">${curDef.label}</span>`
+                    : `<span class="xls-col-type xls-tag-unassigned" data-col="${ci}" data-type="ignore" title="從上方「未指派」標籤拖曳到此欄位">未指派</span>`}
+                  <div class="xls-col-letter">${xlsColName(ci)}</div>
+                </th>`;
+            }).join('') : ''}
           </tr>
           <tr>${data.rows[0] ? data.rows[0].map((_, ci) => `<th class="xls-col-header-cell">${xlsEscapeHtml(xlsCellDisplay(data.rows[0][ci]))}</th>`).join('') : ''}</tr>
         </thead>
@@ -232,12 +232,13 @@ function xlsConfirmDataRow(fileIndex) {
 }
 
 function xlsApplyFieldMap(fileIndex) {
-  const selects = document.querySelectorAll('.xls-col-type');
+  const panel = document.getElementById('xls-preview-panel');
   const def = xlsState.files[fileIndex].def;
   def.fieldMap = {};
-  selects.forEach((sel) => {
-    if (sel.value !== 'ignore') {
-      def.fieldMap[Number(sel.dataset.col)] = sel.value;
+  panel.querySelectorAll('.xls-col-type').forEach((tag) => {
+    const type = tag.dataset.type;
+    if (type && type !== 'ignore') {
+      def.fieldMap[Number(tag.dataset.col)] = type;
     }
   });
   // 儲存/更新 xlsState.defs
@@ -252,35 +253,49 @@ function xlsClosePreview() {
   document.getElementById('xls-preview-panel').style.display = 'none';
 }
 
-// ===== 即時更新「未指派欄位」TAG 條 =====
-// 在下拉選單變更時呼叫：指派了某類型 → 該類型 TAG 消失；轉回忽略 → TAG 重現
-function xlsUpdateUnassignedBar(fileIndex) {
-  const panel = document.getElementById('xls-preview-panel');
-  if (!panel) return;
-  const bar = panel.querySelector('.xls-unassigned-bar');
-  if (!bar) return;
+// ===== 拖曳指派 =====
+// 由「未指派」列拖曳標籤 → 放下到欄位上方 → 指派該欄位類型
+function xlsDragStart(ev, type) {
+  ev.dataTransfer.setData('text/plain', type);
+  ev.dataTransfer.effectAllowed = 'move';
+}
 
-  // 同步更新 def.fieldMap（與下拉選單一致）
-  const def = xlsState.files[fileIndex].def;
-  const newFieldMap = {};
-  panel.querySelectorAll('.xls-col-type').forEach((sel) => {
-    if (sel.value && sel.value !== 'ignore') {
-      newFieldMap[Number(sel.dataset.col)] = sel.value;
-    }
+function xlsDragOver(ev) {
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+  ev.currentTarget.classList.add('xls-drag-over');
+}
+
+function xlsDragLeave(ev) {
+  // 移入子元素時不取消高亮，只有真正離開欄位格才移除
+  if (!ev.currentTarget.contains(ev.relatedTarget)) {
+    ev.currentTarget.classList.remove('xls-drag-over');
+  }
+}
+
+function xlsAssignCol(fileIndex, col, ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove('xls-drag-over');
+  const type = ev.dataTransfer.getData('text/plain');
+  if (!type) return;
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const def = f.def;
+  if (def.fieldMap[col] === type) return; // 同一類型不需重複指派
+  // 移除其他欄位相同類型（避免重複；標記忽略防止自動偵測回填）
+  Object.keys(def.fieldMap).forEach((ci) => {
+    if (Number(ci) !== col && def.fieldMap[ci] === type) def.fieldMap[ci] = 'ignore';
   });
-  def.fieldMap = newFieldMap;
+  def.fieldMap[col] = type;
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
 
-  // 讀取目前所有下拉選單的選取值
-  const assignedValues = new Set(Object.values(newFieldMap));
-
-  const allTypes = XLS_FIELD_TYPES.filter((t) => t.value !== 'ignore');
-  const unassignedTypes = allTypes.filter((t) => !assignedValues.has(t.value));
-
-  bar.innerHTML = unassignedTypes.length
-    ? `<span class="xls-unassigned-label">未指派：</span>${unassignedTypes
-        .map((t) => `<button type="button" class="xls-unassigned-tag" onclick="xlsAssignNext(${fileIndex}, '${t.value}')" title="點擊指派到第一個符合的欄位">${t.label}</button>`)
-        .join('')}`
-    : '<span class="xls-unassigned-ok">✅ 所有欄位類型已指派完成</span>';
+// 雙擊欄位標籤 → 取消指派（回到「未指派」）
+function xlsUnassignCol(fileIndex, col) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  f.def.fieldMap[col] = 'ignore';
+  renderPreviewPanel(fileIndex, f.lastPreview);
 }
 
 // ===== 快速指派：點擊未指派 TAG → 指派到第一個「未指派類型」的欄位 =====
@@ -305,9 +320,9 @@ function xlsAssignNext(fileIndex, type) {
     alert(`沒有可指派的欄位給「${type}」`);
     return;
   }
-  // 指派 + 移除其他欄位相同類型（避免重複）
+  // 指派 + 移除其他欄位相同類型（避免重複；標記忽略防止自動偵測回填）
   Object.keys(def.fieldMap).forEach((ci) => {
-    if (def.fieldMap[ci] === type) delete def.fieldMap[ci];
+    if (def.fieldMap[ci] === type) def.fieldMap[ci] = 'ignore';
   });
   def.fieldMap[targetCol] = type;
   // 重新繪製

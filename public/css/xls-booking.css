@@ -117,6 +117,7 @@
   color: #b45309;
 }
 .xls-unassigned-tag {
+  display: inline-block;
   border: 1px solid rgba(245, 158, 11, 0.6);
   background: rgba(255, 255, 255, 0.6);
   color: #92400e;
@@ -124,11 +125,18 @@
   padding: 3px 12px;
   font-size: 0.78rem;
   cursor: pointer;
+  user-select: none;
   transition: background 0.15s, transform 0.1s;
 }
 .xls-unassigned-tag:hover {
   background: rgba(245, 158, 11, 0.2);
   transform: translateY(-1px);
+}
+.xls-unassigned-tag[draggable="true"] {
+  cursor: grab;
+}
+.xls-unassigned-tag[draggable="true"]:active {
+  cursor: grabbing;
 }
 .xls-unassigned-ok {
   color: #15803d;
@@ -193,15 +201,53 @@
   text-align: center;
   min-width: 40px;
 }
-.xls-col-type {
-  font-size: 0.78rem;
-  padding: 3px 4px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color, #cbd5e1);
-  background: var(--card-bg, #fff);
-  color: var(--text-main, inherit);
-  max-width: 120px;
+.xls-col-th {
+  min-width: 96px;
 }
+.xls-col-th.xls-drag-over {
+  outline: 2px dashed #2563eb;
+  outline-offset: -2px;
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+.xls-col-type {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.xls-tag-assigned {
+  background: #2563eb;
+  color: #fff;
+  border: 1px solid #1d4ed8;
+}
+.xls-tag-assigned:hover {
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+.xls-tag-unassigned {
+  background: #e2e8f0;
+  color: #64748b;
+  border: 1px dashed #94a3b8;
+}
+.xls-tag-unassigned:hover {
+  background: #cbd5e1;
+}
+/* 各欄位類型配色 */
+.xls-tag-assigned[data-type="mawb"] { background: #7c3aed; border-color: #6d28d9; }
+.xls-tag-assigned[data-type="dest"] { background: #0891b2; border-color: #0e7490; }
+.xls-tag-assigned[data-type="pcs"] { background: #ea580c; border-color: #c2410c; }
+.xls-tag-assigned[data-type="weight"] { background: #16a34a; border-color: #15803d; }
+.xls-tag-assigned[data-type="battery"] { background: #dc2626; border-color: #b91c1c; }
+.xls-tag-assigned[data-type="flight"] { background: #2563eb; border-color: #1d4ed8; }
+.xls-tag-assigned[data-type="flight_date"] { background: #4f46e5; border-color: #4338ca; }
+.xls-tag-assigned[data-type="remark"] { background: #64748b; border-color: #475569; }
+.xls-tag-assigned[data-type="cnee_name"] { background: #db2777; border-color: #be185d; }
 .xls-col-letter {
   font-size: 0.72rem;
   font-weight: 600;

@@ -136,6 +136,9 @@ async function xlsPreviewFile(fileIndex) {
 function renderPreviewPanel(fileIndex, data) {
   const panel = document.getElementById('xls-preview-panel');
   if (!panel) return;
+  // 記住目前表格的捲動位置（重繪後還原，避免每次指派/取消指派都跳回最左邊）
+  const prevWrap = panel.querySelector('.xls-preview-table-wrap');
+  const savedScroll = prevWrap ? { left: prevWrap.scrollLeft, top: prevWrap.scrollTop } : null;
   const f = xlsState.files[fileIndex];
   const def = f.def;
 
@@ -216,6 +219,14 @@ function renderPreviewPanel(fileIndex, data) {
     </div>
   `;
   panel.innerHTML = html;
+  // 還原表格捲動位置
+  if (savedScroll) {
+    const newWrap = panel.querySelector('.xls-preview-table-wrap');
+    if (newWrap) {
+      newWrap.scrollLeft = savedScroll.left;
+      newWrap.scrollTop = savedScroll.top;
+    }
+  }
   panel.style.display = 'block';
   document.getElementById('xls-preview-panel').scrollIntoView({ behavior: 'smooth' });
 }

@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
-  && python3 -m pip install --no-cache-dir openpyxl pypdf
+  && python3 -m pip install --no-cache-dir --break-system-packages openpyxl
 
 WORKDIR /app
 COPY package*.json ./

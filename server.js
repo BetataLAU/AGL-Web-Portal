@@ -46,6 +46,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
     if (path.extname(filePath).toLowerCase() === '.jfif') {
       res.setHeader('Content-Type', 'image/jpeg');
     }
+    // 靜態檔一律「重新驗證」（配合 Express 預設 ETag）：
+    // 檔案沒變 → 304 用快取；檔案變了 → 下載新版。部署後立即生效，不再有「看不到更新」。
+    res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 

@@ -1,24 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Generate SLI/ELI xlsx + PDF for all records using Excel COM directly.
-Opens the original xlsm template once, fills cells, saves xlsx and exports PDF.
-Reads JSON payload from a file path argument (--payload <path>):
-{
-  "template": "path/to/template.xlsm",
-  "work_dir": "path/to/job-dir",
-  "records": [
-    {
-      "mawb": "160-15102732",
-      "sli": {"D23": "...", "D25": "CX", "D27": "LHR", "D9": "consignee", "D72": "2026-08-03"},
-      "eli": {"F8": "...", "P11": "LHR", "M16": "consignee", "N21": "tel", "N57": "2026-08-03"}
-    }
-  ]
-}
-Outputs per record: {mawb} SLI.xlsx / {mawb} ELI.xlsx / {mawb} SLI.pdf / {mawb} ELI.pdf
+Generate SLI/ELI xlsx + PDF for all records.
+
+自動選引擎：
+- 偵測到 win32com（Windows + pywin32）→ 用 Excel COM（本機最精確）
+- 否則 → openpyxl 填表 + LibreOffice headless 轉 PDF（跨平台，Railway 適用）
+
+可用 --engine com|openpyxl 強制指定。
 """
 import sys
 import os
 import json
+import subprocess
 from datetime import datetime
 
 
@@ -50,15 +43,26 @@ def load_payload():
     raise SystemExit("沒有提供 payload（請用 --payload <json-file> 或 stdin）")
 
 
-def main():
-    payload = load_payload()
-    template = os.path.abspath(payload["template"])
-    work_dir = os.path.abspath(payload["work_dir"])
-    records = payload.get("records", [])
+def resolve_engine():
+    """auto：win32com 可匯入就用 Excel COM，否則用 openpyxl + LibreOffice"""
+    args = sys.argv[1:]
+    if "--engine" in args:
+        idx = args.index("--engine")
+        if len(args) > idx + 1:
+            return args[idx + 1]
+    try:
+        import win32com.client  # noqa: F401
+        return "com"
+    except Exception:
+        return "openpyxl"
 
+
+# ===== Excel COM 路徑（Windows + Excel） =====
+def generate_com(payload, work_dir, records):
     import win32com.client
     import pythoncom
 
+    template = os.path.abspath(payload["template"])
     pythoncom.CoInitialize()
     excel = None
     wb = None
@@ -68,34 +72,24 @@ def main():
         excel.DisplayAlerts = False
 
         wb = excel.Workbooks.Open(template, ReadOnly=False, UpdateLinks=0)
-
         total = len(records)
         for idx, rec in enumerate(records, 1):
             mawb = rec["mawb"]
-            sli_cells = rec.get("sli", {})
-            eli_cells = rec.get("eli", {})
-
             # SLI sheet: air
             ws_sli = wb.Worksheets("air")
-            for coord, val in sli_cells.items():
+            for coord, val in rec.get("sli", {}).items():
                 ws_sli.Range(coord).Value = to_excel_value(val)
-
-            # Export SLI PDF（品質: 1 = xlQualityMinimum，縮小檔案大小）
             sli_pdf = os.path.join(work_dir, f"{mawb} SLI.pdf")
             ws_sli.ExportAsFixedFormat(0, sli_pdf, 1)  # 0 = xlTypePDF, 1 = xlQualityMinimum
-
-            # Save SLI xlsx (macro removed by Excel automatically for .xlsx)
             sli_xlsx = os.path.join(work_dir, f"{mawb} SLI.xlsx")
-            ws_sli.SaveAs(sli_xlsx, 51)  # 51 = xlOpenXMLWorkbook (xlsx)
+            ws_sli.SaveAs(sli_xlsx, 51)  # 51 = xlOpenXMLWorkbook
 
             # ELI sheet: ELI LETTER
             ws_eli = wb.Worksheets("ELI LETTER")
-            for coord, val in eli_cells.items():
+            for coord, val in rec.get("eli", {}).items():
                 ws_eli.Range(coord).Value = to_excel_value(val)
-
             eli_pdf = os.path.join(work_dir, f"{mawb} ELI.pdf")
-            ws_eli.ExportAsFixedFormat(0, eli_pdf, 1)  # 1 = xlQualityMinimum
-
+            ws_eli.ExportAsFixedFormat(0, eli_pdf, 1)
             eli_xlsx = os.path.join(work_dir, f"{mawb} ELI.xlsx")
             ws_eli.SaveAs(eli_xlsx, 51)
 
@@ -120,6 +114,65 @@ def main():
             except Exception:
                 pass
         pythoncom.CoUninitialize()
+
+
+# ===== openpyxl + LibreOffice 路徑（跨平台，Railway 適用） =====
+def generate_openpyxl(payload, work_dir, records):
+    import openpyxl
+
+    template = os.path.abspath(payload["template"])
+    total = len(records)
+    xlsx_files = []
+    for idx, rec in enumerate(records, 1):
+        mawb = rec["mawb"]
+
+        # SLI：只保留 air sheet 並填值
+        wb = openpyxl.load_workbook(template, keep_vba=True)
+        for sname in list(wb.sheetnames):
+            if sname != "air":
+                del wb[sname]
+        for coord, val in rec.get("sli", {}).items():
+            wb["air"][coord] = to_excel_value(val)
+        sli_xlsx = os.path.join(work_dir, f"{mawb} SLI.xlsx")
+        wb.save(sli_xlsx)
+
+        # ELI：只保留 ELI LETTER sheet 並填值
+        wb = openpyxl.load_workbook(template, keep_vba=True)
+        for sname in list(wb.sheetnames):
+            if sname != "ELI LETTER":
+                del wb[sname]
+        for coord, val in rec.get("eli", {}).items():
+            wb["ELI LETTER"][coord] = to_excel_value(val)
+        eli_xlsx = os.path.join(work_dir, f"{mawb} ELI.xlsx")
+        wb.save(eli_xlsx)
+
+        xlsx_files.append(sli_xlsx)
+        xlsx_files.append(eli_xlsx)
+        print(f"OK: {mawb}", flush=True)
+        print(f"PROGRESS: {idx}/{total}", flush=True)
+
+    # LibreOffice 批次轉 PDF（一次啟動處理所有檔案，加速）
+    cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", work_dir] + xlsx_files
+    try:
+        subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=1800000)
+    except FileNotFoundError:
+        print("ERROR: 找不到 soffice（LibreOffice）。請在部署環境安裝 LibreOffice，或改用本地 Excel 版。", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"ERROR: LibreOffice 轉 PDF 失敗: {e.stderr or e.stdout}", file=sys.stderr)
+        sys.exit(1)
+    print("DONE")
+
+
+def main():
+    payload = load_payload()
+    work_dir = os.path.abspath(payload["work_dir"])
+    records = payload.get("records", [])
+    engine = resolve_engine()
+    if engine == "com":
+        generate_com(payload, work_dir, records)
+    else:
+        generate_openpyxl(payload, work_dir, records)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ npm-debug.log*
 .DS_Store
 *.log
 .project-state.json
+__pycache__/
+*.pyc
 # SQLite database (use npm run db:export / db:import to sync)
 database.db
 # SQLite session store (connect-sqlite3)

@@ -438,14 +438,20 @@ async function runWorkflow(opts) {
       errors.push(`檔案「${file.originalName}」缺少 sheet ${def.sheetIndex}`);
       continue;
     }
-    const rows = [];
-    ws.eachRow((row, rn) => {
-      const vals = [];
-      for (let c = 1; c <= row.cellCount; c++) {
-        vals.push(row.getCell(c).value);
-      }
-      rows.push(vals);
-    });
+    let rows;
+    if (Array.isArray(def.editedRows)) {
+      // 前端預覽已編輯的格子資料（含雙擊修改 / 新增刪除平移）
+      rows = def.editedRows;
+    } else {
+      rows = [];
+      ws.eachRow((row, rn) => {
+        const vals = [];
+        for (let c = 1; c <= row.cellCount; c++) {
+          vals.push(row.getCell(c).value);
+        }
+        rows.push(vals);
+      });
+    }
     let recs = standardizeRows(rows, {
       headerRow: def.headerRow,
       firstDataRow: def.firstDataRow,

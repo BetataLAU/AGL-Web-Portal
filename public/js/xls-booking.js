@@ -209,13 +209,20 @@ function renderPreviewPanel(fileIndex, data) {
                 </th>`;
             }).join('') : ''}
           </tr>
-          <tr>${data.rows[0] ? data.rows[0].map((_, ci) => `<th class="xls-col-header-cell">${xlsEscapeHtml(xlsCellDisplay(data.rows[0][ci]))}</th>`).join('') : ''}</tr>
+          <tr>
+            <th class="xls-col-header-cell"></th>
+            ${data.rows[0] ? data.rows[0].map((h, ci) => `
+              <th class="xls-col-header-cell xls-editable" data-r="0" data-c="${ci}" ondblclick="xlsEditCell(event, ${fileIndex}, 0, ${ci})" oncontextmenu="xlsShowContextMenu(event, ${fileIndex}, 0, ${ci})" title="雙擊編輯；右鍵新增/刪除">${xlsEscapeHtml(xlsCellDisplay(h))}</th>
+            `).join('') : ''}
+          </tr>
         </thead>
         <tbody>
           ${data.rows.slice(1).map((r, ri) => `
             <tr>
               <td class="xls-row-num">${ri + 2}</td>
-              ${r.map((c) => `<td>${xlsEscapeHtml(xlsCellDisplay(c))}</td>`).join('')}
+              ${r.map((c, ci) => `
+                <td class="xls-editable" data-r="${ri + 1}" data-c="${ci}" ondblclick="xlsEditCell(event, ${fileIndex}, ${ri + 1}, ${ci})" oncontextmenu="xlsShowContextMenu(event, ${fileIndex}, ${ri + 1}, ${ci})" title="雙擊編輯；右鍵新增/刪除">${xlsEscapeHtml(xlsCellDisplay(c))}</td>
+              `).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -282,6 +289,168 @@ function xlsApplyFieldMap(fileIndex) {
 
 function xlsClosePreview() {
   document.getElementById('xls-preview-panel').style.display = 'none';
+}
+
+// ===== 預覽表格編輯（雙擊修改 / 右鍵新增刪除平移） =====
+let xlsCtxMenuEl = null;
+
+function xlsMarkEdited(fileIndex) {
+  const f = xlsState.files[fileIndex];
+  if (f) f.previewEdited = true;
+}
+
+function xlsEditCell(ev, fileIndex, r, c) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const cell = ev.currentTarget;
+  if (!cell || cell.querySelector('input')) return;
+  const oldVal = f.lastPreview.rows[r] ? f.lastPreview.rows[r][c] : '';
+  const display = xlsCellDisplay(oldVal);
+  cell.innerHTML = '<input class="xls-cell-input" type="text" value="' + xlsEscapeHtml(display) + '" />';
+  const input = cell.querySelector('input');
+  input.focus();
+  input.select();
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    let newVal = input.value;
+    if (typeof oldVal === 'number') {
+      const n = Number(newVal);
+      if (newVal.trim() !== '' && !isNaN(n)) newVal = n;
+    }
+    f.lastPreview.rows[r][c] = newVal;
+    xlsMarkEdited(fileIndex);
+    renderPreviewPanel(fileIndex, f.lastPreview);
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { done = true; renderPreviewPanel(fileIndex, f.lastPreview); }
+  });
+  input.addEventListener('blur', commit);
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+function xlsCloseContextMenu() {
+  if (xlsCtxMenuEl) {
+    xlsCtxMenuEl.remove();
+    xlsCtxMenuEl = null;
+  }
+}
+
+function xlsShowContextMenu(ev, fileIndex, r, c) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  xlsCloseContextMenu();
+  const menu = document.createElement('div');
+  menu.className = 'xls-context-menu';
+  const defs = [
+    { label: '插入一格 → 右移', fn: () => xlsInsertCell(fileIndex, r, c, 'right') },
+    { label: '插入一格 → 下移', fn: () => xlsInsertCell(fileIndex, r, c, 'down') },
+    { divider: true },
+    { label: '刪除一格 → 左移', fn: () => xlsDeleteCell(fileIndex, r, c, 'left') },
+    { label: '刪除一格 → 上移', fn: () => xlsDeleteCell(fileIndex, r, c, 'up') },
+    { divider: true },
+    { label: '插入整列（下方）', fn: () => xlsInsertRow(fileIndex, r, 'after') },
+    { label: '刪除整列', fn: () => xlsDeleteRow(fileIndex, r) },
+    { divider: true },
+    { label: '插入整欄（右側）', fn: () => xlsInsertColumn(fileIndex, c, 'after') },
+    { label: '刪除整欄', fn: () => xlsDeleteColumn(fileIndex, c) },
+  ];
+  defs.forEach((d) => {
+    if (d.divider) {
+      const div = document.createElement('div');
+      div.className = 'xls-ctx-divider';
+      menu.appendChild(div);
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xls-ctx-item';
+    btn.textContent = d.label;
+    btn.addEventListener('click', () => { xlsCloseContextMenu(); d.fn(); });
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  xlsCtxMenuEl = menu;
+  const mw = menu.offsetWidth || 190;
+  const mh = menu.offsetHeight || 260;
+  menu.style.left = Math.min(ev.clientX, window.innerWidth - mw - 6) + 'px';
+  menu.style.top = Math.min(ev.clientY, window.innerHeight - mh - 6) + 'px';
+}
+
+function xlsInsertCell(fileIndex, r, c, dir) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  if (dir === 'right') {
+    if (grid[r]) { grid[r].splice(c, 0, ''); grid[r].pop(); }
+  } else if (dir === 'down') {
+    for (let rr = grid.length - 1; rr > r; rr--) {
+      grid[rr][c] = grid[rr - 1][c];
+    }
+    if (grid[r]) grid[r][c] = '';
+  }
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
+
+function xlsDeleteCell(fileIndex, r, c, dir) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  if (dir === 'left') {
+    if (grid[r] && c < grid[r].length) {
+      grid[r].splice(c, 1);
+      grid[r].push('');
+    }
+  } else if (dir === 'up') {
+    for (let rr = r; rr < grid.length - 1; rr++) {
+      grid[rr][c] = grid[rr + 1][c];
+    }
+    if (grid.length) grid[grid.length - 1][c] = '';
+  }
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
+
+function xlsInsertRow(fileIndex, r, dir) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  const cols = Math.max(0, ...grid.map((row) => row.length));
+  const at = Math.min(grid.length, r + (dir === 'after' ? 1 : 0));
+  grid.splice(at, 0, Array(cols).fill(''));
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
+
+function xlsDeleteRow(fileIndex, r) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  if (r >= 0 && r < grid.length) grid.splice(r, 1);
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
+
+function xlsInsertColumn(fileIndex, c, dir) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  const at = c + (dir === 'after' ? 1 : 0);
+  grid.forEach((row) => { row.splice(at, 0, ''); });
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
+}
+
+function xlsDeleteColumn(fileIndex, c) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.lastPreview) return;
+  const grid = f.lastPreview.rows;
+  grid.forEach((row) => { if (c < row.length) row.splice(c, 1); });
+  xlsMarkEdited(fileIndex);
+  renderPreviewPanel(fileIndex, f.lastPreview);
 }
 
 // ===== 拖曳指派 =====
@@ -496,10 +665,14 @@ async function runXlsWorkflow() {
 
   try {
     // 將每個檔案的勾選狀態（selectedMawbs）帶入 defs
-    const bodyDefs = xlsState.defs.map((d) => ({
-      ...d,
-      selectedMawbs: xlsState.selections[d.fileIndex] ? Array.from(xlsState.selections[d.fileIndex].selected) : [],
-    }));
+    const bodyDefs = xlsState.defs.map((d) => {
+      const df = xlsState.files[d.fileIndex];
+      return {
+        ...d,
+        selectedMawbs: xlsState.selections[d.fileIndex] ? Array.from(xlsState.selections[d.fileIndex].selected) : [],
+        editedRows: df && df.previewEdited && df.lastPreview ? df.lastPreview.rows : undefined,
+      };
+    });
     // 啟動非同步 job
     const startRes = await apiFetch('/api/xls-booking/process', {
       method: 'POST',
@@ -603,4 +776,6 @@ function setupXlsBookingSection() {
   setupXlsDropZone();
   const runBtn = document.getElementById('xls-run-btn');
   if (runBtn) runBtn.addEventListener('click', runXlsWorkflow);
+  // 點擊其他位置關閉右鍵選單
+  document.addEventListener('click', xlsCloseContextMenu);
 }

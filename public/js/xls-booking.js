@@ -182,7 +182,7 @@ function renderPreviewPanel(fileIndex, data) {
         <label>資料起始列 <input type="number" id="xls-first-data-row" value="${def.firstDataRow || 2}" min="1" style="width:70px" /></label>
         <button type="button" class="pill" onclick="xlsConfirmDataRow(${fileIndex})">套用</button>
       </div>
-      <p class="xls-preview-note">將上方「未指派」標籤拖曳到欄位，或點擊標籤自動指派；雙擊欄位標籤可取消指派，然後按「套用欄位定義」。</p>
+      <p class="xls-preview-note">將上方「未指派」標籤拖曳到欄位，或拖曳欄位上的 TAG 到其他欄位搬移指派；雙擊欄位標籤可取消指派，然後按「套用欄位定義」。</p>
     </div>
     <div class="xls-preview-table-wrap">
       <table class="xls-preview-table">
@@ -195,7 +195,7 @@ function renderPreviewPanel(fileIndex, data) {
               return `
                 <th class="xls-col-th" data-col="${ci}" ondragover="xlsDragOver(event)" ondragleave="xlsDragLeave(event)" ondrop="xlsAssignCol(${fileIndex}, ${ci}, event)">
                   ${curType !== 'ignore' && curDef
-                    ? `<span class="xls-col-type xls-tag-assigned" data-col="${ci}" data-type="${curDef.value}" title="雙擊取消指派" ondblclick="xlsUnassignCol(${fileIndex}, ${ci})">${curDef.label}</span>`
+                    ? `<span class="xls-col-type xls-tag-assigned" data-col="${ci}" data-type="${curDef.value}" draggable="true" ondragstart="xlsDragStart(event, '${curDef.value}')" title="拖曳到其他欄位搬移指派；雙擊取消指派" ondblclick="xlsUnassignCol(${fileIndex}, ${ci})">${curDef.label}</span>`
                     : `<span class="xls-col-type xls-tag-unassigned" data-col="${ci}" data-type="ignore" title="從上方「未指派」標籤拖曳到此欄位">未指派</span>`}
                   <div class="xls-col-letter">${xlsColName(ci)}</div>
                 </th>`;

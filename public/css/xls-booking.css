@@ -230,6 +230,12 @@
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
 }
+.xls-tag-assigned[draggable="true"] {
+  cursor: grab;
+}
+.xls-tag-assigned[draggable="true"]:active {
+  cursor: grabbing;
+}
 .xls-tag-unassigned {
   background: #e2e8f0;
   color: #64748b;

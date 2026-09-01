@@ -208,13 +208,17 @@ router.get('/download/:type/:jobId/:name', async (req, res) => {
     const { type, jobId, name } = req.params;
     let filePath;
     if (type === 'zip') {
-      filePath = path.join(WORK_DIR, jobId, name);
+      // ZIP 存放在 workflow 建立的 job-XXXXXX 目錄（不是 jobId 目錄），
+      // 改從 job 結果中查詢實際路徑
+      const job = jobs.get(jobId);
+      const zipInfo = ((job && job.result && job.result.zipPaths) || []).find((z) => z.name === name);
+      if (zipInfo) filePath = zipInfo.path;
     } else if (type === 'report') {
       filePath = path.join(WORK_DIR, name);
     } else {
       return res.status(400).json({ error: '未知下載類型' });
     }
-    if (!fs.existsSync(filePath)) {
+    if (!filePath || !fs.existsSync(filePath)) {
       return res.status(404).json({ error: '檔案不存在或已清理' });
     }
     res.download(filePath, path.basename(filePath));

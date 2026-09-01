@@ -402,6 +402,25 @@ async function zipFiles(files, zipPath, zipRootName = '') {
   });
 }
 
+// ===== ZIP 分割：依總大小決定份數，平均分配檔案 =====
+// 例：總 75MB → 3 份（每份 25MB）；59 個檔 → 29 + 30
+function planZipParts(pdfs, maxBytes) {
+  if (!pdfs.length) return [];
+  const totalBytes = pdfs.reduce((s, p) => s + (fs.statSync(p).size || 0), 0);
+  const numParts = Math.min(Math.max(1, Math.ceil(totalBytes / maxBytes)), pdfs.length);
+  if (numParts <= 1) return [pdfs];
+  const base = Math.floor(pdfs.length / numParts);
+  const rem = pdfs.length % numParts;
+  const chunks = [];
+  let idx = 0;
+  for (let pi = 0; pi < numParts; pi++) {
+    const size = base + (pi >= numParts - rem ? 1 : 0);
+    chunks.push(pdfs.slice(idx, idx + size));
+    idx += size;
+  }
+  return chunks;
+}
+
 // ===== 主流程 =====
 
 /**
@@ -619,14 +638,28 @@ async function runWorkflow(opts) {
   }
 
   const zipPaths = [];
+  const MAX_ZIP_BYTES = 30 * 1024 * 1024; // 每個 ZIP 上限 30MB
   for (const [flight, pdfs] of groups.entries()) {
     if (!pdfs.length) continue;
     const d = allRecords.find((r) => r.flight === flight && r.flightDate);
     const day = d ? formatDdmmyyyy(d.flightDate) : '';
-    const zipName = `${flight}-${day} x ${pdfs.length}.zip`;
-    const zipPath = path.join(workDir, zipName);
-    await zipFiles(pdfs, zipPath);
-    zipPaths.push(zipPath);
+    // 依總大小拆份（超過 30MB 自動多拆），並平均分配檔案
+    const chunks = planZipParts(pdfs, MAX_ZIP_BYTES);
+    if (chunks.length === 1) {
+      const zipName = `${flight}-${day} x ${pdfs.length}.zip`;
+      const zipPath = path.join(workDir, zipName);
+      await zipFiles(pdfs, zipPath);
+      zipPaths.push(zipPath);
+      continue;
+    }
+    for (let pi = 0; pi < chunks.length; pi++) {
+      const partPdfs = chunks[pi];
+      const zipName = `${flight}-${day} x ${partPdfs.length} (Part ${pi + 1} of ${chunks.length}).zip`;
+      const zipPath = path.join(workDir, zipName);
+      reportProgress(Math.min(99, 90 + Math.round(9 * ((pi + 1) / chunks.length))), `打包 ZIP（Part ${pi + 1} of ${chunks.length}）...`);
+      await zipFiles(partPdfs, zipPath);
+      zipPaths.push(zipPath);
+    }
   }
 
   reportProgress(100, '完成！');
@@ -648,6 +681,7 @@ module.exports = {
   makeEli,
   mergePdfs,
   zipFiles,
+  planZipParts,
   extractTel,
   normalizeMawb,
   normalizeDate,

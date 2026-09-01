@@ -330,9 +330,33 @@
   border-radius: 10px;
 }
 .xls-check-col {
-  width: 36px;
-  min-width: 36px;
+  width: 44px;
+  min-width: 44px;
   text-align: center;
+  vertical-align: middle;
+}
+/* 勾選格：整個格子（label）都是可點擊範圍，避免 checkbox 太小難點中 */
+.xls-preview-table .xls-check-col {
+  padding: 0;
+}
+.xls-preview-table .xls-check-col label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 30px;
+  margin: 0;
+  padding: 6px 0;
+  cursor: pointer;
+  box-sizing: border-box;
+  user-select: none;
+}
+.xls-preview-table .xls-check-col label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  flex: none;
 }
 .xls-standardized-count {
   font-size: 0.82rem;
@@ -341,6 +365,107 @@
 }
 .xls-standardized-count b {
   color: var(--text-main, inherit);
+}
+
+/* ③ 標準化預覽：CNEE 欄（自動對照 + 點擊補值） */
+.xls-cnee-col {
+  min-width: 160px;
+}
+.xls-cnee-cell {
+  cursor: pointer;
+  min-width: 150px;
+  white-space: pre-line;
+  line-height: 1.45;
+  transition: background 0.15s ease;
+}
+.xls-cnee-cell:hover {
+  background: rgba(219, 39, 119, 0.08);
+}
+.xls-cnee-cell.xls-cnee-missing {
+  color: #dc2626;
+  font-weight: 600;
+  /* 柔和「呼吸燈」提示：吸引注意但不過度刺眼 */
+  animation: xlsCneePulse 1.6s ease-in-out infinite;
+}
+.xls-cnee-cell.xls-cnee-missing:hover {
+  background: rgba(220, 38, 38, 0.16);
+  animation: none; /* 準備點擊時停止脈動 */
+}
+/* 跳轉到缺 CNEE 後的短暫高亮（一次性） */
+.xls-cnee-cell.xls-cnee-flash {
+  animation: xlsCneeFlash 1.2s ease-out;
+}
+@keyframes xlsCneePulse {
+  0%, 100% {
+    background: rgba(220, 38, 38, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.25);
+  }
+  50% {
+    background: rgba(220, 38, 38, 0.22);
+    box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55);
+  }
+}
+@keyframes xlsCneeFlash {
+  0% {
+    background: rgba(220, 38, 38, 0.55);
+    box-shadow: inset 0 0 0 3px rgba(220, 38, 38, 0.85);
+  }
+  100% {
+    background: rgba(220, 38, 38, 0.08);
+  }
+}
+/* 使用者系統關閉動畫偏好：改用靜態底色提示 */
+@media (prefers-reduced-motion: reduce) {
+  .xls-cnee-cell.xls-cnee-missing {
+    animation: none;
+    background: rgba(220, 38, 38, 0.12);
+  }
+}
+/* 「跳至第一筆缺 CNEE」按鈕 */
+.xls-jump-cnee {
+  margin-left: 6px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #b91c1c;
+}
+.xls-cnee-input {
+  width: 100%;
+  min-height: 72px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 4px 6px;
+  border: 1px solid #db2777;
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  resize: vertical;
+}
+
+/* ② 預覽：空格「按一下即編輯」提示 */
+.xls-preview-table td.xls-cell-empty {
+  background: rgba(100, 116, 139, 0.06);
+  cursor: pointer;
+}
+.xls-preview-table td.xls-cell-empty:hover {
+  background: rgba(100, 116, 139, 0.14);
+}
+
+/* 執行結果：缺 CNEE 警告清單 */
+.xls-warning-box {
+  margin: 10px 0;
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400e;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+.xls-warning-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
 }
 
 /* 執行區 */

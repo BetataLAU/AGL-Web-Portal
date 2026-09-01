@@ -1,94 +1,48 @@
 // ===== Shipper Role Project - XLS Booking API 路由 =====
 // POST /api/xls-booking/upload                       - 上傳 source xls（多檔）
 // GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex  - 預覽 sheet
+// POST /api/xls-booking/cnee-preview                 - CNEE 對照區自動抽取 + 比對結果（供 ③ 標準化預覽）
 // POST /api/xls-booking/process                      - 啟動非同步工作流程（回傳 jobId）
 // GET  /api/xls-booking/status/:jobId                - 輪詢進度（progress % / message / 結果）
 // GET  /api/xls-booking/download/:type/:jobId/:name  - 下載產出檔案（report / zip）
 // GET  /api/xls-booking/templates                    - 模板狀態檢查
+//
+// 註：路徑/Multer/session 儲存/讀檔工具已拆至 xls-booking-helpers.js（.clinerule.md：檔案大小控制）
 
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 const crypto = require('crypto');
 const ExcelJS = require('exceljs');
-const { runWorkflow } = require('../scripts/xls-workflow');
+const {
+  WORK_DIR,
+  TEMPLATES_DIR,
+  upload,
+  uploadSessions,
+  jobs,
+  parseWorkbook,
+  sheetPreview,
+} = require('./xls-booking-helpers');
+const { runWorkflow, standardizeRows, extractCneeLookupArea } = require('../scripts/xls-workflow');
 
 const router = express.Router();
 
-// ===== 路徑設定 =====
-// DATA_DIR 可由環境變數覆寫（Railway：指向持久 Volume），本地維持 data/ 路徑
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
-const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
-const WORK_DIR = path.join(DATA_DIR, 'work');
-const TEMPLATES_DIR = path.join(DATA_DIR, 'templates');
-
-// 確保目錄存在
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-fs.mkdirSync(WORK_DIR, { recursive: true });
-fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
-
-// ===== Multer 設定（上傳到 uploads/，保留原檔名） =====
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const id = crypto.randomBytes(6).toString('hex');
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${id}${ext}`);
-  },
-});
-const upload = multer({
-  storage,
-  defParamCharset: 'utf8', // 正確解碼中文（簡體/繁體）檔名，避免亂碼
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (['.xls', '.xlsx', '.xlsm'].includes(ext)) cb(null, true);
-    else cb(new Error('只支援 .xls / .xlsx / .xlsm 檔案'));
-  },
-});
-
-// 記憶 upload session（簡單記憶體暫存，重啟即清空）
-const uploadSessions = new Map(); // uploadId -> { files: [{id, originalName, path, sheets}] }
-// 非同步 job 狀態（jobId -> { progress, message, status, result, error }）
-const jobs = new Map();
-
-// ===== 讀取 xls 檔案的 sheet 清單與預覽 =====
-async function parseWorkbook(filePath) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(filePath);
-  const sheets = wb.worksheets.map((ws, idx) => ({
-    index: idx,
-    name: ws.name,
-    rowCount: ws.rowCount,
-    columnCount: ws.columnCount,
-  }));
-  return { wb, sheets };
-}
-
-// 預覽最多顯示 100 欄（涵蓋 CX 檔案的 AH/AI/AJ/AK 等後段欄位；實際欄數上限為 16384）
-function sheetPreview(ws, maxRows = 100, maxCols = 100) {
-  const rows = [];
-  ws.eachRow((row, rn) => {
-    if (rn > maxRows) return;
-    const vals = [];
-    for (let c = 1; c <= Math.min(row.cellCount, maxCols); c++) {
-      let v = row.getCell(c).value;
-      if (v && typeof v === 'object' && v instanceof Date) {
-        v = v.toISOString().slice(0, 10);
-      } else if (v && typeof v === 'object' && v.richText) {
-        v = v.richText.map((t) => t.text).join('');
+// ===== Multer 錯誤統一轉 JSON（預設 Express 錯誤處理回傳 HTML） =====
+function uploadFilesMiddleware(req, res, next) {
+  upload.array('files', 20)(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: '檔案超過 50MB 上限' });
       }
-      vals.push(v);
+      return res.status(400).json({ error: err.message || '上傳失敗' });
     }
-    rows.push(vals);
+    next();
   });
-  return rows;
 }
 
 // ===== API: 上傳 =====
-router.post('/upload', upload.array('files', 20), async (req, res) => {
+router.post('/upload', uploadFilesMiddleware, async (req, res) => {
   try {
     const files = req.files || [];
     if (!files.length) {
@@ -139,6 +93,64 @@ router.get('/preview/:uploadId/:fileId/:sheetIndex', async (req, res) => {
   }
 });
 
+// ===== API: CNEE 對照區預覽（自動抽取 + 比對結果，供 ③ 標準化預覽顯示） =====
+// body: { uploadId, defs }  defs 同 /process 的欄位定義（含 cneeLookup.auto）
+// 回傳每檔：{ fileIndex, fileName, blocks, entries:[{mawb, dest, remark, cnee}] }
+router.post('/cnee-preview', async (req, res) => {
+  try {
+    const { uploadId, defs } = req.body || {};
+    if (!uploadId || !Array.isArray(defs) || !defs.length) {
+      return res.status(400).json({ error: '缺少 uploadId 或欄位定義 defs' });
+    }
+    const session = uploadSessions.get(uploadId);
+    if (!session) return res.status(404).json({ error: '上傳工作階段已過期，請重新上傳' });
+
+    const results = [];
+    for (const def of defs) {
+      const file = session.files[def.fileIndex];
+      if (!file) continue;
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.readFile(file.path);
+      const ws = wb.worksheets[def.sheetIndex || 0];
+      if (!ws) continue;
+      let rows;
+      if (Array.isArray(def.editedRows)) {
+        // 前端 ② 預覽已編輯的資料（雙擊修改／刪除 CNEE 等），與 ④ 執行時一致
+        rows = def.editedRows;
+      } else {
+        rows = [];
+        ws.eachRow((row) => {
+          const vals = [];
+          for (let c = 1; c <= row.cellCount; c++) vals.push(row.getCell(c).value);
+          rows.push(vals);
+        });
+      }
+      const recs = standardizeRows(rows, {
+        headerRow: def.headerRow,
+        firstDataRow: def.firstDataRow,
+        fieldMap: def.fieldMap,
+        cneeLookup: def.cneeLookup,
+        cneeOverrides: def.cneeOverrides,
+      });
+      const blocks = extractCneeLookupArea(rows).filter((b) => b.cnee);
+      results.push({
+        fileIndex: def.fileIndex,
+        fileName: file.originalName,
+        blocks: blocks.map((b) => ({ key: b.key, cnee: b.cnee })),
+        entries: recs.map((r) => ({
+          mawb: r.mawb,
+          dest: r.dest || '',
+          remark: r.remark || '',
+          cnee: r.cnee || '',
+        })),
+      });
+    }
+    res.json({ results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== API: 啟動非同步工作流程 =====
 router.post('/process', async (req, res) => {
   try {
@@ -183,7 +195,9 @@ router.post('/process', async (req, res) => {
             zipPaths: result.zipPaths.map((p) => ({ name: path.basename(p), path: p })),
             reportPath: result.reportPath,
             errors: result.errors,
+            warnings: result.warnings || [],
             fileResults: result.results || [],
+            workDir: result.workDir,
           },
           error: null,
         });
@@ -205,6 +219,7 @@ router.post('/process', async (req, res) => {
   }
 });
 
+
 // ===== API: 中止 job =====
 router.post('/cancel/:jobId', (req, res) => {
   const job = jobs.get(req.params.jobId);
@@ -225,18 +240,22 @@ router.get('/status/:jobId', (req, res) => {
 
 // ===== API: 下載產出檔案 =====
 // /download/:type/:jobId/:name  type = report | zip
+// 安全設計：一律從該 job 的結果中解析實際路徑（擋掉路徑穿越，且 jobId 不可省略）
 router.get('/download/:type/:jobId/:name', async (req, res) => {
   try {
     const { type, jobId, name } = req.params;
+    const job = jobs.get(jobId);
     let filePath;
     if (type === 'zip') {
       // ZIP 存放在 workflow 建立的 job-XXXXXX 目錄（不是 jobId 目錄），
-      // 改從 job 結果中查詢實際路徑
-      const job = jobs.get(jobId);
+      // 從 job 結果的 zipPaths 查詢實際路徑
       const zipInfo = ((job && job.result && job.result.zipPaths) || []).find((z) => z.name === name);
       if (zipInfo) filePath = zipInfo.path;
     } else if (type === 'report') {
-      filePath = path.join(WORK_DIR, name);
+      // Report 只允許下載該 job 實際產出的 reportPath（basename 必須相符）
+      if (job && job.result && job.result.reportPath && path.basename(job.result.reportPath) === name) {
+        filePath = job.result.reportPath;
+      }
     } else {
       return res.status(400).json({ error: '未知下載類型' });
     }
@@ -264,3 +283,4 @@ router.get('/templates', async (req, res) => {
 });
 
 module.exports = router;
+

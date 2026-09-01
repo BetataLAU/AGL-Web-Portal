@@ -84,6 +84,7 @@
 | `/api/contours` | `routes/contours.js` | Contour 影像 |
 | `/api/contour-image` | `routes/contours.js` | 舊路徑的 Contour 影像 |
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
+| `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
 ## 登入系統（routes/auth/）
@@ -111,6 +112,34 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - `login.html` 不可引入 `api.js`（登入失敗 401 會造成無限跳轉），用原生 fetch
 - Session 使用 MemoryStore（僅適合單機開發）；正式部署多 process 需換 store
 - `.clinerules` 內 users.html 的 `escapeHtml` 須用 `\x26` 跳脫避免 XML 解碼
+
+## Shipper Role Project（routes/xls-booking.js）
+
+空運單據工具：上傳 CX source xls → 預覽/編輯 → 定義欄位 → 標準化預覽（含 CNEE 對照區自動比對）→ 產生 Report + SLI/ELI PDF + ZIP。
+
+| 路徑 | 職責 |
+|------|------|
+| `routes/xls-booking.js` | API 路由（upload / preview / cnee-preview / process / status / cancel / download / templates） |
+| `routes/xls-booking-helpers.js` | 路由共用：DATA_DIR 路徑、Multer 設定、upload session / job Map、讀檔與預覽工具 |
+| `scripts/xls-workflow.js` | 主流程（standardizeRows + runWorkflow），re-export 全部歷史 API |
+| `scripts/xls-utils.js` | 純工具：cleanCell / normalizeMawb / 日期 / 電話 / 航班 |
+| `scripts/xls-cnee.js` | CNEE 對照區自動抽取 + DEST/REMARK 加權比對 |
+| `scripts/xls-report.js` | Report 模板寫入 |
+| `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包與分割 |
+| `public/js/xls-booking-state.js` | 前端：常數/狀態/工具/上傳拖曳/初始化 |
+| `public/js/xls-booking-upload.js` | 前端：上傳與檔案列表 |
+| `public/js/xls-booking-preview.js` | 前端：自動偵測欄位、預覽面板、欄位指派 |
+| `public/js/xls-booking-grid.js` | 前端：預覽表格編輯（雙擊/右鍵/復原重做） |
+| `public/js/xls-booking-assign.js` | 前端：拖曳指派欄位 |
+| `public/js/xls-booking-standard.js` | 前端：標準化結果預覽、勾選、CNEE 補值 |
+| `public/js/xls-booking-workflow.js` | 前端：啟動 job、輪詢、中止、結果呈現 |
+| `public/css/xls-booking.css` | 前端樣式 |
+
+**前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
+
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）。
+
+**注意**：資料夾層使用 `data/templates/`（報告與 SLI/ELI 模板）、`data/uploads/`、`data/work/`（job 產出），皆可被 `DATA_DIR` 環境變數覆寫。
 
 ## 訂單系統（routes/orders/）
 

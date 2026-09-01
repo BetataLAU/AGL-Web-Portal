@@ -68,7 +68,7 @@ CBM     ：0.52
 
 1. **上傳 XLS**：拖曳 XLS/XLSX/XLSM 檔案（可多個）
 2. **預覽與定義欄位**：系統顯示表頭與資料，點選每一欄上方下拉選單指定類型（MAWB# / DEST / 件數 / 重量 / 帶電件數 / 航班號 / 航班日期 / REMARK / CNEE 名稱）。支援資料起始列設定。
-3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK）供核對
+3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK/**CNEE**）供核對；CNEE 欄會依「DEST + REMARK」自動由下方對照區比對，缺漏的顯示 🔴 並可直接點擊補值（不需重新上傳檔案）
 4. **執行產生**：一次完成下列全部動作
    - Report 寫入 `Shipper role service - Summary` 對應月份 sheet（列 6 起，同航班只填首列 A/B）
    - SLI 填表（MAWB#、航班公司碼、DEST、CNEE、日期）→ `{MAWB#} SLI.pdf`
@@ -76,12 +76,15 @@ CBM     ：0.52
    - 合併同名 SLI+ELI → `{MAWB#}.pdf`（SLI/ELI 單獨檔自動刪除）
    - 依航班分組打包 → `{航班號}-{DDMMM} x {份數}.zip`（如 `CX257-03AUG x 2.zip`）
 
+> **缺 CNEE 處理**：執行時若仍有 MAWB 對不到 CNEE，會照常產生但 SLI/ELI 的 CNEE 留空，並在執行結果列出「缺 CNEE 警告清單」（MAWB / DEST / 檔案）；請回到「③ 標準化結果預覽」點擊紅色 CNEE 格補值後重跑。
+
 ### 功能特色
 
 | 功能 | 說明 |
 |------|------|
 | 格式彈性 | 不限欄位順序，透過介面「定義欄位」適用各種來源格式 |
-| CNEE 對照區 | 支援 OPEN 單類的「DEST → CNEE 對照區」，依 DEST + REMARK 自動挑選正確 CNEE |
+| CNEE 對照區 | 自動掃描 sheet 的 A/B/C 欄（A=區塊 key、B=`CNEE:`、C=值）建立「DEST → CNEE」對照表，依 DEST + REMARK 加權比對（含國家關鍵字，例 巴西/智利/阿根廷）；REMARK 空白時取純 DEST 預設區塊 |
+| CNEE 手動補值 | 標準化預覽的 CNEE 格點擊即可填寫（存為 overrides，執行時優先於自動對照），不需重新上傳檔案 |
 | CNEE 電話 | 從 CNEE 文字內容自動抽取 TEL（如 `TEL: +44 208 897 0490`）填入 ELI N21 |
 | 巨集相容 | 直接以 Excel COM 開啟 xlsm 模板，避開 openpyxl/exceljs 巨集轉檔不相容 |
 | 權限 | 需登入；登入後 Sidebar 解鎖 |
@@ -91,6 +94,7 @@ CBM     ：0.52
 ```http
 POST /api/xls-booking/upload                       # 上傳 XLS（multipart，欄位名 files）
 GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex   # 預覽 sheet
+POST /api/xls-booking/cnee-preview                 # CNEE 對照區自動抽取 + 比對結果（body: {uploadId, defs}）
 POST /api/xls-booking/process                      # 執行完整工作流程
 GET  /api/xls-booking/download/:type/:jobId/:name  # 下載產出（report / zip）
 GET  /api/xls-booking/templates                    # 模板狀態檢查

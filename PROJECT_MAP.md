@@ -25,6 +25,11 @@
 | `.project-state.json` | 結構快照（sync 引擎比對用，勿手動編輯） |
 | `.clineignore` | AI 忽略清單（node_modules、圖片、db 檔等） |
 | `scripts/sync-project-state.js` | 同步引擎：掃描專案、偵測結構變更、更新 FILE_INVENTORY |
+| `scripts/xls-workflow.js` | **XLS Booking 主流程**（standardizeRows + runWorkflow，re-export 歷史 API） |
+| `scripts/xls-utils.js` | XLS 工具（cleanCell / normalizeMawb / 日期 / 電話 / 航班） |
+| `scripts/xls-cnee.js` | CNEE 對照區抽取 + 比對 |
+| `scripts/xls-report.js` | Report 模板寫入 |
+| `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包 |
 
 ### 後端 `routes/`
 
@@ -37,6 +42,8 @@
 | `orders/orders-router.js` | 訂單 CRUD |
 | `orders/companies.js` | 公司/地點 CRUD，`normalizeCategory` |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
+| `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / templates |
+| `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `packing.js` | **3D ULD 裝箱 API**（POST /api/packing/pack-uld 求解、GET /ulds、GET /demo、GET /health） |
 
 ### 前端 `public/`
@@ -62,6 +69,14 @@
 | `js/orders.js` | 訂單系統邏輯（前端主軸） |
 | `js/dbviewer.js` | 資料庫檢視器邏輯 |
 | `js/main.js` | 共用工具與初始化 |
+| `js/xls-booking-state.js` | XLS Booking：常數/狀態/工具/上傳拖曳/初始化（第一個載入） |
+| `js/xls-booking-upload.js` | XLS Booking：上傳與檔案列表 |
+| `js/xls-booking-preview.js` | XLS Booking：自動偵測欄位、預覽面板、欄位指派 |
+| `js/xls-booking-grid.js` | XLS Booking：預覽表格編輯（雙擊/右鍵/復原重做） |
+| `js/xls-booking-assign.js` | XLS Booking：拖曳指派欄位 |
+| `js/xls-booking-standard.js` | XLS Booking：標準化結果預覽、勾選、CNEE 補值 |
+| `js/xls-booking-workflow.js` | XLS Booking：啟動 job、輪詢、中止、結果呈現 |
+| `css/xls-booking.css` | XLS Booking 樣式 |
 | `js/utils/api.js` | 通用 API 封裝（`apiFetch`） |
 | `js/utils/datetime-utils.js` | 日期/時間工具 |
 | `js/utils/mawb-utils.js` | MAWB# 驗證/格式化工具 |

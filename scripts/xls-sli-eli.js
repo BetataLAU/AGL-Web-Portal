@@ -11,6 +11,7 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 const ExcelJS = require('exceljs');
 const archiver = require('archiver');
+const { PDFDocument } = require('pdf-lib');
 const { flightCompany } = require('./xls-utils');
 
 // ===== Python 直譯器解析 =====
@@ -38,6 +39,39 @@ function resolvePython() {
   );
 }
 
+
+// ===== Python 模組確保（Dockerfile pip 安裝不完整時自動補裝，Railway 適用） =====
+const _ensuredModules = new Set();
+async function ensurePythonModule(moduleName) {
+  if (_ensuredModules.has(moduleName)) return;
+  const py = resolvePython();
+  const check = async () => { await execFileAsync(py, ['-c', `import ${moduleName}`], { timeout: 20000 }); };
+  try {
+    await check();
+  } catch (e) {
+    // 未安裝 → 嘗試 pip 安裝（新版 pip 需 --break-system-packages，舊版不需要）
+    const variants = [
+      ['--break-system-packages', '--no-cache-dir'],
+      ['--no-cache-dir'],
+    ];
+    let installed = false;
+    for (const flags of variants) {
+      try {
+        await execFileAsync(py, ['-m', 'pip', 'install', ...flags, moduleName], { timeout: 180000 });
+        installed = true;
+        break;
+      } catch (e2) { /* 嘗試下一種 */ }
+    }
+    if (!installed) {
+      throw new Error(
+        `Python 模組 ${moduleName} 無法安裝（已嘗試 pip install --break-system-packages）。` +
+        '請確認 Dockerfile 已安裝該模組，或檢查容器 pip 是否可用。'
+      );
+    }
+    await check(); // 安裝後再驗證
+  }
+  _ensuredModules.add(moduleName);
+}
 
 // ===== SLI / ELI 填表 =====
 
@@ -102,14 +136,32 @@ async function xlsxToPdf(inputPath, outputPath, sheet = null) {
 
 /** 合併多個 PDF 檔為一個並壓縮（用 pypdf 重寫，可顯著縮小大小） */
 async function mergePdfs(inputPaths, outputPath) {
-  const py = resolvePython();
-  const script = path.join(__dirname, 'merge-pdf.py');
-  const args = ['--out', outputPath, ...inputPaths];
-  const { stdout, stderr } = await execFileAsync(py, [script, ...args], { timeout: 120000 });
-  if (stderr && stderr.includes('ERROR')) {
-    throw new Error(`PDF 合併/壓縮失敗: ${stderr}`);
+  try {
+    await ensurePythonModule('pypdf');
+    const py = resolvePython();
+    const script = path.join(__dirname, 'merge-pdf.py');
+    const args = ['--out', outputPath, ...inputPaths];
+    const { stdout, stderr } = await execFileAsync(py, [script, ...args], { timeout: 120000 });
+    if (stderr && stderr.includes('ERROR')) throw new Error(`PDF 合併/壓縮失敗: ${stderr}`);
+    return stdout;
+  } catch (err) {
+    // 後備：pypdf 不可用／合併失敗時，改用 Node pdf-lib 合併（不依賴 Python 套件，Railway 也適用）
+    console.warn(`[mergePdfs] 改用 pdf-lib 合併（${err.message}）`);
+    return mergePdfsWithPdfLib(inputPaths, outputPath);
   }
-  return stdout;
+}
+
+/** 用 Node pdf-lib 合併 PDF（無需 pypdf；最終後備，避免因 Python 套件缺失而中斷） */
+async function mergePdfsWithPdfLib(inputPaths, outputPath) {
+  const merged = await PDFDocument.create();
+  for (const p of inputPaths) {
+    const src = await PDFDocument.load(await fsp.readFile(p));
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    for (const pg of pages) merged.addPage(pg);
+  }
+  const bytes = await merged.save({ useObjectStreams: true });
+  await fsp.writeFile(outputPath, bytes);
+  return `MERGED (pdf-lib): ${outputPath}`;
 }
 
 // ===== ZIP 打包 =====
@@ -152,11 +204,13 @@ function planZipParts(pdfs, maxBytes) {
 }
 module.exports = {
   resolvePython,
+  ensurePythonModule,
   loadTemplateCopy,
   makeSli,
   makeEli,
   xlsxToPdf,
   mergePdfs,
+  mergePdfsWithPdfLib,
   zipFiles,
   planZipParts,
 };

@@ -27,6 +27,7 @@ const { extractCneeLookupArea, matchCnee, normalizeLookupKey, DEST_COUNTRY_KEYWO
 const { writeReport } = require('./xls-report');
 const {
   resolvePython,
+  ensurePythonModule,
   loadTemplateCopy,
   makeSli,
   makeEli,
@@ -335,6 +336,8 @@ async function runWorkflow(opts) {
       const payloadFile = path.join(workDir, 'sli-eli-payload.json');
       await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: recordsPayload }), 'utf-8');
       const py = resolvePython();
+      // 確保 openpyxl 可用（Dockerfile pip 安裝不完整時自動補裝）
+      await ensurePythonModule('openpyxl');
       const script = path.join(__dirname, 'sli-eli-generate.py');
       // 改用 execFile 即時讀取 Python 的 PROGRESS 輸出，逐筆 MAWB 更新進度條（25% → 80%）
       const NL = String.fromCharCode(10);
@@ -479,6 +482,7 @@ module.exports = {
   formatDdmmyyyy,
   loadTemplateCopy,
   resolvePython,
+  ensurePythonModule,
   xlsxToPdf,
   workbookToXlsx,
 };

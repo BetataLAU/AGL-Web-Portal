@@ -139,12 +139,22 @@ function renderPreviewPanel(fileIndex, data) {
   const f = xlsState.files[fileIndex];
   const def = f.def;
 
-  // ===== 自動偵測：僅填入尚未指派的欄位 =====
+  // ===== 去重：每個類型最多只用在一個欄位（保留最左邊，重複的還原為未指派）=====
+  const seenTypes = new Set();
+  Object.keys(def.fieldMap).forEach((ci) => {
+    const t = def.fieldMap[ci];
+    if (!t || t === 'ignore') return;
+    if (seenTypes.has(t)) def.fieldMap[ci] = 'ignore';
+    else seenTypes.add(t);
+  });
+
+  // ===== 自動偵測：僅填入「空欄」且「類型尚未被使用」的欄位 =====
   const autoSuggest = xlsAutoDetect(data.rows);
   let autoCount = 0;
   Object.entries(autoSuggest).forEach(([ci, type]) => {
-    if (!def.fieldMap[ci]) {
+    if (!def.fieldMap[ci] && !seenTypes.has(type)) {
       def.fieldMap[ci] = type;
+      seenTypes.add(type);
       autoCount++;
     }
   });
@@ -235,10 +245,12 @@ function xlsApplyFieldMap(fileIndex) {
   const panel = document.getElementById('xls-preview-panel');
   const def = xlsState.files[fileIndex].def;
   def.fieldMap = {};
+  const used = new Set();
   panel.querySelectorAll('.xls-col-type').forEach((tag) => {
     const type = tag.dataset.type;
-    if (type && type !== 'ignore') {
+    if (type && type !== 'ignore' && !used.has(type)) {
       def.fieldMap[Number(tag.dataset.col)] = type;
+      used.add(type);
     }
   });
   // 儲存/更新 xlsState.defs

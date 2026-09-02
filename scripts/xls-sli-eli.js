@@ -22,7 +22,13 @@ function resolvePython() {
   if (_cachedPython) return _cachedPython;
   const candidates = [];
   if (process.env.PYTHON) candidates.push(process.env.PYTHON);
-  candidates.push('python3', 'python');
+  // Windows 本機：優先 python（慣用安裝通常有 pywin32 → Excel COM 最精確）
+  // Linux/Railway：優先 python3（常見僅有 python3）
+  if (process.platform === 'win32') {
+    candidates.push('python', 'python3');
+  } else {
+    candidates.push('python3', 'python');
+  }
   for (const c of candidates) {
     try {
       execFileSync(c, ['--version'], { stdio: 'ignore', timeout: 8000, windowsHide: true });

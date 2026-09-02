@@ -152,6 +152,14 @@ router.post('/cnee-preview', async (req, res) => {
 });
 
 // ===== API: 啟動非同步工作流程 =====
+// 簡單 job 佇列：序列化執行，避免兩個 job 同時改 master 檔而互相覆蓋
+let processQueue = Promise.resolve();
+function enqueueProcess(task) {
+  const run = processQueue.catch(() => {}).then(task);
+  processQueue = run.catch(() => {});
+  return run;
+}
+
 router.post('/process', async (req, res) => {
   try {
     const { uploadId, defs } = req.body || {};
@@ -165,10 +173,10 @@ router.post('/process', async (req, res) => {
     const controller = new AbortController();
     jobs.set(jobId, { progress: 0, message: '排隊中...', status: 'running', result: null, error: null, controller });
 
-    // 非同步執行，不阻塞回應
-    (async () => {
+    // 非同步執行，不阻塞回應（以佇列序列化，避免同時改動 master 互相覆蓋）
+    enqueueProcess(async () => {
       try {
-        const reportTemplate = path.join(TEMPLATES_DIR, 'shipper-role-summary-202608.xlsx');
+        const reportTemplate = path.join(TEMPLATES_DIR, 'shipper-role-summary-2026.xlsx');
         const sliTemplate = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
         const reportCopy = path.join(WORK_DIR, `report-${crypto.randomBytes(4).toString('hex')}.xlsx`);
         await fsp.copyFile(reportTemplate, reportCopy);
@@ -185,9 +193,20 @@ router.post('/process', async (req, res) => {
           },
         });
 
+        // ===== 自動同步：把最新 report 覆寫回 master（下次 run 會包含舊記錄）=====
+        let syncWarning = null;
+        try {
+          if (result.reportPath) {
+            await fsp.copyFile(result.reportPath, reportTemplate);
+          }
+        } catch (syncErr) {
+          syncWarning = `Report 已產生，但自動同步回模板失敗：${syncErr.message}。` +
+            '請關閉 Excel 中的「shipper-role-summary-2026.xlsx」後再執行，或手動用下載檔取代模板。';
+        }
+
         jobs.set(jobId, {
           progress: 100,
-          message: '完成！',
+          message: syncWarning ? '完成（但模板同步失敗）' : '完成！',
           status: 'done',
           result: {
             jobId,
@@ -196,6 +215,8 @@ router.post('/process', async (req, res) => {
             reportPath: result.reportPath,
             errors: result.errors,
             warnings: result.warnings || [],
+            duplicates: result.duplicates || [],
+            syncWarning,
             fileResults: result.results || [],
             workDir: result.workDir,
           },
@@ -211,7 +232,7 @@ router.post('/process', async (req, res) => {
           error: aborted ? '已中止' : err.message,
         });
       }
-    })();
+    });
 
     res.json({ jobId });
   } catch (err) {
@@ -271,10 +292,10 @@ router.get('/download/:type/:jobId/:name', async (req, res) => {
 // ===== API: 取得模板資訊 =====
 router.get('/templates', async (req, res) => {
   try {
-    const reportPath = path.join(TEMPLATES_DIR, 'shipper-role-summary-202608.xlsx');
+    const reportPath = path.join(TEMPLATES_DIR, 'shipper-role-summary-2026.xlsx');
     const sliPath = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
     res.json({
-      reportTemplate: { name: 'Shipper role service - Summary 202608.xlsx', exists: fs.existsSync(reportPath) },
+      reportTemplate: { name: 'Shipper role service - Summary 2026.xlsx', exists: fs.existsSync(reportPath) },
       sliEliTemplate: { name: 'Cainiao Booking Template (SI).xlsm', exists: fs.existsSync(sliPath) },
     });
   } catch (err) {

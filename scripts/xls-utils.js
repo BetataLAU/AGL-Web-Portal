@@ -93,6 +93,11 @@ function formatDdmmyyyy(d) {
   return `${String(d.getDate()).padStart(2, '0')}${months[d.getMonth()]}`;
 }
 
+/** 格式化日為 YYYYMMDD（如 20260901） */
+function formatYyyymmdd(d) {
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /** 從 CNEE 內容抽取電話號碼 */
 function extractTel(text) {
   const s = cleanCell(text);
@@ -120,6 +125,7 @@ module.exports = {
   normalizeDate,
   excelSerialToDate,
   formatDdmmyyyy,
+  formatYyyymmdd,
   extractTel,
   workbookToXlsx,
 };

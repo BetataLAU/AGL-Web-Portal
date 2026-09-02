@@ -136,6 +136,18 @@ function renderResult(res) {
     html += `<ul class="xls-warning-list">${res.warnings.map((w) => `<li>${xlsEscapeHtml(w.mawb)}${w.dest ? `（DEST: ${xlsEscapeHtml(w.dest)}）` : ''}${w.remark ? ` REMARK: ${xlsEscapeHtml(w.remark)}` : ''} — ${xlsEscapeHtml(w.file)}</li>`).join('')}</ul>`;
     html += `</div>`;
   }
+  // 重覆 MAWB 警告清單（不阻斷執行；保留重覆資料，僅提示人手判斷）
+  if (res.duplicates && res.duplicates.length) {
+    html += `<div class="xls-warning-box">⚠️ 偵測到 <b>${res.duplicates.length}</b> 筆 MAWB 出現重覆（已照常處理，不會自動刪除）。如非預期，請檢查來源檔／刪除重覆列後再執行：`;
+    html += `<ul class="xls-warning-list">${res.duplicates.map((d) =>
+      `<li><b>${xlsEscapeHtml(d.mawb)}</b>（出現 ${d.count} 次）${d.dest ? `DEST: ${xlsEscapeHtml(d.dest)}` : ''} — ${(d.files || []).map((f) => xlsEscapeHtml(f)).join('、')}</li>`
+    ).join('')}</ul>`;
+    html += `</div>`;
+  }
+  // 模板自動同步失敗通知（Report 仍可下載）
+  if (res.syncWarning) {
+    html += `<div class="xls-warning-box">${xlsEscapeHtml(res.syncWarning)}</div>`;
+  }
   html += `<p>成功產生 ${res.count} 份 PDF（已合併 SLI + ELI）。</p>`;
   html += `<div class="xls-downloads">`;
   // report 下載

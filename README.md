@@ -70,13 +70,15 @@ CBM     ：0.52
 2. **預覽與定義欄位**：系統顯示表頭與資料，點選每一欄上方下拉選單指定類型（MAWB# / DEST / 件數 / 重量 / 帶電件數 / 航班號 / 航班日期 / REMARK / CNEE 名稱）。支援資料起始列設定。
 3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK/**CNEE**）供核對；CNEE 欄會依「DEST + REMARK」自動由下方對照區比對，缺漏的顯示 🔴 並可直接點擊補值（不需重新上傳檔案）
 4. **執行產生**：一次完成下列全部動作
-   - Report 寫入 `Shipper role service - Summary` 對應月份 sheet（列 6 起，同航班只填首列 A/B）
+   - Report 寫入 `Shipper role service - Summary 2026` 的對應月份 sheet（月份 sheet 不存在時自動複製 `template` 產生並放到最左）；新批次插入第 4 行，組首列填 A/B/G，其餘列填 C-F，每批尾留 1 空行分隔
    - SLI 填表（MAWB#、航班公司碼、DEST、CNEE、日期）→ `{MAWB#} SLI.pdf`
    - ELI 填表（MAWB#、DEST、CNEE、CNEE 電話、日期）→ `{MAWB#} ELI.pdf`
    - 合併同名 SLI+ELI → `{MAWB#}.pdf`（SLI/ELI 單獨檔自動刪除）
-   - 依航班分組打包 → `{航班號}-{DDMMM} x {份數}.zip`（如 `CX257-03AUG x 2.zip`）
+   - 依「航班日期」分組打包（同一天的所有航班合併）；單一航班 → `{YYYYMMDD} - {航班號} SLI x {份數}.zip`（例 `20260901 - 5Y8050 SLI x 32.zip`），同日多個航班 → `{YYYYMMDD} - 多航班 SLI x {份數}.zip`；超過 30MB 自動拆 `(Part x of y)`
 
 > **缺 CNEE 處理**：執行時若仍有 MAWB 對不到 CNEE，會照常產生但 SLI/ELI 的 CNEE 留空，並在執行結果列出「缺 CNEE 警告清單」（MAWB / DEST / 檔案）；請回到「③ 標準化結果預覽」點擊紅色 CNEE 格補值後重跑。
+
+> **重覆 MAWB 警告**：同一批執行中若偵測到相同 MAWB 出現 2 次或以上（可能來自來源檔重覆列或重複上傳同一清單），會**照常處理不自動刪除**，但在執行結果列出「重覆 MAWB 清單」（MAWB / 出現次數 / 來源檔案）供人手判斷，例如回到③取消勾選或修改來源檔後再執行。
 
 ### 功能特色
 
@@ -105,7 +107,8 @@ GET  /api/xls-booking/templates                    # 模板狀態檢查
 - PDF 轉檔依賴 **Office 365 Excel COM**（pywin32），需在同一台安裝 Excel 的電腦執行。
 - 模板固定放置於 `data/templates/`：
   - `cainiao-sli-eli-template.xlsm`（SLI = air sheet、ELI = ELI LETTER sheet）
-  - `shipper-role-summary-202608.xlsx`（report 模板，含各月份 sheet）
+  - `shipper-role-summary-2026.xlsx`（年度 report 工作檔：各月份 sheet + `template` 版面母版，新月份自動由 template 複製）
+- **每次執行成功會自動把最新 Report 同步回 `shipper-role-summary-2026.xlsx`**（等同該檔就是現行工作檔，舊記錄會累積）；因此**執行期間請勿在 Excel 開啟此檔**，否則同步會失敗（Report 仍可下載，介面會顯示警告）。
 - 產出檔案暫時存放於 `data/work/`，可透過下載連結取得。
 
 ## 📁 專案目錄結構

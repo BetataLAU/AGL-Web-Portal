@@ -68,7 +68,7 @@ M scripts/xls-workflow.js
 ### data/templates
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.3 KB）
-- `data/templates/shipper-role-summary-202608.xlsx`（504.8 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（504.8 KB）
 
 ### db
 

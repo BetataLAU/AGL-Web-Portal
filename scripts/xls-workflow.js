@@ -20,6 +20,7 @@ const {
   normalizeDate,
   excelSerialToDate,
   formatDdmmyyyy,
+  formatYyyymmdd,
   extractTel,
   workbookToXlsx,
 } = require('./xls-utils');
@@ -192,6 +193,60 @@ function standardizeRows(rows, def) {
   return records;
 }
 
+/**
+ * 偵測一批標準化記錄中的重覆 MAWB（同一 MAWB 出現 2 次或以上）。
+ * 只偵測、不阻斷：回傳警告清單供前端顯示，資料照樣處理。
+ * @param {Array<{mawb?:string, dest?:string, sourceFile?:string}>} records
+ * @returns {Array<{mawb:string, dest:string, count:number, files:string[]}>}
+ */
+function findDuplicateMawbs(records) {
+  const dupMap = new Map(); // mawb -> { mawb, dest, count, files:Set }
+  for (const rec of records || []) {
+    if (!rec || !rec.mawb) continue;
+    const m = normalizeMawb(rec.mawb) || rec.mawb;
+    if (!dupMap.has(m)) dupMap.set(m, { mawb: m, dest: rec.dest || '', count: 0, files: new Set() });
+    const entry = dupMap.get(m);
+    entry.count += 1;
+    if (rec.sourceFile) entry.files.add(rec.sourceFile);
+  }
+  const duplicates = [];
+  for (const entry of dupMap.values()) {
+    if (entry.count > 1) {
+      duplicates.push({ mawb: entry.mawb, dest: entry.dest, count: entry.count, files: Array.from(entry.files) });
+    }
+  }
+  return duplicates;
+}
+
+/**
+ * 依「航班日期」把合併好的 PDF 分組（同一天所有航班合併為一組；超過 30MB 才由呼叫端拆 Part）。
+ * 缺航班日期的記錄退回以單一航班自成一群。
+ * @param {Array<{flight?:string, flightDate?:Date, mawb?:string}>} allRecords
+ * @param {string[]} mergedPdfs 已合併的 {MAWB}.pdf 路徑清單
+ * @returns {Array<{day:string, flights:Set<string>, pdfs:string[]}>}
+ */
+function planDateGroups(allRecords, mergedPdfs) {
+  const groups = new Map(); // key -> { day, flights:Set, pdfs:[] }
+  for (const rec of allRecords || []) {
+    if (!rec || !rec.flight) continue;
+    const merged = (mergedPdfs || []).find((p) => path.basename(p).startsWith(rec.mawb));
+    if (!merged) continue;
+    let key;
+    let day = '';
+    if (rec.flightDate) {
+      day = formatYyyymmdd(rec.flightDate);
+      key = `d:${day}`;
+    } else {
+      key = `f:${rec.flight}`;
+    }
+    if (!groups.has(key)) groups.set(key, { day, flights: new Set(), pdfs: [] });
+    const grp = groups.get(key);
+    grp.flights.add(rec.flight);
+    grp.pdfs.push(merged);
+  }
+  return Array.from(groups.values());
+}
+
 // ===== 主流程 =====
 
 /**
@@ -286,6 +341,9 @@ async function runWorkflow(opts) {
     allRecords.push(...recs);
     results.push({ file: file.originalName, records: recs.length });
   }
+
+  // Step 1.5: 偵測重覆 MAWB（不阻斷執行；供執行結果顯示警告清單）
+  const duplicates = findDuplicateMawbs(allRecords);
 
   // Step 2: Report 寫入
   reportProgress(15, `解析完成，共 ${allRecords.length} 筆，寫入 Report...`);
@@ -408,27 +466,25 @@ async function runWorkflow(opts) {
     }
   }
 
-  // Step 5: 依航班分組 zip
-  reportProgress(90, '依航班打包 ZIP...');
+  // Step 5: 依「航班日期」分組 zip（同一天的所有航班放同一 zip；超過 30MB 才拆 Part）
+  // 檔名：單一航班 → {YYYYMMDD} - {航班號} SLI x {N}.zip
+  //       同一天多個航班 → {YYYYMMDD} - 多航班 SLI x {N}.zip
+  reportProgress(90, '依航班日期打包 ZIP...');
   assertActive();
-  const groups = new Map();
-  for (const rec of allRecords) {
-    if (!rec.flight) continue;
-    if (!groups.has(rec.flight)) groups.set(rec.flight, []);
-    const merged = mergedPdfs.find((p) => path.basename(p).startsWith(rec.mawb));
-    if (merged) groups.get(rec.flight).push(merged);
-  }
+  const groups = planDateGroups(allRecords, mergedPdfs);
 
   const zipPaths = [];
   const MAX_ZIP_BYTES = 30 * 1024 * 1024; // 每個 ZIP 上限 30MB
-  for (const [flight, pdfs] of groups.entries()) {
+  for (const grp of groups) {
+    const pdfs = grp.pdfs;
     if (!pdfs.length) continue;
-    const d = allRecords.find((r) => r.flight === flight && r.flightDate);
-    const day = d ? formatDdmmyyyy(d.flightDate) : '';
+    const single = grp.flights.size === 1;
+    const label = single ? grp.flights.values().next().value : '多航班';
+    const prefix = grp.day ? `${grp.day} - ${label}` : label;
     // 依總大小拆份（超過 30MB 自動多拆），並平均分配檔案
     const chunks = planZipParts(pdfs, MAX_ZIP_BYTES);
     if (chunks.length === 1) {
-      const zipName = `${flight}-${day} x ${pdfs.length}.zip`;
+      const zipName = `${prefix} SLI x ${pdfs.length}.zip`;
       const zipPath = path.join(workDir, zipName);
       await zipFiles(pdfs, zipPath);
       zipPaths.push(zipPath);
@@ -436,7 +492,7 @@ async function runWorkflow(opts) {
     }
     for (let pi = 0; pi < chunks.length; pi++) {
       const partPdfs = chunks[pi];
-      const zipName = `${flight}-${day} x ${partPdfs.length} (Part ${pi + 1} of ${chunks.length}).zip`;
+      const zipName = `${prefix} SLI x ${partPdfs.length} (Part ${pi + 1} of ${chunks.length}).zip`;
       const zipPath = path.join(workDir, zipName);
       reportProgress(Math.min(99, 90 + Math.round(9 * ((pi + 1) / chunks.length))), `打包 ZIP（Part ${pi + 1} of ${chunks.length}）...`);
       await zipFiles(partPdfs, zipPath);
@@ -452,6 +508,7 @@ async function runWorkflow(opts) {
     errors,
     results,   // 每個檔案的處理筆數（套用勾選過濾後）
     warnings: cneeWarnings, // 缺 CNEE 的 MAWB 警告清單
+    duplicates, // 重覆 MAWB 警告清單（不阻斷；同一 MAWB 出現 2 次或以上）
     workDir,
   };
 }
@@ -460,6 +517,8 @@ module.exports = {
   // 歷史 API（保持 require('../scripts/xls-workflow') 相容，含測試與路由）
   runWorkflow,
   standardizeRows,
+  findDuplicateMawbs,
+  planDateGroups,
   extractCneeLookupArea,
   matchCnee,
   normalizeLookupKey,
@@ -480,6 +539,7 @@ module.exports = {
   cleanCell,
   excelSerialToDate,
   formatDdmmyyyy,
+  formatYyyymmdd,
   loadTemplateCopy,
   resolvePython,
   ensurePythonModule,

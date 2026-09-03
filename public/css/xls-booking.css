@@ -545,3 +545,35 @@
   cursor: pointer;
   font-size: 0.9rem;
 }
+
+/* Report 模板快速取用列 */
+.xls-template-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 2px 0 6px;
+  padding: 10px 14px;
+  background: rgba(37, 99, 235, 0.05);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 10px;
+}
+.xls-template-info {
+  flex: 1;
+  min-width: 220px;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+.xls-template-info code {
+  background: var(--bg-muted, rgba(0, 0, 0, 0.05));
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+.xls-template-download {
+  display: inline-block;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}

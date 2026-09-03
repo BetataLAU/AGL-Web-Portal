@@ -99,6 +99,7 @@ GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex   # 預覽 sheet
 POST /api/xls-booking/cnee-preview                 # CNEE 對照區自動抽取 + 比對結果（body: {uploadId, defs}）
 POST /api/xls-booking/process                      # 執行完整工作流程
 GET  /api/xls-booking/download/:type/:jobId/:name  # 下載產出（report / zip）
+GET  /api/xls-booking/report-template              # 直接下載 Report 模板（shipper-role-summary-2026.xlsx）
 GET  /api/xls-booking/templates                    # 模板狀態檢查
 ```
 

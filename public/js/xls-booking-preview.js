@@ -122,6 +122,19 @@ function renderPreviewPanel(fileIndex, data) {
   const f = xlsState.files[fileIndex];
   const def = f.def;
 
+  // ===== 讓「無 VALUE」的空格也可以雙擊編輯 =====
+  // 部分來源檔（菜鳥 / QR / CX 匯出）資料列短於表頭：列末沒有值的欄位在
+  // 資料陣列中根本不存在（後端 eachRow 只讀到該列最後一個有值欄位），
+  // DOM 因此沒有產生 <td>，雙擊無效。這裡把每一列補到全表最大欄數
+  // （補 null），讓空格以一般空格呈現，並與其他格子一樣可雙擊編輯 / 右鍵操作。
+  if (Array.isArray(data.rows)) {
+    const maxCols = data.rows.reduce((m, r) => Math.max(m, Array.isArray(r) ? r.length : 0), 0);
+    data.rows.forEach((r) => {
+      if (!Array.isArray(r)) return;
+      while (r.length < maxCols) r.push(null);
+    });
+  }
+
   // ===== 去重：每個類型最多只用在一個欄位（保留最左邊，重複的還原為未指派）=====
   const seenTypes = new Set();
   Object.keys(def.fieldMap).forEach((ci) => {

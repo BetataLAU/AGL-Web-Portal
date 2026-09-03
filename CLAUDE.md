@@ -119,7 +119,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 | 路徑 | 職責 |
 |------|------|
-| `routes/xls-booking.js` | API 路由（upload / preview / cnee-preview / process / status / cancel / download / templates） |
+| `routes/xls-booking.js` | API 路由（upload / preview / cnee-preview / process / status / cancel / download / report-template / templates） |
 | `routes/xls-booking-helpers.js` | 路由共用：DATA_DIR 路徑、Multer 設定、upload session / job Map、讀檔與預覽工具 |
 | `scripts/xls-workflow.js` | 主流程（standardizeRows + runWorkflow），re-export 全部歷史 API |
 | `scripts/xls-utils.js` | 純工具：cleanCell / normalizeMawb / 日期 / 電話 / 航班 |

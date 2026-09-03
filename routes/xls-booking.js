@@ -5,6 +5,7 @@
 // POST /api/xls-booking/process                      - 啟動非同步工作流程（回傳 jobId）
 // GET  /api/xls-booking/status/:jobId                - 輪詢進度（progress % / message / 結果）
 // GET  /api/xls-booking/download/:type/:jobId/:name  - 下載產出檔案（report / zip）
+// GET  /api/xls-booking/report-template              - 直接下載 Report 模板（shipper-role-summary-2026.xlsx）
 // GET  /api/xls-booking/templates                    - 模板狀態檢查
 //
 // 註：路徑/Multer/session 儲存/讀檔工具已拆至 xls-booking-helpers.js（.clinerule.md：檔案大小控制）
@@ -298,6 +299,21 @@ router.get('/templates', async (req, res) => {
       reportTemplate: { name: 'Shipper role service - Summary 2026.xlsx', exists: fs.existsSync(reportPath) },
       sliEliTemplate: { name: 'Cainiao Booking Template (SI).xlsm', exists: fs.existsSync(sliPath) },
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== API: 直接下載 Report 模板（shipper-role-summary-2026.xlsx） =====
+// 此檔就是現行 report 工作檔（執行成功會自動把最新 Report 同步回此檔），
+// 供使用者在頁面上「直接取得」此模板檔案。
+router.get('/report-template', (req, res) => {
+  try {
+    const reportPath = path.join(TEMPLATES_DIR, 'shipper-role-summary-2026.xlsx');
+    if (!fs.existsSync(reportPath)) {
+      return res.status(404).json({ error: 'Report 模板不存在' });
+    }
+    res.download(reportPath, 'shipper-role-summary-2026.xlsx');
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -60,7 +60,9 @@ const { requireAuth, requireRole, requirePermission } = require('./routes/auth/m
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+// body 上限放寬：xls-booking 的 ③ 標準化預覽會把「② 編輯後的預覽表格」送回 /cnee-preview 與 /process，
+// 菜鳥/QR 這類配對檔含大量超長中文格（流向碼/渠道…），實際 UTF-8 可達 100KB 以上，超過 express 預設 100kb 會 413 並讓前端誤判「缺 CNEE」。
+app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     // Express 預設不認得 .jfif 副檔名，會 fallback 成 application/octet-stream。

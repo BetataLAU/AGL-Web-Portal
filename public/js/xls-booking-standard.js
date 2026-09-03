@@ -31,18 +31,27 @@ async function xlsEnsureStandardized(fileIndex) {
     rows = res.rows;
   }
 
-  // 並行取得 CNEE 對照區比對結果（自動抽取 + DEST/REMARK 比對，後端為單一事實來源）。
-  // 必須帶入 editedRows / cneeOverrides，與 ④ 執行時看到的結果一致（否則 ③ 會顯示原檔 CNEE）。
+  // 取得 CNEE 對照區比對結果（自動抽取 + DEST/REMARK 比對，後端為單一事實來源）。
+  // 必須帶入 cneeOverrides，與 ④ 執行時看到的結果一致（否則 ③ 會顯示原檔 CNEE）。
+  // editedRows 只在 ②「真正編輯過」才帶：若只是開過預覽就把整張表（最多 100 列 x 100 欄、
+  // 且菜鳥/QR 檔含超長文字格）送回，body 會超過伺服器 JSON 上限而 413，導致 CNEE 全數誤判為缺。
   const cneeDef = {
     ...def,
-    editedRows: f.lastPreview ? f.lastPreview.rows : undefined,
+    editedRows: f.previewEdited && f.lastPreview ? f.lastPreview.rows : undefined,
     cneeOverrides: xlsState.cneeOverrides[fileIndex] || {},
   };
-  const cneeRes = await apiFetch('/api/xls-booking/cnee-preview', {
-    method: 'POST',
-    body: JSON.stringify({ uploadId: xlsState.uploadId, defs: [cneeDef] }),
-  }).catch(() => ({ results: [] }));
-  const cneeInfo = (cneeRes.results || []).find((r) => r.fileIndex === fileIndex);
+  let cneeRes = null;
+  let cneeError = '';
+  try {
+    cneeRes = await apiFetch('/api/xls-booking/cnee-preview', {
+      method: 'POST',
+      body: JSON.stringify({ uploadId: xlsState.uploadId, defs: [cneeDef] }),
+    });
+  } catch (err) {
+    // 不靜默吞掉：留訊息給 ③ 顯示，避免「伺服器其實沒回傳」卻被當成「全部缺 CNEE」
+    cneeError = (err && err.message) ? err.message : '網路錯誤';
+  }
+  const cneeInfo = cneeRes ? (cneeRes.results || []).find((r) => r.fileIndex === fileIndex) : undefined;
   const cneeMap = {};
   if (cneeInfo) {
     (cneeInfo.entries || []).forEach((e) => {
@@ -52,6 +61,7 @@ async function xlsEnsureStandardized(fileIndex) {
   } else {
     f._cneeBlocks = [];
   }
+  f._cneeWarning = cneeError ? `CNEE 比對暫時無法取得（${cneeError}）。若此檔「CNEE 名稱」欄位已指派，已先用該列值顯示；可點下方「重試 CNEE 比對」。` : '';
 
   const extract = (row, type) => {
     for (const [ci, t] of Object.entries(def.fieldMap)) {
@@ -72,8 +82,10 @@ async function xlsEnsureStandardized(fileIndex) {
     assignedTypes.forEach((t) => {
       rec[t.value] = xlsCellDisplay(extract(row, t.value));
     });
-    // CNEE：對照區比對結果，其次為前端手動補值
-    rec.cnee = cneeMap[rec.mawbKey] || '';
+    // CNEE 顯示順序：1) 後端比對結果（含逐列 CNEE_NAME 直取） 2) 已指派「CNEE 名稱」欄的該列值（後端比對暫時失敗時仍正確）
+    // 3) 前端手動補值（③ 點擊填入，最高優先，與 ④ 執行一致）
+    const hasDirectCnee = assignedTypes.some((t) => t.value === 'cnee_name');
+    rec.cnee = cneeMap[rec.mawbKey] || (hasDirectCnee ? (rec.cnee_name || '') : '');
     const over = (xlsState.cneeOverrides[fileIndex] || {})[rec.mawbKey];
     if (over) rec.cnee = over;
     standardized.push(rec);
@@ -127,6 +139,7 @@ function xlsRenderStandardized(fileIndex) {
     <h4>標準化結果預覽（${xlsEscapeHtml(f.originalName)}）</h4>
     <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）${missingCnee ? ` &nbsp;🔴 <b>${missingCnee}</b> 筆缺 CNEE <button type="button" class="pill xls-jump-cnee" onclick="xlsJumpFirstMissingCnee(${fileIndex})">📍 跳至第一筆</button>` : ''}</p>
     <p class="xls-preview-note">${cneeHint}</p>
+    ${f._cneeWarning ? `<div class="xls-warning-box">⚠️ ${xlsEscapeHtml(f._cneeWarning)}<br><button type="button" class="pill" onclick="xlsRetryStandardized(${fileIndex})">↻ 重試 CNEE 比對</button></div>` : ''}
     <div class="xls-standardized-table-wrap">
       <table class="xls-preview-table">
         <thead><tr>
@@ -175,6 +188,16 @@ async function renderStandardizedPreview(fileIndex) {
   const data = await xlsEnsureStandardized(fileIndex);
   if (!data) return;
   xlsRenderStandardized(fileIndex);
+}
+
+// ===== 標準化預覽：CNEE 比對失敗後的手動重試（清快取強制重新向後端抓） =====
+function xlsRetryStandardized(fileIndex) {
+  const f = xlsState.files[fileIndex];
+  if (f) {
+    f._stdCache = null;
+    f._cneeWarning = '';
+  }
+  renderStandardizedPreview(fileIndex);
 }
 
 // ===== 標準化預覽：勾選 / 取消勾選單一列 =====

@@ -188,3 +188,12 @@
     transform: translate3d(12px, -16px, 0) scale(1.04);
   }
 }
+
+/* ===== 效能：捲動進行中暫停背景光暈漂移 =====
+   body 的兩個固定 blur 光暈若持續動畫，會讓底下的卡片 backdrop 不斷失效重算，
+   與大型表格捲動競爭 GPU/主執行緒。JS（animations.js）在捲動時替 body 加上
+   fx-scrubbing 類別，此處把光暈動畫暫停；捲動結束後自動恢復。 */
+body.fx-scrubbing::before,
+body.fx-scrubbing::after {
+  animation-play-state: paused;
+}

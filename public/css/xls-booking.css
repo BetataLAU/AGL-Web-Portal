@@ -4,6 +4,40 @@
   max-width: min(1200px, 100%);
 }
 
+/* ===== 效能：大型預覽表格捲動優化 =====
+   背景成因：.card 共用樣式帶 backdrop-filter:blur(18px)，且卡片後方永遠有
+   動畫中的模糊光暈 + 全螢幕粒子畫布；預覽表格一次可達 100 列 × 100 欄，
+   橫向捲動每一幀都會觸發大片重繪，因此瀏覽器被迫對「整張巨型卡片」反覆做
+   backdrop 取樣/模糊 → 捲動明顯延遲。
+   解法：
+   1) 資料密集的 .xls-card 改為「半透明但不模糊」的玻璃卡，
+      並關閉 hover 浮起與滑鼠追蹤光暈（在此卡上捲動表格時最傷效能）。
+   2) 表格捲動容器加 overscroll / contain / touch 慣性捲動，
+      降低每幀 paint 範圍，避免捲到邊緣後反彈到頁面造成頓挫感。 */
+.xls-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.xls-card:hover {
+  transform: none;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow);
+}
+
+.xls-card::before,
+.xls-card::after {
+  display: none;
+}
+
+.xls-preview-table-wrap,
+.xls-standardized-table-wrap {
+  -webkit-overflow-scrolling: touch;   /* iOS/macOS 慣性捲動 */
+  overscroll-behavior-x: contain;      /* 橫向捲到邊緣不反彈/連鎖；垂直仍可穿透捲動頁面 */
+  overflow-anchor: none;               /* 捲動中不被 scroll anchoring 拉回 */
+  contain: paint;                      /* 把捲動內容的 paint 限制在容器內 */
+}
+
 .xls-card h3 {
   margin: 28px 0 12px;
   font-size: 1.05rem;

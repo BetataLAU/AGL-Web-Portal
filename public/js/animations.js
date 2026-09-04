@@ -1,3 +1,25 @@
+// ===== 效能：捲動進行中暫停背景繪圖 =====
+// 大型可捲動表格（Shipper Role 預覽/標準化表等）捲動時，若全螢幕粒子畫布、
+// 游標拖尾仍每幀重繪，會與捲動爭搶主執行緒的幀預算 → 捲動延遲/不順暢。
+// 這裡在「任何捲動（scroll/wheel/touchmove）發生期間」替 <body> 加上
+// fx-scrubbing 類別，粒子 / 拖尾 / 光暈暫停繪製；停止捲動約 120ms 後自動恢復。
+let fxScrubTimer = null;
+function fxMarkScrubbing() {
+  if (document.body && !document.body.classList.contains('fx-scrubbing')) {
+    document.body.classList.add('fx-scrubbing');
+  }
+  clearTimeout(fxScrubTimer);
+  fxScrubTimer = setTimeout(() => {
+    if (document.body) document.body.classList.remove('fx-scrubbing');
+  }, 120);
+}
+function fxIsScrubbing() {
+  return !!(document.body && document.body.classList.contains('fx-scrubbing'));
+}
+document.addEventListener('scroll', fxMarkScrubbing, { capture: true, passive: true });
+document.addEventListener('wheel', fxMarkScrubbing, { capture: true, passive: true });
+document.addEventListener('touchmove', fxMarkScrubbing, { capture: true, passive: true });
+
 // ===== 動效 #1: 打字機效果 =====
 function setupTypewriter() {
   const el = document.getElementById('typed-subtitle');
@@ -19,6 +41,7 @@ function setupTypewriter() {
 // ===== 動效 #5: 游標追蹤光暈 =====
 function setupCardGlowTracking() {
   document.addEventListener('mousemove', (e) => {
+    if (fxIsScrubbing()) return; // 捲動期間不做 getBoundingClientRect / 變數更新
     const cards = document.querySelectorAll('.card, .hero-header');
     cards.forEach(card => {
       const rect = card.getBoundingClientRect();
@@ -56,6 +79,11 @@ function setupCursorTrail() {
   }
 
   function animate() {
+    if (fxIsScrubbing()) {
+      // 捲動期間暫停繪製（保留已繪出的拖尾畫面），下幀再回來
+      if (trails.length > 0) rafId = requestAnimationFrame(animate);
+      return;
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     trails.forEach((t, i) => {
       t.life -= 0.05;
@@ -78,6 +106,7 @@ function setupCursorTrail() {
   }
 
   document.addEventListener('mousemove', (e) => {
+    if (fxIsScrubbing()) return; // 捲動期間不新增拖尾
     addTrail(e.clientX, e.clientY);
     if (!rafId) rafId = requestAnimationFrame(animate);
   });
@@ -129,37 +158,40 @@ function setupBackgroundParticles() {
   }
 
   function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.pulse += p.pulseSpeed;
-      if (p.x < -10) p.x = canvas.width + 10;
-      if (p.x > canvas.width + 10) p.x = -10;
-      if (p.y < -10) p.y = canvas.height + 10;
-      if (p.y > canvas.height + 10) p.y = -10;
-      const a = p.alpha * (0.7 + 0.3 * Math.sin(p.pulse));
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(99, 132, 235, ${a})`;
-      ctx.fill();
-    });
-    // 微細連線
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 110) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(99, 132, 235, ${(1 - dist / 110) * 0.16})`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
+    if (!fxIsScrubbing()) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.pulse += p.pulseSpeed;
+        if (p.x < -10) p.x = canvas.width + 10;
+        if (p.x > canvas.width + 10) p.x = -10;
+        if (p.y < -10) p.y = canvas.height + 10;
+        if (p.y > canvas.height + 10) p.y = -10;
+        const a = p.alpha * (0.7 + 0.3 * Math.sin(p.pulse));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(99, 132, 235, ${a})`;
+        ctx.fill();
+      });
+      // 微細連線
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 110) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(99, 132, 235, ${(1 - dist / 110) * 0.16})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
         }
       }
     }
+    // 捲動期間跳過繪製（畫面維持上一幀），但 rAF 繼續排程，捲動結束即恢復
     requestAnimationFrame(animate);
   }
 

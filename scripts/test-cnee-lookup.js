@@ -7,6 +7,7 @@ const path = require('path');
 
 const BASE = 'http://127.0.0.1:3000';
 const SOURCE_FILE = path.resolve(__dirname, '..', 'data', 'uploads', 'b2719b93a5db.xlsx');
+const { cleanCell } = require('./xls-utils');
 
 const cookieJar = {};
 
@@ -65,6 +66,19 @@ const EXPECTED = {
 async function unitTest() {
   console.log('=== 單元測試：extractCneeLookupArea + matchCnee（經 standardizeRows） ===');
   const { standardizeRows, extractCneeLookupArea } = require(path.resolve(__dirname, 'xls-workflow.js'));
+  const cellCases = [
+    [{ richText: [{ text: 'GULF SYSTEM ' }, { text: 'INTERNATIONAL' }] }, 'GULF SYSTEM INTERNATIONAL'],
+    [{ text: 'GULF SYSTEM', hyperlink: 'https://example.com' }, 'GULF SYSTEM'],
+    [{ formula: 'A1+B1', result: 'GULF SYSTEM' }, 'GULF SYSTEM'],
+  ];
+  for (const [input, expected] of cellCases) {
+    const actual = cleanCell(input);
+    if (actual !== expected || actual.includes('[object Object]')) {
+      console.error('❌ ExcelJS 儲存格物件清理錯誤:', actual);
+      process.exit(1);
+    }
+  }
+  console.log('✅ ExcelJS rich-text / hyperlink / formula 儲存格清理正確');
   const rows = await readRows(SOURCE_FILE);
 
   const blocks = extractCneeLookupArea(rows).filter((b) => b.cnee);

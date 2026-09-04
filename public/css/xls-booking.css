@@ -188,6 +188,16 @@
   text-overflow: ellipsis;
   text-align: left;
 }
+.xls-standardized-table-wrap .xls-preview-table {
+  table-layout: fixed;
+  min-width: 760px;
+}
+.xls-standardized-table-wrap .xls-cnee-col,
+.xls-standardized-table-wrap .xls-cnee-cell {
+  width: 220px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .xls-preview-table thead th {
   background: var(--bg-muted, #f1f5f9);
   position: sticky;
@@ -384,8 +394,7 @@
 .xls-cnee-cell.xls-cnee-missing {
   color: #dc2626;
   font-weight: 600;
-  /* 柔和「呼吸燈」提示：吸引注意但不過度刺眼 */
-  animation: xlsCneePulse 1.6s ease-in-out infinite;
+  background: rgba(220, 38, 38, 0.1);
 }
 .xls-cnee-cell.xls-cnee-missing:hover {
   background: rgba(220, 38, 38, 0.16);
@@ -394,16 +403,6 @@
 /* 跳轉到缺 CNEE 後的短暫高亮（一次性） */
 .xls-cnee-cell.xls-cnee-flash {
   animation: xlsCneeFlash 1.2s ease-out;
-}
-@keyframes xlsCneePulse {
-  0%, 100% {
-    background: rgba(220, 38, 38, 0.05);
-    box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.25);
-  }
-  50% {
-    background: rgba(220, 38, 38, 0.22);
-    box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55);
-  }
 }
 @keyframes xlsCneeFlash {
   0% {

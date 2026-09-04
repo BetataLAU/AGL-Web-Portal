@@ -15,6 +15,13 @@ function sleep(ms) {
 function cleanCell(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'object' && v instanceof Date) return v;
+  if (typeof v === 'object') {
+    if (Array.isArray(v.richText)) return v.richText.map((part) => String(part && part.text || '')).join('').replace(/_x000D_/g, ' ').replace(/\r/g, ' ').replace(/\u00a0/g, ' ').trim();
+    if (typeof v.text === 'string') return cleanCell(v.text);
+    if (v.result !== undefined && v.result !== null) return cleanCell(v.result);
+    if (Array.isArray(v)) return v.map(cleanCell).join('');
+    return '';
+  }
   let s = String(v);
   s = s.replace(/_x000D_/g, ' ').replace(/\r/g, ' ').replace(/\u00a0/g, ' ');
   return s.trim();

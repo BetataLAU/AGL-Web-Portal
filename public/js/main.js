@@ -254,6 +254,39 @@ window.initProtectedSections = function (user) {
   }
 };
 
+// ===== 右下角「回到頁頂」按鈕 =====
+// 桌面版實際捲動容器是 .app-layout（height:100vh; overflow-y:auto）；
+// 手機版（≤900px）改由視窗本身捲動，兩種都支援。
+function setupBackToTop() {
+  const btn = document.getElementById('back-to-top');
+  const layout = document.querySelector('.app-layout');
+  if (!btn) return;
+
+  const SHOW_AFTER = 400; // 向下捲超過此距離才淡入
+
+  const isLayoutScroller = () => !!(layout && layout.scrollHeight > layout.clientHeight);
+
+  function currentTop() {
+    if (isLayoutScroller()) return layout.scrollTop;
+    return window.pageYOffset || document.documentElement.scrollTop || 0;
+  }
+
+  function update() {
+    btn.classList.toggle('show', currentTop() > SHOW_AFTER);
+  }
+
+  function scrollToTop() {
+    if (isLayoutScroller()) layout.scrollTo({ top: 0, behavior: 'smooth' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  if (layout) layout.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+  window.addEventListener('scroll', () => requestAnimationFrame(update), { passive: true });
+  window.addEventListener('resize', debounce(update, 150));
+  btn.addEventListener('click', scrollToTop);
+  update();
+}
+
 // ===== 入口 =====
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
@@ -268,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCursorTrail();
   setupBackgroundParticles();
   setupScrollProgressBar();
+  setupBackToTop();
 
   // 公開功能頁（不需登入）
   fetchSkills();

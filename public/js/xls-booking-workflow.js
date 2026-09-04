@@ -53,6 +53,8 @@ async function runXlsWorkflow() {
         cneeOverrides: xlsState.cneeOverrides[d.fileIndex] || {},
       };
     });
+    // 記錄本次執行了哪些檔案（供完成後「下一個檔案」判斷）
+    xlsState.lastRunFiles = bodyDefs.map((d) => d.fileIndex);
     // 啟動非同步 job
     const startRes = await apiFetch('/api/xls-booking/process', {
       method: 'POST',
@@ -159,6 +161,14 @@ function renderResult(res) {
   (res.zipPaths || []).forEach((z) => {
     html += `<a class="pill" href="/api/xls-booking/download/zip/${res.jobId}/${encodeURIComponent(z.name)}" download>📦 ${xlsEscapeHtml(z.name)}</a>`;
   });
+  html += `</div>`;
+  // 完成後快速操作：回 ① 上傳／跳到下一個未處理檔案
+  html += `<div class="xls-result-nav">`;
+  html += `<button type="button" class="pill" onclick="xlsScrollToStep('xls-step-1')">⬆ 回 ① 上傳／選檔</button>`;
+  const nextIdx = xlsFindNextFileIndex();
+  if (nextIdx >= 0 && xlsState.files[nextIdx]) {
+    html += `<button type="button" class="pill btn-primary" onclick="xlsGoToNextFile(${nextIdx})">▶ 處理下一個檔案：${xlsEscapeHtml(xlsState.files[nextIdx].originalName)}</button>`;
+  }
   html += `</div>`;
   if (res.fileResults && res.fileResults.length) {
     html += `<p class="xls-preview-note">${res.fileResults.map((r) => `${xlsEscapeHtml(r.file)}：${r.records} 筆`).join('；')}</p>`;

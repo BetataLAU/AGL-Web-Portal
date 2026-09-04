@@ -2,23 +2,30 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/3 下午3:06:24
+> 最後更新：2026/9/4 下午3:56:04
 
 ## 🔄 Git 變更狀態
 
 ```
-M CLAUDE.md
+M FILE_INVENTORY.md
 M README.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
+M public/css/layout.css
 M public/css/xls-booking.css
 M public/index.html
+M public/js/main.js
 M public/js/xls-booking-preview.js
-M routes/xls-booking.js
+M public/js/xls-booking-state.js
+M public/js/xls-booking-upload.js
+M public/js/xls-booking-workflow.js
+M scripts/test-cnee-lookup.js
+M scripts/xls-utils.js
+?? .vscode/
 ```
 
-## 📁 檔案清單（共 1852 個檔案）
+## 📁 檔案清單（共 2448 個檔案）
 
 ### (根目錄)
 
@@ -29,11 +36,15 @@ M routes/xls-booking.js
 - `Dockerfile`（738 B）
 - `ORDER_SYSTEM_PLAN.md`（8.1 KB）
 - `PROJECT_MAP.md`（10.7 KB）
-- `README.md`（12.8 KB）
+- `README.md`（13.2 KB）
 - `WORKSPACE_STATE.md`（5.2 KB）
 - `deepseek_text_20260820_ba683e.txt`（18.8 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
+
+### .vscode
+
+- `.vscode/settings.json`（786 B）
 
 ### bp3d
 
@@ -55,10 +66,11 @@ M routes/xls-booking.js
 ### data/templates
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.3 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（505.7 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（512.0 KB）
 
 ### data/uploads
 
+- `data/uploads/039d899f6eaf.xlsx`（10.2 KB）
 - `data/uploads/07853ee760f6.xlsx`（6.4 KB）
 - `data/uploads/082d71d4f84d.xlsx`（8.4 KB）
 - `data/uploads/0859bd665706.xlsx`（14.8 KB）
@@ -67,6 +79,7 @@ M routes/xls-booking.js
 - `data/uploads/0b99b81b933b.xlsx`（14.8 KB）
 - `data/uploads/0f1681d7732e.xlsx`（14.8 KB）
 - `data/uploads/10e56f0eac41.xlsx`（22.5 KB）
+- `data/uploads/119fd1316834.xlsx`（12.7 KB）
 - `data/uploads/13b5aaa00294.xlsx`（6.4 KB）
 - `data/uploads/1a5c0919cf1a.xlsx`（14.8 KB）
 - `data/uploads/1c117e0d34ba.xlsx`（14.8 KB）
@@ -78,26 +91,33 @@ M routes/xls-booking.js
 - `data/uploads/4156a4b94840.xlsx`（10.4 KB）
 - `data/uploads/44dccbf9dbed.xlsx`（10.8 KB）
 - `data/uploads/46ce487b0b17.xlsx`（10.0 KB）
+- `data/uploads/48252a5721d9.xlsx`（28.2 KB）
 - `data/uploads/4fb5fb894a2b.xlsx`（12.5 KB）
 - `data/uploads/503d9ec0e1f1.xlsx`（14.8 KB）
 - `data/uploads/507fa4a1bd26.xlsx`（14.6 KB）
 - `data/uploads/595c8a271b1d.xlsx`（22.5 KB）
+- `data/uploads/5a40d304f74a.xlsx`（28.2 KB）
 - `data/uploads/6c20732383b9.xlsx`（14.8 KB）
 - `data/uploads/6dc249c01d51.xlsx`（14.8 KB）
 - `data/uploads/6f1e88d79feb.xlsx`（10.0 KB）
+- `data/uploads/75b99c8a91fb.xlsx`（23.5 KB）
 - `data/uploads/7708ef1ed936.xlsx`（54.7 KB）
 - `data/uploads/77dc4f2b8883.xlsx`（11.2 KB）
 - `data/uploads/7a58b33e74f1.xlsx`（10.4 KB）
 - `data/uploads/83a7579a2c14.xlsx`（12.1 KB）
+- `data/uploads/83ac76d55742.xlsx`（12.2 KB）
 - `data/uploads/8b602cdfa082.xlsx`（14.8 KB）
 - `data/uploads/9545c9130574.xlsx`（10.8 KB）
 - `data/uploads/95cf65f2e5fe.xlsx`（14.8 KB）
 - `data/uploads/99089b67fafa.xlsx`（14.6 KB）
+- `data/uploads/9bb45ca261ea.xlsx`（9.9 KB）
 - `data/uploads/9c2d9e1c43cc.xlsx`（14.8 KB）
 - `data/uploads/a0c7ff2ecbe0.xlsx`（54.7 KB）
 - `data/uploads/a257b991427f.xlsx`（10.4 KB）
+- `data/uploads/a2afd1d4026f.xlsx`（10.2 KB）
 - `data/uploads/a3ed0d332139.xlsx`（9.2 KB）
 - `data/uploads/a5e82a316248.xlsx`（14.8 KB）
+- `data/uploads/a8c2ca4998e0.xlsx`（13.8 KB）
 - `data/uploads/aa20390d148d.xlsx`（6.6 KB）
 - `data/uploads/ab4d331db443.xlsx`（11.2 KB）
 - `data/uploads/abc8c8ac8bbe.xlsx`（13.9 KB）
@@ -105,11 +125,17 @@ M routes/xls-booking.js
 - `data/uploads/aca1ee9eeeca.xlsx`（17.1 KB）
 - `data/uploads/b016d6786e57.xlsx`（20.2 KB）
 - `data/uploads/b18c256d0472.xlsx`（12.8 KB）
+- `data/uploads/c0a4a5dbaf81.xlsx`（62.5 KB）
 - `data/uploads/c3791e709e70.xlsx`（22.5 KB）
+- `data/uploads/ca46f29af960.xlsx`（12.7 KB）
 - `data/uploads/cc440cacdbe6.xlsx`（54.7 KB）
+- `data/uploads/d430a55f8348.xlsx`（9.0 KB）
 - `data/uploads/d9a1531537f0.xlsx`（14.8 KB）
 - `data/uploads/d9c8e193e49e.xlsx`（12.1 KB）
+- `data/uploads/dbd73a464a87.xlsx`（9.5 KB）
+- `data/uploads/de11a40e0af9.xlsx`（8.9 KB）
 - `data/uploads/dea4385bd43d.xlsx`（17 B）
+- `data/uploads/e2861b571b8b.xlsx`（10.2 KB）
 - `data/uploads/e36cc46bf00c.xlsx`（35.2 KB）
 - `data/uploads/e3cfafc49898.xlsx`（14.8 KB）
 - `data/uploads/e4a9f44ddf43.xlsx`（1 B）
@@ -117,6 +143,7 @@ M routes/xls-booking.js
 - `data/uploads/ec3232b21aee.xlsx`（10.6 KB）
 - `data/uploads/f030d1b99069.xlsx`（1 B）
 - `data/uploads/f6c6629e0290.xlsx`（54.7 KB）
+- `data/uploads/fc6e599fac28.xlsx`（12.7 KB）
 - `data/uploads/fd160dd46443.xlsx`（12.3 KB）
 
 ### data/work
@@ -124,27 +151,37 @@ M routes/xls-booking.js
 - `data/work/report-054d11e6.xlsx`（503.6 KB）
 - `data/work/report-0bd80796.xlsx`（402.3 KB）
 - `data/work/report-0e766bc4.xlsx`（405.2 KB）
+- `data/work/report-1001cae4.xlsx`（506.1 KB）
 - `data/work/report-10a4bdf1.xlsx`（402.5 KB）
 - `data/work/report-13704034.xlsx`（500.6 KB）
+- `data/work/report-137ae56e.xlsx`（507.9 KB）
 - `data/work/report-1bedf30e.xlsx`（504.8 KB）
+- `data/work/report-21169d4a.xlsx`（508.5 KB）
 - `data/work/report-28e32bfb.xlsx`（501.5 KB）
 - `data/work/report-2938384f.xlsx`（505.7 KB）
 - `data/work/report-2ca0baef.xlsx`（403.2 KB）
 - `data/work/report-3704ce0f.xlsx`（402.4 KB）
 - `data/work/report-3a565d2a.xlsx`（402.9 KB）
 - `data/work/report-3ab609f3.xlsx`（402.3 KB）
+- `data/work/report-3c3e61fe.xlsx`（510.8 KB）
+- `data/work/report-3deb9a7f.xlsx`（510.5 KB）
+- `data/work/report-3ee70a15.xlsx`（512.0 KB）
 - `data/work/report-427c9b0a.xlsx`（499.7 KB）
 - `data/work/report-5110ee74.xlsx`（404.4 KB）
+- `data/work/report-53bf2254.xlsx`（510.8 KB）
 - `data/work/report-614579e5.xlsx`（500.7 KB）
 - `data/work/report-67891d63.xlsx`（478.8 KB）
+- `data/work/report-764ac87f.xlsx`（510.8 KB）
 - `data/work/report-76aef21f.xlsx`（404.9 KB）
 - `data/work/report-7d8afda7.xlsx`（402.4 KB）
+- `data/work/report-8706c23e.xlsx`（511.1 KB）
 - `data/work/report-88c21355.xlsx`（402.4 KB）
 - `data/work/report-8b4e9c96.xlsx`（478.7 KB）
 - `data/work/report-8bec9745.xlsx`（402.4 KB）
 - `data/work/report-8cb5795d.xlsx`（403.3 KB）
 - `data/work/report-8efd8c10.xlsx`（409.3 KB）
 - `data/work/report-95f139d4.xlsx`（402.4 KB）
+- `data/work/report-96d7fde2.xlsx`（510.3 KB）
 - `data/work/report-9e417da1.xlsx`（504.5 KB）
 - `data/work/report-a1a5187f.xlsx`（499.0 KB）
 - `data/work/report-a2f0dfd1.xlsx`（501.3 KB）
@@ -155,15 +192,19 @@ M routes/xls-booking.js
 - `data/work/report-b5a99463.xlsx`（403.3 KB）
 - `data/work/report-be0129d7.xlsx`（404.8 KB）
 - `data/work/report-be3ec597.xlsx`（500.5 KB）
+- `data/work/report-bef64ccb.xlsx`（508.3 KB）
 - `data/work/report-c2bed343.xlsx`（504.8 KB）
 - `data/work/report-c4825f1d.xlsx`（403.3 KB）
 - `data/work/report-c8096654.xlsx`（403.3 KB）
+- `data/work/report-ce703e3b.xlsx`（510.6 KB）
 - `data/work/report-d02da57f.xlsx`（499.2 KB）
 - `data/work/report-d08e4663.xlsx`（499.0 KB）
+- `data/work/report-d50d78e5.xlsx`（510.3 KB）
 - `data/work/report-e02efdf4.xlsx`（402.4 KB）
 - `data/work/report-e0501f97.xlsx`（405.3 KB）
 - `data/work/report-e34da0c1.xlsx`（504.8 KB）
 - `data/work/report-e4001745.xlsx`（404.8 KB）
+- `data/work/report-e4d9be8f.xlsx`（511.9 KB）
 - `data/work/report-e8681ed0.xlsx`（504.4 KB）
 - `data/work/report-ea417213.xlsx`（402.4 KB）
 - `data/work/report-fa5a7df0.xlsx`（499.7 KB）
@@ -248,6 +289,40 @@ M routes/xls-booking.js
 - `data/work/job-1ONtM6/20260901 - SV983 SLI x 10.zip`（5718.6 KB）
 - `data/work/job-1ONtM6/20260902 - SV983 SLI x 1.zip`（572.6 KB）
 - `data/work/job-1ONtM6/sli-eli-payload.json`（5.7 KB）
+
+### data/work/job-2Sdv7J
+
+- `data/work/job-2Sdv7J/20260904 - K4702 SLI x 5.zip`（2838.3 KB）
+- `data/work/job-2Sdv7J/752-30216583 ELI.xlsx`（189.5 KB）
+- `data/work/job-2Sdv7J/752-30216583 SLI.xlsx`（189.6 KB）
+- `data/work/job-2Sdv7J/752-30216583.pdf`（614.2 KB）
+- `data/work/job-2Sdv7J/752-30217191 ELI.xlsx`（189.5 KB）
+- `data/work/job-2Sdv7J/752-30217191 SLI.xlsx`（189.6 KB）
+- `data/work/job-2Sdv7J/752-30217191.pdf`（613.6 KB）
+- `data/work/job-2Sdv7J/752-30217202 ELI.xlsx`（189.6 KB）
+- `data/work/job-2Sdv7J/752-30217202 SLI.xlsx`（189.7 KB）
+- `data/work/job-2Sdv7J/752-30217202.pdf`（615.3 KB）
+- `data/work/job-2Sdv7J/752-30217213 ELI.xlsx`（189.6 KB）
+- `data/work/job-2Sdv7J/752-30217213 SLI.xlsx`（189.7 KB）
+- `data/work/job-2Sdv7J/752-30217213.pdf`（613.5 KB）
+- `data/work/job-2Sdv7J/752-30217224 ELI.xlsx`（189.5 KB）
+- `data/work/job-2Sdv7J/752-30217224 SLI.xlsx`（189.5 KB）
+- `data/work/job-2Sdv7J/752-30217224.pdf`（613.5 KB）
+- `data/work/job-2Sdv7J/sli-eli-payload.json`（2.6 KB）
+
+### data/work/job-2k13U3
+
+- `data/work/job-2k13U3/160-16277914 ELI.xlsx`（189.5 KB）
+- `data/work/job-2k13U3/160-16277914 SLI.xlsx`（189.5 KB）
+- `data/work/job-2k13U3/160-16277914.pdf`（613.3 KB）
+- `data/work/job-2k13U3/160-16277925 ELI.xlsx`（189.5 KB）
+- `data/work/job-2k13U3/160-16277925 SLI.xlsx`（189.7 KB）
+- `data/work/job-2k13U3/160-16277925.pdf`（613.3 KB）
+- `data/work/job-2k13U3/160-16277936 ELI.xlsx`（189.6 KB）
+- `data/work/job-2k13U3/160-16277936 SLI.xlsx`（189.6 KB）
+- `data/work/job-2k13U3/160-16277936.pdf`（613.3 KB）
+- `data/work/job-2k13U3/20260904 - CX037 SLI x 3.zip`（1699.8 KB）
+- `data/work/job-2k13U3/sli-eli-payload.json`（1.6 KB）
 
 ### data/work/job-3YB8Ib
 
@@ -429,6 +504,32 @@ M routes/xls-booking.js
 - `data/work/job-5qG8GY/20260903 - 5Y7001 SLI x 1.zip`（565.6 KB）
 - `data/work/job-5qG8GY/sli-eli-payload.json`（373 B）
 
+### data/work/job-6URYZE
+
+- `data/work/job-6URYZE/20260904 - 5C852 SLI x 7.zip`（3973.7 KB）
+- `data/work/job-6URYZE/752-30216572 ELI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30216572 SLI.xlsx`（189.7 KB）
+- `data/work/job-6URYZE/752-30216572.pdf`（614.2 KB）
+- `data/work/job-6URYZE/752-30217051 ELI.xlsx`（189.5 KB）
+- `data/work/job-6URYZE/752-30217051 SLI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217051.pdf`（613.6 KB）
+- `data/work/job-6URYZE/752-30217062 ELI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217062 SLI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217062.pdf`（613.6 KB）
+- `data/work/job-6URYZE/752-30217073 ELI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217073 SLI.xlsx`（189.9 KB）
+- `data/work/job-6URYZE/752-30217073.pdf`（613.5 KB）
+- `data/work/job-6URYZE/752-30217084 ELI.xlsx`（189.7 KB）
+- `data/work/job-6URYZE/752-30217084 SLI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217084.pdf`（615.3 KB）
+- `data/work/job-6URYZE/752-30217095 ELI.xlsx`（189.5 KB）
+- `data/work/job-6URYZE/752-30217095 SLI.xlsx`（189.7 KB）
+- `data/work/job-6URYZE/752-30217095.pdf`（613.5 KB）
+- `data/work/job-6URYZE/752-30217106 ELI.xlsx`（189.6 KB）
+- `data/work/job-6URYZE/752-30217106 SLI.xlsx`（190.0 KB）
+- `data/work/job-6URYZE/752-30217106.pdf`（615.3 KB）
+- `data/work/job-6URYZE/sli-eli-payload.json`（3.6 KB）
+
 ### data/work/job-7AJJFk
 
 - `data/work/job-7AJJFk/20260902 - [OBJECT OBJECT] SLI x 4.zip`（2273.1 KB）
@@ -445,6 +546,155 @@ M routes/xls-booking.js
 - `data/work/job-7AJJFk/369-99879032 SLI.xlsx`（189.7 KB）
 - `data/work/job-7AJJFk/369-99879032.pdf`（613.5 KB）
 - `data/work/job-7AJJFk/sli-eli-payload.json`（2.2 KB）
+
+### data/work/job-7WljMy
+
+- `data/work/job-7WljMy/157-43283800 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-43283800 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-43283800.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-43283811 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-43283811 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-43283811.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572353 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572353 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572353.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572364 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572364 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572364.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572375 ELI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572375 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572375.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572390 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572390 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572390.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572401 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572401 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572401.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572412 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572412 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572412.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572423 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572423 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572423.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572434 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572434 SLI.xlsx`（190.0 KB）
+- `data/work/job-7WljMy/157-49572434.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572445 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572445 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572445.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572456 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572456 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572456.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572460 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572460 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572460.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572471 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572471 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572471.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572482 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572482 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572482.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572493 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572493 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572493.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572504 ELI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572504 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572504.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572515 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572515 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572515.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572526 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572526 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572526.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572530 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572530 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572530.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572541 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572541 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572541.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572552 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572552 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572552.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572563 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572563 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572563.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572574 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572574 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572574.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572585 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572585 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572585.pdf`（614.5 KB）
+- `data/work/job-7WljMy/157-49572596 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572596 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572596.pdf`（614.5 KB）
+- `data/work/job-7WljMy/157-49572600 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572600 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572600.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572611 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572611 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572611.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572622 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572622 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572622.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572633 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572633 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572633.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572644 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572644 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572644.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572655 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572655 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572655.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572666 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572666 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572666.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572670 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572670 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572670.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572876 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572876 SLI.xlsx`（189.8 KB）
+- `data/work/job-7WljMy/157-49572876.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572880 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572880 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572880.pdf`（614.5 KB）
+- `data/work/job-7WljMy/157-49572891 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572891 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572891.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572902 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572902 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572902.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572913 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572913 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572913.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572924 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572924 SLI.xlsx`（189.7 KB）
+- `data/work/job-7WljMy/157-49572924.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572935 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572935 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572935.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572946 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572946 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572946.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572950 ELI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572950 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572950.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572961 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572961 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572961.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572972 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572972 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49572972.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572983 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572983 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572983.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49572994 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572994 SLI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49572994.pdf`（613.1 KB）
+- `data/work/job-7WljMy/157-49573005 ELI.xlsx`（189.6 KB）
+- `data/work/job-7WljMy/157-49573005 SLI.xlsx`（189.5 KB）
+- `data/work/job-7WljMy/157-49573005.pdf`（613.1 KB）
+- `data/work/job-7WljMy/20260904 - QR8415 SLI x 48.zip`（27205.9 KB）
+- `data/work/job-7WljMy/sli-eli-payload.json`（25.8 KB）
 
 ### data/work/job-80ILlN
 
@@ -802,6 +1052,27 @@ M routes/xls-booking.js
 - `data/work/job-IExCUE/369-99878284.pdf`（613.0 KB）
 - `data/work/job-IExCUE/sli-eli-payload.json`（21.2 KB）
 
+### data/work/job-IVTY6y
+
+- `data/work/job-IVTY6y/065-49010894 ELI.xlsx`（189.5 KB）
+- `data/work/job-IVTY6y/065-49010894 SLI.xlsx`（189.7 KB）
+- `data/work/job-IVTY6y/065-49010894.pdf`（625.8 KB）
+- `data/work/job-IVTY6y/065-49010905 ELI.xlsx`（189.6 KB）
+- `data/work/job-IVTY6y/065-49010905 SLI.xlsx`（189.7 KB）
+- `data/work/job-IVTY6y/065-49010905.pdf`（615.4 KB）
+- `data/work/job-IVTY6y/065-49010916 ELI.xlsx`（189.5 KB）
+- `data/work/job-IVTY6y/065-49010916 SLI.xlsx`（189.6 KB）
+- `data/work/job-IVTY6y/065-49010916.pdf`（623.7 KB）
+- `data/work/job-IVTY6y/065-49998314 ELI.xlsx`（189.4 KB）
+- `data/work/job-IVTY6y/065-49998314 SLI.xlsx`（189.5 KB）
+- `data/work/job-IVTY6y/065-49998314.pdf`（615.2 KB）
+- `data/work/job-IVTY6y/065-49998325 ELI.xlsx`（189.6 KB）
+- `data/work/job-IVTY6y/065-49998325 SLI.xlsx`（189.6 KB）
+- `data/work/job-IVTY6y/065-49998325.pdf`（625.8 KB）
+- `data/work/job-IVTY6y/20260906 - SV3967 SLI x 4.zip`（2295.4 KB）
+- `data/work/job-IVTY6y/20260907 - SV3967 SLI x 1.zip`（569.0 KB）
+- `data/work/job-IVTY6y/sli-eli-payload.json`（2.4 KB）
+
 ### data/work/job-KBmuDG
 
 - `data/work/job-KBmuDG/157-48207213 ELI.pdf`（313.0 KB）
@@ -904,6 +1175,34 @@ M routes/xls-booking.js
 - `data/work/job-KBmuDG/157-87750806 SLI.pdf`（408.8 KB）
 - `data/work/job-KBmuDG/157-87750806 SLI.xlsx`（189.6 KB）
 - `data/work/job-KBmuDG/sli-eli-payload.json`（24.3 KB）
+
+### data/work/job-KfRKdI
+
+- `data/work/job-KfRKdI/20260904 - K4702 SLI x 5.zip`（2838.3 KB）
+- `data/work/job-KfRKdI/752-30216583 ELI.xlsx`（189.5 KB）
+- `data/work/job-KfRKdI/752-30216583 SLI.xlsx`（189.6 KB）
+- `data/work/job-KfRKdI/752-30216583.pdf`（614.2 KB）
+- `data/work/job-KfRKdI/752-30217191 ELI.xlsx`（189.6 KB）
+- `data/work/job-KfRKdI/752-30217191 SLI.xlsx`（189.7 KB）
+- `data/work/job-KfRKdI/752-30217191.pdf`（613.6 KB）
+- `data/work/job-KfRKdI/752-30217202 ELI.xlsx`（189.5 KB）
+- `data/work/job-KfRKdI/752-30217202 SLI.xlsx`（189.7 KB）
+- `data/work/job-KfRKdI/752-30217202.pdf`（615.3 KB）
+- `data/work/job-KfRKdI/752-30217213 ELI.xlsx`（189.5 KB）
+- `data/work/job-KfRKdI/752-30217213 SLI.xlsx`（189.8 KB）
+- `data/work/job-KfRKdI/752-30217213.pdf`（613.5 KB）
+- `data/work/job-KfRKdI/752-30217224 ELI.xlsx`（189.6 KB）
+- `data/work/job-KfRKdI/752-30217224 SLI.xlsx`（189.6 KB）
+- `data/work/job-KfRKdI/752-30217224.pdf`（613.5 KB）
+- `data/work/job-KfRKdI/sli-eli-payload.json`（2.6 KB）
+
+### data/work/job-KtVi2X
+
+- `data/work/job-KtVi2X/003-31701600 ELI.xlsx`（189.6 KB）
+- `data/work/job-KtVi2X/003-31701600 SLI.xlsx`（189.8 KB）
+- `data/work/job-KtVi2X/003-31701600.pdf`（613.0 KB）
+- `data/work/job-KtVi2X/20260904 - 2C561 SLI x 1.zip`（567.0 KB）
+- `data/work/job-KtVi2X/sli-eli-payload.json`（876 B）
 
 ### data/work/job-KvlA0K
 
@@ -1019,6 +1318,24 @@ M routes/xls-booking.js
 
 - `data/work/job-Nbz8te/sli-eli-payload.json`（537 B）
 
+### data/work/job-Nhl6Yt
+
+- `data/work/job-Nhl6Yt/065-49010850 ELI.xlsx`（189.5 KB）
+- `data/work/job-Nhl6Yt/065-49010850 SLI.xlsx`（189.6 KB）
+- `data/work/job-Nhl6Yt/065-49010850.pdf`（625.8 KB）
+- `data/work/job-Nhl6Yt/065-49010861 ELI.xlsx`（189.5 KB）
+- `data/work/job-Nhl6Yt/065-49010861 SLI.xlsx`（189.7 KB）
+- `data/work/job-Nhl6Yt/065-49010861.pdf`（623.7 KB）
+- `data/work/job-Nhl6Yt/065-49998255 ELI.xlsx`（189.6 KB）
+- `data/work/job-Nhl6Yt/065-49998255 SLI.xlsx`（189.5 KB）
+- `data/work/job-Nhl6Yt/065-49998255.pdf`（625.8 KB）
+- `data/work/job-Nhl6Yt/065-49998266 ELI.xlsx`（189.6 KB）
+- `data/work/job-Nhl6Yt/065-49998266 SLI.xlsx`（189.7 KB）
+- `data/work/job-Nhl6Yt/065-49998266.pdf`（625.8 KB）
+- `data/work/job-Nhl6Yt/20260904 - SV977 SLI x 3.zip`（1726.1 KB）
+- `data/work/job-Nhl6Yt/20260905 - SV977 SLI x 1.zip`（575.8 KB）
+- `data/work/job-Nhl6Yt/sli-eli-payload.json`（2.2 KB）
+
 ### data/work/job-Njlx6r
 
 - `data/work/job-Njlx6r/065-49010581 ELI.xlsx`（189.6 KB）
@@ -1064,6 +1381,80 @@ M routes/xls-booking.js
 - `data/work/job-NySiX9/369-99426460 SLI.xlsx`（189.7 KB）
 - `data/work/job-NySiX9/369-99426460.pdf`（612.2 KB）
 - `data/work/job-NySiX9/sli-eli-payload.json`（662 B）
+
+### data/work/job-O9dvyD
+
+- `data/work/job-O9dvyD/157-43283844 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-43283844 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-43283844.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-43283855 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-43283855 SLI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-43283855.pdf`（614.5 KB）
+- `data/work/job-O9dvyD/157-43283866 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-43283866 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-43283866.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-43283892 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-43283892 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-43283892.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572681 ELI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572681 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572681.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572692 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572692 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572692.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572703 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572703 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572703.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572714 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572714 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572714.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572725 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572725 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572725.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572736 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572736 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572736.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572740 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572740 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572740.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572751 ELI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572751 SLI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572751.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572762 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572762 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572762.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572773 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572773 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572773.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572784 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572784 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572784.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572795 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572795 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572795.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572806 ELI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572806 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572806.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572810 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572810 SLI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572810.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572821 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572821 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572821.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572832 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572832 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572832.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572843 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572843 SLI.xlsx`（189.5 KB）
+- `data/work/job-O9dvyD/157-49572843.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572854 ELI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572854 SLI.xlsx`（189.6 KB）
+- `data/work/job-O9dvyD/157-49572854.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/157-49572865 ELI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572865 SLI.xlsx`（189.7 KB）
+- `data/work/job-O9dvyD/157-49572865.pdf`（613.1 KB）
+- `data/work/job-O9dvyD/20260904 - QR8435 SLI x 23.zip`（13035.5 KB）
+- `data/work/job-O9dvyD/sli-eli-payload.json`（12.4 KB）
 
 ### data/work/job-PAZX5n
 
@@ -1290,6 +1681,183 @@ M routes/xls-booking.js
 - `data/work/job-RcEOJO/SV983-01SEP x 11.zip`（6291.1 KB）
 - `data/work/job-RcEOJO/sli-eli-payload.json`（5.7 KB）
 
+### data/work/job-SpyiKL
+
+- `data/work/job-SpyiKL/157-41631542 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631542 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631542.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631553 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631553 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631553.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631564 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631564 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631564.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631575 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631575 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631575.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631586 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631586 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631586.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631590 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631590 SLI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631590.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631601 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631601 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631601.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631612 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631612 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631612.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631623 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631623 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631623.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631634 ELI.xlsx`（189.9 KB）
+- `data/work/job-SpyiKL/157-41631634 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631634.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631645 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631645 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631645.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631656 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631656 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631656.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631660 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631660 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631660.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631671 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631671 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631671.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631682 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631682 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631682.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631693 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631693 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631693.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631704 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631704 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631704.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631715 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631715 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631715.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631726 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631726 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631726.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631730 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631730 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631730.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631741 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631741 SLI.xlsx`（189.9 KB）
+- `data/work/job-SpyiKL/157-41631741.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631752 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631752 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631752.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631763 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631763 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631763.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631774 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631774 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631774.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631785 ELI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631785 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631785.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631796 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631796 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631796.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631800 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631800 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631800.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631811 ELI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631811 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631811.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631822 ELI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631822 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631822.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631833 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631833 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631833.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631844 ELI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631844 SLI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631844.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631855 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631855 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631855.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631866 ELI.xlsx`（189.8 KB）
+- `data/work/job-SpyiKL/157-41631866 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631866.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631870 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631870 SLI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-41631870.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631881 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631881 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631881.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631892 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631892 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631892.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631903 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631903 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-41631903.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631914 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631914 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631914.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-41631925 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631925 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631925.pdf`（613.8 KB）
+- `data/work/job-SpyiKL/157-41631936 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631936 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-41631936.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094671 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094671 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094671.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094682 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094682 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094682.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094693 ELI.xlsx`（189.5 KB）
+- `data/work/job-SpyiKL/157-43094693 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-43094693.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094704 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094704 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094704.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094715 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094715 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094715.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094726 ELI.xlsx`（189.8 KB）
+- `data/work/job-SpyiKL/157-43094726 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094726.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094730 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094730 SLI.xlsx`（190.0 KB）
+- `data/work/job-SpyiKL/157-43094730.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094741 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094741 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-43094741.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094752 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094752 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094752.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43094763 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094763 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43094763.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43281991 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43281991 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43281991.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43282002 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282002 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282002.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43282013 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282013 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282013.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43282024 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282024 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282024.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43282083 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43282083 SLI.xlsx`（189.7 KB）
+- `data/work/job-SpyiKL/157-43282083.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43283870 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43283870 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43283870.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/157-43283881 ELI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43283881 SLI.xlsx`（189.6 KB）
+- `data/work/job-SpyiKL/157-43283881.pdf`（614.2 KB）
+- `data/work/job-SpyiKL/20260907 - QR8411 SLI x 29 (Part 1 of 2).zip`（16473.6 KB）
+- `data/work/job-SpyiKL/20260907 - QR8411 SLI x 29 (Part 2 of 2).zip`（16473.7 KB）
+- `data/work/job-SpyiKL/sli-eli-payload.json`（35.1 KB）
+
 ### data/work/job-UViyYI
 
 - `data/work/job-UViyYI/sli-eli-payload.json`（537 B）
@@ -1315,6 +1883,44 @@ M routes/xls-booking.js
 - `data/work/job-ZRBfz9/065-49886771.pdf`（613.8 KB）
 - `data/work/job-ZRBfz9/20260901 - SV963 SLI x 2.zip`（1134.9 KB）
 - `data/work/job-ZRBfz9/sli-eli-payload.json`（1.4 KB）
+
+### data/work/job-ZWEwqm
+
+- `data/work/job-ZWEwqm/20260905 - 5C770 SLI x 11.zip`（6245.6 KB）
+- `data/work/job-ZWEwqm/752-30216594 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30216594 SLI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30216594.pdf`（614.2 KB）
+- `data/work/job-ZWEwqm/752-30217235 ELI.xlsx`（189.5 KB）
+- `data/work/job-ZWEwqm/752-30217235 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217235.pdf`（613.6 KB）
+- `data/work/job-ZWEwqm/752-30217246 ELI.xlsx`（189.5 KB）
+- `data/work/job-ZWEwqm/752-30217246 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217246.pdf`（613.6 KB）
+- `data/work/job-ZWEwqm/752-30217250 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217250 SLI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217250.pdf`（613.5 KB）
+- `data/work/job-ZWEwqm/752-30217261 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217261 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217261.pdf`（615.3 KB）
+- `data/work/job-ZWEwqm/752-30217272 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217272 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217272.pdf`（613.5 KB）
+- `data/work/job-ZWEwqm/752-30217283 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217283 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217283.pdf`（615.3 KB）
+- `data/work/job-ZWEwqm/752-30217294 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217294 SLI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217294.pdf`（614.2 KB）
+- `data/work/job-ZWEwqm/752-30217305 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217305 SLI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217305.pdf`（615.3 KB）
+- `data/work/job-ZWEwqm/752-30217316 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217316 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217316.pdf`（615.3 KB）
+- `data/work/job-ZWEwqm/752-30217320 ELI.xlsx`（189.6 KB）
+- `data/work/job-ZWEwqm/752-30217320 SLI.xlsx`（189.7 KB）
+- `data/work/job-ZWEwqm/752-30217320.pdf`（613.5 KB）
+- `data/work/job-ZWEwqm/sli-eli-payload.json`（5.6 KB）
 
 ### data/work/job-ZZ4OrI
 
@@ -1367,6 +1973,29 @@ M routes/xls-booking.js
 - `data/work/job-afF6UM/752-30216852 SLI.xlsx`（189.4 KB）
 - `data/work/job-afF6UM/752-30216852.pdf`（615.5 KB）
 - `data/work/job-afF6UM/sli-eli-payload.json`（4.7 KB）
+
+### data/work/job-c3YiRJ
+
+- `data/work/job-c3YiRJ/065-49010872 ELI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49010872 SLI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49010872.pdf`（623.7 KB）
+- `data/work/job-c3YiRJ/065-49010883 ELI.xlsx`（189.5 KB）
+- `data/work/job-c3YiRJ/065-49010883 SLI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49010883.pdf`（615.2 KB）
+- `data/work/job-c3YiRJ/065-49998270 ELI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49998270 SLI.xlsx`（189.5 KB）
+- `data/work/job-c3YiRJ/065-49998270.pdf`（625.8 KB）
+- `data/work/job-c3YiRJ/065-49998281 ELI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49998281 SLI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49998281.pdf`（625.8 KB）
+- `data/work/job-c3YiRJ/065-49998292 ELI.xlsx`（189.4 KB）
+- `data/work/job-c3YiRJ/065-49998292 SLI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49998292.pdf`（615.2 KB）
+- `data/work/job-c3YiRJ/065-49998303 ELI.xlsx`（189.6 KB）
+- `data/work/job-c3YiRJ/065-49998303 SLI.xlsx`（189.7 KB）
+- `data/work/job-c3YiRJ/065-49998303.pdf`（615.4 KB）
+- `data/work/job-c3YiRJ/20260905 - SV983 SLI x 6.zip`（3433.3 KB）
+- `data/work/job-c3YiRJ/sli-eli-payload.json`（2.6 KB）
 
 ### data/work/job-dfry2s
 
@@ -1516,6 +2145,17 @@ M routes/xls-booking.js
 - `data/work/job-eUaBOQ/369-99878284 SLI.xlsx`（189.8 KB）
 - `data/work/job-eUaBOQ/369-99878284.pdf`（613.0 KB）
 - `data/work/job-eUaBOQ/sli-eli-payload.json`（21.2 KB）
+
+### data/work/job-fGflOT
+
+- `data/work/job-fGflOT/160-16277940 ELI.xlsx`（189.5 KB）
+- `data/work/job-fGflOT/160-16277940 SLI.xlsx`（189.8 KB）
+- `data/work/job-fGflOT/160-16277940.pdf`（613.3 KB）
+- `data/work/job-fGflOT/160-16277951 ELI.xlsx`（189.6 KB）
+- `data/work/job-fGflOT/160-16277951 SLI.xlsx`（189.6 KB）
+- `data/work/job-fGflOT/160-16277951.pdf`（613.3 KB）
+- `data/work/job-fGflOT/20260904 - CX257 SLI x 2.zip`（1133.2 KB）
+- `data/work/job-fGflOT/sli-eli-payload.json`（1.1 KB）
 
 ### data/work/job-gan1z5
 
@@ -1797,6 +2437,14 @@ M routes/xls-booking.js
 - `data/work/job-tMHFqI/CX257-02AUG x 2.zip`（1131.4 KB）
 - `data/work/job-tMHFqI/sli-eli-payload.json`（692 B）
 
+### data/work/job-tpWQuf
+
+- `data/work/job-tpWQuf/065-49998270 ELI.xlsx`（189.7 KB）
+- `data/work/job-tpWQuf/065-49998270 SLI.xlsx`（189.7 KB）
+- `data/work/job-tpWQuf/065-49998270.pdf`（625.8 KB）
+- `data/work/job-tpWQuf/20260905 - SV983 SLI x 1.zip`（575.8 KB）
+- `data/work/job-tpWQuf/sli-eli-payload.json`（702 B）
+
 ### data/work/job-u8o8ke
 
 - `data/work/job-u8o8ke/160-15102721 ELI.xlsx`（189.7 KB）
@@ -1924,7 +2572,7 @@ M routes/xls-booking.js
 
 ### public
 
-- `public/index.html`（19.2 KB）
+- `public/index.html`（20.3 KB）
 - `public/login.html`（8.5 KB）
 - `public/packing.html`（7.2 KB）
 - `public/uld-packing.html`（14.8 KB）
@@ -1936,7 +2584,7 @@ M routes/xls-booking.js
 - `public/css/base.css`（3.8 KB）
 - `public/css/components.css`（7.4 KB）
 - `public/css/dbviewer.css`（15.6 KB）
-- `public/css/layout.css`（15.0 KB）
+- `public/css/layout.css`（16.3 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/packing.css`（7.8 KB）
 - `public/css/pallet.css`（31.9 KB）
@@ -1944,7 +2592,7 @@ M routes/xls-booking.js
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
 - `public/css/uld-packing.css`（9.6 KB）
-- `public/css/xls-booking.css`（13.0 KB）
+- `public/css/xls-booking.css`（14.5 KB）
 
 ### public/css/utils
 
@@ -1960,18 +2608,18 @@ M routes/xls-booking.js
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（18.7 KB）
 - `public/js/dbviewer.js`（42.8 KB）
-- `public/js/main.js`（10.4 KB）
+- `public/js/main.js`（11.7 KB）
 - `public/js/orders.js`（418 B）
 - `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
 - `public/js/theme.js`（5.2 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
-- `public/js/xls-booking-preview.js`（13.5 KB）
+- `public/js/xls-booking-preview.js`（16.3 KB）
 - `public/js/xls-booking-standard.js`（12.4 KB）
-- `public/js/xls-booking-state.js`（3.0 KB）
-- `public/js/xls-booking-upload.js`（2.5 KB）
-- `public/js/xls-booking-workflow.js`（8.1 KB）
+- `public/js/xls-booking-state.js`（4.4 KB）
+- `public/js/xls-booking-upload.js`（2.6 KB）
+- `public/js/xls-booking-workflow.js`（8.8 KB）
 
 ### public/js/orders
 
@@ -2087,7 +2735,7 @@ M routes/xls-booking.js
 - `scripts/sync-project-state.js`（6.0 KB）
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-bp3d.js`（14.3 KB）
-- `scripts/test-cnee-lookup.js`（8.8 KB）
+- `scripts/test-cnee-lookup.js`（9.4 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
 - `scripts/test-galms.js`（8.0 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
@@ -2102,7 +2750,7 @@ M routes/xls-booking.js
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（8.3 KB）
-- `scripts/xls-utils.js`（4.7 KB）
+- `scripts/xls-utils.js`（5.1 KB）
 - `scripts/xls-workflow.js`（19.7 KB）
 
 ### utils

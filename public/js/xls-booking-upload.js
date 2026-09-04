@@ -39,6 +39,7 @@ function renderFileList() {
   xlsState.files.forEach((f, i) => {
     const card = document.createElement('div');
     card.className = 'xls-file-card';
+    card.id = `xls-file-card-${i}`;
     const sheetSelect = f.sheets.length > 1
       ? `<label class="xls-sheet-picker">工作表
           <select onchange="xlsSelectSheet(${i}, this.value)">

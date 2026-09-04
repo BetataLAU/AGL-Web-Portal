@@ -22,6 +22,7 @@ let xlsState = {
   defs: [], // 每個檔案一個欄位定義
   selections: {}, // fileIndex -> { all: [mawbKey], selected: Set<mawbKey> }（標準化預覽勾選）
   cneeOverrides: {}, // fileIndex -> { mawbKey: cnee }（③ 標準化預覽點擊填入，不需重新上傳）
+  lastRunFiles: [], // 最近一次 ④ 執行涉及的 fileIndex（供「處理下一個檔案」判斷）
 };
 
 let xlsCurrentJobId = null; // 目前執行中的 job（供中止）
@@ -45,6 +46,41 @@ function xlsNormMawb(v) {
   const s = String(v == null ? '' : v).trim();
   const m = s.match(/(\d{3})[- ]?(\d{8})/);
   return m ? `${m[1]}-${m[2]}` : s.replace(/[^0-9]/g, '');
+}
+
+// ===== Shipper Role 快速捲動操作 =====
+// 桌面版實際捲動容器是 .app-layout、手機版是視窗；scrollIntoView 會自動捲動
+// 真正可捲動的祖先，因此同一寫法跨裝置通用。
+function xlsScrollToStep(id) {
+  const el = document.getElementById(id);
+  if (el && typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// 找到「上一步未處理」的下一個檔案卡片（跳過本次已執行的與解析失敗的）
+function xlsFindNextFileIndex() {
+  const files = xlsState.files || [];
+  const done = xlsState.lastRunFiles || [];
+  for (let i = 0; i < files.length; i++) {
+    if (!files[i] || files[i].parseError) continue;
+    if (done.indexOf(i) >= 0) continue;
+    return i;
+  }
+  return -1;
+}
+
+// 跳到指定檔案的卡片並短暫高亮
+function xlsGoToNextFile(index) {
+  const i = Number(index);
+  const card = document.getElementById(`xls-file-card-${i}`);
+  if (card) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('xls-file-card-flash');
+    setTimeout(() => card.classList.remove('xls-file-card-flash'), 1600);
+  } else {
+    xlsScrollToStep('xls-step-1');
+  }
 }
 function setupXlsDropZone() {
   const zone = document.getElementById('xls-drop-zone');

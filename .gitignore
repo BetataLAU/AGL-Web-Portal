@@ -14,4 +14,7 @@ db/sessions.db
 # Shipper Role Project - 暫存/產出（不進 repo）
 data/work/
 data/uploads/
+
+# VS Code（個人設定，不進 repo）
+.vscode/
 data/test-*

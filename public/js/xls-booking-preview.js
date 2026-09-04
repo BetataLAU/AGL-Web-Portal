@@ -80,31 +80,95 @@ function xlsAutoDetect(rows) {
   return suggestions;
 }
 
+// ===== 多工作表：每個 worksheet 各自的欄位定義（TAG）與預覽狀態會分開記憶 =====
+// 切換 sheet 時把「目前 sheet」存起來、換上「目標 sheet」的記憶，
+// 避免切走再切回時 TAG／手動指派／資料起始列被清空。
+function xlsSaveSheetDefinition(fileIndex) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.def) return;
+  if (!f.sheetDefs) f.sheetDefs = {};
+  const si = f.def.sheetIndex || 0;
+  f.sheetDefs[si] = {
+    fieldMap: f.def.fieldMap || {},
+    firstDataRow: f.def.firstDataRow || 2,
+  };
+}
+
+function xlsSaveSheetState(fileIndex) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.def) return;
+  if (!f.sheetState) f.sheetState = {};
+  const si = f.def.sheetIndex || 0;
+  f.sheetState[si] = {
+    previewEdited: !!f.previewEdited,
+    lastPreview: f.lastPreview || null,
+    undoStack: f.undoStack || [],
+    redoStack: f.redoStack || [],
+    stdCache: f._stdCache || null,
+    cneeBlocks: f._cneeBlocks || null,
+    cneeWarning: f._cneeWarning || '',
+  };
+}
+
+// 讓 xlsState.defs（③ 標準化 / ④ 執行用）對齊「目前 sheet」。
+// 尚未「套用欄位定義」過的檔案不自動建立 defs（維持原本行為）。
+function xlsSyncDefToActiveSheet(fileIndex) {
+  const f = xlsState.files[fileIndex];
+  if (!f || !f.def) return;
+  const idx = xlsState.defs.findIndex((d) => d.fileIndex === fileIndex);
+  if (idx < 0) return;
+  xlsState.defs[idx] = {
+    fileIndex,
+    sheetIndex: f.def.sheetIndex || 0,
+    firstDataRow: f.def.firstDataRow || 2,
+    fieldMap: f.def.fieldMap || {},
+    cneeLookup: { enabled: true, auto: true },
+  };
+}
+
 // ===== 選擇工作表（多 sheet 時） =====
 function xlsSelectSheet(fileIndex, sheetIndex) {
   const f = xlsState.files[fileIndex];
   if (!f) return;
-  const idx = Number(sheetIndex) || 0;
-  if ((f.def.sheetIndex || 0) === idx) return;
+  const idx = Number(sheetIndex);
+  if (isNaN(idx) || idx < 0) return;
+  const cur = f.def.sheetIndex || 0;
+  if (cur === idx) return;
+
+  // 1) 先把目前 sheet 的 TAG／預覽編輯狀態存入 per-sheet 記憶
+  xlsSaveSheetDefinition(fileIndex);
+  xlsSaveSheetState(fileIndex);
+
+  // 2) 切到目標 sheet，並還原該 sheet 自己的記憶（無記憶 → 空定義，等「預覽」自動偵測）
+  const d = (f.sheetDefs || {})[idx];
+  const s = (f.sheetState || {})[idx];
   f.def.sheetIndex = idx;
-  f.def.fieldMap = {}; // 不同 sheet 欄位不同，清空重新定義
-  f._stdCache = null; // 清除標準化快取，切 sheet 後重新計算
-  f.lastPreview = null; // 舊 sheet 的預覽資料不再適用
-  f.previewEdited = false;
-  f.undoStack = [];
-  f.redoStack = [];
+  f.def.fieldMap = d && d.fieldMap ? d.fieldMap : {};
+  f.def.firstDataRow = d && d.firstDataRow ? d.firstDataRow : 2;
+  f.previewEdited = s ? !!s.previewEdited : false;
+  f.lastPreview = s && s.lastPreview ? s.lastPreview : null;
+  f.undoStack = s && Array.isArray(s.undoStack) ? s.undoStack : [];
+  f.redoStack = s && Array.isArray(s.redoStack) ? s.redoStack : [];
+  f._stdCache = s ? (s.stdCache || null) : null;
+  f._cneeBlocks = s ? (s.cneeBlocks || null) : null;
+  f._cneeWarning = s ? (s.cneeWarning || '') : '';
+
+  // 3) ③/④ 用的 defs 對齊目前 sheet，避免誤用到其他 sheet 的舊定義
+  xlsSyncDefToActiveSheet(fileIndex);
+
   xlsState.selections[fileIndex] = null;
   renderFileList();
   const sheetName = (f.sheets[idx] || {}).name;
-  alert(`已切換到工作表「${sheetName != null ? sheetName : idx}」，欄位定義已重設，請重新「預覽 / 定義欄位」。`);
+  alert(`已切換到工作表「${sheetName != null ? sheetName : idx}」。各工作表的欄位定義（TAG）會分開記憶；若此表尚未定義過，請按「預覽 / 定義欄位」自動偵測。`);
 }
 
 // ===== 預覽與欄位定義面板 =====
 async function xlsPreviewFile(fileIndex) {
   const f = xlsState.files[fileIndex];
   if (!f || f.parseError) return;
-  if (f.previewEdited && f.lastPreview) {
-    // ② 已編輯過：直接沿用記憶體中的編輯結果，避免重新抓檔把編輯（如刪除 CNEE）蓋掉
+  if (f.lastPreview) {
+    // ② 已開過：直接沿用記憶體中的預覽結果（各 sheet 分開記憶），
+    // 避免重新抓檔把編輯（如刪除 CNEE、改格）與已定義的 TAG 蓋掉。
     renderPreviewPanel(fileIndex, f.lastPreview);
     return;
   }
@@ -249,7 +313,10 @@ function xlsConfirmDataRow(fileIndex) {
   if (!input) return;
   const v = Number(input.value);
   if (v >= 1) {
-    xlsState.files[fileIndex].def.firstDataRow = v;
+    const f = xlsState.files[fileIndex];
+    if (!f) return;
+    f.def.firstDataRow = v;
+    xlsSaveSheetDefinition(fileIndex); // 資料起始列也依 sheet 分開記住
     alert(`資料起始列已設為第 ${v} 列`);
   }
 }
@@ -276,6 +343,7 @@ function xlsApplyFieldMap(fileIndex) {
     fieldMap: def.fieldMap,
     cneeLookup: { enabled: true, auto: true },
   });
+  xlsSaveSheetDefinition(fileIndex); // 套用後把「目前 sheet」的 TAG 也存進 per-sheet 記憶
   xlsState.files[fileIndex]._stdCache = null; // 欄位定義／表格編輯有變更，標準化需重新計算
   renderStandardizedPreview(fileIndex);
   document.getElementById('xls-standardized-panel').scrollIntoView({ behavior: 'smooth' });

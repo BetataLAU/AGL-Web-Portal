@@ -264,6 +264,13 @@
 
       <!-- Shipper Role Project 頁面 -->
       <section id="section-xls-booking" class="content-section">
+        <!-- Step 快速跳轉列（放在 card 外層，sticky 才不會被 .card 的 overflow:hidden 擋掉） -->
+        <div class="xls-step-nav" aria-label="步驟快速跳轉">
+          <button type="button" class="xls-step-nav-item" onclick="xlsScrollToStep('xls-step-1')" title="跳到上傳區">① 上傳 XLS 檔案</button>
+          <button type="button" class="xls-step-nav-item" onclick="xlsScrollToStep('xls-step-2')" title="跳到預覽與定義欄位">② 預覽與定義欄位</button>
+          <button type="button" class="xls-step-nav-item" onclick="xlsScrollToStep('xls-step-3')" title="跳到標準化結果預覽">③ 標準化結果預覽</button>
+          <button type="button" class="xls-step-nav-item" onclick="xlsScrollToStep('xls-step-4')" title="跳到執行產生">④ 執行產生</button>
+        </div>
         <div class="card xls-card">
           <div class="card-header-flex">
             <div>
@@ -279,7 +286,7 @@
           </div>
 
           <!-- Step 1: 上傳 -->
-          <h3>① 上傳 XLS 檔案</h3>
+          <h3 id="xls-step-1">① 上傳 XLS 檔案</h3>
           <div id="xls-drop-zone" class="xls-drop-zone">
             <i class="fa-solid fa-cloud-arrow-up"></i>
             <p>拖曳 XLS/XLSX/XLSM 檔案到這裡，或點擊選擇檔案</p>
@@ -288,15 +295,15 @@
           <div id="xls-file-list" class="xls-file-list"></div>
 
           <!-- Step 2: 預覽與定義 -->
-          <h3>② 預覽與定義欄位</h3>
+          <h3 id="xls-step-2">② 預覽與定義欄位</h3>
           <div id="xls-preview-panel" class="xls-panel" style="display:none;"></div>
 
           <!-- Step 3: 標準化預覽 -->
-          <h3>③ 標準化結果預覽</h3>
+          <h3 id="xls-step-3">③ 標準化結果預覽</h3>
           <div id="xls-standardized-panel" class="xls-panel" style="display:none;"></div>
 
           <!-- Step 4: 執行 -->
-          <h3>④ 執行產生</h3>
+          <h3 id="xls-step-4">④ 執行產生</h3>
           <div class="xls-run-row">
             <button type="button" class="pill btn-primary" id="xls-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 執行完整工作流程</button>
             <span id="xls-status" class="xls-status"></span>
@@ -339,6 +346,11 @@
       </div>
     </div>
   </div>
+
+  <!-- 右下角「回到頁頂」按鈕（低調版，向下捲動後才淡入顯示） -->
+  <button type="button" id="back-to-top" aria-label="回到頁頂" title="回到頁頂">
+    <i class="fa-solid fa-chevron-up"></i>
+  </button>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>

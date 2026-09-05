@@ -294,7 +294,7 @@ function renderPreviewPanel(fileIndex, data) {
     }
   }
   panel.style.display = 'block';
-  document.getElementById('xls-preview-panel').scrollIntoView({ behavior: 'smooth' });
+  xlsScrollToEl(document.getElementById('xls-preview-panel'));
 }
 
 function xlsColName(idx) {
@@ -346,7 +346,7 @@ function xlsApplyFieldMap(fileIndex) {
   xlsSaveSheetDefinition(fileIndex); // 套用後把「目前 sheet」的 TAG 也存進 per-sheet 記憶
   xlsState.files[fileIndex]._stdCache = null; // 欄位定義／表格編輯有變更，標準化需重新計算
   renderStandardizedPreview(fileIndex);
-  document.getElementById('xls-standardized-panel').scrollIntoView({ behavior: 'smooth' });
+  xlsScrollToEl(document.getElementById('xls-standardized-panel'));
 }
 
 function xlsClosePreview() {

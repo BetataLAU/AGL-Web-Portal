@@ -51,11 +51,25 @@ function xlsNormMawb(v) {
 // ===== Shipper Role 快速捲動操作 =====
 // 桌面版實際捲動容器是 .app-layout、手機版是視窗；scrollIntoView 會自動捲動
 // 真正可捲動的祖先，因此同一寫法跨裝置通用。
-function xlsScrollToStep(id) {
-  const el = document.getElementById(id);
+// 注意：.xls-step-nav 是 sticky（top:10px），若目標直接貼齊捲動視窗頂端，
+// 標題會被導覽列蓋住。故跳轉前先量測導覽列「實際高度」並設 scroll-margin-top，
+// 偏移 = 導覽列高 + 頂距 10px + 間隙 12px（窄螢幕 wrap 成兩行時會自動變大）。
+function xlsStickyNavClearance() {
+  const nav = document.querySelector('.xls-step-nav');
+  const navH = nav ? nav.getBoundingClientRect().height : 0;
+  return navH + 10 + 12;
+}
+
+// 把指定 element 捲到步驟區（自動避開 sticky 導覽列）；el 傳 DOM element
+function xlsScrollToEl(el) {
   if (el && typeof el.scrollIntoView === 'function') {
+    el.style.scrollMarginTop = `${xlsStickyNavClearance()}px`;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+}
+
+function xlsScrollToStep(id) {
+  xlsScrollToEl(document.getElementById(id));
 }
 
 // 找到「上一步未處理」的下一個檔案卡片（跳過本次已執行的與解析失敗的）

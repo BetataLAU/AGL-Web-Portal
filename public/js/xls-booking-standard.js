@@ -153,20 +153,30 @@ function xlsRenderStandardized(fileIndex) {
           ${otherTypes.map((t) => `<th>${xlsEscapeHtml(t.label)}</th>`).join('')}
         </tr></thead>
         <tbody>
-          ${standardized.slice(0, 50).map((r) => `
+          ${standardized.slice(0, 50).map((r) => {
+            const isSel = sel.selected.has(r.mawbKey);
+            // 已勾選（會執行）的列才提示：缺 MAWB#/CNEE/DEST/航班號 → 該格持續脈動
+            const cneeMissing = !(r.cnee || '').trim();
+            const mawbMissing = isSel && !(r.mawb || '').trim(); // 無 MAWB 的列不會進入標準化，通常不觸發
+            const cellMissing = (t) => {
+              if (!isSel || (t.value !== 'dest' && t.value !== 'flight')) return false;
+              return !(r[t.value] || '').trim();
+            };
+            return `
             <tr>
               <td class="xls-check-col">
                 <label title="選擇此列">
-                  <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${sel.selected.has(r.mawbKey) ? 'checked' : ''} onchange="xlsToggleRow(${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
+                  <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${isSel ? 'checked' : ''} onchange="xlsToggleRow(${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
                 </label>
               </td>
-              <td>${xlsEscapeHtml(r.mawb || '')}</td>
-              <td class="xls-cnee-cell${r.cnee ? '' : ' xls-cnee-missing'}" title="${r.cnee ? '點擊編輯 CNEE' : '🔴 無 CNEE — 點擊填入'}" onclick="xlsEditCnee(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
+              <td${mawbMissing ? ' class="xls-required-missing" title="🔴 缺少 MAWB#（此列已勾選，執行時將被略過）"' : ''}>${xlsEscapeHtml(r.mawb || '')}</td>
+              <td class="xls-cnee-cell${cneeMissing ? ' xls-cnee-missing' : ''}${isSel && cneeMissing ? ' xls-missing-pulse' : ''}" title="${r.cnee ? '點擊編輯 CNEE' : '🔴 無 CNEE — 點擊填入'}" onclick="xlsEditCnee(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
                 ${r.cnee ? xlsEscapeHtml(r.cnee.length > 30 ? r.cnee.slice(0, 30) + '…' : r.cnee) : '🔴 無 CNEE（點擊填入）'}
               </td>
-              ${otherTypes.map((t) => `<td>${xlsEscapeHtml(r[t.value] || '')}</td>`).join('')}
+              ${otherTypes.map((t) => `<td${cellMissing(t) ? ` class="xls-required-missing" title="🔴 缺少 ${t.label}（此列已勾選，執行時此欄會留空）"` : ''}>${xlsEscapeHtml(r[t.value] || '')}</td>`).join('')}
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     </div>

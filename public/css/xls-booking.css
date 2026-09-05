@@ -46,6 +46,13 @@
   padding-bottom: 8px;
 }
 
+/* 步驟跳轉錨點預留 sticky 導覽列高度（桌面單行約 66px）；
+   JS xlsScrollToEl() 會依導覽列實際高度以 inline scroll-margin-top 覆寫動態值 */
+.xls-card h3[id^="xls-step-"],
+.xls-card .xls-panel {
+  scroll-margin-top: 66px;
+}
+
 /* 拖曳上傳區 */
 .xls-drop-zone {
   border: 2px dashed var(--border-color, #cbd5e1);
@@ -445,6 +452,31 @@
   }
   100% {
     background: rgba(220, 38, 38, 0.08);
+  }
+}
+/* ③ 標準化預覽：已勾選列缺必需資料（MAWB#/CNEE/DEST/航班號）→ 持續輕微脈動提示，
+   直到該格被補上或取消勾選該列（重繪後 class 消失即停止）。 */
+.xls-required-missing {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.35);
+  border-radius: 4px;
+}
+.xls-required-missing,
+.xls-cnee-cell.xls-cnee-missing.xls-missing-pulse {
+  animation: xlsRequiredPulse 1.6s ease-in-out infinite;
+}
+@keyframes xlsRequiredPulse {
+  0%, 100% { background-color: rgba(220, 38, 38, 0.12); }
+  50%      { background-color: rgba(220, 38, 38, 0.32); }
+}
+/* 使用者系統關閉動畫偏好：改用靜態底色提示 */
+@media (prefers-reduced-motion: reduce) {
+  .xls-required-missing,
+  .xls-cnee-cell.xls-cnee-missing.xls-missing-pulse {
+    animation: none;
+    background-color: rgba(220, 38, 38, 0.16);
   }
 }
 /* 使用者系統關閉動畫偏好：改用靜態底色提示 */

@@ -175,6 +175,6 @@ function renderResult(res) {
   }
   panel.innerHTML = html;
   panel.style.display = 'block';
-  panel.scrollIntoView({ behavior: 'smooth' });
+  xlsScrollToEl(panel);
 }
 

@@ -153,7 +153,7 @@ function xlsRenderStandardized(fileIndex) {
           ${otherTypes.map((t) => `<th>${xlsEscapeHtml(t.label)}</th>`).join('')}
         </tr></thead>
         <tbody>
-          ${standardized.slice(0, 50).map((r) => {
+          ${standardized.map((r) => {
             const isSel = sel.selected.has(r.mawbKey);
             // 已勾選（會執行）的列才提示：缺 MAWB#/CNEE/DEST/航班號 → 該格持續脈動
             const cneeMissing = !(r.cnee || '').trim();
@@ -180,7 +180,6 @@ function xlsRenderStandardized(fileIndex) {
         </tbody>
       </table>
     </div>
-    ${total > 50 ? `<p class="xls-preview-note">僅顯示前 50 筆，共 ${total} 筆（勾選範圍涵蓋全部 ${total} 筆）。</p>` : ''}
   `;
   // 還原表格捲動位置
   if (savedScroll) {

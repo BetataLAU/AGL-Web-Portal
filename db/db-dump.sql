@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-09-06T16:32:02.436Z
+-- 匯出時間: 2026-09-07T10:10:16.711Z
 -- 共 17 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -1037,6 +1037,36 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 227);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 23);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('customers', 9);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('items', 21);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 54);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('note_templates', 3);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('orders', 39);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 118);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plans', 9);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('projects', 6);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('remark_templates', 18);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('skills', 5);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('spl_codes', 20);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('ulds', 21);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('users', 3);
+
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 227);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 23);

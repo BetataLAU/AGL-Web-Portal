@@ -86,7 +86,13 @@ async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, co
       if (err) terminatePdfWorker(child);
       children.delete(child);
       if (err) {
-        reject(new Error((stderr && stderr.trim()) ? stderr.trim() : err.message));
+        const details = [
+          stderr && stderr.trim(),
+          `exitCode=${err.code == null ? 'null' : err.code}`,
+          `signal=${err.signal || 'none'}`,
+          stdout && stdout.trim() ? `workerOutput=${stdout.trim().slice(-1000)}` : '',
+        ].filter(Boolean).join(' | ');
+        reject(new Error(`PDF worker failed: ${details || err.message}`));
         return;
       }
       if (stderr && stderr.includes('ERROR')) {

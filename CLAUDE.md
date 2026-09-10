@@ -139,7 +139,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）。
 
-**PDF 產生並行度**：Shipper Role 第 ④ 步可在頁面選擇 `1`–`4` 個 worker；未指定時使用 `XLS_PDF_CONCURRENCY`（預設 `2`）。每個 worker 使用獨立 Python/Excel 實例與資料 shard，取消時會終止子程序。
+**PDF 產生並行度**：Shipper Role 第 ④ 步可在頁面選擇 `1`–`4` 個 worker；Windows Excel COM 建議先用 `1`，`2`–`4` 為較高負載實驗模式；未指定時使用 `XLS_PDF_CONCURRENCY`（預設 `2`）。每個 worker 使用獨立 Python/Excel 實例與資料 shard，取消時會終止子程序。
 
 **資源清理**：`POST /api/xls-booking/cleanup`（admin/staff）可清理超過 24 小時的 job/report 與超過 7 天的上傳檔；先傳 `{ "dryRun": true }` 可只列出清單。PDF 合併後會自動刪除中間 SLI/ELI xlsx 與 LibreOffice profile。
 

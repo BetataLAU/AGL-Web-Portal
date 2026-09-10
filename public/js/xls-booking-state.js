@@ -23,7 +23,7 @@ let xlsState = {
   selections: {}, // fileIndex -> { all: [mawbKey], selected: Set<mawbKey> }（標準化預覽勾選）
   cneeOverrides: {}, // fileIndex -> { mawbKey: cnee }（③ 標準化預覽點擊填入，不需重新上傳）
   lastRunFiles: [], // 最近一次 ④ 執行涉及的 fileIndex（供「處理下一個檔案」判斷）
-  pdfConcurrency: 2, // 每個 job 的 PDF worker 數（1–4）
+  pdfConcurrency: 1, // 每個 job 的 PDF worker 數（1–4；Windows COM 預設穩定模式）
 };
 
 let xlsCurrentJobId = null; // 目前執行中的 job（供中止）

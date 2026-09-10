@@ -350,9 +350,10 @@ function planDateGroups(allRecords, mergedPdfs) {
     } else {
       key = `f:${rec.flight}`;
     }
-    if (!groups.has(key)) groups.set(key, { day, flights: new Set(), pdfs: [] });
+    if (!groups.has(key)) groups.set(key, { day, flights: new Set(), flightCompanies: new Set(), pdfs: [] });
     const grp = groups.get(key);
     grp.flights.add(rec.flight);
+    grp.flightCompanies.add(flightCompany(rec.flight));
     grp.pdfs.push(merged);
   }
   return Array.from(groups.values());
@@ -581,7 +582,8 @@ async function runWorkflow(opts) {
     const pdfs = grp.pdfs;
     if (!pdfs.length) continue;
     const single = grp.flights.size === 1;
-    const label = single ? grp.flights.values().next().value : '多航班';
+    const multiFlightLabel = Array.from(grp.flightCompanies).sort().join('+');
+    const label = single ? grp.flights.values().next().value : `${multiFlightLabel}多航班`;
     const prefix = grp.day ? `${grp.day} - ${label}` : label;
     // 依總大小拆份（超過 30MB 自動多拆），並平均分配檔案
     const chunks = planZipParts(pdfs, MAX_ZIP_BYTES);

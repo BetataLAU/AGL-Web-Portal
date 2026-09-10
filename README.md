@@ -108,7 +108,7 @@ GET  /api/xls-booking/templates                    # 模板狀態檢查
 
 - PDF 轉檔依賴 **Office 365 Excel COM**（pywin32），需在同一台安裝 Excel 的電腦執行。
 - 模板固定放置於 `data/templates/`：
-  - `cainiao-sli-eli-template.xlsm`（SLI = air sheet、ELI = ELI LETTER sheet）
+   - `cainiao-sli-eli-template.xlsx`（SLI = air sheet、ELI = ELI LETTER sheet）
   - `shipper-role-summary-2026.xlsx`（年度 report 工作檔：各月份 sheet + `template` 版面母版，新月份自動由 template 複製）
 - **每次執行成功會自動把最新 Report 同步回 `shipper-role-summary-2026.xlsx`**（等同該檔就是現行工作檔，舊記錄會累積）；因此**執行期間請勿在 Excel 開啟此檔**，否則同步會失敗（Report 仍可下載，介面會顯示警告）。
 - 產出檔案暫時存放於 `data/work/`，可透過下載連結取得。

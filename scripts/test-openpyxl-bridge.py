@@ -6,7 +6,7 @@ import sys
 import os
 
 payload = {
-    "template": os.path.abspath("data/templates/cainiao-sli-eli-template.xlsm"),
+    "template": os.path.abspath("data/templates/cainiao-sli-eli-template.xlsx"),
     "out": os.path.abspath("data/test-openpyxl.xlsx"),
     "sheet": "air",
     "cells": {

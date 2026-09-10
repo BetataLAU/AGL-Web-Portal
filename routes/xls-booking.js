@@ -207,7 +207,7 @@ router.post('/process', async (req, res) => {
     enqueueProcess(async () => {
       try {
         const reportTemplate = path.join(TEMPLATES_DIR, 'shipper-role-summary-2026.xlsx');
-        const sliTemplate = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
+        const sliTemplate = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsx');
         const reportCopy = path.join(WORK_DIR, `report-${crypto.randomBytes(4).toString('hex')}.xlsx`);
         await fsp.copyFile(reportTemplate, reportCopy);
 
@@ -325,7 +325,7 @@ router.get('/download/:type/:jobId/:name', async (req, res) => {
 router.get('/templates', async (req, res) => {
   try {
     const reportPath = path.join(TEMPLATES_DIR, 'shipper-role-summary-2026.xlsx');
-    const sliPath = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsm');
+    const sliPath = path.join(TEMPLATES_DIR, 'cainiao-sli-eli-template.xlsx');
     res.json({
       reportTemplate: { name: 'Shipper role service - Summary 2026.xlsx', exists: fs.existsSync(reportPath) },
       sliEliTemplate: { name: 'Cainiao Booking Template (SI).xlsm', exists: fs.existsSync(sliPath) },

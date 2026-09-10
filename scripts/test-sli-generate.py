@@ -12,7 +12,7 @@ if os.path.exists(work_dir):
 os.makedirs(work_dir, exist_ok=True)
 
 payload = {
-    "template": os.path.abspath("data/templates/cainiao-sli-eli-template.xlsm"),
+    "template": os.path.abspath("data/templates/cainiao-sli-eli-template.xlsx"),
     "work_dir": work_dir,
     "records": [
         {

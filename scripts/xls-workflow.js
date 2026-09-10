@@ -44,6 +44,111 @@ const DATA_DIR = process.env.DATA_DIR || path.join(PROJECT_ROOT, 'data');
 const TEMPLATE_DIR = path.join(DATA_DIR, 'templates');
 const WORK_DIR = path.join(DATA_DIR, 'work');
 
+function getPdfConcurrency(recordCount, configuredValue = null) {
+  const configured = Number(configuredValue || process.env.XLS_PDF_CONCURRENCY || 2);
+  const requested = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 2;
+  return Math.min(Math.max(1, requested), 4, recordCount);
+}
+
+function terminatePdfWorker(child) {
+  if (!child || child.killed) return;
+  if (process.platform === 'win32' && child.pid) {
+    execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
+  } else {
+    child.kill('SIGTERM');
+  }
+}
+
+async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, concurrency, signal, onProgress }) {
+  const workerCount = getPdfConcurrency(recordCount, concurrency);
+  const children = new Set();
+  let completed = 0;
+  let nextShard = 1;
+  let failed = null;
+  const abortHandler = () => {
+    failed = new Error('已中止');
+    for (const child of children) terminatePdfWorker(child);
+  };
+  if (signal) signal.addEventListener('abort', abortHandler, { once: true });
+
+  const runWorker = (shardIndex) => new Promise((resolve, reject) => {
+    const child = execFile(py, [
+      script,
+      '--payload', payloadFile,
+      '--shard-index', String(shardIndex),
+      '--shard-total', String(workerCount),
+      '--lo-profile', path.join(workDir, `lo-profile-${shardIndex}`),
+    ], {
+      timeout: 600000,
+      maxBuffer: 10 * 1024 * 1024,
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      if (err) terminatePdfWorker(child);
+      children.delete(child);
+      if (err) {
+        reject(new Error((stderr && stderr.trim()) ? stderr.trim() : err.message));
+        return;
+      }
+      if (stderr && stderr.includes('ERROR')) {
+        reject(new Error(`SLI/ELI 產生失敗: ${stderr}`));
+        return;
+      }
+      resolve(stdout);
+    });
+    children.add(child);
+
+    let buffer = '';
+    child.stdout.on('data', (chunk) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        const text = line.trim();
+        if (!text.startsWith('PROGRESS: ')) continue;
+        const parts = text.slice('PROGRESS: '.length).split('/');
+        const done = Number(parts[0]);
+        const total = Number(parts[1]);
+        if (done >= 0 && total > 0) {
+          const shardCompleted = Math.min(done, total);
+          const overall = completed + shardCompleted;
+          onProgress(
+            Math.round(25 + 55 * (overall / recordCount)),
+            `產生 SLI/ELI PDF（${overall}/${recordCount}，${workerCount} workers）...`
+          );
+        }
+      }
+    });
+  });
+
+  const workerLoop = async () => {
+    while (!failed) {
+      if (signal && signal.aborted) throw new Error('已中止');
+      const shardIndex = nextShard++;
+      if (shardIndex > workerCount) return [];
+      const shardRecords = Math.floor((recordCount - shardIndex) / workerCount) + 1;
+      const stdout = await runWorker(shardIndex);
+      completed += shardRecords;
+      onProgress(
+        Math.round(25 + 55 * (completed / recordCount)),
+        `產生 SLI/ELI PDF（${completed}/${recordCount}，${workerCount} workers）...`
+      );
+      return stdout;
+    }
+    return [];
+  };
+
+  try {
+    const outputs = await Promise.all(Array.from({ length: workerCount }, () => workerLoop()));
+    return outputs.flat();
+  } catch (err) {
+    failed = err;
+    for (const child of children) terminatePdfWorker(child);
+    throw err;
+  } finally {
+    if (signal) signal.removeEventListener('abort', abortHandler);
+  }
+}
+
 // 欄位類型定義
 const FIELD_TYPES = {
   IGNORE: 'ignore',
@@ -259,7 +364,7 @@ function planDateGroups(allRecords, mergedPdfs) {
  * @returns {Promise<{zipPath, reportPath, count, errors}>}
  */
 async function runWorkflow(opts) {
-  const { files, defs, reportTemplate, sliTemplate, onProgress, signal } = opts;
+  const { files, defs, reportTemplate, sliTemplate, concurrency, onProgress, signal } = opts;
 
   const assertActive = () => {
     if (signal && signal.aborted) {
@@ -397,42 +502,18 @@ async function runWorkflow(opts) {
       // 確保 openpyxl 可用（Dockerfile pip 安裝不完整時自動補裝）
       await ensurePythonModule('openpyxl');
       const script = path.join(__dirname, 'sli-eli-generate.py');
-      // 改用 execFile 即時讀取 Python 的 PROGRESS 輸出，逐筆 MAWB 更新進度條（25% → 80%）
-      const NL = String.fromCharCode(10);
-      const { stdout, stderr } = await new Promise((resolve, reject) => {
-        const child = execFile(py, [script, '--payload', payloadFile], {
-          timeout: 600000, // 10 分鐘（大量 MAWB 時）
-          maxBuffer: 10 * 1024 * 1024,
-        }, (err, so, se) => {
-          if (err) {
-            reject(new Error((se && se.trim()) ? se.trim() : err.message));
-          } else {
-            resolve({ stdout: so, stderr: se });
-          }
-        });
-        let buf = '';
-        child.stdout.on('data', (chunk) => {
-          buf += chunk;
-          const lines = buf.split(NL);
-          buf = lines.pop();
-          for (const line of lines) {
-            const lt = line.trim(); // Windows Python 輸出為 CRLF，需去除 \r
-            if (lt.indexOf('PROGRESS: ') === 0) {
-              const parts = lt.slice('PROGRESS: '.length).split('/');
-              const done = Number(parts[0]);
-              const tot = Number(parts[1]);
-              if (done >= 0 && tot > 0) {
-                reportProgress(Math.round(25 + 55 * (done / tot)), `產生 SLI/ELI PDF（${done}/${tot}）...`);
-              }
-            }
-          }
-        });
+      const outputs = await runPdfWorkers({
+        py,
+        script,
+        payloadFile,
+        workDir,
+        recordCount: recordsPayload.length,
+        concurrency,
+        signal,
+        onProgress: reportProgress,
       });
-      if (stderr && stderr.includes('ERROR')) {
-        throw new Error(`SLI/ELI 產生失敗: ${stderr}`);
-      }
       // 收集產出的 PDF
-      const okLines = stdout.split('\n').filter((l) => l.startsWith('OK: '));
+      const okLines = outputs.flatMap((stdout) => stdout.split('\n')).filter((l) => l.startsWith('OK: '));
       pdfCount = okLines.length;
       for (const line of okLines) {
         const mawb = line.replace('OK: ', '').trim();
@@ -450,20 +531,35 @@ async function runWorkflow(opts) {
   reportProgress(80, `合併 ${sliPdfs.length} 組 SLI + ELI PDF...`);
   assertActive();
   const mergedPdfs = [];
-  for (let i = 0; i < sliPdfs.length; i++) {
-    // 依 sliPdfs 檔名取 MAWB
-    const m = path.basename(sliPdfs[i]).match(/^(\d{3}-\d{8}) SLI\.pdf$/);
-    if (!m) continue;
-    const mawb = m[1];
-    const mergedPath = path.join(workDir, `${mawb}.pdf`);
-    try {
-      await mergePdfs([sliPdfs[i], eliPdfs[i]], mergedPath);
-      mergedPdfs.push(mergedPath);
-      await fsp.unlink(sliPdfs[i]).catch(() => {});
-      await fsp.unlink(eliPdfs[i]).catch(() => {});
-    } catch (e) {
-      errors.push(`MAWB ${mawb} 合併 PDF 失敗: ${e.message}`);
+  let nextMerge = 0;
+  const mergeWorkerCount = Math.min(getPdfConcurrency(sliPdfs.length, concurrency), 4);
+  const mergeWorker = async () => {
+    while (true) {
+      assertActive();
+      const i = nextMerge++;
+      if (i >= sliPdfs.length) return;
+      // 依 sliPdfs 檔名取 MAWB
+      const m = path.basename(sliPdfs[i]).match(/^(\d{3}-\d{8}) SLI\.pdf$/);
+      if (!m || !eliPdfs[i]) continue;
+      const mawb = m[1];
+      const mergedPath = path.join(workDir, `${mawb}.pdf`);
+      try {
+        await mergePdfs([sliPdfs[i], eliPdfs[i]], mergedPath);
+        mergedPdfs.push(mergedPath);
+        await fsp.unlink(sliPdfs[i]).catch(() => {});
+        await fsp.unlink(eliPdfs[i]).catch(() => {});
+        await fsp.unlink(path.join(workDir, `${mawb} SLI.xlsx`)).catch(() => {});
+        await fsp.unlink(path.join(workDir, `${mawb} ELI.xlsx`)).catch(() => {});
+      } catch (e) {
+        errors.push(`MAWB ${mawb} 合併 PDF 失敗: ${e.message}`);
+      }
     }
+  };
+  if (mergeWorkerCount) {
+    await Promise.all(Array.from({ length: mergeWorkerCount }, () => mergeWorker()));
+  }
+  for (let i = 1; i <= getPdfConcurrency(recordsPayload.length, concurrency); i++) {
+    await fsp.rm(path.join(workDir, `lo-profile-${i}`), { recursive: true, force: true }).catch(() => {});
   }
 
   // Step 5: 依「航班日期」分組 zip（同一天的所有航班放同一 zip；超過 30MB 才拆 Part）

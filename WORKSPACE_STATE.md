@@ -13,6 +13,7 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
+1. **Shipper Role PDF 並行化與資源清理**（工作目錄未 commit）：`scripts/xls-workflow.js` 以 `XLS_PDF_CONCURRENCY` 控制 1–4 個 Python/Excel worker，`scripts/sli-eli-generate.py` 支援 shard 與獨立 LibreOffice profile；PDF 合併也採有限並行。預設 2，設為 1 可回退序列流程。`POST /api/xls-booking/cleanup` 可由 admin/staff 清理過期 job、report、uploads，中間 XLSX 於合併後自動移除。
 1. **Shipper Role Project 程式碼拆分重構**（對照 Global Rule `.clinerule.md` 檔案大小限制）：
    - `routes/xls-booking.js`（321→281 行）：路徑/Multer/session 儲存/讀檔工具拆至 `routes/xls-booking-helpers.js`；新增 multer 錯誤轉 JSON；`/download/report` 改為從 job 結果解析路徑（擋掉路徑穿越）
    - `scripts/xls-workflow.js`（837→483 行）：拆出 `xls-utils.js` / `xls-cnee.js` / `xls-report.js` / `xls-sli-eli.js`；`xls-workflow.js` 保留主流程並 re-export 全部歷史 API（`require` 相容）

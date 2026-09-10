@@ -541,9 +541,73 @@
   margin-top: 12px;
   flex-wrap: wrap;
 }
+.xls-concurrency-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text, inherit);
+  font-size: 0.88rem;
+}
+.xls-concurrency-control select {
+  min-height: 36px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: inherit;
+}
 .xls-status {
   font-size: 0.9rem;
   color: var(--text, inherit);
+}
+.xls-cleanup-panel {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+.xls-cleanup-heading h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+.xls-cleanup-heading p {
+  margin: 5px 0 12px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.84rem;
+}
+.xls-cleanup-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+}
+.xls-cleanup-controls input {
+  width: 72px;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  color: inherit;
+}
+.xls-cleanup-output {
+  margin-top: 12px;
+  color: var(--text, inherit);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.xls-cleanup-output ul {
+  max-height: 180px;
+  margin: 8px 0 0;
+  padding-left: 20px;
+  overflow: auto;
+}
+.xls-cleanup-output li span {
+  color: var(--text-muted, #64748b);
+}
+.xls-cleanup-skipped {
+  margin-top: 8px;
+  color: #b45309;
 }
 
 /* 進度條 */

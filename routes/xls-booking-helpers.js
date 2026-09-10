@@ -78,6 +78,56 @@ function sheetPreview(ws, maxRows = 100, maxCols = 100) {
   return rows;
 }
 
+// 清理超過保留期限的工作產物；最近修改的 job 一律保留，避免誤刪活躍工作。
+function cleanupWorkResources({ workMaxAgeHours = 24, uploadMaxAgeDays = 7, dryRun = false } = {}) {
+  const now = Date.now();
+  const workCutoff = now - Math.max(1, Number(workMaxAgeHours) || 24) * 60 * 60 * 1000;
+  const uploadCutoff = now - Math.max(1, Number(uploadMaxAgeDays) || 7) * 24 * 60 * 60 * 1000;
+  const removed = [];
+  const skipped = [];
+  let bytes = 0;
+
+  const removeEntry = (entryPath, stat) => {
+    const item = { path: entryPath, bytes: stat.isDirectory() ? 0 : stat.size };
+    if (dryRun) {
+      removed.push(item);
+      return;
+    }
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        fs.rmSync(entryPath, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+        removed.push(item);
+        bytes += item.bytes;
+        return;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    skipped.push({ ...item, error: lastError ? lastError.code || lastError.message : '刪除失敗' });
+  };
+
+  for (const entry of fs.readdirSync(WORK_DIR, { withFileTypes: true })) {
+    const entryPath = path.join(WORK_DIR, entry.name);
+    const stat = fs.statSync(entryPath);
+    if (stat.mtimeMs >= workCutoff) continue;
+    if (entry.isDirectory() && entry.name.startsWith('job-')) removeEntry(entryPath, stat);
+    if (entry.isFile() && /^report-[\da-f]{8}\.xlsx$/i.test(entry.name)) removeEntry(entryPath, stat);
+  }
+
+  for (const entry of fs.readdirSync(UPLOAD_DIR, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const entryPath = path.join(UPLOAD_DIR, entry.name);
+    const stat = fs.statSync(entryPath);
+    if (stat.mtimeMs < uploadCutoff) removeEntry(entryPath, stat);
+  }
+
+  if (dryRun) {
+    bytes = removed.reduce((sum, item) => sum + item.bytes, 0);
+  }
+  return { dryRun, removedCount: removed.length, removedBytes: bytes, removed, skippedCount: skipped.length, skipped };
+}
+
 module.exports = {
   DATA_DIR,
   UPLOAD_DIR,
@@ -88,4 +138,5 @@ module.exports = {
   jobs,
   parseWorkbook,
   sheetPreview,
+  cleanupWorkResources,
 };

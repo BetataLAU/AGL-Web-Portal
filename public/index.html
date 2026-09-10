@@ -305,10 +305,39 @@
           <!-- Step 4: 執行 -->
           <h3 id="xls-step-4">④ 執行產生</h3>
           <div class="xls-run-row">
+            <label class="xls-concurrency-control" for="xls-concurrency">
+              <span>PDF 並行數</span>
+              <select id="xls-concurrency" aria-label="PDF 並行數">
+                <option value="1">1（穩定）</option>
+                <option value="2" selected>2（建議）</option>
+                <option value="3">3</option>
+                <option value="4">4（較高負載）</option>
+              </select>
+            </label>
             <button type="button" class="pill btn-primary" id="xls-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 執行完整工作流程</button>
             <span id="xls-status" class="xls-status"></span>
           </div>
           <div id="xls-result-panel" class="xls-panel" style="display:none;"></div>
+
+          <div class="xls-cleanup-panel">
+            <div class="xls-cleanup-heading">
+              <div>
+                <h4><i class="fa-solid fa-broom"></i> 清理系統暫存資料</h4>
+                <p>只處理超過保留期限的工作檔、Report 暫存檔與上傳檔，不會清理最近的工作。</p>
+              </div>
+            </div>
+            <div class="xls-cleanup-controls">
+              <label for="xls-cleanup-work-hours">工作檔保留</label>
+              <input id="xls-cleanup-work-hours" type="number" min="1" step="1" value="24" />
+              <span>小時</span>
+              <label for="xls-cleanup-upload-days">上傳檔保留</label>
+              <input id="xls-cleanup-upload-days" type="number" min="1" step="1" value="7" />
+              <span>天</span>
+              <button type="button" class="pill" id="xls-cleanup-preview-btn"><i class="fa-solid fa-magnifying-glass"></i> 預覽</button>
+              <button type="button" class="pill btn-danger" id="xls-cleanup-run-btn"><i class="fa-solid fa-trash-can"></i> 確認清理</button>
+            </div>
+            <div id="xls-cleanup-output" class="xls-cleanup-output" aria-live="polite"></div>
+          </div>
         </div>
       </section>
 

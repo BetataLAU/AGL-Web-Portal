@@ -12,7 +12,9 @@ import sys
 import os
 import json
 import subprocess
+import gc
 from datetime import datetime
+from pathlib import Path
 
 
 def to_excel_value(v):
@@ -43,6 +45,16 @@ def load_payload():
     raise SystemExit("沒有提供 payload（請用 --payload <json-file> 或 stdin）")
 
 
+def get_option(name, default=None):
+    args = sys.argv[1:]
+    if name not in args:
+        return default
+    idx = args.index(name)
+    if idx + 1 >= len(args):
+        raise SystemExit(f"{name} 缺少參數")
+    return args[idx + 1]
+
+
 def resolve_engine():
     """auto：win32com 可匯入就用 Excel COM，否則用 openpyxl + LibreOffice"""
     args = sys.argv[1:]
@@ -61,17 +73,23 @@ def resolve_engine():
 def generate_com(payload, work_dir, records):
     import win32com.client
     import pythoncom
+    import win32process
 
     template = os.path.abspath(payload["template"])
     pythoncom.CoInitialize()
     excel = None
     wb = None
+    excel_pid = None
     try:
         excel = win32com.client.DispatchEx("Excel.Application")
         excel.Visible = False
         excel.DisplayAlerts = False
+        try:
+            excel_pid = win32process.GetWindowThreadProcessId(excel.Hwnd)[1]
+        except Exception:
+            excel_pid = None
 
-        wb = excel.Workbooks.Open(template, ReadOnly=False, UpdateLinks=0)
+        wb = excel.Workbooks.Open(template, ReadOnly=True, UpdateLinks=0)
         total = len(records)
         for idx, rec in enumerate(records, 1):
             mawb = rec["mawb"]
@@ -113,11 +131,21 @@ def generate_com(payload, work_dir, records):
                 excel.Quit()
             except Exception:
                 pass
+        wb = None
+        excel = None
+        gc.collect()
+        if excel_pid:
+            subprocess.run(
+                ["taskkill", "/PID", str(excel_pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
         pythoncom.CoUninitialize()
 
 
 # ===== openpyxl + LibreOffice 路徑（跨平台，Railway 適用） =====
-def generate_openpyxl(payload, work_dir, records):
+def generate_openpyxl(payload, work_dir, records, lo_profile=None):
     import openpyxl
 
     template = os.path.abspath(payload["template"])
@@ -152,7 +180,11 @@ def generate_openpyxl(payload, work_dir, records):
         print(f"PROGRESS: {idx}/{total}", flush=True)
 
     # LibreOffice 批次轉 PDF（一次啟動處理所有檔案，加速）
-    cmd = ["soffice", "--headless", "--convert-to", "pdf", "--outdir", work_dir] + xlsx_files
+    cmd = ["soffice", "--headless"]
+    if lo_profile:
+        profile_url = Path(lo_profile).resolve().as_uri()
+        cmd.append(f"-env:UserInstallation={profile_url}")
+    cmd += ["--convert-to", "pdf", "--outdir", work_dir] + xlsx_files
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=1800000)
     except FileNotFoundError:
@@ -168,11 +200,18 @@ def main():
     payload = load_payload()
     work_dir = os.path.abspath(payload["work_dir"])
     records = payload.get("records", [])
+    shard_index = int(get_option("--shard-index", "0"))
+    shard_total = int(get_option("--shard-total", "0"))
+    if shard_total:
+        if shard_index < 1 or shard_index > shard_total:
+            raise SystemExit("--shard-index 必須介於 1 和 --shard-total 之間")
+        records = records[shard_index - 1::shard_total]
     engine = resolve_engine()
     if engine == "com":
         generate_com(payload, work_dir, records)
     else:
-        generate_openpyxl(payload, work_dir, records)
+        lo_profile = get_option("--lo-profile")
+        generate_openpyxl(payload, work_dir, records, lo_profile)
 
 
 if __name__ == "__main__":

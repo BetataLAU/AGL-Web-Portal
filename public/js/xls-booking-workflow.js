@@ -58,7 +58,11 @@ async function runXlsWorkflow() {
     // 啟動非同步 job
     const startRes = await apiFetch('/api/xls-booking/process', {
       method: 'POST',
-      body: JSON.stringify({ uploadId: xlsState.uploadId, defs: bodyDefs }),
+      body: JSON.stringify({
+        uploadId: xlsState.uploadId,
+        defs: bodyDefs,
+        concurrency: xlsState.pdfConcurrency,
+      }),
     });
     const jobId = startRes.jobId;
     xlsCurrentJobId = jobId;
@@ -107,6 +111,42 @@ async function runXlsWorkflow() {
   } finally {
     if (btn) btn.disabled = false;
     xlsCurrentJobId = null;
+  }
+}
+
+// ===== 清理過期 XLS 資源 =====
+async function xlsCleanupResources(dryRun) {
+  const workHours = Math.max(1, Number(document.getElementById('xls-cleanup-work-hours')?.value) || 24);
+  const uploadDays = Math.max(1, Number(document.getElementById('xls-cleanup-upload-days')?.value) || 7);
+  const output = document.getElementById('xls-cleanup-output');
+  const previewBtn = document.getElementById('xls-cleanup-preview-btn');
+  const runBtn = document.getElementById('xls-cleanup-run-btn');
+  if (!dryRun && !window.confirm(`確定清理超過 ${workHours} 小時的工作檔，以及超過 ${uploadDays} 天的上傳檔嗎？`)) return;
+
+  [previewBtn, runBtn].forEach((btn) => { if (btn) btn.disabled = true; });
+  if (output) output.textContent = dryRun ? '正在檢查可清理資料...' : '正在清理...';
+  try {
+    const result = await apiFetch('/api/xls-booking/cleanup', {
+      method: 'POST',
+      body: JSON.stringify({ workMaxAgeHours: workHours, uploadMaxAgeDays: uploadDays, dryRun }),
+    });
+    const files = (result.removed || []).slice(0, 20).map((item) => {
+      const name = String(item.path || '').split(/[\\/]/).pop();
+      return `<li>${xlsEscapeHtml(name)} <span>${(Number(item.bytes || 0) / 1024).toFixed(1)} KB</span></li>`;
+    }).join('');
+    if (output) {
+      const skipped = (result.skipped || []).slice(0, 20).map((item) => {
+        const name = String(item.path || '').split(/[\\/]/).pop();
+        return `<li>${xlsEscapeHtml(name)} <span>${xlsEscapeHtml(item.error || '檔案被使用中')}</span></li>`;
+      }).join('');
+      output.innerHTML = `<strong>${dryRun ? '預覽結果' : '清理完成'}</strong>：${result.removedCount} 個項目，約 ${(Number(result.removedBytes || 0) / 1024 / 1024).toFixed(2)} MB。` +
+        (files ? `<ul>${files}</ul>` : '<br>沒有成功清理的過期資料。') +
+        (skipped ? `<div class="xls-cleanup-skipped">${result.skippedCount} 個項目仍被使用中，已略過，請關閉相關 Excel 後再試：<ul>${skipped}</ul></div>` : '');
+    }
+  } catch (err) {
+    if (output) output.textContent = `清理失敗：${err.message}`;
+  } finally {
+    [previewBtn, runBtn].forEach((btn) => { if (btn) btn.disabled = false; });
   }
 }
 

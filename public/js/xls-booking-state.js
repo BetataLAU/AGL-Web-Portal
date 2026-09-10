@@ -23,6 +23,7 @@ let xlsState = {
   selections: {}, // fileIndex -> { all: [mawbKey], selected: Set<mawbKey> }（標準化預覽勾選）
   cneeOverrides: {}, // fileIndex -> { mawbKey: cnee }（③ 標準化預覽點擊填入，不需重新上傳）
   lastRunFiles: [], // 最近一次 ④ 執行涉及的 fileIndex（供「處理下一個檔案」判斷）
+  pdfConcurrency: 2, // 每個 job 的 PDF worker 數（1–4）
 };
 
 let xlsCurrentJobId = null; // 目前執行中的 job（供中止）
@@ -128,6 +129,17 @@ function setupXlsBookingSection() {
   setupXlsDropZone();
   const runBtn = document.getElementById('xls-run-btn');
   if (runBtn) runBtn.addEventListener('click', runXlsWorkflow);
+  const concurrency = document.getElementById('xls-concurrency');
+  if (concurrency) {
+    concurrency.value = String(xlsState.pdfConcurrency);
+    concurrency.addEventListener('change', () => {
+      xlsState.pdfConcurrency = Math.min(4, Math.max(1, Number(concurrency.value) || 2));
+    });
+  }
+  const cleanupPreviewBtn = document.getElementById('xls-cleanup-preview-btn');
+  if (cleanupPreviewBtn) cleanupPreviewBtn.addEventListener('click', () => xlsCleanupResources(true));
+  const cleanupRunBtn = document.getElementById('xls-cleanup-run-btn');
+  if (cleanupRunBtn) cleanupRunBtn.addEventListener('click', () => xlsCleanupResources(false));
   // 點擊其他位置關閉右鍵選單
   document.addEventListener('click', xlsCloseContextMenu);
 }

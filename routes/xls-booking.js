@@ -24,8 +24,10 @@ const {
   jobs,
   parseWorkbook,
   sheetPreview,
+  cleanupWorkResources,
 } = require('./xls-booking-helpers');
 const { runWorkflow, standardizeRows, extractCneeLookupArea } = require('../scripts/xls-workflow');
+const { requireRole } = require('./auth/middleware');
 
 const router = express.Router();
 
@@ -89,6 +91,21 @@ router.get('/preview/:uploadId/:fileId/:sheetIndex', async (req, res) => {
     if (!ws) return res.status(404).json({ error: '找不到 sheet' });
     const rows = sheetPreview(ws);
     res.json({ fileName: file.originalName, sheetName: ws.name, rows, rowCount: ws.rowCount, columnCount: ws.columnCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== API: 清理過期 XLS 工作資源（admin/staff） =====
+// 預設只清理 24 小時前的 job/report 與 7 天前的上傳檔，不會碰近期或活躍工作。
+router.post('/cleanup', requireRole('admin', 'staff'), (req, res) => {
+  try {
+    const result = cleanupWorkResources({
+      workMaxAgeHours: req.body?.workMaxAgeHours,
+      uploadMaxAgeDays: req.body?.uploadMaxAgeDays,
+      dryRun: req.body?.dryRun === true,
+    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -163,7 +180,7 @@ function enqueueProcess(task) {
 
 router.post('/process', async (req, res) => {
   try {
-    const { uploadId, defs } = req.body || {};
+    const { uploadId, defs, concurrency } = req.body || {};
     if (!uploadId || !Array.isArray(defs) || !defs.length) {
       return res.status(400).json({ error: '缺少 uploadId 或欄位定義 defs' });
     }
@@ -171,8 +188,20 @@ router.post('/process', async (req, res) => {
     if (!session) return res.status(404).json({ error: '上傳工作階段已過期，請重新上傳' });
 
     const jobId = crypto.randomBytes(8).toString('hex');
+    const requestedConcurrency = Number(concurrency);
+    const jobConcurrency = Number.isFinite(requestedConcurrency) && requestedConcurrency >= 1
+      ? Math.min(4, Math.floor(requestedConcurrency))
+      : undefined;
     const controller = new AbortController();
-    jobs.set(jobId, { progress: 0, message: '排隊中...', status: 'running', result: null, error: null, controller });
+    jobs.set(jobId, {
+      progress: 0,
+      message: '排隊中...',
+      status: 'running',
+      result: null,
+      error: null,
+      controller,
+      concurrency: jobConcurrency || 2,
+    });
 
     // 非同步執行，不阻塞回應（以佇列序列化，避免同時改動 master 互相覆蓋）
     enqueueProcess(async () => {
@@ -187,6 +216,7 @@ router.post('/process', async (req, res) => {
           defs,
           reportTemplate: reportCopy,
           sliTemplate,
+          concurrency: jobConcurrency,
           signal: controller.signal,
           onProgress: (pct, msg) => {
             const job = jobs.get(jobId);
@@ -211,6 +241,7 @@ router.post('/process', async (req, res) => {
           status: 'done',
           result: {
             jobId,
+            concurrency: jobConcurrency || 2,
             count: result.count,
             zipPaths: result.zipPaths.map((p) => ({ name: path.basename(p), path: p })),
             reportPath: result.reportPath,

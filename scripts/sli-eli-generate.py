@@ -99,8 +99,6 @@ def generate_com(payload, work_dir, records):
                 ws_sli.Range(coord).Value = to_excel_value(val)
             sli_pdf = os.path.join(work_dir, f"{mawb} SLI.pdf")
             ws_sli.ExportAsFixedFormat(0, sli_pdf, 1)  # 0 = xlTypePDF, 1 = xlQualityMinimum
-            sli_xlsx = os.path.join(work_dir, f"{mawb} SLI.xlsx")
-            ws_sli.SaveAs(sli_xlsx, 51)  # 51 = xlOpenXMLWorkbook
 
             # ELI sheet: ELI LETTER
             ws_eli = wb.Worksheets("ELI LETTER")
@@ -108,8 +106,6 @@ def generate_com(payload, work_dir, records):
                 ws_eli.Range(coord).Value = to_excel_value(val)
             eli_pdf = os.path.join(work_dir, f"{mawb} ELI.pdf")
             ws_eli.ExportAsFixedFormat(0, eli_pdf, 1)
-            eli_xlsx = os.path.join(work_dir, f"{mawb} ELI.xlsx")
-            ws_eli.SaveAs(eli_xlsx, 51)
 
             print(f"OK: {mawb}", flush=True)
             print(f"PROGRESS: {idx}/{total}", flush=True)

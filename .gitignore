@@ -18,3 +18,6 @@ data/uploads/
 # VS Code（個人設定，不進 repo）
 .vscode/
 data/test-*
+
+# 模板備份檔（本機保存即可，不進 repo）
+data/templates/* (BAK).xlsx

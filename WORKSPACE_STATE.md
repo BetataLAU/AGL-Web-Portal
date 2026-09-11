@@ -5,14 +5,15 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`83d98da` 訂單系統調整 + 通用工具抽取 + 電力分類自動補全
+- **最後 commit**：`f255576` chore(sync)：同步本機 SLI/ELI 母版、PNG 素材與 DB
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態**：有未 commit 的變更（GuestBook 移除 + CNEE 對照區自動化，見下）
+- **工作目錄狀態**：乾淨（template 備份檔已由 `.gitignore` 忽略：`data/templates/* (BAK).xlsx`）
 
 ## ✅ 已完成（最近）
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
+1. **模板與素材同步**（`f255576`）：`data/templates/cainiao-sli-eli-template.xlsx` 母版更新（185 KB → 103 KB）、新增 `data/templates/SLI_ELI letter PNG (MAT)/` 製圖 PNG 素材（CAINIAO_LOGO / HAFFA_GRP / HAFFA_LOGO / KL_CHOP / SIGN）、`shipper-role-summary-2026.xlsx` 同步最新 report 母版、`database.db` / `db/sessions.db` / `db/db-dump.sql` 同步；`FILE_INVENTORY.md` 由 `npm run sync` 重新產生；`.gitignore` 新增忽略模板備份檔。
 1. **Shipper Role PDF 並行化與資源清理**（工作目錄未 commit）：`scripts/xls-workflow.js` 以 `XLS_PDF_CONCURRENCY` 控制 1–4 個 Python/Excel worker，`scripts/sli-eli-generate.py` 支援 shard 與獨立 LibreOffice profile；PDF 合併也採有限並行。預設 2，設為 1 可回退序列流程。`POST /api/xls-booking/cleanup` 可由 admin/staff 清理過期 job、report、uploads，中間 XLSX 於合併後自動移除。
 1. **Shipper Role Project 程式碼拆分重構**（對照 Global Rule `.clinerule.md` 檔案大小限制）：
    - `routes/xls-booking.js`（321→281 行）：路徑/Multer/session 儲存/讀檔工具拆至 `routes/xls-booking-helpers.js`；新增 multer 錯誤轉 JSON；`/download/report` 改為從 job 結果解析路徑（擋掉路徑穿越）
@@ -54,7 +55,8 @@
 ## 📋 下一步（待辦）
 
 - [ ] 確認地圖機制運作：開新 chat，驗證 AI 會自動讀 CLAUDE.md + 執行 sync
-- [ ] commit 本輪工作（訂單系統調整 + 通用工具抽取 + GuestBook 移除）
+- [x] commit 本輪工作（訂單系統調整 + 通用工具抽取 + GuestBook 移除）
+- [ ] **REMARK：template 備份管理** —— `data/templates/cainiao-sli-eli-template (BAK).xlsx` 目前僅存本機（已加入 `.gitignore`）；如需進版控請用 `git add -f`。
 - [ ] **REMARK：GuestBook（messages）殘留清理** —— 已移除 forum UI/API/建表，但舊 `messages` 表仍在 database.db（SQLite 不會自動刪）；`routes/dbviewer.js` 與 `public/js/dbviewer.js` 仍引用 `messages`（資料庫檢視器會看到舊表）。日後處理：① 加 `DROP TABLE IF EXISTS messages` ② 移除 dbviewer 的 `ALLOWED_TABLES` / 標籤引用
 - [ ] 日後每次結構性變更後執行 `npm run sync`，並同步更新本檔
 

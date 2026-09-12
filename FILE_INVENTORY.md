@@ -2,21 +2,7 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/12 下午8:10:02
-
-## 🔄 Git 變更狀態
-
-```
-R  "data/templates/SLI_ELI letter PNG (MAT)/CAINIAO_LOGO.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/CAINIAO_LOGO.png"
-R  "data/templates/SLI_ELI letter PNG (MAT)/HAFFA_GRP.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/HAFFA_GRP.png"
-R  "data/templates/SLI_ELI letter PNG (MAT)/HAFFA_LOGO.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/HAFFA_LOGO.png"
-R  "data/templates/SLI_ELI letter PNG (MAT)/KL_CHOP.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/KL_CHOP.png"
-R  "data/templates/SLI_ELI letter PNG (MAT)/SIGN.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/SIGN.png"
-M  data/templates/cainiao-sli-eli-template.xlsx
-M  data/templates/shipper-role-summary-2026.xlsx
-M  database.db
-M  db/sessions.db
-```
+> 最後更新：2026/9/12 下午8:10:38
 
 ## 📁 檔案清單（共 979 個檔案）
 
@@ -30,7 +16,7 @@ M  db/sessions.db
 - `ORDER_SYSTEM_PLAN.md`（8.1 KB）
 - `PROJECT_MAP.md`（10.7 KB）
 - `README.md`（13.2 KB）
-- `WORKSPACE_STATE.md`（6.3 KB）
+- `WORKSPACE_STATE.md`（6.7 KB）
 - `deepseek_text_20260820_ba683e.txt`（18.8 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）

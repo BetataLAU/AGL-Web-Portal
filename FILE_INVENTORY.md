@@ -2,32 +2,35 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/11 下午4:43:10
+> 最後更新：2026/9/12 下午8:10:02
 
 ## 🔄 Git 變更狀態
 
 ```
-M data/templates/cainiao-sli-eli-template.xlsx
-M data/templates/shipper-role-summary-2026.xlsx
-M database.db
-M db/sessions.db
-?? "data/templates/SLI_ELI letter PNG (MAT)/"
-?? "data/templates/cainiao-sli-eli-template (BAK).xlsx"
+R  "data/templates/SLI_ELI letter PNG (MAT)/CAINIAO_LOGO.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/CAINIAO_LOGO.png"
+R  "data/templates/SLI_ELI letter PNG (MAT)/HAFFA_GRP.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/HAFFA_GRP.png"
+R  "data/templates/SLI_ELI letter PNG (MAT)/HAFFA_LOGO.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/HAFFA_LOGO.png"
+R  "data/templates/SLI_ELI letter PNG (MAT)/KL_CHOP.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/KL_CHOP.png"
+R  "data/templates/SLI_ELI letter PNG (MAT)/SIGN.png" -> "data/templates/SLI_ELI letter PNG (MAT, Tinyed)/SIGN.png"
+M  data/templates/cainiao-sli-eli-template.xlsx
+M  data/templates/shipper-role-summary-2026.xlsx
+M  database.db
+M  db/sessions.db
 ```
 
-## 📁 檔案清單（共 802 個檔案）
+## 📁 檔案清單（共 979 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（407 B）
-- `.gitignore`（385 B）
+- `.gitignore`（473 B）
 - `AIR FREIGHT 3D ULD PACKING SYSTEM - SPECIFICATION & PROMPT FOR DEEPSEEK.md`（3.6 KB）
 - `CLAUDE.md`（12.8 KB）
 - `Dockerfile`（738 B）
 - `ORDER_SYSTEM_PLAN.md`（8.1 KB）
 - `PROJECT_MAP.md`（10.7 KB）
 - `README.md`（13.2 KB）
-- `WORKSPACE_STATE.md`（5.7 KB）
+- `WORKSPACE_STATE.md`（6.3 KB）
 - `deepseek_text_20260820_ba683e.txt`（18.8 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
@@ -57,14 +60,15 @@ M db/sessions.db
 
 - `data/templates/cainiao-sli-eli-template (BAK).xlsx`（182.4 KB）
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
-- `data/templates/cainiao-sli-eli-template.xlsx`（100.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（513.1 KB）
+- `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（513.6 KB）
 
 ### data/uploads
 
 - `data/uploads/0056ee52ad68.xlsx`（13.2 KB）
 - `data/uploads/039d899f6eaf.xlsx`（10.2 KB）
 - `data/uploads/05ef83a178be.xlsx`（11.1 KB）
+- `data/uploads/0ae15d07a7b7.xlsx`（10.6 KB）
 - `data/uploads/0c5847acdeff.xlsx`（15.4 KB）
 - `data/uploads/119fd1316834.xlsx`（12.7 KB）
 - `data/uploads/16d5312b5556.xlsx`（22.1 KB）
@@ -75,13 +79,17 @@ M db/sessions.db
 - `data/uploads/32ee2dfeb6c8.xlsx`（36.3 KB）
 - `data/uploads/3323cb870da6.xlsx`（21.4 KB）
 - `data/uploads/33ed7f00403a.xlsx`（13.7 KB）
+- `data/uploads/34d17ad45897.xlsx`（14.2 KB）
 - `data/uploads/351b099703cf.xlsx`（15.9 KB）
 - `data/uploads/364dc6311143.xlsx`（15.4 KB）
+- `data/uploads/39c758f1e2a2.xlsx`（59.0 KB）
 - `data/uploads/3b71bbbf2f21.xlsx`（12.2 KB）
 - `data/uploads/41e30bdac38d.xlsx`（11.1 KB）
+- `data/uploads/4694e1621a3b.xlsx`（9.1 KB）
 - `data/uploads/47a03c6b02e1.xlsx`（21.4 KB）
 - `data/uploads/4a2670d62000.xlsx`（13.8 KB）
 - `data/uploads/4e5945355fd6.xlsx`（19.0 KB）
+- `data/uploads/505ac9c126ba.xlsx`（13.8 KB）
 - `data/uploads/5b003e7efdf6.xlsx`（21.4 KB）
 - `data/uploads/5e9262c37371.xlsx`（11.4 KB）
 - `data/uploads/60f3679960f3.xlsx`（11.0 KB）
@@ -99,6 +107,7 @@ M db/sessions.db
 - `data/uploads/83ac76d55742.xlsx`（12.2 KB）
 - `data/uploads/8d19c30650ec.xlsx`（44.2 KB）
 - `data/uploads/8d7298ffe24a.xlsx`（21.8 KB）
+- `data/uploads/90be7afba4ad.xlsx`（19.0 KB）
 - `data/uploads/9cab3168cdc6.xlsx`（21.4 KB）
 - `data/uploads/a2afd1d4026f.xlsx`（10.2 KB）
 - `data/uploads/a3193a7dfa4f.xlsx`（23.2 KB）
@@ -121,6 +130,7 @@ M db/sessions.db
 - `data/uploads/dc9552e9ba3a.xlsx`（13.2 KB）
 - `data/uploads/de11158442e0.xlsx`（25.0 KB）
 - `data/uploads/de11a40e0af9.xlsx`（8.9 KB）
+- `data/uploads/deff053a2146.xlsx`（9.0 KB）
 - `data/uploads/e2861b571b8b.xlsx`（10.2 KB）
 - `data/uploads/e37316e9aa8b.xlsx`（21.4 KB）
 - `data/uploads/ed7a99eac26b.xlsx`（10.6 KB）
@@ -131,11 +141,14 @@ M db/sessions.db
 
 ### data/work
 
+- `data/work/report-0acb44bd.xlsx`（510.9 KB）
+- `data/work/report-0f029f8d.xlsx`（510.6 KB）
 - `data/work/report-1a990a57.xlsx`（504.4 KB）
 - `data/work/report-1befaf5c.xlsx`（502.3 KB）
 - `data/work/report-21e765cd.xlsx`（510.4 KB）
 - `data/work/report-22ab5a37.xlsx`（508.6 KB）
 - `data/work/report-267a6aa7.xlsx`（502.1 KB）
+- `data/work/report-27987918.xlsx`（511.9 KB）
 - `data/work/report-2a22711d.xlsx`（502.4 KB）
 - `data/work/report-2a2ad807.xlsx`（513.1 KB）
 - `data/work/report-33327113.xlsx`（506.9 KB）
@@ -143,11 +156,18 @@ M db/sessions.db
 - `data/work/report-3d4519ad.xlsx`（505.4 KB）
 - `data/work/report-428fe46c.xlsx`（502.1 KB）
 - `data/work/report-4599b5f5.xlsx`（510.3 KB）
+- `data/work/report-48670974.xlsx`（513.4 KB）
+- `data/work/report-685f14a0.xlsx`（510.6 KB）
 - `data/work/report-77f83d57.xlsx`（510.0 KB）
+- `data/work/report-7ca68f5d.xlsx`（510.6 KB）
 - `data/work/report-85927c7d.xlsx`（510.2 KB）
+- `data/work/report-86fe139e.xlsx`（510.6 KB）
 - `data/work/report-90737a28.xlsx`（511.7 KB）
 - `data/work/report-934e74e6.xlsx`（507.4 KB）
 - `data/work/report-9cca7493.xlsx`（506.8 KB）
+- `data/work/report-ad019b37.xlsx`（513.5 KB）
+- `data/work/report-af5e3191.xlsx`（513.6 KB）
+- `data/work/report-b4417c2d.xlsx`（512.1 KB）
 - `data/work/report-be180b8b.xlsx`（504.6 KB）
 - `data/work/report-ce79559f.xlsx`（510.2 KB）
 - `data/work/report-d0824186.xlsx`（503.9 KB）
@@ -156,6 +176,21 @@ M db/sessions.db
 - `data/work/report-ef290cc5.xlsx`（504.2 KB）
 - `data/work/report-f9e9bc00.xlsx`（505.4 KB）
 - `data/work/server-live.log.err`（3.4 KB）
+
+### data/work/job-0Ij5Ae
+
+- `data/work/job-0Ij5Ae/20260912 - 5C850 SLI x 10.zip`（5050.5 KB）
+- `data/work/job-0Ij5Ae/752-30217176.pdf`（541.7 KB）
+- `data/work/job-0Ij5Ae/752-30217880.pdf`（543.5 KB）
+- `data/work/job-0Ij5Ae/752-30217891.pdf`（542.4 KB）
+- `data/work/job-0Ij5Ae/752-30217902.pdf`（541.4 KB）
+- `data/work/job-0Ij5Ae/752-30217913.pdf`（545.1 KB）
+- `data/work/job-0Ij5Ae/752-30217924.pdf`（542.6 KB）
+- `data/work/job-0Ij5Ae/752-30217935.pdf`（546.3 KB）
+- `data/work/job-0Ij5Ae/752-30217983.pdf`（542.6 KB）
+- `data/work/job-0Ij5Ae/752-30217994.pdf`（545.7 KB）
+- `data/work/job-0Ij5Ae/752-30218005.pdf`（545.1 KB）
+- `data/work/job-0Ij5Ae/sli-eli-payload.json`（5.2 KB）
 
 ### data/work/job-1HoPEj
 
@@ -169,6 +204,12 @@ M db/sessions.db
 - `data/work/job-1HoPEj/752-30217821.pdf`（547.1 KB）
 - `data/work/job-1HoPEj/752-30217832.pdf`（547.7 KB）
 - `data/work/job-1HoPEj/sli-eli-payload.json`（4.0 KB）
+
+### data/work/job-2EKlvX
+
+- `data/work/job-2EKlvX/172-04324246.pdf`（541.6 KB）
+- `data/work/job-2EKlvX/20260912 - CV7335 SLI x 1.zip`（504.4 KB）
+- `data/work/job-2EKlvX/sli-eli-payload.json`（735 B）
 
 ### data/work/job-3KbcZj
 
@@ -213,6 +254,21 @@ M db/sessions.db
 - `data/work/job-6DoWXL/157-49129474.pdf`（544.0 KB）
 - `data/work/job-6DoWXL/20260911 - QR8435 SLI x 22.zip`（11144.6 KB）
 - `data/work/job-6DoWXL/sli-eli-payload.json`（11.9 KB）
+
+### data/work/job-6k41EK
+
+- `data/work/job-6k41EK/20260912 - 5C850 SLI x 10.zip`（4052.0 KB）
+- `data/work/job-6k41EK/752-30217176.pdf`（438.0 KB）
+- `data/work/job-6k41EK/752-30217880.pdf`（437.1 KB）
+- `data/work/job-6k41EK/752-30217891.pdf`（436.5 KB）
+- `data/work/job-6k41EK/752-30217902.pdf`（436.1 KB）
+- `data/work/job-6k41EK/752-30217913.pdf`（440.4 KB）
+- `data/work/job-6k41EK/752-30217924.pdf`（437.3 KB）
+- `data/work/job-6k41EK/752-30217935.pdf`（439.8 KB）
+- `data/work/job-6k41EK/752-30217983.pdf`（436.7 KB）
+- `data/work/job-6k41EK/752-30217994.pdf`（440.4 KB）
+- `data/work/job-6k41EK/752-30218005.pdf`（439.8 KB）
+- `data/work/job-6k41EK/sli-eli-payload.json`（5.2 KB）
 
 ### data/work/job-7ZVS6f
 
@@ -359,6 +415,18 @@ M db/sessions.db
 - `data/work/job-FPIRgR/20260909 - 多航班 SLI x 54.zip`（27418.4 KB）
 - `data/work/job-FPIRgR/sli-eli-payload.json`（25.5 KB）
 
+### data/work/job-G2ON2g
+
+- `data/work/job-G2ON2g/20260912 - 5Y8052 SLI x 7.zip`（3534.0 KB）
+- `data/work/job-G2ON2g/369-99879194.pdf`（541.8 KB）
+- `data/work/job-G2ON2g/369-99879205.pdf`（541.8 KB）
+- `data/work/job-G2ON2g/369-99879356.pdf`（542.8 KB）
+- `data/work/job-G2ON2g/369-99879360.pdf`（542.8 KB）
+- `data/work/job-G2ON2g/369-99879371.pdf`（545.7 KB）
+- `data/work/job-G2ON2g/369-99879382.pdf`（540.8 KB）
+- `data/work/job-G2ON2g/369-99879393.pdf`（541.6 KB）
+- `data/work/job-G2ON2g/sli-eli-payload.json`（4.2 KB）
+
 ### data/work/job-Iq4ERO
 
 - `data/work/job-Iq4ERO/20260911 - K4702 SLI x 5.zip`（2536.2 KB）
@@ -381,6 +449,73 @@ M db/sessions.db
 - `data/work/job-LnFMk4/160-16278150.pdf`（543.2 KB）
 - `data/work/job-LnFMk4/20260911 - CX257 SLI x 2.zip`（1011.4 KB）
 - `data/work/job-LnFMk4/sli-eli-payload.json`（1.1 KB）
+
+### data/work/job-LqliHh
+
+- `data/work/job-LqliHh/20260908 - 5Y8050 SLI x 1.zip`（504.0 KB）
+- `data/work/job-LqliHh/20260909 - 5Y8030 SLI x 4.zip`（2032.1 KB）
+- `data/work/job-LqliHh/20260912 - 5Y8052 SLI x 35.zip`（17669.0 KB）
+- `data/work/job-LqliHh/369-99884024.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884363.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884455.pdf`（551.2 KB）
+- `data/work/job-LqliHh/369-99884466.pdf`（551.2 KB）
+- `data/work/job-LqliHh/369-99884470.pdf`（546.0 KB）
+- `data/work/job-LqliHh/369-99884794.pdf`（542.2 KB）
+- `data/work/job-LqliHh/369-99884805.pdf`（542.7 KB）
+- `data/work/job-LqliHh/369-99884816.pdf`（540.7 KB）
+- `data/work/job-LqliHh/369-99884820.pdf`（541.3 KB）
+- `data/work/job-LqliHh/369-99884831.pdf`（541.3 KB）
+- `data/work/job-LqliHh/369-99884842.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884853.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884864.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884875.pdf`（544.2 KB）
+- `data/work/job-LqliHh/369-99884886.pdf`（544.2 KB）
+- `data/work/job-LqliHh/369-99884890.pdf`（542.0 KB）
+- `data/work/job-LqliHh/369-99884901.pdf`（542.0 KB）
+- `data/work/job-LqliHh/369-99884912.pdf`（542.0 KB）
+- `data/work/job-LqliHh/369-99884923.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884934.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884945.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884956.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99884960.pdf`（542.0 KB）
+- `data/work/job-LqliHh/369-99884971.pdf`（542.2 KB）
+- `data/work/job-LqliHh/369-99884982.pdf`（542.2 KB）
+- `data/work/job-LqliHh/369-99884993.pdf`（541.4 KB）
+- `data/work/job-LqliHh/369-99885015.pdf`（542.2 KB）
+- `data/work/job-LqliHh/369-99885026.pdf`（542.2 KB）
+- `data/work/job-LqliHh/369-99885030.pdf`（552.3 KB）
+- `data/work/job-LqliHh/369-99885041.pdf`（551.2 KB）
+- `data/work/job-LqliHh/369-99885052.pdf`（544.8 KB）
+- `data/work/job-LqliHh/369-99885063.pdf`（544.8 KB）
+- `data/work/job-LqliHh/369-99885074.pdf`（541.7 KB）
+- `data/work/job-LqliHh/369-99885085.pdf`（541.1 KB）
+- `data/work/job-LqliHh/369-99885100.pdf`（542.0 KB）
+- `data/work/job-LqliHh/369-99885435.pdf`（544.3 KB）
+- `data/work/job-LqliHh/369-99885446.pdf`（544.3 KB）
+- `data/work/job-LqliHh/369-99885450.pdf`（541.9 KB）
+- `data/work/job-LqliHh/369-99886076.pdf`（544.9 KB）
+- `data/work/job-LqliHh/369-99886080.pdf`（541.9 KB）
+- `data/work/job-LqliHh/sli-eli-payload.json`（23.0 KB）
+
+### data/work/job-OTdzTS
+
+- `data/work/job-OTdzTS/752-30217176 ELI.pdf`（108.2 KB）
+- `data/work/job-OTdzTS/752-30217176 SLI.pdf`（336.2 KB）
+- `data/work/job-OTdzTS/752-30217880 ELI.pdf`（108.3 KB）
+- `data/work/job-OTdzTS/752-30217880 SLI.pdf`（337.9 KB）
+- `data/work/job-OTdzTS/752-30217891 ELI.pdf`（108.3 KB）
+- `data/work/job-OTdzTS/752-30217891 SLI.pdf`（337.4 KB）
+- `data/work/job-OTdzTS/752-30217902 SLI.pdf`（336.0 KB）
+- `data/work/job-OTdzTS/752-30217913 ELI.pdf`（110.0 KB）
+- `data/work/job-OTdzTS/752-30217913 SLI.pdf`（337.3 KB）
+- `data/work/job-OTdzTS/752-30217924 SLI.pdf`（336.0 KB）
+- `data/work/job-OTdzTS/752-30217983 ELI.pdf`（108.2 KB）
+- `data/work/job-OTdzTS/752-30217983 SLI.pdf`（336.0 KB）
+- `data/work/job-OTdzTS/752-30217994 ELI.pdf`（110.0 KB）
+- `data/work/job-OTdzTS/752-30217994 SLI.pdf`（337.3 KB）
+- `data/work/job-OTdzTS/752-30218005 ELI.pdf`（110.0 KB）
+- `data/work/job-OTdzTS/752-30218005 SLI.pdf`（337.3 KB）
+- `data/work/job-OTdzTS/sli-eli-payload.json`（5.2 KB）
 
 ### data/work/job-OhduDv
 
@@ -453,6 +588,13 @@ M db/sessions.db
 - `data/work/job-Ql3pic/157-49130056 SLI.pdf`（370.9 KB）
 - `data/work/job-Ql3pic/157-49130056 SLI.xlsx`（189.5 KB）
 - `data/work/job-Ql3pic/sli-eli-payload.json`（25.7 KB）
+
+### data/work/job-RJdu7x
+
+- `data/work/job-RJdu7x/160-16278216.pdf`（541.2 KB）
+- `data/work/job-RJdu7x/160-16278220.pdf`（541.8 KB）
+- `data/work/job-RJdu7x/20260913 - CX257 SLI x 2.zip`（1008.0 KB）
+- `data/work/job-RJdu7x/sli-eli-payload.json`（1.1 KB）
 
 ### data/work/job-RThiFv
 
@@ -544,6 +686,21 @@ M db/sessions.db
 - `data/work/job-Wxl4fA/157-49129813 SLI.pdf`（370.9 KB）
 - `data/work/job-Wxl4fA/sli-eli-payload.json`（25.7 KB）
 
+### data/work/job-cmTjtL
+
+- `data/work/job-cmTjtL/20260912 - 5C850 SLI x 10.zip`（5047.6 KB）
+- `data/work/job-cmTjtL/752-30217176.pdf`（542.5 KB）
+- `data/work/job-cmTjtL/752-30217880.pdf`（542.2 KB）
+- `data/work/job-cmTjtL/752-30217891.pdf`（541.6 KB）
+- `data/work/job-cmTjtL/752-30217902.pdf`（541.2 KB）
+- `data/work/job-cmTjtL/752-30217913.pdf`（544.9 KB）
+- `data/work/job-cmTjtL/752-30217924.pdf`（541.2 KB）
+- `data/work/job-cmTjtL/752-30217935.pdf`（544.9 KB）
+- `data/work/job-cmTjtL/752-30217983.pdf`（541.8 KB）
+- `data/work/job-cmTjtL/752-30217994.pdf`（544.9 KB）
+- `data/work/job-cmTjtL/752-30218005.pdf`（544.9 KB）
+- `data/work/job-cmTjtL/sli-eli-payload.json`（5.2 KB）
+
 ### data/work/job-dZjEb6
 
 - `data/work/job-dZjEb6/160-16278113.pdf`（543.2 KB）
@@ -618,6 +775,51 @@ M db/sessions.db
 - `data/work/job-eYRi7z/752-30217751.pdf`（543.8 KB）
 - `data/work/job-eYRi7z/sli-eli-payload.json`（4.2 KB）
 
+### data/work/job-fDK2fh
+
+- `data/work/job-fDK2fh/157-49127875.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49127886.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49127890.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127901.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127912.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127923.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49127934.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127945.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127956.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127960.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49127971.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127982.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49127993.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128004.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128015.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128026.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128030.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128041.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128052.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128063.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49128074.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128085.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128096.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128100.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128111.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49128122.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128133.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128144.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128155.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128166.pdf`（543.0 KB）
+- `data/work/job-fDK2fh/157-49128170.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128181.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128192.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128203.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128214.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128225.pdf`（542.4 KB）
+- `data/work/job-fDK2fh/157-49128236.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128240.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128251.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/157-49128262.pdf`（541.8 KB）
+- `data/work/job-fDK2fh/20260913 - QR8465 SLI x 40.zip`（20179.9 KB）
+- `data/work/job-fDK2fh/sli-eli-payload.json`（23.9 KB）
+
 ### data/work/job-fLpEWd
 
 - `data/work/job-fLpEWd/157-47460173 SLI.pdf`（407.2 KB）
@@ -677,6 +879,14 @@ M db/sessions.db
 - `data/work/job-rVlIjm/20260909 - TK071 SLI x 1.zip`（514.8 KB）
 - `data/work/job-rVlIjm/235-98377871.pdf`（556.0 KB）
 - `data/work/job-rVlIjm/sli-eli-payload.json`（696 B）
+
+### data/work/job-upytIT
+
+- `data/work/job-upytIT/160-16278183.pdf`（541.2 KB）
+- `data/work/job-upytIT/160-16278194.pdf`（542.9 KB）
+- `data/work/job-upytIT/160-16278205.pdf`（541.2 KB）
+- `data/work/job-upytIT/20260913 - CX007 SLI x 3.zip`（1512.0 KB）
+- `data/work/job-upytIT/sli-eli-payload.json`（1.6 KB）
 
 ### data/work/job-vyAJ53
 

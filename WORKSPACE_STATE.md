@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`f255576` chore(sync)：同步本機 SLI/ELI 母版、PNG 素材與 DB
+- **最後 commit**：`77a4d01` chore(sync)：PNG 素材資料夾改名（MAT → MAT, Tinyed）並同步母版與 DB
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（template 備份檔已由 `.gitignore` 忽略：`data/templates/* (BAK).xlsx`）
 
@@ -13,6 +13,7 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
+1. **素材資料夾改名 + 母版／DB 再同步**（`77a4d01`）：`data/templates/SLI_ELI letter PNG (MAT, Tinyed)/`（由 `(MAT)` 改名，5 個 PNG 內容不變）、`cainiao-sli-eli-template.xlsx` 母版再更新（103 KB → 95.9 KB）、`shipper-role-summary-2026.xlsx` / `database.db` / `db/sessions.db` / `db/db-dump.sql` 同步、`FILE_INVENTORY.md` 重新產生。
 1. **模板與素材同步**（`f255576`）：`data/templates/cainiao-sli-eli-template.xlsx` 母版更新（185 KB → 103 KB）、新增 `data/templates/SLI_ELI letter PNG (MAT)/` 製圖 PNG 素材（CAINIAO_LOGO / HAFFA_GRP / HAFFA_LOGO / KL_CHOP / SIGN）、`shipper-role-summary-2026.xlsx` 同步最新 report 母版、`database.db` / `db/sessions.db` / `db/db-dump.sql` 同步；`FILE_INVENTORY.md` 由 `npm run sync` 重新產生；`.gitignore` 新增忽略模板備份檔。
 1. **Shipper Role PDF 並行化與資源清理**（工作目錄未 commit）：`scripts/xls-workflow.js` 以 `XLS_PDF_CONCURRENCY` 控制 1–4 個 Python/Excel worker，`scripts/sli-eli-generate.py` 支援 shard 與獨立 LibreOffice profile；PDF 合併也採有限並行。預設 2，設為 1 可回退序列流程。`POST /api/xls-booking/cleanup` 可由 admin/staff 清理過期 job、report、uploads，中間 XLSX 於合併後自動移除。
 1. **Shipper Role Project 程式碼拆分重構**（對照 Global Rule `.clinerule.md` 檔案大小限制）：

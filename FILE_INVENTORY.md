@@ -2,15 +2,12 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/13 下午9:19:36
+> 最後更新：2026/9/13 下午9:20:49
 
 ## 🔄 Git 變更狀態
 
 ```
-M data/templates/shipper-role-summary-2026.xlsx
-M database.db
-M db/db-dump.sql
-M db/sessions.db
+M WORKSPACE_STATE.md
 ```
 
 ## 📁 檔案清單（共 1043 個檔案）
@@ -25,7 +22,7 @@ M db/sessions.db
 - `ORDER_SYSTEM_PLAN.md`（8.1 KB）
 - `PROJECT_MAP.md`（10.7 KB）
 - `README.md`（13.2 KB）
-- `WORKSPACE_STATE.md`（6.7 KB）
+- `WORKSPACE_STATE.md`（7.1 KB）
 - `deepseek_text_20260820_ba683e.txt`（18.5 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）

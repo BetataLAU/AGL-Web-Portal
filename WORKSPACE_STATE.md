@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`7f4e45b` chore(sync)：同步 Report 工作檔、DB 快照與 FILE_INVENTORY
+- **最後 commit**：`24ef13e` chore(sync)：同步 202609 Report 工作檔、DB 快照與 sessions
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（template 備份檔已由 `.gitignore` 忽略：`data/templates/* (BAK).xlsx`）
 
@@ -13,6 +13,7 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
+1. **202609 Report 工作檔 + DB 快照同步**（`24ef13e`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1366 → 1377 列（+11，其餘 6 個 sheet 不變）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新、`db/sessions.db` 本機 session 同步、`FILE_INVENTORY.md` 重新產生。（另：本機已 `git pull` 至 `1d5f320`，開發伺服器重啟於 port 3000）
 1. **Report 工作檔 + DB 再同步**（`7f4e45b`）：`data/templates/shipper-role-summary-2026.xlsx` 同步（202609 sheet 由 1142 → 1367 列，其餘月份不變；513.6 KB → 521.0 KB）、`database.db` / `db/sessions.db` 同步、`db/db-dump.sql` 重新匯出（`users.last_login_at` 更新 + `sqlite_sequence` 計數器補齊）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1043 個檔案）。
 1. **素材資料夾改名 + 母版／DB 再同步**（`77a4d01`）：`data/templates/SLI_ELI letter PNG (MAT, Tinyed)/`（由 `(MAT)` 改名，5 個 PNG 內容不變）、`cainiao-sli-eli-template.xlsx` 母版再更新（103 KB → 95.9 KB）、`shipper-role-summary-2026.xlsx` / `database.db` / `db/sessions.db` / `db/db-dump.sql` 同步、`FILE_INVENTORY.md` 重新產生。
 1. **模板與素材同步**（`f255576`）：`data/templates/cainiao-sli-eli-template.xlsx` 母版更新（185 KB → 103 KB）、新增 `data/templates/SLI_ELI letter PNG (MAT)/` 製圖 PNG 素材（CAINIAO_LOGO / HAFFA_GRP / HAFFA_LOGO / KL_CHOP / SIGN）、`shipper-role-summary-2026.xlsx` 同步最新 report 母版、`database.db` / `db/sessions.db` / `db/db-dump.sql` 同步；`FILE_INVENTORY.md` 由 `npm run sync` 重新產生；`.gitignore` 新增忽略模板備份檔。

@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`d1bb695` chore(sync)：同步 202609 Report 工作檔、DB 快照與 sessions
+- **最後 commit**：`eb69bd3` chore(sync)：同步 202609 Report 工作檔（+129 列）、DB 快照與 sessions
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`）
 
@@ -13,7 +13,8 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
-1. **202609 Report 工作檔 + DB 快照再同步**（`d1bb695`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1378 → 1411 列（+33，其餘 6 個 sheet 不變；533.4 KB → 534.7 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-14 06:05:34 → 2026-09-15 04:22:03）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（996 → 1038 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
+1. **202609 Report 工作檔 + DB 快照再同步**（`eb69bd3`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1411 → 1540 列（+129，其餘 6 個 sheet 不變；534.7 KB → 538.9 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-15 04:22:03 → 2026-09-16 05:01:48）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1038 → 1192 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
+2. **202609 Report 工作檔 + DB 快照再同步**（`d1bb695`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1378 → 1411 列（+33，其餘 6 個 sheet 不變；533.4 KB → 534.7 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-14 06:05:34 → 2026-09-15 04:22:03）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（996 → 1038 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
 1. **202609 Report 工作檔 + DB 快照同步**（`24ef13e`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1366 → 1377 列（+11，其餘 6 個 sheet 不變）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新、`db/sessions.db` 本機 session 同步、`FILE_INVENTORY.md` 重新產生。（另：本機已 `git pull` 至 `1d5f320`，開發伺服器重啟於 port 3000）
 1. **Report 工作檔 + DB 再同步**（`7f4e45b`）：`data/templates/shipper-role-summary-2026.xlsx` 同步（202609 sheet 由 1142 → 1367 列，其餘月份不變；513.6 KB → 521.0 KB）、`database.db` / `db/sessions.db` 同步、`db/db-dump.sql` 重新匯出（`users.last_login_at` 更新 + `sqlite_sequence` 計數器補齊）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1043 個檔案）。
 1. **素材資料夾改名 + 母版／DB 再同步**（`77a4d01`）：`data/templates/SLI_ELI letter PNG (MAT, Tinyed)/`（由 `(MAT)` 改名，5 個 PNG 內容不變）、`cainiao-sli-eli-template.xlsx` 母版再更新（103 KB → 95.9 KB）、`shipper-role-summary-2026.xlsx` / `database.db` / `db/sessions.db` / `db/db-dump.sql` 同步、`FILE_INVENTORY.md` 重新產生。

@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`ed1617c` chore(sync)：同步 202609 Report 工作檔（+108 列）、DB 快照與 sessions
+- **最後 commit**：`2fd2122` chore(sync)：同步 202609 Report 工作檔（+25 列）、DB 快照與 sessions
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`）
 
@@ -13,7 +13,8 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
-1. **202609 Report 工作檔 + DB 快照再同步**（`ed1617c`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1540 → 1648 列（+108，其餘 6 個 sheet 不變；538.9 KB → 542.4 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-16 05:01:48 → 2026-09-17 03:33:08）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1192 → 1314 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
+1. **202609 Report 工作檔 + DB 快照再同步**（`2fd2122`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1647 → 1672 列（+25：新增 23 列資料、整份列序重排，原 1647 列中有 1646 列保留；其餘 6 個 sheet 不變；542.4 KB → 543.8 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-17 03:33:08 → 2026-09-17 13:35:06）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1314 → 1077 個檔案，差異來自本機 `data/uploads/`、`data/work/` 產出增減）。
+2. **202609 Report 工作檔 + DB 快照再同步**（`ed1617c`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1540 → 1648 列（+108，其餘 6 個 sheet 不變；538.9 KB → 542.4 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-16 05:01:48 → 2026-09-17 03:33:08）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1192 → 1314 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
 2. **202609 Report 工作檔 + DB 快照再同步**（`eb69bd3`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1411 → 1540 列（+129，其餘 6 個 sheet 不變；534.7 KB → 538.9 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-15 04:22:03 → 2026-09-16 05:01:48）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1038 → 1192 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
 2. **202609 Report 工作檔 + DB 快照再同步**（`d1bb695`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1378 → 1411 列（+33，其餘 6 個 sheet 不變；533.4 KB → 534.7 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-14 06:05:34 → 2026-09-15 04:22:03）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（996 → 1038 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
 1. **202609 Report 工作檔 + DB 快照同步**（`24ef13e`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1366 → 1377 列（+11，其餘 6 個 sheet 不變）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新、`db/sessions.db` 本機 session 同步、`FILE_INVENTORY.md` 重新產生。（另：本機已 `git pull` 至 `1d5f320`，開發伺服器重啟於 port 3000）
@@ -65,6 +66,7 @@
 - [ ] **REMARK：template 備份管理** —— `data/templates/cainiao-sli-eli-template (BAK).xlsx` 目前僅存本機（已加入 `.gitignore`）；如需進版控請用 `git add -f`。
 - [ ] **REMARK：GuestBook（messages）殘留清理** —— 已移除 forum UI/API/建表，但舊 `messages` 表仍在 database.db（SQLite 不會自動刪）；`routes/dbviewer.js` 與 `public/js/dbviewer.js` 仍引用 `messages`（資料庫檢視器會看到舊表）。日後處理：① 加 `DROP TABLE IF EXISTS messages` ② 移除 dbviewer 的 `ALLOWED_TABLES` / 標籤引用
 - [ ] **REMARK：FILE_INVENTORY 掃描範圍** —— `scripts/sync-project-state.js` 未排除 `data/work/` 與 `data/uploads/`，因此只要本機跑過 Shipper Role job，重跑 `npm run sync` 就會把這些本機產出列進 `FILE_INVENTORY.md`（檔案數在 996 ↔ 10xx 之間跳動）。這些路徑已在 `.gitignore`（不會進 repo），但清單會膨脹。日後處理：在 `EXCLUDE_DIRS` 加入 `data/work`、`data/uploads`。
+- [ ] **REMARK：`sqlite_sequence` 重複列累積** —— 本機 `database.db` 的 `sqlite_sequence` 已有 178 列（正常應為 15 列＝每個 AUTOINCREMENT 表 1 列）。原因：`scripts/db-import.js` 會先刪除 `database.db` 再依 dump 重建，建表＋插資料時 SQLite 自動生成 15 列計數器，之後又執行 dump 內歷史的 `INSERT INTO "sqlite_sequence"`，因此每次 `db:import` → `db:export` 循環就再累積 15 列（`db-dump.sql` 的該區塊由 163 → 178 列）。日後處理擇一：① `scripts/db-export.js` 匯出時依 `name` 去重（保留最大 `seq`）② `scripts/db-import.js` 在執行 dump 的 `sqlite_sequence` INSERT 前先 `DELETE FROM sqlite_sequence`。
 - [ ] 日後每次結構性變更後執行 `npm run sync`，並同步更新本檔
 
 ## ⚠️ 專案注意事項速查

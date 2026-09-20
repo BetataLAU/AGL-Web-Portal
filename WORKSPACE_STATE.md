@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`8ae904d` chore(sync)：同步 202609 Report 工作檔（+57 列）、DB 快照與 sessions
+- **最後 commit**：`540dda3` chore(sync)：同步本機 sessions 快照（admin session 到期清理，1 → 0 筆）
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`）
 
@@ -13,6 +13,7 @@
 
 以 **最新 commit 為準**，開發脈絡（由新到舊）：
 
+1. **本機 sessions 快照同步**（`540dda3`）：僅 `db/sessions.db` 變更（admin 的 session 到期被清理，1 → 0 筆）；`database.db`、`db/db-dump.sql`、`data/templates/shipper-role-summary-2026.xlsx` 內容與 `8ae904d` 相同（pre-commit 快照匯出確認「無實質變更」），故本次為 sessions 單檔同步。
 1. **202609 Report 工作檔 + DB 快照同步**（`8ae904d`；前一筆為 `824a1c1`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1735 → 1792 列（+57：新批次 57 列插在第 4 列起，來源 `CX007`，例 `160-17591335 / LHR / 145 / 3053.37`；彙總列由 1602 筆 / 2,468,953.3 kg → 1655 筆 / 2,564,323.3 kg；原 1735 列中 1734 列保留，其餘 6 個 sheet 列數不變；檔案經重存（zip 內部項目 22 → 17、新增 `xl/calcChain.xml`、202605 的 used range `F2:H3571` → `A2:H3571`）故大小 545,362 → 670,181 bytes）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-18 08:38:37 → 2026-09-19 05:36:23）、`db/sessions.db` 本機 session 同步（1 筆換新）。差異以 HEAD 版本對本機 `database.db`／Report 逐表逐列雜湊比對確認（`sqlite_sequence` 178 列不變、其餘 16 張表內容與列數皆相同）。
 1. **202609 Report 工作檔 + DB 快照再同步**（`2fd2122`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1647 → 1672 列（+25：新增 23 列資料、整份列序重排，原 1647 列中有 1646 列保留；其餘 6 個 sheet 不變；542.4 KB → 543.8 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-17 03:33:08 → 2026-09-17 13:35:06）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1314 → 1077 個檔案，差異來自本機 `data/uploads/`、`data/work/` 產出增減）。
 2. **202609 Report 工作檔 + DB 快照再同步**（`ed1617c`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1540 → 1648 列（+108，其餘 6 個 sheet 不變；538.9 KB → 542.4 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-16 05:01:48 → 2026-09-17 03:33:08）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1192 → 1314 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。

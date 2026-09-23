@@ -149,6 +149,31 @@ router.get('/me', (req, res) => {
   res.json({ user: req.session.user });
 });
 
+// ===== 側邊欄導航排序：合法 key 驗證 =====
+// 目錄項目有兩種形式：
+//   1) 站內錨點：#section-xxx（例：#section-orders）
+//   2) 獨立頁面連結：xxx.html（例：uld-packing.html / packing.html / users.html）
+// 注意：頁面連結必須一併允許，否則存入時會被過濾掉，
+//       前端套用排序時該項目會浮回最上方（使用者會覺得「位置沒被記住」）。
+const NAV_KEY_MAX_LEN = 100;
+const MAX_ORDER_ITEMS = 20;
+const NAV_ANCHOR_RE = /^#section-[A-Za-z0-9_-]+$/;
+const NAV_PAGE_RE = /^[A-Za-z0-9_-]+\.html$/;
+
+function sanitizeNavOrder(rawOrder) {
+  const seen = new Set();
+  const clean = [];
+  rawOrder.forEach(item => {
+    const key = String(item).trim();
+    if (!key || key.length > NAV_KEY_MAX_LEN) return;
+    if (!NAV_ANCHOR_RE.test(key) && !NAV_PAGE_RE.test(key)) return;
+    if (seen.has(key)) return;
+    seen.add(key);
+    clean.push(key);
+  });
+  return clean;
+}
+
 // GET /api/auth/me/nav-order → 讀取目前登入者的側邊欄導航排序（伺服器端持久化）
 router.get('/me/nav-order', requireAuth, (req, res) => {
   const userId = req.session.user.id;
@@ -172,14 +197,11 @@ router.put('/me/nav-order', requireAuth, (req, res) => {
   if (!Array.isArray(order)) {
     return res.status(400).json({ error: '排序格式不正確（需為陣列）' });
   }
-  // 限制每個項目為有效的 href 字串，避免異常資料
-  const cleanOrder = order
-    .map(item => String(item).trim())
-    .filter(item => item.startsWith('#section-') || item === 'users.html');
-  const MAX_ORDER_ITEMS = 20;
-  if (cleanOrder.length > MAX_ORDER_ITEMS) {
+  if (order.length > MAX_ORDER_ITEMS) {
     return res.status(400).json({ error: '排序項目過多' });
   }
+  // 驗證並清理每個項目（僅允許合法目錄 key，且去重）
+  const cleanOrder = sanitizeNavOrder(order);
   const storeValue = JSON.stringify(cleanOrder);
 
   db.run(

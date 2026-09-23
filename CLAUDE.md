@@ -107,6 +107,8 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端**：`login.html`（獨立登入頁）、`users.html`（使用者管理，admin only）、`js/auth.js`（Sidebar 登入狀態與鎖頭控制）、`js/utils/api.js`（401 自動跳轉登入頁）、`main.js`（受保護區塊僅登入後初始化）。
 
+**側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `uld-packing.html` / `packing.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
+
 **注意**：
 - `auth.js` 的 `fetchCurrentUser` 不可用 `apiFetch`（401 會跳轉）；需用原生 fetch 且 401 回 null
 - `login.html` 不可引入 `api.js`（登入失敗 401 會造成無限跳轉），用原生 fetch

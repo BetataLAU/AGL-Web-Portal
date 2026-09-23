@@ -119,30 +119,62 @@ function setupSidebarReorder() {
     item.appendChild(wrap);
   });
 
-  // ===== 依 localStorage 儲存順序重排 =====
-  function loadSavedOrder() {
+  // ===== 排序資料處理 =====
+
+  // 讀取 localStorage 內的排序（原始字串陣列，不過濾可見性）
+  function loadRawOrder() {
     try {
       const saved = JSON.parse(localStorage.getItem(SORT_KEY) || '[]');
       if (!Array.isArray(saved)) return [];
-      const visibleKeys = new Set(getVisibleItems().map(getItemKey));
-      return saved.filter(key => visibleKeys.has(key));
+      return saved.filter(key => typeof key === 'string' && key.trim());
     } catch { return []; }
+  }
+
+  // 讀取 localStorage 排序，只保留目前可見的項目
+  function loadSavedOrder() {
+    const visibleKeys = new Set(getVisibleItems().map(getItemKey));
+    return loadRawOrder().filter(key => visibleKeys.has(key));
+  }
+
+  // 由「已存順序 + 目前 DOM 順序」算出完整順序：
+  //   已列出的可見項目依儲存順序在前；未被列到的可見項目（新目錄、未登入時被隱藏的項目）補在最後。
+  //   （舊版只把已列出的項目搬到尾端，未被列到的會浮到最上方 → 看起來像「排序沒被記住」）
+  function buildFullOrder(savedOrder) {
+    const visibleKeys = getVisibleItems().map(getItemKey);
+    const visibleSet = new Set(visibleKeys);
+    const used = new Set();
+    const full = [];
+    (Array.isArray(savedOrder) ? savedOrder : []).forEach(key => {
+      if (!visibleSet.has(key) || used.has(key)) return;
+      used.add(key);
+      full.push(key);
+    });
+    visibleKeys.forEach(key => {
+      if (used.has(key)) return;
+      used.add(key);
+      full.push(key);
+    });
+    return full;
   }
 
   // 套用排序（依指定順序重排項目，HOME 不動）
   function applyOrder(order) {
     const itemsByKey = new Map(getVisibleItems().map(i => [getItemKey(i), i]));
-    order.forEach(key => {
+    buildFullOrder(order).forEach(key => {
       const item = itemsByKey.get(key);
-      if (item && item !== nav.lastElementChild) nav.appendChild(item);
+      if (item) nav.appendChild(item);
     });
   }
 
-  // 儲存排序：寫入 localStorage（立即生效）+ 伺服器（換瀏覽器/重啟仍保留）
-  function saveOrder() {
-    const order = getVisibleItems().map(getItemKey);
-    localStorage.setItem(SORT_KEY, JSON.stringify(order));
-    // 伺服器端持久化（僅已登入時可寫入；未登入時 fire-and-forget，失敗不影響本地）
+  // 寫入 localStorage：本次完整順序 + 保留目前不可見的舊 key
+  // （例：未登入時被隱藏的 users.html，保留才能讓下次登入第一畫面就是正確位置）
+  function persistLocalOrder(order) {
+    const hidden = loadRawOrder().filter(key => !order.includes(key));
+    try { localStorage.setItem(SORT_KEY, JSON.stringify(order.concat(hidden))); } catch (e) { /* ignore */ }
+  }
+
+  // 儲存排序到伺服器（僅已登入時可寫入；未登入時 fire-and-forget，失敗不影響本地）
+  function pushOrderToServer(order) {
     try {
       fetch('/api/auth/me/nav-order', {
         method: 'PUT',
@@ -153,19 +185,26 @@ function setupSidebarReorder() {
     } catch (e) { /* ignore */ }
   }
 
+  // 儲存排序：寫入 localStorage（立即生效）+ 伺服器（換瀏覽器 / 重新登入後仍保留）
+  // 立即送出 PUT：事件已確保只綁一次，一次拖放只會寫一次；不 debounce 才能避免
+  // 「拖完立刻關閉頁面 → 伺服器沒收到，下次載入被舊順序覆蓋」的情況。
+  function saveOrder() {
+    const order = buildFullOrder(getVisibleItems().map(getItemKey));
+    persistLocalOrder(order);
+    pushOrderToServer(order);
+  }
+
   // 從伺服器讀取排序（登入後才有效；優先於 localStorage，確保跨裝置一致）
   function loadServerOrder() {
     fetch('/api/auth/me/nav-order', { cache: 'no-store' })
       .then(res => { if (!res.ok) return null; return res.json(); })
       .then(data => {
         if (!data || !Array.isArray(data.order)) return;
-        // 只取目前可見的項目（排除已被隱藏/刪除的）
-        const visibleKeys = new Set(getVisibleItems().map(getItemKey));
-        const validOrder = data.order.filter(key => visibleKeys.has(key));
-        if (validOrder.length > 0) {
-          applyOrder(validOrder);
-          try { localStorage.setItem(SORT_KEY, JSON.stringify(validOrder)); } catch (e) { /* ignore */ }
-        }
+        const fullOrder = buildFullOrder(data.order);
+        if (fullOrder.length === 0) return;
+        applyOrder(fullOrder);
+        // 只寫回「完整順序」：不可用伺服器回傳的清單直接覆寫本機記憶（不完整時會遺失位置）
+        persistLocalOrder(fullOrder);
       })
       .catch(() => { /* 伺服器錯誤時保留 localStorage */ });
   }
@@ -186,54 +225,64 @@ function setupSidebarReorder() {
     nav.querySelectorAll('.nav-item').forEach(i => i.classList.remove('drag-over-top', 'drag-over-bottom'));
   }
 
-  nav.addEventListener('dragstart', (e) => {
-    const item = e.target.closest('.nav-item');
-    if (!item || item.getAttribute('href') === HOME_HREF) {
+  // 拖曳事件「只綁定一次」：本函式在 DOMContentLoaded 與登入後各被呼叫一次，
+  // 舊版每次都重新 addEventListener 卻未移除舊的，同一次拖放會被多個 handler 處理，
+  // 後面的 handler 會依「已被搬動後」的座標重新判定上下半 → 位置錯亂並重複寫入伺服器。
+  function bindDragEvents() {
+    nav.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.nav-item');
+      if (!item || item.getAttribute('href') === HOME_HREF) {
+        e.preventDefault();
+        return;
+      }
+      draggingItem = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', getItemKey(item));
+    });
+
+    nav.addEventListener('dragend', resetDrag);
+
+    nav.addEventListener('dragover', (e) => {
       e.preventDefault();
-      return;
-    }
-    draggingItem = item;
-    item.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', getItemKey(item));
-  });
+      if (!draggingItem) return;
+      const item = e.target.closest('.nav-item');
+      if (!item || item === draggingItem || item.getAttribute('href') === HOME_HREF) return;
+      const rect = item.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      item.classList.toggle('drag-over-bottom', after);
+      item.classList.toggle('drag-over-top', !after);
+    });
 
-  nav.addEventListener('dragend', resetDrag);
+    nav.addEventListener('dragleave', (e) => {
+      const item = e.target.closest('.nav-item');
+      if (item) item.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
 
-  nav.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (!draggingItem) return;
-    const item = e.target.closest('.nav-item');
-    if (!item || item === draggingItem || item.getAttribute('href') === HOME_HREF) return;
-    const rect = item.getBoundingClientRect();
-    const after = (e.clientY - rect.top) > rect.height / 2;
-    item.classList.toggle('drag-over-bottom', after);
-    item.classList.toggle('drag-over-top', !after);
-  });
-
-  nav.addEventListener('dragleave', (e) => {
-    const item = e.target.closest('.nav-item');
-    if (item) item.classList.remove('drag-over-top', 'drag-over-bottom');
-  });
-
-  nav.addEventListener('drop', (e) => {
-    e.preventDefault();
-    if (!draggingItem) return;
-    const target = e.target.closest('.nav-item');
-    if (!target || target === draggingItem || target.getAttribute('href') === HOME_HREF) {
+    nav.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!draggingItem) return;
+      const target = e.target.closest('.nav-item');
+      if (!target || target === draggingItem || target.getAttribute('href') === HOME_HREF) {
+        resetDrag();
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      if (after) {
+        nav.insertBefore(draggingItem, target.nextElementSibling);
+      } else {
+        nav.insertBefore(draggingItem, target);
+      }
       resetDrag();
-      return;
-    }
-    const rect = target.getBoundingClientRect();
-    const after = (e.clientY - rect.top) > rect.height / 2;
-    if (after) {
-      nav.insertBefore(draggingItem, target.nextElementSibling);
-    } else {
-      nav.insertBefore(draggingItem, target);
-    }
-    resetDrag();
-    saveOrder();
-  });
+      saveOrder();
+    });
+  }
+
+  if (nav.dataset.reorderBound !== '1') {
+    bindDragEvents();
+    nav.dataset.reorderBound = '1';
+  }
 }
 
 // 供 auth.js 登入後重新整理（nav-users 顯示時需要補上把手）

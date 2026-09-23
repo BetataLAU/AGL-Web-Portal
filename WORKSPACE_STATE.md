@@ -1,54 +1,28 @@
 # WORKSPACE_STATE — 工作狀態交接檔
 
-> 供 AI Agent 每次新對話快速接上進度。
-> 由開發者／AI 在完成每次任務後更新（特別是最後一個 commit 之後）。
+> 供 AI Agent 每次新對話快速接上進度，由開發者／AI 在完成任務後更新。
+> 編寫原則：只保留**最後 commit、近期里程碑（每項一行）、待辦 REMARK**；逐 commit 的同步細節請看 `git log`。
 
 ## 📌 目前狀態
 
-- **最後 commit**：`540dda3` chore(sync)：同步本機 sessions 快照（admin session 到期清理，1 → 0 筆）
+- **最後 commit**：`549289c` fix(sidebar)：修正側邊欄目錄排序無法記住（頁面連結項目被後端過濾）
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`）
+- **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
 
-## ✅ 已完成（最近）
+## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-以 **最新 commit 為準**，開發脈絡（由新到舊）：
+1. **文件整理（本輪，未 commit）**：11 份散落文件重新分類——歷史規格 → `docs/archive/`、設計文件 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md` 分類規則；`README.md` 依現況重寫（登入 / 訂單 / Shipper Role / 3D ULD 裝箱 / 打板計劃 / 資料庫檢視器）；`CLAUDE.md`、`PROJECT_MAP.md` 補齊 auth、pallet、packing 模組與 17 張資料表；`scripts/sync-project-state.js` 排除 `data/work`、`data/uploads`；`scripts/fetch-*.py` 輸出路徑改至 `docs/research/`。
+2. **側邊欄排序修復**（`549289c`）：`*.html` 頁面連結項目不再被後端過濾，排序能正確保存。
+3. **資料庫 / Report 快照同步**（`540dda3`、`8ae904d`、`2fd2122`、`ed1617c`、`eb69bd3`、`d1bb695`、`24ef13e`、`7f4e45b`…）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 逐次累加（1411 → 1792 列）、`database.db` / `db-dump.sql` 差異主要是 `users.last_login_at`、`db/sessions.db` 本機 session 換新。
+4. **打板計劃 + ULD 智能裝箱**（`8fdf148` 等）：`routes/pallet.js`、`routes/packing-{projects,solutions,solve,pdf}.js`、`bp3d/ga-lns/`、`public/uld-packing.html` + `public/js/uld-packing/*`（多 ULD 專案、拖拽、求解方案、PDF 匯出）。
+5. **Shipper Role 模組化**（`1578210` 等）：`scripts/xls-workflow.js` 拆出 `xls-utils` / `xls-cnee` / `xls-report` / `xls-sli-eli`；前端 `public/js/xls-booking.js` 拆成 7 支（state / upload / preview / grid / assign / standard / workflow）；PDF 產生加入 worker pool 並行（`XLS_PDF_CONCURRENCY`，PRD 見 `docs/design/xls-pdf-parallel-prd.md`）。
+6. **登入與權限**：Session 登入（`routes/auth/`）、角色 admin / staff / customer、客戶資料隔離、`users.html` 使用者管理、導航排序持久化。
+7. **CNEE 對照區自動化**：`extractCneeLookupArea` + `matchCnee`（DEST / REMARK 加權）、缺 CNEE 與重覆 MAWB 警告清單。
+8. **GuestBook（Forum）移除**：UI + API + 建表；舊 `messages` 表待清理（見待辦 REMARK）。
+9. **通用工具抽取**：`public/js/utils/`（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete）與 `public/css/utils/`。
+10. **訂單系統調整**：範本功能移除、HAWB# 改非必填、帶電項目累積新增、備註範本、訂單編號改 `AGL-`。
 
-1. **本機 sessions 快照同步**（`540dda3`）：僅 `db/sessions.db` 變更（admin 的 session 到期被清理，1 → 0 筆）；`database.db`、`db/db-dump.sql`、`data/templates/shipper-role-summary-2026.xlsx` 內容與 `8ae904d` 相同（pre-commit 快照匯出確認「無實質變更」），故本次為 sessions 單檔同步。
-1. **202609 Report 工作檔 + DB 快照同步**（`8ae904d`；前一筆為 `824a1c1`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1735 → 1792 列（+57：新批次 57 列插在第 4 列起，來源 `CX007`，例 `160-17591335 / LHR / 145 / 3053.37`；彙總列由 1602 筆 / 2,468,953.3 kg → 1655 筆 / 2,564,323.3 kg；原 1735 列中 1734 列保留，其餘 6 個 sheet 列數不變；檔案經重存（zip 內部項目 22 → 17、新增 `xl/calcChain.xml`、202605 的 used range `F2:H3571` → `A2:H3571`）故大小 545,362 → 670,181 bytes）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-18 08:38:37 → 2026-09-19 05:36:23）、`db/sessions.db` 本機 session 同步（1 筆換新）。差異以 HEAD 版本對本機 `database.db`／Report 逐表逐列雜湊比對確認（`sqlite_sequence` 178 列不變、其餘 16 張表內容與列數皆相同）。
-1. **202609 Report 工作檔 + DB 快照再同步**（`2fd2122`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1647 → 1672 列（+25：新增 23 列資料、整份列序重排，原 1647 列中有 1646 列保留；其餘 6 個 sheet 不變；542.4 KB → 543.8 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-17 03:33:08 → 2026-09-17 13:35:06）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1314 → 1077 個檔案，差異來自本機 `data/uploads/`、`data/work/` 產出增減）。
-2. **202609 Report 工作檔 + DB 快照再同步**（`ed1617c`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1540 → 1648 列（+108，其餘 6 個 sheet 不變；538.9 KB → 542.4 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-16 05:01:48 → 2026-09-17 03:33:08）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1192 → 1314 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
-2. **202609 Report 工作檔 + DB 快照再同步**（`eb69bd3`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1411 → 1540 列（+129，其餘 6 個 sheet 不變；534.7 KB → 538.9 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-15 04:22:03 → 2026-09-16 05:01:48）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1038 → 1192 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
-2. **202609 Report 工作檔 + DB 快照再同步**（`d1bb695`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1378 → 1411 列（+33，其餘 6 個 sheet 不變；533.4 KB → 534.7 KB）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新（2026-09-14 06:05:34 → 2026-09-15 04:22:03）、`db/sessions.db` 本機 session 同步（1 筆換新）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（996 → 1038 個檔案，多出的是本機 `data/uploads/` 與 `data/work/` 產出）。
-1. **202609 Report 工作檔 + DB 快照同步**（`24ef13e`）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1366 → 1377 列（+11，其餘 6 個 sheet 不變）、`database.db` / `db/db-dump.sql` 唯一資料差異為 `users` 表 admin 的 `last_login_at` 更新、`db/sessions.db` 本機 session 同步、`FILE_INVENTORY.md` 重新產生。（另：本機已 `git pull` 至 `1d5f320`，開發伺服器重啟於 port 3000）
-1. **Report 工作檔 + DB 再同步**（`7f4e45b`）：`data/templates/shipper-role-summary-2026.xlsx` 同步（202609 sheet 由 1142 → 1367 列，其餘月份不變；513.6 KB → 521.0 KB）、`database.db` / `db/sessions.db` 同步、`db/db-dump.sql` 重新匯出（`users.last_login_at` 更新 + `sqlite_sequence` 計數器補齊）、`FILE_INVENTORY.md` 由 `npm run sync` 重新產生（1043 個檔案）。
-1. **素材資料夾改名 + 母版／DB 再同步**（`77a4d01`）：`data/templates/SLI_ELI letter PNG (MAT, Tinyed)/`（由 `(MAT)` 改名，5 個 PNG 內容不變）、`cainiao-sli-eli-template.xlsx` 母版再更新（103 KB → 95.9 KB）、`shipper-role-summary-2026.xlsx` / `database.db` / `db/sessions.db` / `db/db-dump.sql` 同步、`FILE_INVENTORY.md` 重新產生。
-1. **模板與素材同步**（`f255576`）：`data/templates/cainiao-sli-eli-template.xlsx` 母版更新（185 KB → 103 KB）、新增 `data/templates/SLI_ELI letter PNG (MAT)/` 製圖 PNG 素材（CAINIAO_LOGO / HAFFA_GRP / HAFFA_LOGO / KL_CHOP / SIGN）、`shipper-role-summary-2026.xlsx` 同步最新 report 母版、`database.db` / `db/sessions.db` / `db/db-dump.sql` 同步；`FILE_INVENTORY.md` 由 `npm run sync` 重新產生；`.gitignore` 新增忽略模板備份檔。
-1. **Shipper Role PDF 並行化與資源清理**（工作目錄未 commit）：`scripts/xls-workflow.js` 以 `XLS_PDF_CONCURRENCY` 控制 1–4 個 Python/Excel worker，`scripts/sli-eli-generate.py` 支援 shard 與獨立 LibreOffice profile；PDF 合併也採有限並行。預設 2，設為 1 可回退序列流程。`POST /api/xls-booking/cleanup` 可由 admin/staff 清理過期 job、report、uploads，中間 XLSX 於合併後自動移除。
-1. **Shipper Role Project 程式碼拆分重構**（對照 Global Rule `.clinerule.md` 檔案大小限制）：
-   - `routes/xls-booking.js`（321→281 行）：路徑/Multer/session 儲存/讀檔工具拆至 `routes/xls-booking-helpers.js`；新增 multer 錯誤轉 JSON；`/download/report` 改為從 job 結果解析路徑（擋掉路徑穿越）
-   - `scripts/xls-workflow.js`（837→483 行）：拆出 `xls-utils.js` / `xls-cnee.js` / `xls-report.js` / `xls-sli-eli.js`；`xls-workflow.js` 保留主流程並 re-export 全部歷史 API（`require` 相容）
-   - `public/js/xls-booking.js`（1066→刪除）：拆為 7 個全域 script（state/upload/preview/grid/assign/standard/workflow），`index.html` 依序載入，inline onclick 不受影響
-   - 驗證：node --check 全過、HTTP 端對端冒煙測試（上傳/預覽/CNEE/process 產出 2 份 PDF + ZIP + report 下載）、路徑穿越回 404
-2. **Shipper Role Project：CNEE 對照區自動化**（`scripts/xls-workflow.js` / `routes/xls-booking.js` / `public/js/xls-booking.js` / `public/css/xls-booking.css`）：
-   - `extractCneeLookupArea`：自動掃 sheet 的 A/B/C 欄（A=區塊 key、B=`CNEE:`、C=值＋續行）建立對照表
-   - `matchCnee`：DEST + REMARK 加權比對（含 `DEST_COUNTRY_KEYWORDS` 國家關鍵字）；REMARK 空白取純 DEST 預設區塊
-   - `standardizeRows` 支援 `cneeLookup.auto` + `cneeOverrides`（手動補值優先）；舊手動模式保留相容
-   - `runWorkflow` 收集缺 CNEE 警告清單（不阻斷，SLI/ELI 留空）
-   - 新 API `POST /api/xls-booking/cnee-preview`；`/process` 結果帶 `warnings` 與 `workDir`
-   - ③ 標準化預覽新增 CNEE 欄（缺漏 🔴，點擊行內補值）；② 預覽空格單擊編輯
-   - 測試：`scripts/test-cnee-lookup.js`（單元 + 端對端，全部通過）
-2. **GuestBook 移除**：Forum 功能整個移除（UI + API + 前端 JS + server 路由 + messages 建表）；REMARK：舊 messages 表與 dbviewer 引用留待日後清理
-3. **通用工具抽取**：從 `orders.js` 抽出 7 個可重用工具到 `public/js/utils/`（api / datetime / mawb / modal / cbm-calculator / time-picker / autocomplete），CSS 對應搬至 `public/css/utils/`，`index.html` 已在 orders.js 之前引入
-4. **訂單系統調整**：範本功能移除（UI + API，資料庫 templates 表保留）、收貨/送貨按鈕對調、HAWB# 改非必填、第 8️⃣ 區塊改為只有備註（運輸公司選擇移除）、帶電項目主類別/代碼改自動補全
-4. 提貨時間選擇器：自訂 ±15 分鐘跨小時進位、CLOCK 彈出 00/15/30/45、stopPropagation 修正
-5. 訂單系統重大更新：6 項新功能 + 後端重構 + 多類別支援
-6. MAWB# 驗證／後補、重複檢查、AGL 流水號
-7. 電力分類改為累積新增模式（可混合無電/乾電/鋰電，各自輸入件數）
-8. 資料庫檢視器新增（白名單保護、外鍵下拉、刪除關聯保護）
-
-## 🔧 已建立的地圖機制（未 commit）
-
-本輪新增的 AI 專案地圖系統（尚未 commit，作為工作目錄變更）：
+## 🔧 專案地圖機制（已建置）
 
 | 檔案 | 用途 |
 |------|------|
@@ -58,17 +32,17 @@
 | `FILE_INVENTORY.md` | 自動產生的檔案清單 |
 | `.project-state.json` | 結構快照（sync 引擎比對用） |
 | `WORKSPACE_STATE.md` | 本檔案：工作狀態交接 |
-| `scripts/sync-project-state.js` | 同步引擎：掃描 + 結構變更偵測 |
-| `package.json` | 新增 `npm run sync` |
+| `docs/README.md` | 文件分類規則與索引（根目錄 vs docs/design|archive|research） |
+| `scripts/sync-project-state.js` | 同步引擎：掃描 + 結構變更偵測（已排除 `data/work`、`data/uploads`） |
+| `package.json` | `npm run sync` / `db:export` / `db:import` / `hooks:install` |
 
 ## 📋 下一步（待辦）
 
-- [ ] 確認地圖機制運作：開新 chat，驗證 AI 會自動讀 CLAUDE.md + 執行 sync
-- [x] commit 本輪工作（訂單系統調整 + 通用工具抽取 + GuestBook 移除）
-- [ ] **REMARK：template 備份管理** —— `data/templates/cainiao-sli-eli-template (BAK).xlsx` 目前僅存本機（已加入 `.gitignore`）；如需進版控請用 `git add -f`。
-- [ ] **REMARK：GuestBook（messages）殘留清理** —— 已移除 forum UI/API/建表，但舊 `messages` 表仍在 database.db（SQLite 不會自動刪）；`routes/dbviewer.js` 與 `public/js/dbviewer.js` 仍引用 `messages`（資料庫檢視器會看到舊表）。日後處理：① 加 `DROP TABLE IF EXISTS messages` ② 移除 dbviewer 的 `ALLOWED_TABLES` / 標籤引用
-- [ ] **REMARK：FILE_INVENTORY 掃描範圍** —— `scripts/sync-project-state.js` 未排除 `data/work/` 與 `data/uploads/`，因此只要本機跑過 Shipper Role job，重跑 `npm run sync` 就會把這些本機產出列進 `FILE_INVENTORY.md`（檔案數在 996 ↔ 10xx 之間跳動）。這些路徑已在 `.gitignore`（不會進 repo），但清單會膨脹。日後處理：在 `EXCLUDE_DIRS` 加入 `data/work`、`data/uploads`。
-- [ ] **REMARK：`sqlite_sequence` 重複列累積** —— 本機 `database.db` 的 `sqlite_sequence` 已有 178 列（正常應為 15 列＝每個 AUTOINCREMENT 表 1 列）。原因：`scripts/db-import.js` 會先刪除 `database.db` 再依 dump 重建，建表＋插資料時 SQLite 自動生成 15 列計數器，之後又執行 dump 內歷史的 `INSERT INTO "sqlite_sequence"`，因此每次 `db:import` → `db:export` 循環就再累積 15 列（`db-dump.sql` 的該區塊由 163 → 178 列）。日後處理擇一：① `scripts/db-export.js` 匯出時依 `name` 去重（保留最大 `seq`）② `scripts/db-import.js` 在執行 dump 的 `sqlite_sequence` INSERT 前先 `DELETE FROM sqlite_sequence`。
+- [ ] 確認地圖機制運作：開新 chat，驗證 AI 會自動讀 `CLAUDE.md` + 執行 `npm run sync`
+- [ ] **REMARK：本機 log 清理** —— `server.err.log` / `server.out.log` 被執行中的服務鎖住無法刪除；停掉服務後執行 `Remove-Item server.*.log`（已在 `.gitignore`，不影響版控）
+- [ ] **REMARK：template 備份管理** —— `data/templates/cainiao-sli-eli-template (BAK).xlsx` 目前僅存本機（已加入 `.gitignore`）；如需進版控請用 `git add -f`
+- [ ] **REMARK：GuestBook（messages）殘留清理** —— 已移除 forum UI/API/建表，但舊 `messages` 表仍在 `database.db`（SQLite 不會自動刪）；`routes/dbviewer.js` 與 `public/js/dbviewer.js` 仍引用 `messages`。日後處理：① 加 `DROP TABLE IF EXISTS messages` ② 移除 dbviewer 的 `ALLOWED_TABLES` / 標籤引用
+- [ ] **REMARK：`sqlite_sequence` 重複列累積** —— 本機 `database.db` 的 `sqlite_sequence` 已有 178 列（正常應為 17 列＝每個 AUTOINCREMENT 表 1 列）。原因：`scripts/db-import.js` 先刪庫重建，之後又執行 dump 內歷史的 `INSERT INTO "sqlite_sequence"`。日後處理擇一：① `scripts/db-export.js` 匯出時依 `name` 去重（保留最大 `seq`）② `scripts/db-import.js` 執行該區塊前先 `DELETE FROM sqlite_sequence`
 - [ ] 日後每次結構性變更後執行 `npm run sync`，並同步更新本檔
 
 ## ⚠️ 專案注意事項速查
@@ -76,5 +50,6 @@
 - 使用 sqlite3 callback 風格（非 async/await）
 - 前端無框架、無 build step，改完直接 refresh
 - 訂單編號前綴 `ORDER_NO_PREFIX` 在 `routes/orders/utils.js`（目前 `AGL-`）
-- 電力分類代碼：乾電 A67/A123/A199、鋰電 ELI/ELM（儲存於 `power_items`）
+- 電力分類代碼：乾電 A67/A123/A199、鋰電 ELI/ELM（存於 `power_items`）
+- 文件只放兩處：根目錄（現役導航）與 `docs/`（design / archive / research）——判準見 `docs/README.md`
 - 完整細節見 `CLAUDE.md` 與 `PROJECT_MAP.md`

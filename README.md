@@ -1,40 +1,123 @@
-# Gemini 全棧介紹網站 (Full-Stack Intro Site)
+# AGL Web Portal
 
-這是一個以 Node.js + Express + SQLite 建立的簡單全棧展示網站，包含前端頁面、後端 API 與資料庫儲存功能。
+航空貨運作業入口網站（內部使用），以 **Node.js + Express + SQLite** 打造，前端為原生 JavaScript / HTML / CSS（無框架、無 build step）。
 
-## 這個網站目前包含什麼
+## 這個網站包含什麼
 
-- 前端展示頁：首頁、AI Playground、Capabilities、Contour、Forum、訂單系統
-- 後端 API：取得技能、留言列表、新增/修改/刪除留言、Contour 影像、訂單系統 API
-- SQLite 資料庫：儲存留言、技能、公司/地點、範本與訂單資料
-- 主題切換：Light / Dark / Ocean，並支援 Ocean 主題自訂色盤
-- 匯出功能：可匯出 CSV / XLSX
-- 彈窗操作：匯出視窗支援 ESC 關閉
+| 模組 | 入口 | 說明 |
+|------|------|------|
+| 🔐 登入 / 權限 | `login.html`、`users.html` | Session 登入（Company Code + User ID + Password）；角色 `admin` / `staff` / `customer`，Sidebar 依權限顯示鎖頭 |
+| 📦 訂單系統 | Sidebar「訂單系統」 | 收貨/送貨落 ORDER、公司/地點資料庫、電力分類、趕機、電郵總結 |
+| ✈️ Shipper Role Project | Sidebar「Shipper Role Project」 | 上傳 XLS 配對表 → 產生 Report + SLI/ELI PDF + ZIP |
+| 📥 打板計劃 | Sidebar「打板計劃」 | 板位 booking、SPL 代碼、計劃卡（可從訂單同步）、拖曳排序（需 admin/staff） |
+| 🧊 ULD 智能裝箱 | `uld-packing.html` | 多 ULD 專案配載：貨物清單、3D 互動拖拽、GA-LNS 自動求解、方案管理與 PDF 匯出 |
+| 🧊 3D ULD 裝箱 | `packing.html` | 單 ULD 求解：ULD 選擇、貨物編輯、Three.js 逐步裝載動畫 |
+| 🗄️ 資料庫檢視器 | Sidebar「資料庫」 | 白名單保護的資料表瀏覽 / 編輯 / 刪除（需 `db_view` 權限） |
+| 其他 | HOME / AI Playground / Capabilities / Contour | 首頁、聊天示範、技能展示、ULD 斷面圖資 |
+
+### 介面與主題
+
+- 主題：Light / Dark / Ocean（Ocean 支援自訂色盤）
+- Sidebar 目錄可拖曳排序：`localStorage` 立即生效 + `PUT /api/auth/me/nav-order` 依使用者持久化
+- 訂單系統手機優先（大按鈕 ≥ 48px、響應式 Sidebar、分步驟表單）
+- 匯出：CSV / XLSX；彈窗支援 ESC 關閉
+
+## 🚀 快速啟動
+
+```bash
+npm install
+npm start        # 或 node server.js
+```
+
+- 開啟 <http://localhost:3000>（Port 被佔用會自動 +1）
+- 內網其他裝置：`http://<本機內網IP>:3000`
+- 首次啟動會自動建立 `database.db` 與全部資料表，並建立預設管理員：
+  **Company Code `AGL` / User ID `admin` / Password `admin123`**（僅全新環境，登入後請立即改密碼）
+- Docker / Railway 部署：見 `Dockerfile`（已含 Python + LibreOffice + 中文字型）
+
+### Shipper Role PDF 產生的環境需求
+
+- **Windows**：安裝 Office（走 Excel COM / pywin32）
+- **Linux / Docker**：Python 3 + `openpyxl` + `pypdf` + LibreOffice（`Dockerfile` 已備）
+- 並行度：預設 `XLS_PDF_CONCURRENCY=2`，可在介面選 1–4；單機 Windows Excel COM 建議用 `1`
+
+## 📁 專案目錄結構
+
+```text
+AGL-Web-Portal/
+├── server.js                # Express 入口：靜態服務、session、掛載全部 API 路由
+├── database.db              # SQLite 資料庫（自動建立；用 npm run db:export / db:import 同步）
+├── bp3d/                    # 3D ULD 裝箱引擎（幾何、ULD 規格、約束、EP 演算法、solver）
+│   └── ga-lns/              # GA-LNS 啟發式（chromosome / fitness / evolve / search）
+├── db/
+│   ├── database.js          # 建表 + 相容欄位補齊 + seed
+│   └── db-dump.sql          # 資料庫匯出（版本控管用）
+├── docs/                    # 設計 / 歷史 / 研究文件（分類規則見 docs/README.md）
+├── routes/
+│   ├── auth/                # 登入、使用者管理、權限 middleware
+│   ├── orders/              # 訂單 CRUD、公司/地點、備註範本、工具
+│   ├── pallet.js            # 打板計劃 API
+│   ├── packing*.js          # 裝箱求解 / 專案 / 方案 / PDF
+│   └── xls-booking*.js      # Shipper Role 單據工具
+├── public/
+│   ├── index.html           # 主站單頁 + Sidebar
+│   ├── login.html           # 登入頁
+│   ├── users.html           # 使用者管理（admin）
+│   ├── packing.html         # 單 ULD 3D 裝箱
+│   ├── uld-packing.html     # ULD 智能裝箱（多 ULD 專案）
+│   ├── css/                 # base / layout / components / animations / orders / dbviewer …
+│   │   └── utils/           # modal / cbm-calculator / time-picker / autocomplete
+│   └── js/                  # 主站邏輯 + utils/ + packing/ + pallet/ + uld-packing/
+├── scripts/                 # XLS 流程、DB 匯出/匯入、測試與維運腳本
+└── data/templates/          # Shipper Role 模板（SLI/ELI 母版、年度 Report 工作檔）
+```
+
+## 🔐 登入與權限
+
+- 登入方式：`Company Code` + `User ID` + `Password`（`express-session` + `bcryptjs`）
+
+角色與權限：
+
+| 角色 | 權限 |
+|------|------|
+| `admin` | 全部，含使用者管理（`users.html`）與資料庫 |
+| `staff` | 內部員工：訂單、Shipper Role、打板計劃、裝箱、資料庫 |
+| `customer` | 客戶：只能看自己公司（`customer_company_id`）的訂單 |
+
+- 相關腳本：`node scripts/test-auth.js`、`node scripts/test-login-lockout.js`、`node scripts/test-customer-isolation.js`、`node scripts/seed-admin.js`
+- 注意：Session 使用 MemoryStore（適合單機開發）；多 process 部署需更換 store
 
 ## 📦 訂單系統（收/送貨落 ORDER）
 
-手機優先的「收貨/送貨」訂單管理系統，整合在網站左側 Sidebar 的「📦 訂單系統」入口。
+手機優先的「收貨/送貨」訂單管理系統，整合在網站左側 Sidebar 的「訂單系統」入口（需登入）。
 
 ### 功能特色
 
 | 功能 | 說明 |
 |------|------|
 | 🚚 / 📥 訂單類型 | 送貨（取貨→送到客戶）／收貨（客戶收貨→交回/轉交）大按鈕選擇 |
-| 提單資訊 | MAWB# / HAWB# / 客戶提貨號 |
+| 提單資訊 | MAWB# / HAWB#（非必填）/ 客戶提貨號 |
 | 公司資料庫 | 客戶公司、倉庫/自家地點、運輸公司統一存入 SQLite，自動帶出地址/聯絡人/電話（可修改） |
-| 電力分類 | ⚡ 無電 / 🔋 乾電 (A67/A123/A199) / 🔋 鋰電 (ELI/ELM) 三選一，強制標示 |
+| 電力分類 | ⚡ 無電 / 🔋 乾電 (A67/A123/A199) / 🔋 鋰電 (ELI/ELM) 累積新增，可混用並各自輸入件數 |
 | 🚨 趕機 | 🔴 趕機 / ⚪ 普通 大按鈕 |
-| 範本系統 | 按公司分類管理範本，新建訂單時一鍵載入 |
 | 訂單列表 | 卡片式列表、搜尋（訂單編號/公司名/提單號）、狀態篩選、狀態顏色標籤 |
-| 訂單操作 | 詳情展開、編輯、複製此訂單、刪除、狀態變更 |
-| 📧 電郵總結 | `mailto:` 零設定，自動填收件人（運輸公司 email）、主旨、完整總結內容；另可「複製總結內容」用 WhatsApp 等發送 |
+| 訂單操作 | 詳情展開、編輯、複製此訂單、刪除、狀態變更（待處理/進行中/已完成/已取消） |
+| 備註範本 | 常用備註文字可存成範本，落單時一鍵套用（`/api/orders/note-templates`） |
+| 📧 電郵總結 | `mailto:` 零設定，自動填收件人（運輸公司 email）、主旨、完整總結；另可「複製總結內容」用 WhatsApp 等發送 |
 | 手機優先 | 大按鈕（≥48px）、響應式 Sidebar、分步驟表單 |
+
+> 範本（templates）功能的 UI 與 API 已於 2026-08 移除；`templates` 表保留供資料庫檢視器與公司刪除保護。原始設計見 `docs/design/order-system-design.md`。
+
+### 訂單編號
+
+- 格式 `AGL-YYYYMMDD-XXX`（前綴由 `routes/orders/utils.js` 的 `ORDER_NO_PREFIX` 決定）
+- 啟動時會把舊 `ORD-` 開頭編號一次性遷移為 `AGL-`
 
 ### 訂單電郵總結格式
 
-```
+```text
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📦 訂單總結 ORD-20260108-001
+📦 訂單總結 AGL-20260108-001
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 類型    ：🚚 送貨
 MAWB#   ：157-12345678
@@ -68,218 +151,202 @@ CBM     ：0.52
 
 1. **上傳 XLS**：拖曳 XLS/XLSX/XLSM 檔案（可多個）
 2. **預覽與定義欄位**：系統顯示表頭與資料，點選每一欄上方下拉選單指定類型（MAWB# / DEST / 件數 / 重量 / 帶電件數 / 航班號 / 航班日期 / REMARK / CNEE 名稱）。支援資料起始列設定。**多工作表檔案（含上傳後再切換 worksheet）時，每個工作表各自的欄位定義（TAG）、資料起始列與預覽狀態會分開記憶，切換不會遺失。**
-3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK/**CNEE**）供核對；CNEE 欄會依「DEST + REMARK」自動由下方對照區比對，缺漏的顯示 🔴 並可直接點擊補值（不需重新上傳檔案）
+3. **標準化結果預覽**：即時顯示整理後的資料（日期/航班/MAWB/DEST/件數/重量/REMARK/**CNEE**）供核對；CNEE 欄會依「DEST + REMARK」自動由對照區比對，缺漏的顯示 🔴 並可直接點擊補值（不需重新上傳檔案）
 4. **執行產生**：一次完成下列全部動作
    - Report 寫入 `Shipper role service - Summary 2026` 的對應月份 sheet（月份 sheet 不存在時自動複製 `template` 產生並放到最左）；新批次插入第 4 行，組首列填 A/B/G，其餘列填 C-F，每批尾留 1 空行分隔
    - SLI 填表（MAWB#、航班公司碼、DEST、CNEE、日期）→ `{MAWB#} SLI.pdf`
    - ELI 填表（MAWB#、DEST、CNEE、CNEE 電話、日期）→ `{MAWB#} ELI.pdf`
    - 合併同名 SLI+ELI → `{MAWB#}.pdf`（SLI/ELI 單獨檔自動刪除）
-   - 依「航班日期」分組打包（同一天的所有航班合併）；單一航班 → `{YYYYMMDD} - {航班號} SLI x {份數}.zip`（例 `20260901 - 5Y8050 SLI x 32.zip`），同日多個航班 → `{YYYYMMDD} - 多航班 SLI x {份數}.zip`；超過 30MB 自動拆 `(Part x of y)`
+   - 依「航班日期」分組打包（同一天的所有航班合併）；單一航班 → `{YYYYMMDD} - {航班號} SLI x {份數}.zip`，同日多個航班 → `{YYYYMMDD} - 多航班 SLI x {份數}.zip`；超過 30MB 自動拆 `(Part x of y)`
 
-> **缺 CNEE 處理**：執行時若仍有 MAWB 對不到 CNEE，會照常產生但 SLI/ELI 的 CNEE 留空，並在執行結果列出「缺 CNEE 警告清單」（MAWB / DEST / 檔案）；請回到「③ 標準化結果預覽」點擊紅色 CNEE 格補值後重跑。
-
-> **重覆 MAWB 警告**：同一批執行中若偵測到相同 MAWB 出現 2 次或以上（可能來自來源檔重覆列或重複上傳同一清單），會**照常處理不自動刪除**，但在執行結果列出「重覆 MAWB 清單」（MAWB / 出現次數 / 來源檔案）供人手判斷，例如回到③取消勾選或修改來源檔後再執行。
+> **缺 CNEE 處理**：執行時若仍有 MAWB 對不到 CNEE，會照常產生但 SLI/ELI 的 CNEE 留空，並在執行結果列出「缺 CNEE 警告清單」；請回③點擊紅色 CNEE 格補值後重跑。
+>
+> **重覆 MAWB 警告**：同一批執行中若偵測到相同 MAWB 出現 2 次以上，會**照常處理不自動刪除**，但在結果列出「重覆 MAWB 清單」（MAWB / 出現次數 / 來源檔案）供人手判斷。
 
 ### 功能特色
 
 | 功能 | 說明 |
 |------|------|
 | 格式彈性 | 不限欄位順序，透過介面「定義欄位」適用各種來源格式 |
-| CNEE 對照區 | 自動掃描 sheet 的 A/B/C 欄（A=區塊 key、B=`CNEE:`、C=值）建立「DEST → CNEE」對照表，依 DEST + REMARK 加權比對（含國家關鍵字，例 巴西/智利/阿根廷）；REMARK 空白時取純 DEST 預設區塊 |
-| CNEE 手動補值 | 標準化預覽的 CNEE 格點擊即可填寫（存為 overrides，執行時優先於自動對照），不需重新上傳檔案 |
+| CNEE 對照區 | 自動掃描 sheet 的 A/B/C 欄（A=區塊 key、B=`CNEE:`、C=值）建立「DEST → CNEE」對照表，依 DEST + REMARK 加權比對（含國家關鍵字）；REMARK 空白時取純 DEST 預設區塊 |
+| CNEE 手動補值 | 標準化預覽的 CNEE 格點擊即可填寫（存為 overrides，執行時優先於自動對照） |
 | CNEE 電話 | 從 CNEE 文字內容自動抽取 TEL（如 `TEL: +44 208 897 0490`）填入 ELI N21 |
-| 快速操作 | ①~④ 步驟跳轉列（捲動時固定在頂部）；執行完成後提供「回① / ▶ 處理下一個檔案」快捷按鈕，並自動捲動＋高亮下一張檔案卡 |
-| 巨集相容 | 直接以 Excel COM 開啟 xlsm 模板，避開 openpyxl/exceljs 巨集轉檔不相容 |
-| 權限 | 需登入；登入後 Sidebar 解鎖 |
+| 快速操作 | ①~④ 步驟跳轉列（捲動時固定在頂部）；完成後提供「回① / ▶ 處理下一個檔案」快捷按鈕 |
+| 巨集相容 | 直接以 Excel COM 開啟模板（Windows），避開 openpyxl/exceljs 轉檔不相容 |
+| PDF 並行 | 介面可選 1–4 個 worker（`XLS_PDF_CONCURRENCY` 為預設值；Windows Excel COM 建議 1），取消時終止全部子程序 |
+| 資源清理 | `POST /api/xls-booking/cleanup`（admin/staff）清理逾 24 小時的 job/report、逾 7 天的上傳檔；先傳 `{ "dryRun": true }` 只列清單 |
+| 權限 | 需登入，登入後 Sidebar 解鎖 |
+
+### 模板位置（`data/templates/`）
+
+- `cainiao-sli-eli-template.xlsx`（SLI = `air` sheet、ELI = `ELI LETTER` sheet）；另有 `.xlsm` 巨集版
+- `shipper-role-summary-2026.xlsx`：年度 Report 工作檔（各月份 sheet + `template` 版面母版）
+- 每次執行成功會把最新 Report 同步回工作檔；**執行期間請勿在 Excel 開啟該檔**
+- 產出暫存於 `data/work/`（已被 `.gitignore` 忽略），可透過下載連結取得
 
 ### API
 
 ```http
-POST /api/xls-booking/upload                       # 上傳 XLS（multipart，欄位名 files）
-GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex   # 預覽 sheet
-POST /api/xls-booking/cnee-preview                 # CNEE 對照區自動抽取 + 比對結果（body: {uploadId, defs}）
-POST /api/xls-booking/process                      # 執行完整工作流程
-GET  /api/xls-booking/download/:type/:jobId/:name  # 下載產出（report / zip）
-GET  /api/xls-booking/report-template              # 直接下載 Report 模板（shipper-role-summary-2026.xlsx）
-GET  /api/xls-booking/templates                    # 模板狀態檢查
+POST /api/xls-booking/upload                                  # 上傳 XLS（multipart，欄位名 files）
+GET  /api/xls-booking/preview/:uploadId/:fileId/:sheetIndex    # 預覽 sheet
+POST /api/xls-booking/cnee-preview                             # CNEE 對照區自動抽取 + 比對
+POST /api/xls-booking/process                                  # 執行完整工作流程（非同步 job）
+GET  /api/xls-booking/status/:jobId                            # 查詢進度
+POST /api/xls-booking/cancel/:jobId                            # 中止
+GET  /api/xls-booking/download/:type/:jobId/:name              # 下載產出（report / zip）
+GET  /api/xls-booking/report-template                          # 下載 Report 模板
+POST /api/xls-booking/cleanup                                  # 清理過期產出（admin/staff）
 ```
 
-### 技術備註
+## 🧊 3D ULD 裝箱系統
 
-- PDF 轉檔依賴 **Office 365 Excel COM**（pywin32），需在同一台安裝 Excel 的電腦執行。
-- 模板固定放置於 `data/templates/`：
-   - `cainiao-sli-eli-template.xlsx`（SLI = air sheet、ELI = ELI LETTER sheet）
-  - `shipper-role-summary-2026.xlsx`（年度 report 工作檔：各月份 sheet + `template` 版面母版，新月份自動由 template 複製）
-- **每次執行成功會自動把最新 Report 同步回 `shipper-role-summary-2026.xlsx`**（等同該檔就是現行工作檔，舊記錄會累積）；因此**執行期間請勿在 Excel 開啟此檔**，否則同步會失敗（Report 仍可下載，介面會顯示警告）。
-- 產出檔案暫時存放於 `data/work/`，可透過下載連結取得。
+### 引擎（`bp3d/`）
 
-## 📁 專案目錄結構
+| 檔案 | 說明 |
+|------|------|
+| `geometries.js` | 半空間幾何：矩形 / 斜切（Extruded Profile）/ 輪廓 ULD 統一以平面不等式建模；`boxFits` 8 頂點驗證 |
+| `uld-definitions.js` | ULD 規格庫：PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/PMC-Q7/PAG-Q7 輪廓 |
+| `constraints.js` | 約束：支撐率 ≥70%、堆疊承重、總重量、地面壓力、CoG ±10% |
+| `extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
+| `solver.js` | 主求解器：4 種排序策略、數量展開、回傳 `sequence`（逐步動畫用） |
+| `ga-lns/` | GA-LNS 啟發式（染色體 / 適應度 / 演化 / 搜尋） |
 
-```text
-gemini-intro-site/
-├── package.json
-├── server.js                # Express 伺服器與資料庫初始化
-├── database.db              # SQLite 資料庫檔案
-├── README.md                # 專案說明文件
-├── db/
-│   └── database.js          # SQLite 建表與預設數據初始化
-├── routes/
-│   ├── skills.js            # 技能 API
-│   ├── contours.js          # Contour 影像 API
-│   ├── forum.js             # 論壇/留言 API
-│   └── orders.js            # 訂單系統 API（公司/範本/訂單）
-└── public/
-    ├── index.html           # 頁面結構 + Sidebar 導航
-    ├── css/
-    │   ├── base.css         # 主題變數與全域樣式
-    │   ├── layout.css       # 版面與響應式
-    │   ├── components.css   # 共用元件
-    │   ├── animations.css   # 動畫
-    │   └── orders.css       # 訂單系統樣式（手機優先）
-    └── js/
-        ├── theme.js         # 主題切換
-        ├── animations.js    # 動畫效果
-        ├── skills.js        # 技能頁邏輯
-        ├── contours.js      # Contour 頁邏輯
-        ├── forum.js         # 論壇頁邏輯（含 SSE）
-        ├── chat.js          # AI Playground 邏輯
-        ├── orders.js        # 訂單系統邏輯
-        └── main.js          # 共用工具與初始化
-```
+### 頁面
 
-## 🚀 快速啟動
+- `uld-packing.html`（ULD 智能裝箱）：多 ULD 專案、貨物清單、3D 互動拖拽、自動求解、方案比較、PDF 匯出
+- `packing.html`（3D ULD 裝箱）：單 ULD 求解示範 + Three.js 逐步裝載動畫
 
-1. 進入專案目錄
-   ```bash
-   cd gemini-intro-site
-   ```
+### 空運特殊約束
 
-2. 安裝依賴
-   ```bash
-   npm install
-   ```
+- 斜切幾何：AKE/LD3 以 Y-Z 剖面多邊形擠出 + 8 頂點平面不等式驗證
+- 支撐率預設 70%、CoG ±10%、Net Clearance 預設 30mm（皆可用 API options 調整）
+- 總重 ≤ ULD payload、地面壓力 ≤ 限值
 
-3. 啟動服務
-   ```bash
-   npm start
-   # 或
-   node server.js
-   ```
+### 測試
 
-4. 開啟瀏覽器
-   ```text
-   http://localhost:3000
-   ```
+- `node scripts/test-bp3d.js` — 引擎單元測試（幾何/斜切/方向/支撐/求解/重量）
+- `node scripts/test-packing-api.js [port]` — API 整合測試（登入 + ULD + 求解 + 錯誤處理）
+- `node scripts/test-packing-projects.js`、`node scripts/test-q7-api.js`、`node scripts/test-galms.js`
 
-5. 內網可訪問
-   若要讓同一網段其他裝置看見，伺服器已設定為可從內網訪問：
-   ```text
-   http://192.168.2.103:3000
-   ```
+## 📥 打板計劃（`/api/pallet`，admin/staff）
 
-> 第一次啟動時，系統會自動建立 database.db 並建立全部資料表。
+- 板位 booking（`/bookings`）與目的地清單、SPL 代碼維護、備註範本
+- 計劃卡（`/plans`）：新增 / 修改 / 刪除 / 複製、項目排序（拖曳）、可 `POST /plans/sync-orders` 由訂單同步資料
+- 前端：`public/index.html` 的「打板計劃」區塊、`public/js/pallet/`、`public/css/pallet.css`
+
+## 🗄️ 資料庫檢視器（`/api/db`）
+
+- 以白名單（`isAllowedTable`）限制可存取的資料表，避免誤改系統表
+- 支援列出資料表 / 欄位、單筆與批次編輯、單筆與批次刪除、外鍵下拉與刪除關聯保護
+- 需 `db_view` 權限（admin / staff）；前端為 `public/index.html` 的「資料庫」區塊 + `public/js/dbviewer.js`
 
 ## 🔧 主要技術
 
-- Node.js
-- Express
-- SQLite3
-- Vanilla JavaScript
-- HTML / CSS
+- Node.js + Express 4 + SQLite3（callback 風格，非 async/await）
+- express-session + bcryptjs（登入與角色）
+- exceljs / xlsx（Excel 讀寫）、pdf-lib（PDF 合併後備）、archiver（ZIP）
+- multer（上傳）、Three.js（3D，前端 CDN）
+- Python：`scripts/sli-eli-generate.py`（Excel COM / openpyxl 填表）、`merge-pdf.py`（pypdf 合併）
+- 前端：Vanilla JavaScript、HTML、CSS（無框架、無 build step）
 
-## 🔗 主要 API
+## 🔗 API 概覽
 
-### 技能
+| 前綴 | 說明 | 權限 |
+|------|------|------|
+| `/api/auth` | 登入 / 登出 / 目前登入者 | 公開 |
+| `/api/auth/users` | 使用者管理、重設密碼、啟用停用 | admin |
+| `/api/skills` | 技能清單 | 公開 |
+| `/api/contours`、`/api/contour-image` | Contour 影像 | 公開 |
+| `/api/orders` | 訂單 CRUD、重複檢查、公司/地點、備註範本 | 登入（customer 僅自己公司） |
+| `/api/pallet` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders | admin / staff |
+| `/api/xls-booking` | Shipper Role：upload / preview / cnee-preview / process / status / cancel / download / cleanup | 登入 |
+| `/api/packing` | 裝箱：health / ulds / pack-uld / demo / projects / solutions / solve / export-pdf | 登入 |
+| `/api/db` | 資料庫檢視器 | `db_view` |
+
+<details>
+<summary>訂單系統主要端點</summary>
+
 ```http
-GET /api/skills
-```
-
-### 論壇 / 留言
-```http
-GET  /api/threads                     # 論壇主題列表
-GET  /api/threads/:id                 # 主題 + 回覆
-POST /api/messages                    # 新增主題/回覆
-PUT  /api/messages/:id                # 修改留言
-DELETE /api/messages/:id              # 刪除留言
-GET  /api/messages/stream             # SSE 即時推播
-```
-
-### 訂單系統
-```http
-GET    /api/orders/companies          # 公司/地點清單（支援 ?search= & ?category=）
+GET    /api/orders/companies          # 公司/地點清單（?search= & ?category=）
 POST   /api/orders/companies          # 新增公司（落單時順手儲存）
-GET    /api/orders/templates          # 範本清單（可按 ?company_id= 過濾）
-POST   /api/orders/templates          # 新增範本
-DELETE /api/orders/templates/:id      # 刪除範本
-GET    /api/orders                    # 訂單列表（搜尋：訂單編號/公司名/提單號 + ?status=）
-POST   /api/orders                    # 建立訂單（自動產生 ORD-YYYYMMDD-XXX 編號）
+GET    /api/orders/note-templates     # 備註範本（?search=）
+POST   /api/orders/note-templates     # 新增/更新備註範本
+GET    /api/orders                    # 訂單列表（?search= 編號/公司/提單號、?status=）
+GET    /api/orders/check-duplicate    # 重複檢查（?mawb=&hawb=&pickup_no=&exclude_id=）
 GET    /api/orders/:id                # 訂單詳情
-PUT    /api/orders/:id                # 更新訂單（狀態/修改）
+POST   /api/orders                    # 建立訂單（自動產生 AGL-YYYYMMDD-XXX）
+PUT    /api/orders/:id                # 更新訂單
 DELETE /api/orders/:id                # 刪除訂單
 ```
 
-### Contour 影像
-```http
-GET /api/contours
-GET /api/contour-image/...
+</details>
+
+## 🧩 常用指令
+
+```bash
+npm start                 # 啟動服務（node server.js）
+npm run sync              # 更新 FILE_INVENTORY.md + 結構快照（結構變更後必跑）
+npm run db:export         # 匯出 database.db → db/db-dump.sql
+npm run db:import         # 由 db/db-dump.sql 重建 database.db
+npm run hooks:install     # 安裝 git hooks
 ```
 
-## 🧩 常見修改位置
+## 📌 常見修改位置
 
-- 前端內容：public/index.html
-- 前端樣式：public/css/
-- 前端互動 / API：public/js/
-- 後端邏輯與資料庫初始化：server.js、db/database.js
-- 訂單系統後端：routes/orders.js
-- 訂單系統前端：public/js/orders.js、public/css/orders.css
-- Shipper Role Project 後端：routes/xls-booking.js、scripts/xls-workflow.js、scripts/sli-eli-generate.py、scripts/excel-to-pdf.py
-- Shipper Role Project 前端：public/js/xls-booking.js、public/css/xls-booking.css
-- Shipper Role Project 模板：data/templates/
+| 想改什麼 | 檔案 |
+|----------|------|
+| 主站頁面 / Sidebar | `public/index.html` |
+| 主題 | `public/css/base.css`（變數）+ `public/js/theme.js` |
+| 訂單系統後端 | `routes/orders/*` |
+| 訂單系統前端 | `public/js/orders.js`、`public/css/orders.css` |
+| 打板計劃 | `routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css` |
+| Shipper Role 後端 | `routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-*.js` |
+| Shipper Role 前端 | `public/js/xls-booking-*.js`、`public/css/xls-booking.css` |
+| 3D ULD 引擎 | `bp3d/*`（求解邏輯）、`public/js/uld-packing/*`（前端） |
+| 裝箱 API | `routes/packing*.js` |
+| 資料庫結構 | `db/database.js`（新增表要同步 `server.js` 掛載路由） |
+| 通用前端工具 | `public/js/utils/*`（api / datetime / mawb / hawb / modal / cbm / time-picker / autocomplete / clipboard） |
 
-## 🎨 主題相關
+## 📚 文件位置
 
-目前支援以下主題切換：
-- Light
-- Dark
-- Ocean
-
-Ocean 主題可透過色盤自訂主題色，網站主色、背景與文字對比會跟著變化。
-
-## ✅ 已完成功能總結
-
-- 可在網站中瀏覽介紹內容
-- 可進行留言互動 / 論壇主題與回覆
-- 可查看技能與能力展示
-- 可匯出 CSV / XLSX
-- 可從內網連入觀看
-- 支援 ESC 關閉匯出彈窗
-- 收/送貨訂單管理（新建、列表、搜尋、狀態、編輯、複製、刪除）
-- 公司/地點資料庫（客戶、倉庫、運輸公司）
-- 訂單範本一鍵載入
-- 訂單電郵總結（mailto: 免設定）
-
-## 💡 日後可擴展方向
-
-- 把後端拆成 routes / controllers / services
-- 把前端拆成更細的模組
-- 加入使用者登入與權限
-- 加入圖片上傳或資料編輯功能
-- 改成部署到雲端服務（如 Render / Railway / Vercel + Node）
-- 訂單系統加入 PDF 匯出 / 批次列印
-- 訂單系統加入日期範圍統計報表
+| 位置 | 內容 |
+|------|------|
+| `README.md`（本檔） | 對外說明：功能、啟動、API 概覽 |
+| `CLAUDE.md` | AI 專案記憶檔（新對話自動載入） |
+| `PROJECT_MAP.md` | 詳細專案地圖（資料模型、API 總表） |
+| `WORKSPACE_STATE.md` | 工作狀態交接（最後 commit、里程碑、待辦） |
+| `FILE_INVENTORY.md` | 自動產生的檔案清單（`npm run sync`） |
+| `docs/README.md` | 文件索引與分類規則 |
+| `docs/design/` | 現役設計文件（訂單系統設計、PDF 並行 PRD） |
+| `docs/archive/` | 歷史規格（DeepSeek ULD PRD / prompt） |
+| `docs/research/` | 研究抓取產物 |
 
 ## 🛠️ 常見問題
 
 ### 1. 啟動後打開空白頁
-- 確認 Node.js 已安裝
-- 確認已執行 `npm install`
-- 確認伺服器有正常啟動
+- 確認 Node.js 已安裝、已執行 `npm install`、伺服器已啟動
 
 ### 2. 內網其他裝置無法開啟
-- 確認本機服務有啟動
-- 確認防火牆允許 Node / 3000 Port
-- 改用 `http://你的本機內網IP:3000`
+- 確認防火牆允許 Node / 3000 Port，改用 `http://<本機內網IP>:3000`
 
 ### 3. 資料庫無法使用
-- 檢查根目錄是否有 `database.db`
-- 重新啟動服務，系統會自動初始化
+- 檢查根目錄是否有 `database.db`；重新啟動服務會自動初始化
+- 需要重建時：`npm run db:import`（會依 `db/db-dump.sql` 重建）
+
+### 4. 無法登入 / 忘記密碼
+- 全新環境預設 `AGL / admin / admin123`（由 `scripts/seed-admin.js` 建立）
+- 可用 admin 於「使用者管理」重設，或執行 `node scripts/seed-admin.js`
+
+### 5. Shipper Role 執行失敗（Report 同步）
+- 執行期間請勿在 Excel 開啟 `shipper-role-summary-2026.xlsx`
+- Linux 環境需有 LibreOffice；Windows 需有 Excel（COM）
+- 卡住或殘留檔案：`POST /api/xls-booking/cleanup`
+
+## 💡 日後可擴展方向
+
+- 把後端 service 層抽出、Session store 換成 SQLite/Redis 以支援多 process
+- 訂單系統批次列印 / PDF 匯出、日期範圍統計報表
+- ULD 裝箱：多 ULD 自動分配（跨箱最佳化）、即時重量平衡提示
+
+
+

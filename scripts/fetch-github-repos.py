@@ -39,7 +39,7 @@ def main():
         except Exception as ex:
             lines.append(f"\n=== GitHub search FAILED: {q} -> {ex}")
         time.sleep(1)  # GitHub search API rate limit is 10/min unauthenticated
-    out = "scripts/github-repos-output.txt"
+    out = "docs/research/github-repos-latest.txt"
     with open(out, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
     print(f"Wrote {len(lines)} lines to {out}")

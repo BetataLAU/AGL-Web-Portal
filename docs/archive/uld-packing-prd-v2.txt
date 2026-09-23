@@ -1,3 +1,7 @@
+> **歷史文件（歸檔）**：本檔為 2026-08-21 交給 DeepSeek 的 ULD 智能裝載系統 PRD v2.0（原 `deepseek_text_20260820_ba683e.txt`）。
+> 實際實作已改為原生 JS + Node.js（`bp3d/` 引擎、`public/packing.html`、`public/js/uld-packing/`），**非**本文要求的 TypeScript + React + Vite。
+> 保留作需求來源與功能清單參考；現行說明請見 `README.md`、`PROJECT_MAP.md`、`CLAUDE.md`。
+
 # ULD 智能装载系统 - 完整开发需求规格书 (PRD)
 
 > **版本**: v2.0 (完整整合版)

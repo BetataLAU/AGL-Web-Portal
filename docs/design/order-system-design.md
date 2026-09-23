@@ -1,7 +1,23 @@
-# 收/送貨落 ORDER 系統 — 設計紀錄
+# 收/送貨落 ORDER 系統 — 設計紀錄（歷史文件）
 
-> 最後更新：2026-01-08
-> 狀態：設計已確認，待開發
+> 最後更新：2026-01-08（原始設計）｜ 歸檔整理：2026-09-23
+> 狀態：**已實作（2026-01 上線）**——本文為當時的設計紀錄，保留作欄位邏輯與電力分類的依據；**現行程式行為**以 `routes/orders/`、`public/js/orders.js` 與 `CLAUDE.md` / `PROJECT_MAP.md` 為準。
+> 位置：`docs/design/order-system-design.md`（原根目錄 `ORDER_SYSTEM_PLAN.md`）
+
+## 與現況的差異（實作後演進，2026-09 整理）
+
+| 本文件原設計 | 現況 |
+|--------------|------|
+| 狀態：設計已確認，待開發 | 已上線並持續演進 |
+| 狀態值 `pending / in_progress / completed / cancelled` | `pending / progress / done / cancelled` |
+| Tab 3「範本管理」＋ `/api/orders/templates` 三支 API | **已移除**（UI + API；`templates` 表保留供 dbviewer 與公司刪除保護） |
+| 目錄規劃 `routes/orders.js`（單檔） | 拆為 `routes/orders/{index,orders-router,companies,note-templates,utils}.js` |
+| 訂單編號 `ORD-YYYYMMDD-XXX` | `AGL-YYYYMMDD-XXX`（`ORDER_NO_PREFIX`；啟動時一次性遷移舊編號） |
+| HAWB# 必填 | 已改為非必填 |
+| 「運輸公司」為獨立欄位選擇 | 改以公司/地點 DB（`category = transport`）管理 |
+| 暫定不需登入 | 已加入 Session 登入與角色權限（admin / staff / customer，含客戶資料隔離） |
+| 帶電項目三選一 | 累積新增模式（可混用無電/乾電/鋰電，各自輸入件數） |
+| Tab 結構為 3 個 Tab | 現行以「新建訂單 / 訂單列表」為主軸，範本 Tab 已移除 |
 
 ## 一、需求摘要
 

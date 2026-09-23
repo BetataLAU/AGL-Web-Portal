@@ -2,6 +2,7 @@
 
 > 本檔案供 AI Agent 在每次新對話自動載入，避免重讀整個專案。
 > 修改專案結構時請同步更新本檔案、`PROJECT_MAP.md`、`FILE_INVENTORY.md` 與 `WORKSPACE_STATE.md`。
+> 文件分類規則見 `docs/README.md`：根目錄只放現役導航文件（README / CLAUDE / PROJECT_MAP / WORKSPACE_STATE / FILE_INVENTORY），其餘歸入 `docs/design|archive|research`。
 
 ## 🚀 新對話自動開機流程（必讀，強制執行）
 
@@ -63,14 +64,20 @@
 |------|------|
 | `server.js` | Express 入口，掛載全部 API 路由 |
 | `db/database.js` | SQLite 建表（含 orders 相容欄位自動補齊）、skills seed |
+| `bp3d/` | 3D ULD 裝箱引擎（geometries / uld-definitions / constraints / extreme-points / solver）＋ `bp3d/ga-lns/`（GA-LNS 啟發式） |
 | `routes/` | 後端 API 模組（見下方分節） |
-| `public/index.html` | 單一頁面 + Sidebar 導航 |
-| `public/css/` | base / layout / components / animations / orders / dbviewer |
+| `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 資料庫區塊） |
+| `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
+| `public/packing.html`、`public/uld-packing.html` | 3D ULD 裝箱（單 ULD）、ULD 智能裝箱（多 ULD 專案） |
+| `public/css/` | base / layout / components / animations / orders / dbviewer / packing / pallet / uld-packing* / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer |
-| `public/js/utils/` | 通用工具（api / datetime / mawb / modal / cbm / time-picker / autocomplete） |
-| `ORDER_SYSTEM_PLAN.md` | 訂單系統設計紀錄（欄位邏輯、電力分類等） |
-| `README.md` | 專案說明與 API 清單 |
+| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **packing/** / **pallet/** / **uld-packing/** / xls-booking-* |
+| `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
+| `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
+| `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md` |
+| `docs/archive/` | 歷史規格：`uld-packing-spec-deepseek.md`、`uld-packing-prd-v2.txt` |
+| `docs/research/` | 研究抓取產物（`*-latest.txt` 不進版控） |
+| `README.md` | 專案說明與 API 概覽 |
 | `PROJECT_MAP.md` | 詳細專案地圖（資料模型、API 總表） |
 | `FILE_INVENTORY.md` | 自動產生的檔案清單（執行 `npm run sync` 更新） |
 
@@ -84,7 +91,13 @@
 | `/api/contours` | `routes/contours.js` | Contour 影像 |
 | `/api/contour-image` | `routes/contours.js` | 舊路徑的 Contour 影像 |
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
+| `/api/pallet` | `routes/pallet.js` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders（admin+staff） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
+| `/api/packing` | `routes/packing.js` | 單 ULD 求解：health / ulds / pack-uld / demo（需登入） |
+| `/api/packing` | `routes/packing-projects.js` | 裝箱專案 / ULD / 客戶 / 貨物項目 |
+| `/api/packing` | `routes/packing-solutions.js` | 求解方案 CRUD |
+| `/api/packing` | `routes/packing-solve.js` | 非同步求解 job（solve / 查詢 / 取消） |
+| `/api/packing` | `routes/packing-pdf.js` | 方案 PDF 匯出 |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
 ## 登入系統（routes/auth/）
@@ -113,7 +126,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - `auth.js` 的 `fetchCurrentUser` 不可用 `apiFetch`（401 會跳轉）；需用原生 fetch 且 401 回 null
 - `login.html` 不可引入 `api.js`（登入失敗 401 會造成無限跳轉），用原生 fetch
 - Session 使用 MemoryStore（僅適合單機開發）；正式部署多 process 需換 store
-- `.clinerules` 內 users.html 的 `escapeHtml` 須用 `\x26` 跳脫避免 XML 解碼
+- `users.html` 內 `escapeHtml` 須用 `\x26` 跳脫 `&` 避免 XML/HTML 解碼問題
 
 ## Shipper Role Project（routes/xls-booking.js）
 
@@ -181,22 +194,59 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **注意**：這些是全域函式（無模組/namespace 包裝），引入順序必須在 `orders.js` 等使用方之前（`index.html` 已排好）
 
+## 3D ULD 裝箱（bp3d/ + routes/packing*.js）
+
+| 路徑 | 職責 |
+|------|------|
+| `bp3d/geometries.js` | 半空間幾何：矩形/斜切/輪廓 ULD 一律以平面不等式建模；`boxFits` 8 頂點驗證 |
+| `bp3d/uld-definitions.js` | ULD 規格庫（PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/Q7、PAG-Q7 輪廓） |
+| `bp3d/constraints.js` | 支撐率（預設 70%）、堆疊承重、總重、地面壓力、CoG ±10% |
+| `bp3d/extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
+| `bp3d/solver.js` | 主求解器：4 種排序策略、數量展開、回傳 `sequence`（前端逐步動畫用） |
+| `bp3d/ga-lns/` | GA-LNS 啟發式（chromosome / fitness / init / evolve / search） |
+| `scripts/solve-worker.js` | 求解 worker（子程序） |
+| `public/js/packing/` | 單 ULD 裝箱前端（`packing-main.js` 頁面邏輯、`packing-viewer.js` Three.js 渲染） |
+| `public/js/uld-packing/` | 多 ULD 專案前端（state / ui / viewer / viewer-controller / calc / dragger / solve-ui / project / main） |
+| `routes/packing.js` | `GET /health`、`GET /ulds`、`GET /demo`、`POST /pack-uld` |
+| `routes/packing-projects.js` | 專案 / ULD / 客戶 / 貨物項目 CRUD |
+| `routes/packing-solutions.js` | 求解方案 CRUD（`/projects/:id/solutions`） |
+| `routes/packing-solve.js` | 非同步求解 job（`POST /solve`、查詢、取消） |
+| `routes/packing-pdf.js` | `POST /projects/:id/export-pdf` |
+
+**測試**：`node scripts/test-bp3d.js`、`node scripts/test-packing-api.js [port]`、`node scripts/test-packing-projects.js`、`node scripts/test-q7-api.js`、`node scripts/test-galms.js`
+
+## 打板計劃（routes/pallet.js）
+
+- API（admin/staff）：`/bookings`（+ `/bookings/destinations`）、`/plans`（+ `reorder` / `duplicate` / `items`）、`/spl-codes`、`/remark-templates`、`POST /sync-orders`
+- 前端：`public/index.html` 的 `#section-palletization` 區塊 + `public/js/pallet/`（api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters）+ `public/css/pallet.css`
+
 ## 資料表（db/database.js）
 
 | 表 | 用途 |
 |----|------|
 | `skills` | 技能展示（自動 seed） |
-| `messages` | 論壇/留言（REMARK：GuestBook 已移除，建表已刪；舊表仍在 database.db，留待日後清理） |
-| `companies` | 訂單系統：公司/地點（客戶、倉庫、運輸公司） |
-| `templates` | 訂單系統：範本 |
+| `companies` | 公司/地點（客戶、倉庫、運輸公司；`company_code` 供登入） |
+| `users` | 帳號（company_id, user_id, password_hash, display_name, role, is_active, sidebar_nav_order） |
 | `orders` | 訂單主表（含電郵總結所需欄位） |
+| `note_templates` | 訂單備註文字範本 |
+| `mawb_records` | MAWB# 主檔記錄（後補/查詢用） |
+| `audit_log` | 操作稽核紀錄 |
+| `templates` | 訂單範本（**已停用**：UI/API 已移除，僅保留供 dbviewer 與公司刪除保護） |
+| `pallet_plans` / `pallet_plan_items` | 打板計劃卡與項目 |
+| `spl_codes` / `remark_templates` | 打板 SPL 代碼與備註範本 |
+| `projects` / `ulds` / `customers` / `items` / `solutions` | ULD 智能裝箱：專案 / 專案 ULD / 客戶色卡 / 貨物項目 / 求解方案 |
+
+> 共 17 張表（`db/database.js` 建表）。REMARK：舊 `messages`（GuestBook/Forum）表已從建表移除，但舊資料庫仍留有該表，待日後 `DROP TABLE` 與 dbviewer 引用清理。
 
 ## 常見任務指引
 
 - **改訂單功能**：後端改 `routes/orders/`，前端改 `public/js/orders.js` + `public/css/orders.css`
+- **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
+- **改裝箱功能**：引擎改 `bp3d/*`，後端改 `routes/packing*.js`，前端改 `public/js/uld-packing/*` 或 `public/js/packing/*`
 - **改網站內容**：`public/index.html`
 - **改主題**：`public/css/base.css`（主題變數）+ `public/js/theme.js`
 - **新增資料表**：`db/database.js` 加 `CREATE TABLE`，並在 `routes/` 建對應路由模組，`server.js` 掛載
+- **新增文件**：先看 `docs/README.md` 的分類規則（根目錄只放現役導航文件；歷史規格放 `docs/archive/`、設計放 `docs/design/`）
 - **前端無框架**：所有前端 JS 直接在 `public/js/` 用全域函式開發
 
 ## 注意事項

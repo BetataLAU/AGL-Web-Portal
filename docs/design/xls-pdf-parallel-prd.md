@@ -1,8 +1,18 @@
 ﻿# PRD：XLS Booking「產生 SLI/ELI PDF」多工並行加速
 
-> 建立日期：2026-09-07（晚） ｜ 作者：Betata ｜ 狀態：**待執行**（Plan approved，尚未動工）
-> 建議執行 branch：`feat/xls-pdf-parallel`（開好後依下方「執行 SOP」逐步進行）
+> 建立日期：2026-09-07（晚） ｜ 作者：Betata ｜ 狀態：**已完成**（2026-09 實作並上線，本文件保留為設計紀錄）
+> 位置：`docs/design/xls-pdf-parallel-prd.md`（原 `docs/PRD-xls-pdf-parallel.md`）
 > 相關主流程檔案：`scripts/xls-workflow.js`、`scripts/sli-eli-generate.py`、`scripts/xls-sli-eli.js`、`scripts/merge-pdf.py`、`routes/xls-booking.js`
+
+## 0. 實作結果（2026-09-23 整理）
+
+- `scripts/xls-workflow.js`
+  - `getPdfConcurrency()`：預設讀 `XLS_PDF_CONCURRENCY`（未設定為 `2`），可由 UI/API 覆寫。
+  - `runPdfWorkers()`：worker pool，對每個 worker 傳 `--shard-index / --shard-total / --lo-profile`，統一彙整進度與錯誤。
+  - Step 4 merge 有限並行（`Math.min(getPdfConcurrency(...), 4)`）；Step 5 ZIP 依 group 進行。
+- `scripts/sli-eli-generate.py`：新增 `--shard-index / --shard-total` 分片與 `--lo-profile`（獨立 LibreOffice profile，避開 profile 鎖）；Windows Excel COM 每個 worker 使用獨立實例。
+- 取消（AbortController）會終止全部子程序；未指定時預設 `2`，單機 Windows Excel COM 建議 `1`（見 `CLAUDE.md`「PDF 產生並行度」）。
+- 本文 §9「執行 SOP」、§10「開放問題」、§11「量測紀錄表」保留為**歷史執行紀錄**，後續調整不需再回填。
 
 ---
 
@@ -227,7 +237,7 @@ function pickConcurrency(engine) {
 
 在**公司電腦**（已 clone repo）：
 
-1. `git pull origin main` → 應可看到本檔 `docs/PRD-xls-pdf-parallel.md`。
+1. `git pull origin main` → 應可看到本檔 `docs/design/xls-pdf-parallel-prd.md`（當時為 `docs/PRD-xls-pdf-parallel.md`）。
    （若本地有其他未提交變更擋 pull，先 stash：`git stash` → pull → 需要的話 `git stash pop`）
 2. `git checkout -b feat/xls-pdf-parallel`（從最新 main 開 branch）。
 3. 依序執行：

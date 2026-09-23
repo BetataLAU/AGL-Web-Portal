@@ -12,11 +12,15 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `server.js` | Express 入口：靜態服務、JSON body、掛載 8 組 API 路由；Port 被佔用自動 +1 |
-| `bp3d/` | **3D ULD 裝箱引擎**（`geometries.js` 半空間幾何、`uld-definitions.js` ULD 規格庫、`constraints.js` 約束、`extreme-points.js` EP 演算法、`solver.js` 主求解器） |
-| `package.json` | 名稱 gemini-intro-site；依賴僅 express ^4.18.2、sqlite3 ^5.1.6 |
+| `server.js` | Express 入口：靜態服務、JSON body、session、掛載 9 組 API 前綴（auth / skills / contours / orders / pallet / xls-booking / packing / db）；Port 被佔用自動 +1 |
+| `bp3d/` | **3D ULD 裝箱引擎**（`geometries.js` 半空間幾何、`uld-definitions.js` ULD 規格庫、`constraints.js` 約束、`extreme-points.js` EP 演算法、`solver.js` 主求解器、`ga-lns/` GA-LNS 啟發式） |
+| `package.json` | 名稱 gemini-intro-site；依賴 express / sqlite3 / express-session / bcryptjs / connect-sqlite3 / multer / exceljs / xlsx / pdf-lib / archiver |
 | `database.db` | SQLite 資料庫（自動建立，勿手動編輯） |
-| `ORDER_SYSTEM_PLAN.md` | 訂單系統設計紀錄：欄位規格、電力分類、訂單類型邏輯、電郵總結格式 |
+| `docs/design/order-system-design.md` | 訂單系統設計紀錄（原根目錄 `ORDER_SYSTEM_PLAN.md`）：欄位規格、電力分類、訂單類型邏輯、電郵總結格式（已實作，含「與現況差異」對照） |
+| `docs/design/xls-pdf-parallel-prd.md` | Shipper Role「SLI/ELI PDF 多工並行」PRD（已實作，含實作結果摘要） |
+| `docs/archive/` | 歷史文件：`uld-packing-spec-deepseek.md`、`uld-packing-prd-v2.txt`（DeepSeek 時期規格，附實作對照） |
+| `docs/research/` | 研究抓取產物（`*-latest.txt` 由 `scripts/fetch-*.py` 產生，不進版控） |
+| `docs/README.md` | 文件索引與分類規則 |
 | `README.md` | 專案說明、API 清單、常見問題 |
 | `CLAUDE.md` | AI 專案記憶檔（新對話自動載入，含自動開機流程） |
 | `PROJECT_MAP.md` | 本檔案：詳細專案地圖 |
@@ -37,14 +41,23 @@
 |------|------|
 | `skills.js` | 技能 API（GET /api/skills） |
 | `contours.js` | Contour 影像：匯出 `contoursRouter`（/api/contours）與 `contourImageRouter`（/api/contour-image） |
-| `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；含 `doDelete` 刪除邏輯 |
+| `auth/auth-router.js` | 登入 / 登出 / `/me`、`PUT /me/nav-order`（側邊欄排序） |
+| `auth/users-router.js` | 使用者 CRUD、重設密碼、啟用停用（admin only） |
+| `auth/middleware.js` | `requireAuth` / `requireRole` / `requirePermission` |
 | `orders/index.js` | 訂單 Router 入口 + ORD- → AGL- 編號一次性遷移 |
-| `orders/orders-router.js` | 訂單 CRUD |
+| `orders/orders-router.js` | 訂單 CRUD、搜尋、重複檢查 |
 | `orders/companies.js` | 公司/地點 CRUD，`normalizeCategory` |
+| `orders/note-templates.js` | 訂單備註文字範本（GET / POST） |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
-| `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / templates |
+| `pallet.js` | **打板計劃 API**：bookings / plans / spl-codes / remark-templates / sync-orders（見 §3.6） |
+| `packing.js` | **3D 裝箱求解 API**（health / ulds / demo / pack-uld） |
+| `packing-projects.js` | 裝箱專案 / ULD / 客戶 / 貨物項目 CRUD |
+| `packing-solutions.js` | 求解方案 CRUD（`/projects/:id/solutions`） |
+| `packing-solve.js` | 非同步求解 job（start / status / cancel） |
+| `packing-pdf.js` | `POST /projects/:id/export-pdf` |
+| `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
-| `packing.js` | **3D ULD 裝箱 API**（POST /api/packing/pack-uld 求解、GET /ulds、GET /demo、GET /health） |
+| `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；單筆/批次編輯與刪除 |
 
 ### 前端 `public/`
 
@@ -77,17 +90,28 @@
 | `js/xls-booking-standard.js` | XLS Booking：標準化結果預覽、勾選、CNEE 補值 |
 | `js/xls-booking-workflow.js` | XLS Booking：啟動 job、輪詢、中止、結果呈現 |
 | `css/xls-booking.css` | XLS Booking 樣式 |
-| `js/utils/api.js` | 通用 API 封裝（`apiFetch`） |
+| `login.html` | 登入頁（原生 fetch 呼叫 /api/auth） |
+| `users.html` | 使用者管理頁（admin only） |
+| `js/utils/api.js` | 通用 API 封裝（`apiFetch`，401 自動跳登入） |
 | `js/utils/datetime-utils.js` | 日期/時間工具 |
 | `js/utils/mawb-utils.js` | MAWB# 驗證/格式化工具 |
+| `js/utils/hawb-utils.js` | HAWB# 工具 |
+| `js/utils/clipboard-utils.js` | 複製到剪貼簿工具 |
 | `js/utils/modal.js` | 通用 Modal（`openModal`） |
 | `js/utils/cbm-calculator.js` | CBM 計算機（`openCbmCalculator`） |
 | `js/utils/time-picker.js` | 自訂時間選擇器（`setupTimePicker`） |
 | `js/utils/autocomplete.js` | 輸入即篩選自動補全（`setupAutocomplete`） |
+| `js/auth.js` | 登入狀態、Sidebar 鎖頭與「我的帳號」、導航排序 UI |
 | `packing.html` | **3D ULD 裝箱頁面**（ULD 選擇、貨物編輯、3D 視圖、逐步動畫控制） |
-| `css/packing.css` | 3D 裝箱系統樣式（含深色主題） |
+| `css/packing.css` | 裝箱系統樣式（含深色主題） |
 | `js/packing/packing-viewer.js` | Three.js 渲染器（ULD 線框、貨物 Box、逐步飛入動畫、點擊資訊） |
 | `js/packing/packing-main.js` | 頁面邏輯（ULD 載入、貨物 CRUD、API 求解、結果顯示、動畫控制） |
+| `uld-packing.html` | **ULD 智能裝箱頁面**（多 ULD 專案、拖拽、求解方案） |
+| `css/uld-packing.css`、`uld-packing-3d.css`、`uld-packing-modal.css`、`uld-packing-solve.css` | ULD 智能裝箱樣式 |
+| `js/uld-packing/` | state / ui / viewer / viewer-controller / calc / dragger / solve-ui / project / main |
+| `js/pallet.js` | 打板計劃進入點 |
+| `js/pallet/` | api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters |
+| `css/pallet.css` | 打板計劃樣式 |
 
 ---
 
@@ -101,7 +125,7 @@ id, category ('customer'|'warehouse'|'transport' 等), name, address,
 contact_person, phone, email, notes, created_at
 ```
 
-**templates 表**（範本，按公司分類）
+**templates 表**（範本 — **已停用**：UI/API 已於 2026-08 移除，表保留供 dbviewer 與公司刪除保護）
 ```
 id, name, company_id, cargo_desc, quantity, weight_kg, cbm,
 power_type ('no'|'dry'|'lithium'), receiver_name, receiver_phone, notes, created_at
@@ -143,11 +167,16 @@ created_at, updated_at
 | DELETE | `/api/orders/:id` | 刪除訂單 |
 | GET | `/api/orders/companies` | 公司清單（`?search=&category=`） |
 | POST | `/api/orders/companies` | 新增公司 |
+| GET | `/api/orders/note-templates` | 備註文字範本（`?search=`） |
+| POST | `/api/orders/note-templates` | 新增/更新備註文字範本 |
+
+> 訂單端點皆在 `/api/orders`（`requireAuth`）之下；customer 角色僅能存取自己公司資料。
+> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/packing`（裝箱，登入）、`/api/auth`、`/api/db`（`db_view`）。
 
 ### 電郵總結（`mailto:` 免設定）
 - 自動填收件人（運輸公司 email）、主旨、總結內容
 - 支援 `複製總結內容` 用 WhatsApp 等發送
-- 格式範例見 `ORDER_SYSTEM_PLAN.md` / `README.md`
+- 格式範例見 `docs/design/order-system-design.md` / `README.md`
 
 ---
 
@@ -188,6 +217,28 @@ created_at, updated_at
 - **CoG**：X/Y 偏移需在幾何中心 ±10% 內（options.cog_tolerance_ratio 可調）
 - **Net Clearance**：預設 30mm（ULD 內部空間向內縮）
 - **逐步動畫**：solver 回傳 `sequence[]`，前端 Three.js 依序播放
+
+---
+
+## 3.6 打板計劃（routes/pallet.js）
+
+| Method | Path | 說明 |
+|--------|------|------|
+| GET/POST/PUT/DELETE | `/api/pallet/bookings[/:id]` | 板位 booking CRUD |
+| GET | `/api/pallet/bookings/destinations` | 目的地清單 |
+| GET/POST | `/api/pallet/plans` | 計劃卡列表 / 新增 |
+| GET/PUT/DELETE | `/api/pallet/plans/:id` | 計劃卡詳情 / 更新 / 刪除 |
+| PUT | `/api/pallet/plans/reorder` | 計劃卡排序 |
+| POST | `/api/pallet/plans/:id/duplicate` | 複製計劃卡 |
+| POST/DELETE | `/api/pallet/plans/:id/items[/:planItemId]` | 計劃項目新增 / 刪除 |
+| PUT | `/api/pallet/plans/:id/items/reorder` | 計劃項目排序 |
+| GET/POST | `/api/pallet/spl-codes` | SPL 代碼 |
+| GET/POST | `/api/pallet/remark-templates` | 備註範本 |
+| POST | `/api/pallet/sync-orders` | 由訂單同步資料至計劃 |
+
+- 權限：`requireRole('admin', 'staff')`
+- 資料表：`pallet_plans`、`pallet_plan_items`、`spl_codes`、`remark_templates`
+- 前端：`public/index.html` 的 `#section-palletization` + `public/js/pallet/*`
 
 ---
 

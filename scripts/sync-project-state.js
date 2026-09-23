@@ -30,8 +30,12 @@ const EXCLUDE_DIRS = new Set([
   'logs',
   'tmp',
   'temp',
+  '__pycache__',
   'public/image',
   'public/fonts',
+  // Shipper Role 本機產出（已列 .gitignore，不納入清單與快照比對）
+  'data/work',
+  'data/uploads',
 ]);
 const EXCLUDE_FILES = new Set([
   'package-lock.json',
@@ -45,7 +49,7 @@ const EXCLUDE_FILES = new Set([
 const EXCLUDE_EXT = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp',
   '.ico', '.svg', '.woff', '.woff2', '.ttf',
-  '.db', '.sqlite', '.sqlite3', '.log',
+  '.db', '.sqlite', '.sqlite3', '.log', '.pyc',
 ]);
 
 function shouldSkip(filePath) {
@@ -53,6 +57,8 @@ function shouldSkip(filePath) {
   const ext = path.extname(name).toLowerCase();
   if (EXCLUDE_EXT.has(ext)) return true;
   if (EXCLUDE_FILES.has(name)) return true;
+  // 研究抓取輸出（可再生成，已列 .gitignore）
+  if (/-latest\.txt$/.test(name)) return true;
   return false;
 }
 

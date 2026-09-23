@@ -10,7 +10,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-OUT_FILE = "scripts/research-output.txt"
+OUT_FILE = "docs/research/bpp-research-latest.txt"
 
 ARXIV_QUERIES = [
     'all:"bin packing" AND all:"container loading"',

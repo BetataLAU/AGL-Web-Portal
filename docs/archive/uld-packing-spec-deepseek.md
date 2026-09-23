@@ -84,3 +84,20 @@ Represent AKE $Y\text{-}Z$ cross-section as an Extruded Polygon along the $X$-ax
     }
   ]
 }
+```
+
+---
+
+## 6. 實作對照（2026-09-23 補記）
+
+本文件為 2026-08-20 交給 DeepSeek 的**一次性開發規格 prompt**（歷史文件），實際落地時技術棧與範圍已不同，保留作需求來源。
+
+| 本文規格 | 實際實作 |
+|----------|----------|
+| 後端 Python 3.10+ / FastAPI + 3D-BPP 演算法 | 無獨立後端服務：Node.js `bp3d/` 引擎（`geometries` / `uld-definitions` / `constraints` / `extreme-points` / `solver`）+ `bp3d/ga-lns/`（GA-LNS 啟發式） |
+| 前端 React / Vue + TypeScript + Tailwind | 原生 JS + HTML + CSS（無框架、無 build step）：`public/packing.html`、`public/js/packing/`、`public/js/uld-packing/` |
+| 3D 引擎 Three.js | 同樣使用 Three.js |
+| API `POST /api/v1/pack-uld` | `POST /api/packing/pack-uld`（另有 `packing-projects` / `packing-solutions` / `packing-pdf` / `pallet` 系列，皆需登入） |
+| 約束：支撐率 70–80%、CoG ±10%、Net Clearance 20–50mm | 已實作：預設支撐率 70%、CoG ±10%、Net Clearance 30mm（可用 API options 調整） |
+
+> 現行說明請見根目錄 `README.md`、`PROJECT_MAP.md` §3.5 與 `CLAUDE.md`。

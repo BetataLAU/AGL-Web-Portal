@@ -5,27 +5,27 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`305fa23` fix(xls-booking): 修正②預覽公式格顯示 [object Object]（改取 Excel 快取計算結果）
+- **最後 commit**：`24fd653` chore(sync): 同步 202609 Report 工作檔（+390 列）與 DB / sessions 快照
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-1. **Shipper Role ② 預覽公式格修正（本輪）**：來源檔整欄是 `VLOOKUP` 外部連結公式時，② 預覽顯示 `[object Object]`（應顯示 Excel 快取結果，例：航班號 `TK0171`）。
+1. **Report / DB 快照同步**（`24fd653`；歷次 `540dda3`、`8ae904d`、`2fd2122`、`ed1617c`、`eb69bd3`、`d1bb695`、`24ef13e`、`7f4e45b`…）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1793 → 2183 列（+390 筆新資料；其餘 6 個 sheet 列數／欄數完全不變，彙總列公式自動跟隨至新範圍；重存後 zip 內部結構改變故 bytes 670,181 → 559,322，已逐 sheet 比對確認資料無縮減）、`database.db` 與 `db/db-dump.sql` 例行變更（`users.last_login_at` 等）、`db/sessions.db` 本機 session 換新。
+2. **Shipper Role ② 預覽公式格修正**（`305fa23`）：來源檔整欄是 `VLOOKUP` 外部連結公式時，② 預覽顯示 `[object Object]`（應顯示 Excel 快取結果，例：航班號 `TK0171`）。
    - 新增 `scripts/xls-utils.js` 的 `resolveCellValue()`（公式／富文字／超連結／錯誤值 → 實際值；無快取結果 → 空字串）與 `formatLocalDateTime()`（本地時區顯示，修掉 UTC+8 日期少一天的既有 bug）。
    - `routes/xls-booking-helpers.js` `sheetPreview()` 改用上述工具（API 回應不再含物件）。
    - 前端 `public/js/xls-booking-state.js` `xlsCellDisplay()` 同步解析複合物件（`xlsDateDisplay()` 本地日期）。
    - 新增 `scripts/test-xls-preview-formula.js`（26 項斷言：後端預覽／前端顯示函式／`resolveCellValue`／③ `standardizeRows`），並以實際來源檔驗證 AD2 → `TK0171`。
-2. **文件分類整合**（`86db6d9`）：歷史規格 → `docs/archive/`、設計 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md`；`README.md` 重寫；`CLAUDE.md` / `PROJECT_MAP.md` 補齊模組與 17 張表；`sync-project-state.js` 排除 `data/work`、`data/uploads`、`__pycache__`。
-2. **側邊欄排序修復**（`549289c`）：`*.html` 頁面連結項目不再被後端過濾，排序能正確保存。
-3. **資料庫 / Report 快照同步**（`540dda3`、`8ae904d`、`2fd2122`、`ed1617c`、`eb69bd3`、`d1bb695`、`24ef13e`、`7f4e45b`…）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 逐次累加（1411 → 1792 列）、`database.db` / `db-dump.sql` 差異主要是 `users.last_login_at`、`db/sessions.db` 本機 session 換新。
-4. **打板計劃 + ULD 智能裝箱**（`8fdf148` 等）：`routes/pallet.js`、`routes/packing-{projects,solutions,solve,pdf}.js`、`bp3d/ga-lns/`、`public/uld-packing.html` + `public/js/uld-packing/*`（多 ULD 專案、拖拽、求解方案、PDF 匯出）。
-5. **Shipper Role 模組化**（`1578210` 等）：`scripts/xls-workflow.js` 拆出 `xls-utils` / `xls-cnee` / `xls-report` / `xls-sli-eli`；前端 `public/js/xls-booking.js` 拆成 7 支（state / upload / preview / grid / assign / standard / workflow）；PDF 產生加入 worker pool 並行（`XLS_PDF_CONCURRENCY`，PRD 見 `docs/design/xls-pdf-parallel-prd.md`）。
-6. **登入與權限**：Session 登入（`routes/auth/`）、角色 admin / staff / customer、客戶資料隔離、`users.html` 使用者管理、導航排序持久化。
-7. **CNEE 對照區自動化**：`extractCneeLookupArea` + `matchCnee`（DEST / REMARK 加權）、缺 CNEE 與重覆 MAWB 警告清單。
-8. **GuestBook（Forum）移除**：UI + API + 建表；舊 `messages` 表待清理（見待辦 REMARK）。
-9. **通用工具抽取**：`public/js/utils/`（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete）與 `public/css/utils/`。
-10. **訂單系統調整**：範本功能移除、HAWB# 改非必填、帶電項目累積新增、備註範本、訂單編號改 `AGL-`。
+3. **文件分類整合**（`86db6d9`）：歷史規格 → `docs/archive/`、設計 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md`；`README.md` 重寫；`CLAUDE.md` / `PROJECT_MAP.md` 補齊模組與 17 張表；`sync-project-state.js` 排除 `data/work`、`data/uploads`、`__pycache__`。
+4. **側邊欄排序修復**（`549289c`）：`*.html` 頁面連結項目不再被後端過濾，排序能正確保存。
+5. **打板計劃 + ULD 智能裝箱**（`8fdf148` 等）：`routes/pallet.js`、`routes/packing-{projects,solutions,solve,pdf}.js`、`bp3d/ga-lns/`、`public/uld-packing.html` + `public/js/uld-packing/*`（多 ULD 專案、拖拽、求解方案、PDF 匯出）。
+6. **Shipper Role 模組化**（`1578210` 等）：`scripts/xls-workflow.js` 拆出 `xls-utils` / `xls-cnee` / `xls-report` / `xls-sli-eli`；前端 `public/js/xls-booking.js` 拆成 7 支（state / upload / preview / grid / assign / standard / workflow）；PDF 產生加入 worker pool 並行（`XLS_PDF_CONCURRENCY`，PRD 見 `docs/design/xls-pdf-parallel-prd.md`）。
+7. **登入與權限**：Session 登入（`routes/auth/`）、角色 admin / staff / customer、客戶資料隔離、`users.html` 使用者管理、導航排序持久化。
+8. **CNEE 對照區自動化**：`extractCneeLookupArea` + `matchCnee`（DEST / REMARK 加權）、缺 CNEE 與重覆 MAWB 警告清單。
+9. **GuestBook（Forum）移除**：UI + API + 建表；舊 `messages` 表待清理（見待辦 REMARK）。
+10. **通用工具抽取**：`public/js/utils/`（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete）與 `public/css/utils/`。
+11. **訂單系統調整**：範本功能移除、HAWB# 改非必填、帶電項目累積新增、備註範本、訂單編號改 `AGL-`。
 
 ## 🔧 專案地圖機制（已建置）
 

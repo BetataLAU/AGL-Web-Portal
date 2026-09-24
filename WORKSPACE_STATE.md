@@ -5,7 +5,7 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`86db6d9` docs: 文件分類整合（docs/design|archive|research）並更新現況文件
+- **最後 commit**：`305fa23` fix(xls-booking): 修正②預覽公式格顯示 [object Object]（改取 Excel 快取計算結果）
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
 

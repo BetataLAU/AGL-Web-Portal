@@ -27,6 +27,45 @@ function cleanCell(v) {
   return s.trim();
 }
 
+/**
+ * 解析 ExcelJS 儲存格原始值 → 可直接使用／顯示的基本型別。
+ *
+ * ExcelJS 對「公式、富文字、超連結、錯誤值」會回傳複合物件，若直接輸出就會變成 "[object Object]"：
+ *   { formula, result }       → 取 Excel 快取的計算結果（例：VLOOKUP 外部連結結果 "TK0171"）
+ *   { sharedFormula, result } → 同上
+ *   { richText: [...] }       → 串接各段文字
+ *   { text, hyperlink }       → text
+ *   { error: '#N/A' }         → 錯誤字串（如 '#N/A'）
+ *   有公式但 Excel 未快取結果（例如外部連結的來源檔已不存在、該格本來就是空的）→ ''
+ * 非物件值原樣回傳（number / string / boolean 保持型別，Date 保持 Date）。
+ */
+function resolveCellValue(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v !== 'object') return v;
+  if (v instanceof Date) return v;
+  if (Array.isArray(v.richText)) return v.richText.map((t) => (t && t.text) || '').join('');
+  if (Array.isArray(v)) return v.map(resolveCellValue).join('');
+  if (typeof v.text === 'string') return v.text;
+  if (typeof v.error === 'string') return v.error;
+  if (v.result !== undefined && v.result !== null) return resolveCellValue(v.result);
+  return '';
+}
+
+/**
+ * 日期／時間顯示（本地時區）。
+ * 不可用 toISOString()：在 UTC+8 等時區會把「2026-09-24 00:00」變成 "2026-09-23T16:00Z" → 顯示少一天。
+ * 例：new Date(2026, 8, 24) → '2026-09-24'；new Date(2026, 8, 24, 14, 11, 13) → '2026-09-24 14:11:13'
+ */
+function formatLocalDateTime(d) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const h = d.getHours();
+  const mi = d.getMinutes();
+  const s = d.getSeconds();
+  if (!h && !mi && !s) return date; // 純日期
+  return `${date} ${pad(h)}:${pad(mi)}${s ? `:${pad(s)}` : ''}`;
+}
+
 /** 抽取 MAWB#（標準化 000-00000000 或 00000000000） */
 function normalizeMawb(v) {
   const s = cleanCell(v);
@@ -127,6 +166,8 @@ function workbookToXlsx(wb, targetPath) {
 module.exports = {
   sleep,
   cleanCell,
+  resolveCellValue,
+  formatLocalDateTime,
   normalizeMawb,
   flightCompany,
   normalizeDate,

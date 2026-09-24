@@ -152,7 +152,13 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）。
+
+**公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
+- 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
+- 共用解析入口：`scripts/xls-utils.js` 的 `resolveCellValue()`（② `sheetPreview()`、③ `cleanCell()` 都靠它）；**不可直接輸出 ExcelJS 儲存格物件**，否則前端 `String(v)` 會變成 `[object Object]`。
+- 前端對應：`public/js/xls-booking-state.js` 的 `xlsCellDisplay()`（含 `richText` / 超連結 / 錯誤值 / 公式）。
+- 日期顯示一律用本地時區（`formatLocalDateTime()` / `xlsDateDisplay()`）：`toISOString()` 在 UTC+8 會少一天。
 
 **PDF 產生並行度**：Shipper Role 第 ④ 步可在頁面選擇 `1`–`4` 個 worker；Windows Excel COM 建議先用 `1`，`2`–`4` 為較高負載實驗模式；未指定時使用 `XLS_PDF_CONCURRENCY`（預設 `2`）。每個 worker 使用獨立 Python/Excel 實例與資料 shard，取消時會終止子程序。
 

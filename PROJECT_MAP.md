@@ -34,6 +34,7 @@
 | `scripts/xls-cnee.js` | CNEE 對照區抽取 + 比對 |
 | `scripts/xls-report.js` | Report 模板寫入 |
 | `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包 |
+| `scripts/test-xls-preview-formula.js` | 公式／複合儲存格預覽測試（② 預覽與日期顯示，免伺服器） |
 
 ### 後端 `routes/`
 

@@ -35,10 +35,30 @@ function xlsEscapeHtml(str) {
   ));
 }
 
+// 日期顯示（本地時區）：不可用 toISOString()——UTC+8 會把 2026-09-24 00:00 顯示成 2026-09-23。
+function xlsDateDisplay(d) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const h = d.getHours();
+  const mi = d.getMinutes();
+  const s = d.getSeconds();
+  if (!h && !mi && !s) return date;
+  return `${date} ${pad(h)}:${pad(mi)}${s ? `:${pad(s)}` : ''}`;
+}
+
+// 儲存格顯示值：ExcelJS 會把公式格（{ formula, result }）、富文字回傳成物件，
+// 這裡統一把複合物件解析成實際值，避免畫面出現 [object Object]（後端 sheetPreview 已先處理，此為前端保險）。
 function xlsCellDisplay(v) {
   if (v === null || v === undefined) return '';
-  if (typeof v === 'object' && v instanceof Date) return v.toISOString().slice(0, 10);
-  if (typeof v === 'object' && v.richText) return v.richText.map((t) => t.text).join('');
+  if (typeof v === 'object') {
+    if (v instanceof Date) return xlsDateDisplay(v);
+    if (Array.isArray(v.richText)) return v.richText.map((t) => (t && t.text) || '').join('');
+    if (Array.isArray(v)) return v.map(xlsCellDisplay).join('');
+    if (typeof v.text === 'string') return v.text;
+    if (typeof v.error === 'string') return v.error;
+    if (v.result !== undefined && v.result !== null) return xlsCellDisplay(v.result);
+    return '';
+  }
   return String(v);
 }
 

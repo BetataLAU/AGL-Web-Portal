@@ -7,6 +7,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
+const { resolveCellValue, formatLocalDateTime } = require('../scripts/xls-utils');
 
 // ===== 路徑設定 =====
 // DATA_DIR 可由環境變數覆寫（Railway：指向持久 Volume），本地維持 data/ 路徑
@@ -65,12 +66,11 @@ function sheetPreview(ws, maxRows = 100, maxCols = 100) {
     if (rn > maxRows) return;
     const vals = [];
     for (let c = 1; c <= Math.min(row.cellCount, maxCols); c++) {
-      let v = row.getCell(c).value;
-      if (v && typeof v === 'object' && v instanceof Date) {
-        v = v.toISOString().slice(0, 10);
-      } else if (v && typeof v === 'object' && v.richText) {
-        v = v.richText.map((t) => t.text).join('');
-      }
+      // 公式格（VLOOKUP 外部連結等）在 ExcelJS 是 { formula, result } 物件，
+      // 需先解析成 Excel 快取的計算結果，否則 API 會把物件送到前端顯示成 [object Object]。
+      let v = resolveCellValue(row.getCell(c).value);
+      if (v instanceof Date) v = formatLocalDateTime(v);
+      if (v !== null && typeof v === 'object') v = '';
       vals.push(v);
     }
     rows.push(vals);

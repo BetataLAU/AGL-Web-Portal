@@ -2,43 +2,34 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/23 下午3:51:52
+> 最後更新：2026/9/24 下午6:13:30
 
 ## 🔄 Git 變更狀態
 
 ```
-M .clineignore
-M .gitignore
 M CLAUDE.md
-M FILE_INVENTORY.md
 M PROJECT_MAP.md
-M README.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
+M database.db
 M db/sessions.db
-A  docs/README.md
-RM deepseek_text_20260820_ba683e.txt -> docs/archive/uld-packing-prd-v2.txt
-RM "AIR FREIGHT 3D ULD PACKING SYSTEM - SPECIFICATION & PROMPT FOR DEEPSEEK.md" -> docs/archive/uld-packing-spec-deepseek.md
-RM ORDER_SYSTEM_PLAN.md -> docs/design/order-system-design.md
-RM docs/PRD-xls-pdf-parallel.md -> docs/design/xls-pdf-parallel-prd.md
-R  scripts/research-output.txt -> docs/research/bpp-research-2026-08-20.txt
-R  scripts/github-repos-output.txt -> docs/research/github-repos-2026-08-20.txt
-M scripts/fetch-bpp-research.py
-M scripts/fetch-github-repos.py
-M scripts/sync-project-state.js
+M public/js/xls-booking-state.js
+M routes/xls-booking-helpers.js
+M scripts/xls-utils.js
+?? scripts/test-xls-preview-formula.js
 ```
 
-## 📁 檔案清單（共 175 個檔案）
+## 📁 檔案清單（共 176 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（578 B）
-- `CLAUDE.md`（18.4 KB）
+- `CLAUDE.md`（19.3 KB）
 - `Dockerfile`（738 B）
-- `PROJECT_MAP.md`（14.7 KB）
+- `PROJECT_MAP.md`（14.8 KB）
 - `README.md`（20.2 KB）
-- `WORKSPACE_STATE.md`（5.8 KB）
+- `WORKSPACE_STATE.md`（6.5 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -63,7 +54,7 @@ M scripts/sync-project-state.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（541.5 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（546.5 KB）
 
 ### db
 
@@ -136,7 +127,7 @@ M scripts/sync-project-state.js
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
 - `public/js/xls-booking-standard.js`（13.1 KB）
-- `public/js/xls-booking-state.js`（5.8 KB）
+- `public/js/xls-booking-state.js`（6.8 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（11.1 KB）
 
@@ -215,7 +206,7 @@ M scripts/sync-project-state.js
 - `routes/packing.js`（3.5 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
-- `routes/xls-booking-helpers.js`（5.2 KB）
+- `routes/xls-booking-helpers.js`（5.4 KB）
 - `routes/xls-booking.js`（13.7 KB）
 
 ### routes/auth
@@ -264,13 +255,14 @@ M scripts/sync-project-state.js
 - `scripts/test-packing-projects.js`（7.1 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
 - `scripts/test-sli-generate.py`（1.6 KB）
+- `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
 - `scripts/verify-dummy-orders.js`（3.8 KB）
 - `scripts/verify-import.js`（1.3 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（8.3 KB）
-- `scripts/xls-utils.js`（5.1 KB）
+- `scripts/xls-utils.js`（7.1 KB）
 - `scripts/xls-workflow.js`（23.4 KB）
 
 ### utils

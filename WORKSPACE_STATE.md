@@ -5,13 +5,18 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`549289c` fix(sidebar)：修正側邊欄目錄排序無法記住（頁面連結項目被後端過濾）
+- **最後 commit**：`86db6d9` docs: 文件分類整合（docs/design|archive|research）並更新現況文件
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-1. **文件整理（本輪，未 commit）**：11 份散落文件重新分類——歷史規格 → `docs/archive/`、設計文件 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md` 分類規則；`README.md` 依現況重寫（登入 / 訂單 / Shipper Role / 3D ULD 裝箱 / 打板計劃 / 資料庫檢視器）；`CLAUDE.md`、`PROJECT_MAP.md` 補齊 auth、pallet、packing 模組與 17 張資料表；`scripts/sync-project-state.js` 排除 `data/work`、`data/uploads`；`scripts/fetch-*.py` 輸出路徑改至 `docs/research/`。
+1. **Shipper Role ② 預覽公式格修正（本輪）**：來源檔整欄是 `VLOOKUP` 外部連結公式時，② 預覽顯示 `[object Object]`（應顯示 Excel 快取結果，例：航班號 `TK0171`）。
+   - 新增 `scripts/xls-utils.js` 的 `resolveCellValue()`（公式／富文字／超連結／錯誤值 → 實際值；無快取結果 → 空字串）與 `formatLocalDateTime()`（本地時區顯示，修掉 UTC+8 日期少一天的既有 bug）。
+   - `routes/xls-booking-helpers.js` `sheetPreview()` 改用上述工具（API 回應不再含物件）。
+   - 前端 `public/js/xls-booking-state.js` `xlsCellDisplay()` 同步解析複合物件（`xlsDateDisplay()` 本地日期）。
+   - 新增 `scripts/test-xls-preview-formula.js`（26 項斷言：後端預覽／前端顯示函式／`resolveCellValue`／③ `standardizeRows`），並以實際來源檔驗證 AD2 → `TK0171`。
+2. **文件分類整合**（`86db6d9`）：歷史規格 → `docs/archive/`、設計 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md`；`README.md` 重寫；`CLAUDE.md` / `PROJECT_MAP.md` 補齊模組與 17 張表；`sync-project-state.js` 排除 `data/work`、`data/uploads`、`__pycache__`。
 2. **側邊欄排序修復**（`549289c`）：`*.html` 頁面連結項目不再被後端過濾，排序能正確保存。
 3. **資料庫 / Report 快照同步**（`540dda3`、`8ae904d`、`2fd2122`、`ed1617c`、`eb69bd3`、`d1bb695`、`24ef13e`、`7f4e45b`…）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 逐次累加（1411 → 1792 列）、`database.db` / `db-dump.sql` 差異主要是 `users.last_login_at`、`db/sessions.db` 本機 session 換新。
 4. **打板計劃 + ULD 智能裝箱**（`8fdf148` 等）：`routes/pallet.js`、`routes/packing-{projects,solutions,solve,pdf}.js`、`bp3d/ga-lns/`、`public/uld-packing.html` + `public/js/uld-packing/*`（多 ULD 專案、拖拽、求解方案、PDF 匯出）。

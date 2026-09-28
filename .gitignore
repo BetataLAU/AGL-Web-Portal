@@ -19,8 +19,5 @@ data/uploads/
 .vscode/
 data/test-*
 
-# 模板備份檔（本機保存即可，不進 repo）
-data/templates/* (BAK).xlsx
-
 # 研究抓取輸出（可再生成，不進 repo；見 docs/README.md）
 docs/research/*-latest.txt

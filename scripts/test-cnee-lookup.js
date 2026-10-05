@@ -5,6 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 
+// OOM 防護：須早於任何 ExcelJS 讀檔載入（WPS 檔的 defined-name 巨量範圍會吃爆記憶體，詳見模組註解）
+require('./xls-exceljs-guard');
+
 const BASE = 'http://127.0.0.1:3000';
 const SOURCE_FILE = path.resolve(__dirname, '..', 'data', 'uploads', 'b2719b93a5db.xlsx');
 const { cleanCell } = require('./xls-utils');

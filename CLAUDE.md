@@ -141,6 +141,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/xls-cnee.js` | CNEE 對照區自動抽取 + DEST/REMARK 加權比對 |
 | `scripts/xls-report.js` | Report 模板寫入 |
 | `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包與分割 |
+| `scripts/xls-exceljs-guard.js` | 讀檔防護：略過異常大的 defined-name 範圍，避免 WPS 檔造成 OOM（上傳／預覽／process 皆載入） |
 | `public/js/xls-booking-state.js` | 前端：常數/狀態/工具/上傳拖曳/初始化 |
 | `public/js/xls-booking-upload.js` | 前端：上傳與檔案列表 |
 | `public/js/xls-booking-preview.js` | 前端：自動偵測欄位、預覽面板、欄位指派 |
@@ -165,6 +166,14 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 **資源清理**：`POST /api/xls-booking/cleanup`（admin/staff）可清理超過 24 小時的 job/report 與超過 7 天的上傳檔；先傳 `{ "dryRun": true }` 可只列出清單。PDF 合併後會自動刪除中間 SLI/ELI xlsx 與 LibreOffice profile。
 
 **注意**：資料夾層使用 `data/templates/`（報告與 SLI/ELI 模板）、`data/uploads/`、`data/work/`（job 產出），皆可被 `DATA_DIR` 環境變數覆寫。
+
+**上傳 OOM／「Failed to fetch」（重要）**：WPS（金山）產出的 xlsx 常把 defined name 寫成整張表範圍，例如
+`_xlnm._FilterDatabase = 配舱计划!$A$3:$XFB$1048462`（16384 欄 × 1048460 列 ≈ 171 億格）。ExcelJS 解析 defined name 時會
+把範圍「逐格展開」成物件（`DefinedNames.set model` → `CellMatrix.addCellEx`），瞬間吃爆約 4GB heap → **Node 直接崩潰**，
+伺服器一死前端 fetch 連線失敗，只顯示「上傳失敗：Failed to fetch」（與檔案大小無關，88KB 也會發生）。
+- 修正：`scripts/xls-exceljs-guard.js` 以 prototype patch 讓 `CellMatrix.addCellEx` 略過超過 `MAX_DEFINED_NAME_CELLS`（1,000,000 格）的範圍。
+- **凡讀取「使用者上傳檔案」的模組，最上方必須 `require` 本防護且早於 `require('exceljs')`**（目前：`routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-workflow.js`、`scripts/test-cnee-lookup.js`）。新增讀檔入口時請一併載入。
+- 實測同一檔案：4GB+（OOM）→ 約 22MB；工作表內容／欄列數不變。SLI/ELI 模板的 `Print_Area`（數百格）不受影響。
 
 ## 訂單系統（routes/orders/）
 

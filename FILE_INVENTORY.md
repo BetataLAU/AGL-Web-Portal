@@ -2,34 +2,36 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/9/24 下午6:13:30
+> 最後更新：2026/10/5 下午4:07:02
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
+M FILE_INVENTORY.md
 M PROJECT_MAP.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
-M public/js/xls-booking-state.js
 M routes/xls-booking-helpers.js
-M scripts/xls-utils.js
-?? scripts/test-xls-preview-formula.js
+M routes/xls-booking.js
+M scripts/test-cnee-lookup.js
+M scripts/xls-workflow.js
+?? scripts/xls-exceljs-guard.js
 ```
 
-## 📁 檔案清單（共 176 個檔案）
+## 📁 檔案清單（共 177 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
-- `.gitignore`（578 B）
-- `CLAUDE.md`（19.3 KB）
+- `.gitignore`（490 B）
+- `CLAUDE.md`（20.6 KB）
 - `Dockerfile`（738 B）
-- `PROJECT_MAP.md`（14.8 KB）
+- `PROJECT_MAP.md`（14.9 KB）
 - `README.md`（20.2 KB）
-- `WORKSPACE_STATE.md`（6.5 KB）
+- `WORKSPACE_STATE.md`（8.1 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -54,12 +56,12 @@ M scripts/xls-utils.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（546.5 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（560.6 KB）
 
 ### db
 
 - `db/database.js`（15.0 KB）
-- `db/db-dump.sql`（150.8 KB）
+- `db/db-dump.sql`（153.3 KB）
 
 ### docs
 
@@ -206,8 +208,8 @@ M scripts/xls-utils.js
 - `routes/packing.js`（3.5 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
-- `routes/xls-booking-helpers.js`（5.4 KB）
-- `routes/xls-booking.js`（13.7 KB）
+- `routes/xls-booking-helpers.js`（5.6 KB）
+- `routes/xls-booking.js`（13.9 KB）
 
 ### routes/auth
 
@@ -244,7 +246,7 @@ M scripts/xls-utils.js
 - `scripts/sync-project-state.js`（6.3 KB）
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-bp3d.js`（14.3 KB）
-- `scripts/test-cnee-lookup.js`（9.4 KB）
+- `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
 - `scripts/test-galms.js`（8.0 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
@@ -260,10 +262,11 @@ M scripts/xls-utils.js
 - `scripts/verify-dummy-orders.js`（3.8 KB）
 - `scripts/verify-import.js`（1.3 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
+- `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（8.3 KB）
 - `scripts/xls-utils.js`（7.1 KB）
-- `scripts/xls-workflow.js`（23.4 KB）
+- `scripts/xls-workflow.js`（23.6 KB）
 
 ### utils
 

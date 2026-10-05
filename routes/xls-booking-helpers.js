@@ -6,6 +6,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
+// OOM 防護：須早於任何 ExcelJS 讀檔載入（WPS 檔的 defined-name 巨量範圍會吃爆記憶體，詳見模組註解）
+require('../scripts/xls-exceljs-guard');
 const ExcelJS = require('exceljs');
 const { resolveCellValue, formatLocalDateTime } = require('../scripts/xls-utils');
 

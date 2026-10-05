@@ -15,6 +15,8 @@ const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 const crypto = require('crypto');
+// OOM 防護：須早於任何 ExcelJS 讀檔載入（WPS 檔的 defined-name 巨量範圍會吃爆記憶體，詳見模組註解）
+require('../scripts/xls-exceljs-guard');
 const ExcelJS = require('exceljs');
 const {
   WORK_DIR,

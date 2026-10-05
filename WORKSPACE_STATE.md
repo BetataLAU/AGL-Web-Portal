@@ -7,9 +7,14 @@
 
 - **最後 commit**：`24fd653` chore(sync): 同步 202609 Report 工作檔（+390 列）與 DB / sessions 快照
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態**：乾淨（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
+- **工作目錄狀態**：本次修正（上傳 OOM）尚未提交，變更檔案：`scripts/xls-exceljs-guard.js`（新增）、`routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-workflow.js`、`scripts/test-cnee-lookup.js`、`CLAUDE.md`、`PROJECT_MAP.md`、`WORKSPACE_STATE.md`、`FILE_INVENTORY.md`（未進版控的本機產出由 `.gitignore` 忽略：`data/work/`、`data/uploads/`、`data/templates/* (BAK).xlsx`、`database.db`、`db/sessions.db`、`docs/research/*-latest.txt`）
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
+
+0. **Shipper Role 上傳 OOM 修正（本次工作，尚未提交）**：使用者上傳 WPS 產出的 xlsx 後伺服器崩潰（`FATAL ERROR: ... JavaScript heap out of memory`），前端只看到「上傳失敗：Failed to fetch」。
+   - 根因：該檔（僅 88KB）的 `_xlnm._FilterDatabase` = `配舱计划!$A$3:$XFB$1048462`（16384 欄 × 1048460 列 ≈ 171 億格）；ExcelJS 解析 defined name 時逐格展開（`DefinedNames.set model` → `CellMatrix.addCellEx`），瞬間吃爆約 4GB heap。實測縮到 571 萬格仍佔 ~500MB（記憶體 ∝ 範圍格數）；同檔以 SheetJS 讀取僅 ~18MB。
+   - 修正：新增 `scripts/xls-exceljs-guard.js`（prototype patch，略過 > 1,000,000 格的 defined-name 範圍），並在 `routes/xls-booking.js` / `routes/xls-booking-helpers.js` / `scripts/xls-workflow.js` / `scripts/test-cnee-lookup.js` 載入（須早於 `require('exceljs')`）。
+   - 驗證：同檔讀取 4GB+（OOM）→ 約 22MB；端對端 login → upload 200 → preview 200 → cnee-preview 200；`scripts/test-xls-preview-formula.js` 26/26 通過；SLI/ELI 模板 Print_Area（數百格）不受影響。
 
 1. **Report / DB 快照同步**（`24fd653`；歷次 `540dda3`、`8ae904d`、`2fd2122`、`ed1617c`、`eb69bd3`、`d1bb695`、`24ef13e`、`7f4e45b`…）：`data/templates/shipper-role-summary-2026.xlsx` 的 202609 sheet 1793 → 2183 列（+390 筆新資料；其餘 6 個 sheet 列數／欄數完全不變，彙總列公式自動跟隨至新範圍；重存後 zip 內部結構改變故 bytes 670,181 → 559,322，已逐 sheet 比對確認資料無縮減）、`database.db` 與 `db/db-dump.sql` 例行變更（`users.last_login_at` 等）、`db/sessions.db` 本機 session 換新。
 2. **Shipper Role ② 預覽公式格修正**（`305fa23`）：來源檔整欄是 `VLOOKUP` 外部連結公式時，② 預覽顯示 `[object Object]`（應顯示 Excel 快取結果，例：航班號 `TK0171`）。

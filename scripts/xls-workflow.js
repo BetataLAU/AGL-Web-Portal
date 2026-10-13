@@ -25,6 +25,7 @@ const {
   formatYyyymmdd,
   extractTel,
   workbookToXlsx,
+  sanitizeFileLabel,
 } = require('./xls-utils');
 const { extractCneeLookupArea, matchCnee, normalizeLookupKey, DEST_COUNTRY_KEYWORDS } = require('./xls-cnee');
 const { writeReport } = require('./xls-report');
@@ -401,6 +402,25 @@ function planDateGroups(allRecords, mergedPdfs) {
   return Array.from(groups.values());
 }
 
+/**
+ * 由分組決定 ZIP 檔名的「基礎」（不含 `SLI x N.zip` 後綴）。
+ * 檔名一律經過 sanitizeFileLabel：來源的航班欄位常是 `5Y8050/ 13th Oct`，
+ * 內含 `/`（Windows 非法且會被當路徑分隔）→ 直接組檔名會 ENOENT（實測案例見 xls-utils 註解）。
+ * @param {{day?:string, flights:Set<string>, flightCompanies?:Set<string>}} grp
+ * @returns {string} 例：`20261013 - 5Y8050- 13th Oct`／`20260803 - CX257`／`CX+5Y多航班`
+ */
+function zipBaseName(grp) {
+  const flights = grp && grp.flights ? grp.flights : new Set();
+  const companies = (grp && grp.flightCompanies) || new Set();
+  const single = flights.size === 1;
+  const multiLabel = Array.from(companies).sort().join('+');
+  const label = single
+    ? flights.values().next().value
+    : `${multiLabel}多航班`;
+  const safe = sanitizeFileLabel(label, { fallback: '航班未定' });
+  return grp && grp.day ? `${grp.day} - ${safe}` : safe;
+}
+
 // ===== 主流程 =====
 
 /**
@@ -767,6 +787,7 @@ async function runWorkflow(opts) {
   // Step 5: 依「航班日期」分組 zip（同一天的所有航班放同一 zip；超過 30MB 才拆 Part）
   // 檔名：單一航班 → {YYYYMMDD} - {航班號} SLI x {N}.zip
   //       同一天多個航班 → {YYYYMMDD} - 多航班 SLI x {N}.zip
+  // 註：航班欄位可能含 `/` 等非法字元（例：`5Y8050/ 13th Oct`）→ 一律經 zipBaseName() 過濾，避免 ENOENT。
   reportProgress(90, '依航班日期打包 ZIP...');
   assertActive();
   const groups = planDateGroups(allRecords, mergedPdfs);
@@ -776,26 +797,28 @@ async function runWorkflow(opts) {
   for (const grp of groups) {
     const pdfs = grp.pdfs;
     if (!pdfs.length) continue;
-    const single = grp.flights.size === 1;
-    const multiFlightLabel = Array.from(grp.flightCompanies).sort().join('+');
-    const label = single ? grp.flights.values().next().value : `${multiFlightLabel}多航班`;
-    const prefix = grp.day ? `${grp.day} - ${label}` : label;
+    const prefix = zipBaseName(grp);
     // 依總大小拆份（超過 30MB 自動多拆），並平均分配檔案
     const chunks = planZipParts(pdfs, MAX_ZIP_BYTES);
     if (chunks.length === 1) {
       const zipName = `${prefix} SLI x ${pdfs.length}.zip`;
       const zipPath = path.join(workDir, zipName);
-      await zipFiles(pdfs, zipPath);
-      zipPaths.push(zipPath);
+      // 防禦：清完非法字元後檔名必須仍落在 workDir 內（否則寧可換一個安全名）
+      const safeName = path.basename(zipPath) === zipName ? zipName : `${sanitizeFileLabel(prefix)} SLI x ${pdfs.length}.zip`;
+      const finalPath = path.join(workDir, safeName);
+      await zipFiles(pdfs, finalPath);
+      zipPaths.push(finalPath);
       continue;
     }
     for (let pi = 0; pi < chunks.length; pi++) {
       const partPdfs = chunks[pi];
       const zipName = `${prefix} SLI x ${partPdfs.length} (Part ${pi + 1} of ${chunks.length}).zip`;
       const zipPath = path.join(workDir, zipName);
+      const safeName = path.basename(zipPath) === zipName ? zipName : `${sanitizeFileLabel(prefix)} SLI x ${partPdfs.length} (Part ${pi + 1} of ${chunks.length}).zip`;
+      const finalPath = path.join(workDir, safeName);
       reportProgress(Math.min(99, 90 + Math.round(9 * ((pi + 1) / chunks.length))), `打包 ZIP（Part ${pi + 1} of ${chunks.length}）...`);
-      await zipFiles(partPdfs, zipPath);
-      zipPaths.push(zipPath);
+      await zipFiles(partPdfs, finalPath);
+      zipPaths.push(finalPath);
     }
   }
 
@@ -839,6 +862,8 @@ module.exports = {
   FIELD_TYPES,
   // 子模組共用函式（一併 re-export，供外部使用）
   resolvePdfEngineMode,
+  zipBaseName,
+  sanitizeFileLabel,
   sleep,
   cleanCell,
   excelSerialToDate,

@@ -2,49 +2,33 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/14 上午12:26:44
+> 最後更新：2026/10/14 上午12:42:52
 
 ## 🔄 Git 變更狀態
 
 ```
-M .gitignore
 M CLAUDE.md
-M FILE_INVENTORY.md
-M PROJECT_MAP.md
 M WORKSPACE_STATE.md
+M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
 M docs/design/xls-sli-eli-overlay-prd.md
-M public/css/xls-booking.css
-M public/index.html
-M public/js/auth.js
-M public/js/xls-booking-state.js
-M public/js/xls-booking-workflow.js
-M routes/xls-booking.js
-M scripts/fix-nav-order.js
-M scripts/test-nav-order-frontend.js
+M scripts/xls-utils.js
 M scripts/xls-workflow.js
-?? public/css/sli-eli-layout.css
-?? public/js/sli-eli-layout-editor.js
-?? public/js/sli-eli-layout-main.js
-?? public/js/sli-eli-layout-state.js
-?? public/sli-eli-layout.html
-?? routes/xls-booking-layout.js
-?? scripts/test-p4-engine.js
-?? scripts/test-sli-eli-layout.js
+?? scripts/test-zip-naming.js
 ```
 
-## 📁 檔案清單（共 280 個檔案）
+## 📁 檔案清單（共 281 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（36.1 KB）
+- `CLAUDE.md`（37.4 KB）
 - `Dockerfile`（884 B）
 - `PROJECT_MAP.md`（16.2 KB）
 - `README.md`（21.4 KB）
-- `WORKSPACE_STATE.md`（21.2 KB）
+- `WORKSPACE_STATE.md`（22.7 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -69,7 +53,7 @@ M scripts/xls-workflow.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（593.3 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（593.0 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -77,7 +61,7 @@ M scripts/xls-workflow.js
 
 ### data/test-a4-integration
 
-- `data/test-a4-integration/report-copy.xlsx`（612.2 KB）
+- `data/test-a4-integration/report-copy.xlsx`（612.0 KB）
 - `data/test-a4-integration/synthetic.xlsx`（6.6 KB）
 
 ### data/test-blank-build
@@ -176,12 +160,12 @@ M scripts/xls-workflow.js
 
 ### data/test-p4-engine-mixed
 
-- `data/test-p4-engine-mixed/report-copy.xlsx`（612.2 KB）
+- `data/test-p4-engine-mixed/report-copy.xlsx`（612.0 KB）
 - `data/test-p4-engine-mixed/synthetic-mixed.xlsx`（6.7 KB）
 
 ### data/test-p4-engine-nobackground
 
-- `data/test-p4-engine-nobackground/report-copy.xlsx`（612.2 KB）
+- `data/test-p4-engine-nobackground/report-copy.xlsx`（612.0 KB）
 - `data/test-p4-engine-nobackground/synthetic-mixed.xlsx`（6.7 KB）
 
 ### db
@@ -202,7 +186,7 @@ M scripts/xls-workflow.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（49.0 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（52.0 KB）
 
 ### docs/research
 
@@ -402,14 +386,15 @@ M scripts/xls-workflow.js
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
+- `scripts/test-zip-naming.js`（5.5 KB）
 - `scripts/verify-dummy-orders.js`（3.8 KB）
 - `scripts/verify-import.js`（1.3 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（11.9 KB）
-- `scripts/xls-utils.js`（7.1 KB）
-- `scripts/xls-workflow.js`（35.2 KB）
+- `scripts/xls-utils.js`（9.2 KB）
+- `scripts/xls-workflow.js`（36.7 KB）
 
 ### utils
 

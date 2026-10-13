@@ -148,6 +148,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/test-p4-engine.js` | **P4 驗收**：`XLS_PDF_ENGINE` 解析、混合批次（疊字＋退回 COM）、背景缺失時全退回 |
 | `routes/xls-booking-layout.js` | **P5 版面編輯器 API**（掛 `/api/xls-booking/layout`）：GET／PUT／reset／preview／backups／background；驗證＋推導＋自動備份 |
 | `scripts/test-sli-eli-layout.js` | **P5 驗收**（自帶伺服器端對端；結束自動還原 fieldmap 並清除備份） |
+| `scripts/test-zip-naming.js` | **ZIP 檔名安全化驗收**：`sanitizeFileLabel`／`zipBaseName` 單元＋端到端 `zipFiles()`（含舊寫法 ENOENT 對照組） |
 | `public/sli-eli-layout.html` | **P5 版面編輯器獨立頁**（底圖拖曳編輯；側欄新項目） |
 | `public/js/sli-eli-layout-state.js` | 編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
 | `public/js/sli-eli-layout-editor.js` | 編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
@@ -165,7 +166,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
@@ -248,6 +249,12 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - ⚠️ `engine.render()` 的 `bytes` 是**位元組數**不是內容 → 要 PDF 內容必須 `render(rec, tmpPath)` 再讀檔（PRD 陷阱 23）。
 - 導覽：新增頁面時除了 `index.html` 的 nav，也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`，否則已有自訂排序的使用者會看到它被排到最後（本機 admin 已用該腳本修復）。
 - 驗證：`node scripts/test-sli-eli-layout.js`（自帶伺服器端對端：GET／preview／wantPdf／PUT 400／備份／reset／幾何一致性；結束自動還原 fieldmap）。
+
+**檔名安全化（重要）**：來源試算表的值會直接進檔名，客戶的「航班號」欄位常是 `5Y8050/ 13th Oct`（航班號＋日期）。**凡是用資料組檔名／資料夾名，一律先過 `sanitizeFileLabel()`**（`scripts/xls-utils.js`）：非法字元 `\ / : * ? " < > |`（連同前後空白）→ `-`、控制字元→空白、去頭尾空白與句點、長度上限 80、Windows 保留名稱（CON/NUL/COM1…）加 `_`、空字串→fallback。
+- ZIP 命名集中在 `scripts/xls-workflow.js` 的 `zipBaseName(grp)`（Step 5），另加 `path.basename()` 防禦（檔名若仍被拆成子路徑就改用安全名）。
+- 歷史問題：舊版直接 `path.join(workDir, '20261013 - 5Y8050/ 13th Oct SLI x 13.zip')` → Windows 把 `/` 當路徑 → `ENOENT`，PDF 已產出但 ZIP 失敗（詳見 PRD 陷阱 26）。
+- **不可改動既有命名慣例**：`20260803 - CX257 SLI x 3.zip` 必須維持（過濾規則綁定非法字元本身，不可合併所有 `- `）。
+- 驗證：`node scripts/test-zip-naming.js`。
 
 **Excel 匯出容錯（重要）**：`ExportAsFixedFormat` 會偶發失敗 `-2147352567 / 'Document not saved…'`（輸出目錄不存在、目標 PDF 被防毒／索引／同步程序短暫鎖住，或該 Excel 實例狀態異常）。因此：
 - Python 端 `scripts/sli-eli-generate.py` 的 `export_sheet_pdf()` 會「先刪殘檔 → 重試」最多 3 次，並驗證 PDF 真的產出（存在且 > 0 byte）。

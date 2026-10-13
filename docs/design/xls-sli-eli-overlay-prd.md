@@ -336,6 +336,18 @@
 | `Dockerfile` | pip 加 `pymupdf` |
 | `CLAUDE.md` / `README.md` | A4 修正、字型優化、P2 產物與陷阱（**已寫入，供新對話自動載入**） |
 
+### 修正（ZIP 檔名安全化，生產問題 2026-10-13）
+
+**症狀**：一次 13 筆的實際執行失敗 `ENOENT: no such file or directory, open 'data\work\job-Oh8QGx\20261013 - 5Y8050\ 13th OCT SLI x 13.zip'`。
+**根因**：Step 5 直接用來源的航班欄位組 ZIP 檔名，而客戶的航班欄位是 **`5Y8050/ 13th Oct`**（航班號＋日期）→ `/` 在 Windows 既非法又是路徑分隔，`path.join` 後變成子目錄 → archiver 建檔 ENOENT，整批流程失敗（PDF 已產出但 ZIP 失敗）。
+**修法**（保留既有命名慣例，`20260803 - CX257 SLI x 3.zip` 不變）：
+
+| 檔案 | 變更 |
+|---|---|
+| `scripts/xls-utils.js` | 新增 `sanitizeFileLabel(input, {fallback, maxLength})`：非法字元（連同前後空白）→ `-`、控制字元→空白、合併空白、去頭尾空白與句點、長度上限 80、Windows 保留名稱（CON/NUL/COM1…）加 `_`、空字串或只剩符號→fallback |
+| `scripts/xls-workflow.js` | 新增 `zipBaseName(grp)`（單一／多航班＋日期的檔名基礎，一律過濾）；Step 5 改用它，並加 `path.basename()` 防禦檢查（檔名若仍被拆成子路徑就改用安全名）；re-export `sanitizeFileLabel`／`zipBaseName` |
+| `scripts/test-zip-naming.js` | 新增驗證：`sanitizeFileLabel` 邊界（含「不可改變既有 `20260803 - CX257`」）、`zipBaseName`、端到端 `zipFiles()` 以 `5Y8050/ 13th Oct` 命名成功建檔，並含**對照組**證明未過濾的舊寫法會 ENOENT |
+
 ### 新增（P5）
 
 | 檔案 | 角色 |
@@ -460,6 +472,14 @@ $env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js; Remove-Item 
 node scripts/test-p4-engine.js
 ```
 
+### ZIP 檔名安全化驗證（2026-10-13 實測，PASS）
+
+```powershell
+# sanitizeFileLabel / zipBaseName 單元＋端到端（含未過濾舊寫法會 ENOENT 的對照組）
+# 實際案例：航班欄位 `5Y8050/ 13th Oct` → ZIP 檔名 `20261013 - 5Y8050-13th Oct SLI x 13.zip`
+node scripts/test-zip-naming.js
+```
+
 ### P5 版面編輯器驗證（2026-10-13 實測，全部 PASS）
 
 ```powershell
@@ -510,27 +530,30 @@ python data/test-p3/probe-visual.py a.pdf b.pdf  # 逐欄位「ref/mine/差異�
 23. **`engine.render()` 回傳的 `bytes` 是「位元組數」不是 PDF 內容**：要拿內容必須給 `outputPath` 再讀檔（`render(rec, tmpPath)` → `fs.readFile`）。用 `Buffer.from(r.bytes).toString('base64')` 只會得到全零 buffer／空 base64（P5 預覽 PDF 時踩過，測試才抓到）。
 24. **備份檔名只到「秒」會互相覆蓋**：同一秒內連續 PUT／reset（例如前端「儲存」後立刻「還原全部」）會讓後一次備份蓋掉前一次 → 檔名要帶毫秒，並在碰撞時加隨機後綴。`test-sli-eli-layout.js` 的「備份清單 ≥ 2 筆」就是防這個。
 25. **Windows 上用 PowerShell 對檔案做「插行」要小心**：以行號插入的編輯若錨點落在函式內部，會把後面的內容（含 `main().catch(...)`）擠到函式尾巴，造成「語法通過但 `main()` 從未被呼叫」的靜默失敗（P5 撰寫測試腳本時踩過）。寫大型檔案請用「附加到檔尾」或先刪檔重建。
+26. **來源試算表的文字會直接進檔名 → 必須過濾 Windows 非法字元**：客戶的「航班號」欄位其實是 `5Y8050/ 13th Oct`（航班號＋日期），舊版 Step 5 直接拿它組 ZIP 檔名 → `/` 在 Windows 既非法又是路徑分隔，`path.join` 後變成子目錄 → `ENOENT`（`: ...\job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`），PDF 已產出但整批 ZIP 失敗。修法：`sanitizeFileLabel()`（`xls-utils.js`）＋ `zipBaseName()`（`xls-workflow.js`），並用 `scripts/test-zip-naming.js` 固定（含「舊寫法會 ENOENT」對照組）。**注意：不可把既有檔名 `20260803 - CX257` 改掉**（日期與標籤之間的 ` - ` 要保留 → 過濾規則必須綁定「非法字元本身」，不能無腦合併所有 `- `）。
 
 ---
 
-## 7. 未提交變更（P5 完成當下）
+## 7. 未提交變更（P5 ＋ ZIP 檔名修正完成當下）
 
 ```
-M  CLAUDE.md / WORKSPACE_STATE.md / FILE_INVENTORY.md / .gitignore
+M  CLAUDE.md / WORKSPACE_STATE.md / PROJECT_MAP.md / FILE_INVENTORY.md / .gitignore
 M  docs/design/xls-sli-eli-overlay-prd.md
-M  scripts/xls-workflow.js                       ← P4：XLS_PDF_ENGINE 分派 ＋ 自動退回 ＋ result.engine
+M  scripts/xls-utils.js                          ← ZIP 檔名修正：新增 sanitizeFileLabel()
+M  scripts/xls-workflow.js                       ← ZIP 檔名修正：zipBaseName()／Step 5；P4：XLS_PDF_ENGINE 分派
+?? scripts/test-zip-naming.js                    ← ZIP 檔名安全化驗收（含舊寫法 ENOENT 對照組）
 M  routes/xls-booking.js                         ← P4：engine 白名單（非法 400）＋ P5：掛載 /layout
 ?? routes/xls-booking-layout.js                  ← P5：版面編輯器 API（GET/PUT/reset/preview/backups/background）
 M  public/index.html                             ← P4：PDF 產生方式選擇器；P5：側欄最頂新項目
 M  public/js/auth.js                             ← P5：新項目的鎖頭／登入後解鎖
 M  public/css/xls-booking.css / public/js/xls-booking-state.js / public/js/xls-booking-workflow.js   ← P4：引擎選擇器與結果面板
 ?? public/sli-eli-layout.html / public/js/sli-eli-layout-{state,editor,main}.js / public/css/sli-eli-layout.css   ← P5：版面編輯器
-M  scripts/fix-nav-order.js                      ← P5：DEFAULT_ORDER 首項加 sli-eli-layout.html
+M  scripts/fix-nav-order.js / scripts/test-nav-order-frontend.js   ← P5：新頁加入側欄與測試 fixture
 ?? scripts/test-p4-engine.js / scripts/test-sli-eli-layout.js   ← P4／P5 驗收腳本
 M  database.db                                   ← P5：fix-nav-order.js 就近補上 sli-eli-layout.html（admin 10 → 11 項）
 M  scripts/build-sli-eli-blank.py / data/templates/sli-eli-fieldmap.json / .default.json / sli-eli-blank.pdf / sli-eli-blank-meta.json  ← P4 前置（校準＋字符集加寬，空白 114.0 KB）
 ?? scripts/sli-eli-overlay.js / sli-eli-diff.py / test-sli-eli-overlay.js / sli-eli-blank-widen-fonts.js
-（P1/P2 的變更與使用者先前 WIP 已於 dd6c0ba commit）
+（P1/P2 的變更與使用者先前 WIP 已於 dd6c0ba commit；P3/P4 前置已於 35b14e0 commit）
 ```
 
 *註：`data/templates/sli-eli-fieldmap.json` 目前內容與 commit 版相同（P5 測試結束會還原）；編輯器產生的 `sli-eli-fieldmap.bak-*.json` 已加入 `.gitignore`。*
@@ -556,6 +579,7 @@ M  scripts/build-sli-eli-blank.py / data/templates/sli-eli-fieldmap.json / .defa
   一律由後端算，預覽文字位置由 engine.layout() 回傳 → 所見即 PDF 所見。
 
 驗收（都要 PASS；勿平行跑，overlay 測試輸出目錄固定）：
+  node scripts/test-zip-naming.js                                      # ZIP 檔名安全化（hermetic）
   node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0
   node scripts/test-a4-integration.js                                  # com：123.4 KB／~12 s
   $env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js   # overlay：116.0 KB／~1.1 s

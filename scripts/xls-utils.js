@@ -163,6 +163,41 @@ function workbookToXlsx(wb, targetPath) {
   throw new Error('workbookToXlsx: 請改用 fillSli / fillEli');
 }
 
+/**
+ * 把「來自試算表的字串」清成可安全當檔名的標籤（ZIP 檔名／資料夾名）。
+ *
+ * 為什麼需要：來源檔的航班欄位常是 `5Y8050/ 13th Oct` 這種「航班號 + 日期」的字串，
+ * 直接拿來組 ZIP 檔名時，`/`（或 `\ : * ? " < > |`）在 Windows 會被當成路徑分隔／非法字元
+ * → archiver 建立輸出檔時丟 ENOENT（父目錄不存在），整個流程失敗。
+ * 實測案例：`20261013 - 5Y8050/ 13th Oct SLI x 13.zip` → ENOENT。
+ *
+ * 規則（結果保證在 Windows / macOS / Linux 都能當檔名）：
+ *   1. 換行／TAB → 空白；`\ / : * ? " < > |` → `-`
+ *   2. 移除控制字元、合併重複空白
+ *   3. 去掉開頭／結尾的空白與句點（Windows 會自動截掉 → 造成「檔名不符」）
+ *   4. 長度上限（預設 80 字元，避免超過檔案系統限制）
+ *   5. 空字串／只有符號 → fallback；Windows 保留名稱（CON、NUL、COM1…）前面加 `_`
+ *
+ * @param {*} input 原始字串（可為 null）
+ * @param {{fallback?:string, maxLength?:number}} [opts]
+ * @returns {string}
+ */
+function sanitizeFileLabel(input, opts) {
+  const options = opts || {};
+  const fallback = options.fallback === undefined ? 'unknown' : String(options.fallback);
+  const maxLength = Number(options.maxLength) > 0 ? Math.floor(Number(options.maxLength)) : 80;
+  let s = String(input == null ? '' : input);
+  // eslint-disable-next-line no-control-regex
+  s = s.replace(/[\u0000-\u001f]+/g, ' ');          // 控制字元／換行／TAB → 空白
+  s = s.replace(/\s*[\\/:*?"<>|]+\s*/g, '-');      // 非法字元（連同前後空白）→ 單一 '-'（不影響既有 `20260803 - CX257`）
+  s = s.replace(/\s{2,}/g, ' ');                    // 合併重複空白
+  s = s.replace(/^[\s.]+/, '').replace(/[\s.]+$/, ''); // 開頭／結尾的空白與句點（Windows 會自動截掉）
+  if (s.length > maxLength) s = s.slice(0, maxLength).replace(/[\s.]+$/, '');
+  if (!/[^\s.\-]/.test(s)) s = fallback;            // 空字串／只剩符號 → fallback
+  if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(s)) s = `_${s}`; // Windows 保留名稱
+  return s;
+}
+
 module.exports = {
   sleep,
   cleanCell,
@@ -176,4 +211,5 @@ module.exports = {
   formatYyyymmdd,
   extractTel,
   workbookToXlsx,
+  sanitizeFileLabel,
 };

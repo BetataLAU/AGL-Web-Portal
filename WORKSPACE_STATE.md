@@ -7,7 +7,8 @@
 
 - **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5）**：
+- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正）**：
+  - **(F) ZIP 檔名修正**：`scripts/xls-utils.js`（`sanitizeFileLabel()`）、`scripts/xls-workflow.js`（`zipBaseName()`＋Step 5 改用它）、新增 `scripts/test-zip-naming.js`
   - **(E) P5 版面編輯器**：新增 `public/sli-eli-layout.html`、`public/js/sli-eli-layout-{state,editor,main}.js`、`public/css/sli-eli-layout.css`、`routes/xls-booking-layout.js`、`scripts/test-sli-eli-layout.js`；修改 `routes/xls-booking.js`（掛載 `/layout`）、`public/index.html`（側欄最頂新項目）、`public/js/auth.js`（鎖頭／解鎖）、`scripts/fix-nav-order.js`（DEFAULT_ORDER 首項）、`.gitignore`（fieldmap 備份）、`database.db`（admin 導覽排序 10 → 11 項）
   - **(D) P4**：`scripts/xls-workflow.js`（`XLS_PDF_ENGINE=overlay|com` 分派／失敗自動退回／`result.engine`＋`result.fallbackCount`）、`routes/xls-booking.js`（`engine` 白名單，非法回 400）、`public/index.html`＋`public/css/xls-booking.css`（④ `.xls-run-row` 最前「PDF 產生方式」選擇器）、`public/js/xls-booking-state.js`＋`xls-booking-workflow.js`（`xlsState.pdfEngine`＋結果面板顯示產生方式／退回筆數）、新增 `scripts/test-p4-engine.js`
   - **(C) P3＋P4 前置**：新增 `scripts/sli-eli-overlay.js`、`scripts/sli-eli-diff.py`、`scripts/test-sli-eli-overlay.js`、`scripts/sli-eli-blank-widen-fonts.js`；修改 `scripts/build-sli-eli-blank.py`（校準表／baseline 模型／字符集加寬）、`data/templates/sli-eli-fieldmap{,.default}.json`（v2）、`data/templates/sli-eli-blank.pdf`（114.0 KB，像素不變）、`CLAUDE.md`、`docs/design/xls-sli-eli-overlay-prd.md`（+ 本檔）
@@ -16,7 +17,12 @@
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **Shipper Role P5：SLI/ELI 版面編輯器（需求 4，本次，尚未提交）**：接續 P4。
+0. **修正：ZIP 檔名未過濾 Windows 非法字元（生產問題，本次，尚未提交）**：使用者實際跑 13 筆時失敗 `ENOENT ... job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`。
+   - **根因**：來源「航班號」欄位的實際內容是 **`5Y8050/ 13th Oct`**（航班號＋日期），Step 5 直接用它組 ZIP 檔名 → `/` 在 Windows 既非法又是路徑分隔 → `path.join` 產生子目錄 → archiver 建檔 ENOENT（PDF 已產出，ZIP 失敗）。
+   - **修法**：`scripts/xls-utils.js` 新增 `sanitizeFileLabel()`（非法字元連同前後空白→`-`、控制字元→空白、去頭尾空白與句點、長度上限 80、保留名稱 CON/NUL/COM1… 加 `_`、空字串→fallback）；`scripts/xls-workflow.js` 新增 `zipBaseName(grp)` 並改用於 Step 5（含 `path.basename()` 防禦）。
+   - **相容**：既有命名慣例不變（實測仍為 `20260803 - CX257 SLI x 3.zip`；`20261013 - 5Y8050/ 13th Oct…` 變成 `20261013 - 5Y8050-13th Oct…`）。
+   - **驗證**：新增 `scripts/test-zip-naming.js`（單元＋端到端＋「舊寫法會 ENOENT」對照組）→ **PASS**；回歸 `test-a4-integration.js`（ZIP 名不變）與 `test-p4-engine.js` → **PASS**。
+1. **Shipper Role P5：SLI/ELI 版面編輯器（需求 4，本次，尚未提交）**：接續 P4。
    - **新頁 `public/sli-eli-layout.html`**（獨立頁模式）＋ `sli-eli-layout-{state,editor,main}.js` ＋ `sli-eli-layout.css`：頁籤（SLI/ELI）、10 欄位清單、底圖畫布拖曳移動、8 向把手縮放、方向鍵微調（Shift=10pt）、5pt 吸附＋格線、Undo/Redo（Ctrl+Z / Ctrl+Y）、對齊工具、屬性面板（錨點／框／字級／行高／對齊／顏色／粗體／換行）、單欄位還原（草稿）＋全部還原（寫檔）、樣本或**真實 job 資料**即時預覽、縮放 50–150%、「產生測試 PDF」（iframe＋下載）、Ctrl+S 儲存、未儲存離開警告。
    - **API `routes/xls-booking-layout.js`**（掛 `/api/xls-booking/layout`）：`GET /`／`PUT /`（**admin/staff**，白名單＋邊界驗證 → 自動備份 → 寫檔）／`POST /reset`（可指定 keys）／`POST /preview`（草稿排版＋可選 PDF）／`GET /backups`／`GET /background/:page`。
    - **所見即 PDF**：前端只送 `origin/box/font/align/wrap/lineHeightPt`；`textBaselineOffsetPt`／`wrapWidthPt`／`maxLines` 由後端推導，預覽文字位置全部來自 `engine.layout()`（與 P3 同一套數學）。

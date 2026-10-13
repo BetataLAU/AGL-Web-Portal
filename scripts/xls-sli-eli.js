@@ -170,6 +170,90 @@ async function mergePdfsWithPdfLib(inputPaths, outputPath) {
   return `MERGED (pdf-lib): ${outputPath}`;
 }
 
+/**
+ * 量測 PDF 每頁尺寸（pt）— 供「A4 修正」驗證用。
+ * pdf-lib 已是既有依賴，不新增套件；只用來讀檔量測，不修改檔案。
+ */
+async function readPdfPageSizes(filePath) {
+  const doc = await PDFDocument.load(await fsp.readFile(filePath), { ignoreEncryption: true });
+  return doc.getPages().map((pg) => {
+    const { width, height } = pg.getSize();
+    return { width, height };
+  });
+}
+
+// ===== A4 正規化（紙張修正） =====
+// Excel 匯出的紙張尺寸由「印表機驅動的 DEVMODE」決定：實測模板工作表 PageSetup 明明是
+// A4/65%，但 air sheet 仍匯出成 915.3×1295.5pt（322.8×456.9mm = A4 ÷ 0.65，也就是
+// 模板原設計「A4 × 65% 縮放」所用的紙張）。改 PageSetup／存檔／FitToPage 都無法改變。
+// 因此在 Node 端把非 A4 的頁面等比縮放成 A4：內容物理尺寸與列印結果不變（原本印表機
+// 也是乘 0.65 縮到 A4），只是 PDF 頁面尺寸正確、不再被驅動程式二次縮放。
+const A4_SIZE = { width: 595.28, height: 841.89 };
+
+/**
+ * 把 PDF 內非 A4 的頁面等比縮放成 A4（已是 A4 的頁面不動）。
+ * @param {string} filePath PDF 路徑（會被就地改寫）
+ * @param {number} tolerance 容差（pt）
+ * @returns {Promise<number>} 被調整的頁數；0 = 全部本來就是 A4（未改寫檔案）
+ */
+async function normalizePdfToA4(filePath, tolerance = 1) {
+  const doc = await PDFDocument.load(await fsp.readFile(filePath), { ignoreEncryption: true });
+  let changed = 0;
+  for (const page of doc.getPages()) {
+    const { width, height } = page.getSize();
+    if (!width || !height) continue;
+    const isA4 = Math.abs(width - A4_SIZE.width) <= tolerance
+      && Math.abs(height - A4_SIZE.height) <= tolerance;
+    if (isA4) continue;
+    // page.scale 會同時調整頁面尺寸、內容流與註記，等比縮放不變形
+    page.scale(A4_SIZE.width / width, A4_SIZE.height / height);
+    changed += 1;
+  }
+  if (changed) {
+    await fsp.writeFile(filePath, await doc.save({ useObjectStreams: true }));
+  }
+  return changed;
+}
+
+/**
+ * 批次就地優化 PDF 內嵌字型（PDF 瘦身）。
+ * 實測（Excel 匯出 2 頁 SLI+ELI）：533.0 KB → 123.4 KB（-76.8%），150dpi 逐像素差異 0.000%。
+ * 需要 Python + PyMuPDF；環境缺少時回傳 null（呼叫端據此顯示提示，不影響產出）。
+ */
+async function optimizePdfFontsInPlace(paths, options = {}) {
+  if (!paths || !paths.length) return { files: 0, before: 0, after: 0, reductionPct: 0, items: [] };
+  let py;
+  try {
+    py = resolvePython();
+  } catch (e) {
+    return null;
+  }
+  const script = path.join(__dirname, 'sli-eli-font-optimize.py');
+  let out = '';
+  try {
+    const res = await execFileAsync(py, [script, '--inplace', ...paths], {
+      timeout: options.timeout || 900000,
+      maxBuffer: 20 * 1024 * 1024,
+      windowsHide: true,
+    });
+    out = `${res.stdout || ''}`;
+  } catch (err) {
+    out = `${(err && err.stdout) || ''}\n${(err && err.stderr) || ''}`;
+  }
+  const m = out.match(/OPT-TOTAL: (\d+) files ([\d.]+) KB -> ([\d.]+) KB \(-([\d.]+)%\)/);
+  if (!m) return null;
+  return {
+    files: Number(m[1]),
+    before: Math.round(Number(m[2]) * 1024),
+    after: Math.round(Number(m[3]) * 1024),
+    reductionPct: Number(m[4]),
+    items: [...out.matchAll(/^OPT: (.+?) ([\d.]+) KB -> ([\d.]+) KB$/gm)].map((x) => ({
+      name: x[1], before: Math.round(Number(x[2]) * 1024), after: Math.round(Number(x[3]) * 1024),
+    })),
+    skipped: false,
+  };
+}
+
 // ===== ZIP 打包 =====
 
 /** 將一批檔案打包成 zip */
@@ -217,6 +301,10 @@ module.exports = {
   xlsxToPdf,
   mergePdfs,
   mergePdfsWithPdfLib,
+  readPdfPageSizes,
+  normalizePdfToA4,
+  optimizePdfFontsInPlace,
+  A4_SIZE,
   zipFiles,
   planZipParts,
 };

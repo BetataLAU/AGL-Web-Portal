@@ -191,6 +191,25 @@ function renderResult(res) {
     html += `<div class="xls-warning-box">${xlsEscapeHtml(res.syncWarning)}</div>`;
   }
   html += `<p>成功產生 ${res.count} 份 PDF（已合併 SLI + ELI）。</p>`;
+  // 紙張驗證（A4 修正）：顯示實際量測到的頁面尺寸，未通過時明確警示
+  if (res.paper) {
+    const label = res.paper.mode === 'a4' ? 'A4' : '模板原紙張（custom）';
+    const detail = res.paper.measured ? `（實測 ${xlsEscapeHtml(res.paper.measured)} pt）` : '';
+    html += res.paper.ok
+      ? `<p class="xls-paper-info">📄 紙張：${label}${detail}</p>`
+      : `<p class="xls-paper-warn">⚠️ 紙張：${label}${detail} — 未通過 A4 驗證，請確認 Excel 印表機紙張設定</p>`;
+  }
+  // PDF 字型優化（瘦身）：顯示實際壓縮幅度
+  if (res.fontOpt) {
+    if (res.fontOpt.files) {
+      const mb = (n) => (n / 1024 / 1024).toFixed(2);
+      html += `<p class="xls-paper-info">🗜 字型優化：${res.fontOpt.files} 份，${mb(res.fontOpt.before)} MB → ${mb(res.fontOpt.after)} MB（-${res.fontOpt.reductionPct}%）</p>`;
+    } else if (res.fontOpt.disabled) {
+      html += `<p class="xls-preview-note">🗜 字型優化：已停用（PDF_FONT_OPT=off）</p>`;
+    } else if (res.fontOpt.skipped) {
+      html += `<p class="xls-preview-note">🗜 字型優化：未執行（需 Python + PyMuPDF，已略過）</p>`;
+    }
+  }
   html += `<div class="xls-downloads">`;
   // report 下載
   const reportName = res.reportPath ? res.reportPath.split(/[\\/]/).pop() : '';

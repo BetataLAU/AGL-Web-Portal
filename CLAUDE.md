@@ -153,7 +153,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
@@ -162,6 +162,58 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - 日期顯示一律用本地時區（`formatLocalDateTime()` / `xlsDateDisplay()`）：`toISOString()` 在 UTC+8 會少一天。
 
 **PDF 產生並行度**：Shipper Role 第 ④ 步可在頁面選擇 `1`–`4` 個 worker；Windows Excel COM 建議先用 `1`，`2`–`4` 為較高負載實驗模式；未指定時使用 `XLS_PDF_CONCURRENCY`（預設 `2`）。每個 worker 使用獨立 Python/Excel 實例與資料 shard，取消時會終止子程序。
+
+**紙張＝A4（重要）**：Excel 匯出的 PDF 紙張尺寸由「印表機驅動的 DEVMODE ＋ 模板內嵌 `xl/printerSettings/*.bin`」決定，**不是**由工作表 `PageSetup` 決定。實測模板 `air` 的 PageSetup 已是 A4／直式／65%，Excel 16.0 仍匯出 915.3×1295.5pt（322.8×456.9mm = A4 ÷ 0.65）；改 `PaperSize`、存檔後重新開啟、改 `FitToPagesWide/Tall` 全部無效（實測紀錄見 `sli-eli-generate.py` 註解）。
+- 修正：A4 由 Node 端 `scripts/xls-sli-eli.js` 的 `normalizePdfToA4()` 保證——合併後把非 A4 的頁面以 `page.scale()` 等比縮成 A4（實際是在內容流前後包一層 `q` + `cm` + `Q`，**原始內容逐位元保留**），等同模板原設計的「A4 × 65%」→ 列印結果不變、頁面尺寸正確。
+- 開關：`PDF_PAPER=a4`（預設）| `PDF_PAPER=custom`（不做正規化，＝舊行為，可一鍵回滾）；`--paper a4|custom`、`--a4-zoom <百分比>`（或 `PDF_A4_ZOOM`）可覆寫。
+- `scripts/sli-eli-generate.py` 仍會寫入 A4 頁面設定（對 openpyxl + LibreOffice 路徑有效），但**不可依賴**它（Excel 會忽略）。
+- 回報：`runWorkflow` 會以 pdf-lib 實測每份 `{MAWB}.pdf` 的頁數與尺寸，結果放在 `result.paper = { mode, measured, ok, issues }`；非 A4 會列入 `errors`（**不中斷**、檔案仍可下載），前端「執行結果」顯示實測尺寸與警示。
+
+**PDF 瘦身＝字型優化（重要）**：Excel 匯出的 PDF 約 **80% 是內嵌字型**，而字型程式內含大量 PDF 完全不需要的資料。實測（2 頁 SLI+ELI）：
+
+| 項目 | 優化前 | 優化後 |
+|---|---|---|
+| 字型（11 個程式） | 418.8 KB | 45.4 KB |
+| 影像 | 11.6 KB | 11.6 KB |
+| 內容流 | 49.9 KB | 49.9 KB |
+| **檔案** | **533.0 KB** | **123.4 KB（-76.8%）** |
+
+- 做法（`scripts/sli-eli-font-optimize.py`，純 Python + PyMuPDF，**不需 Ghostscript**）：
+  1. `doc.subset_fonts()` 子集化（只保留實際用到的字符）
+  2. 移除 `name`（9–12 KB／字型，純元資料）、`prep`/`fpgm`/`cvt `（hinting，4.6–14 KB／字型）等表格
+  3. 移除 `glyf` 內每個字符的 hinting 指令（simple + composite 都處理）；**保留 GID 編號**，故內容流完全不用修改
+  4. 以 `/Length1` 掃描全檔字型程式——`page.get_fonts()` 抓不到 Excel 產出的部分隱藏字型程式（實測漏掉一個 213 KB 的 CJK 字型）
+- **保真度**：150dpi 逐像素差異 **0.000%**；文字仍可抽取／搜尋（MAWB、CNEE、地址、日期皆已驗證）。
+- 串接位置：`runWorkflow` **Step 4.5**（合併 → A4 正規化 → 字型優化 → ZIP），以單一 Python 程序批次就地優化（`--inplace`），避免每檔一次啟動成本。
+- 開關：`PDF_FONT_OPT=on`（預設）| `off`。環境缺 PyMuPDF 時**自動略過**並在前端提示，不影響產出。
+- 回報：`result.fontOpt = { files, before, after, reductionPct, skipped }`，前端「執行結果」顯示壓縮幅度。
+- 單獨使用：`python scripts/sli-eli-font-optimize.py in.pdf out.pdf --diff`（含逐像素差異）、`--report`（組成報告）、`--inplace a.pdf b.pdf …`（批次就地）。
+- 剩下的瓶頸：內容流 49.9 KB（Excel 繪製的表單線條／控件）。要再往下必須簡化模板（減少字型家族與繪圖物件數）。
+
+**疊字背景與欄位座標（建置期產物）**：`python scripts/build-sli-eli-blank.py`（Windows + Excel COM + PyMuPDF，**免 Ghostscript**）產生：
+
+| 產物（`data/templates/`） | 內容 |
+|---|---|
+| `sli-eli-blank.pdf` | A4、2 頁（p0 = SLI/`air`、p1 = ELI/`ELI LETTER`）；10 個動態格已清空、字型已優化 → **122 KB** |
+| `sli-eli-blank-p1.png` / `-p2.png` | 版面編輯器底圖（120 dpi 灰階） |
+| `sli-eli-fieldmap.default.json` | Excel 校準基準（供「還原成預設」） |
+| `sli-eli-fieldmap.json` | 作用中欄位座標（編輯器修改的就是這份） |
+| `sli-eli-blank-meta.json` | sha256／頁面尺寸／轉換參數／校準結果 |
+
+流程：清空動態格匯出空白 → 填入 marker 匯出短／長兩份 → 讀 Excel 幾何與頁面設定 → A4 正規化 → 字型優化 → 以 marker 實測位置錨定 `origin` 與 `box` → **自我校準 baseline**（把 marker 畫回背景、與 Excel 逐欄比對後修正，反覆 2 輪）。
+
+- 座標系：**pt、原點在頁面左上**；`origin` = Excel 實際繪製的文字錨點（依對齊取對應邊界）；`textBaselineOffsetPt` = baseline 相對 `origin.y` 的偏移；`box` = 編輯器顯示／換行範圍；另有 `source`（mawb/dest/flightCompany/flightDate/cnee/cneeTel）、`align`、`wrap`、`lineHeightPt`、`calibrationResidual`。
+- **實測精度：錨定邊殘差 0.00 pt**；非錨定邊 1–3 pt 的差來自 Helvetica 與 Arial 的 `@` 字形高度不同（與真實資料定位無關）。
+- ⚠️ **不要用「頁面設定解析式」算座標**：Excel 的紙張／FitToPage 會讓推算偏差 40 pt 以上（`analyticDeltaMaxPt` 即為此診斷值），一律以 marker 實測為準。
+- 模板變更後必須重跑；`fieldmap.templateSha256` 用來偵測過期（`--force` 可覆寫作用中的 fieldmap）。
+- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1/P2 已完成清單與實測數據、**P3～P5 待辦設計**、可直接執行的驗證指令、**10 個已踩過的陷阱**，以及給新對話的提示詞。
+
+**Excel 匯出容錯（重要）**：`ExportAsFixedFormat` 會偶發失敗 `-2147352567 / 'Document not saved…'`（輸出目錄不存在、目標 PDF 被防毒／索引／同步程序短暫鎖住，或該 Excel 實例狀態異常）。因此：
+- Python 端 `scripts/sli-eli-generate.py` 的 `export_sheet_pdf()` 會「先刪殘檔 → 重試」最多 3 次，並驗證 PDF 真的產出（存在且 > 0 byte）。
+- 單筆最終失敗**不再中斷整批**：印出 `FAIL: {MAWB} …` 後繼續其餘筆，最後印 `ERROR: …` 並以 exit code 1 結束。
+- Node 端 `runPdfWorkers()` 回傳 `{ outputs, failures }`：worker 失敗仍保留其 stdout（已產出的 PDF 不會白做），失敗的 shard 會自動再排一次；`runWorkflow` 仍會合併／打包已成功者，並在結果面板以紅字列出失敗 MAWB（不會靜默產生不完整 ZIP）。
+- SLI／ELI 一律以 **MAWB 為索引配對**（不可用陣列順序，任何一筆缺檔都會造成後續全部錯位）。
+- Excel 清理一律用 `taskkill`（`Quit()` 實測常無法真正結束行程）：以 `excel_pid_state()` 確認 PID 是否仍為 `EXCEL.EXE`，**確定已不是（PID 被回收／行程已結束）才跳過**，查詢失敗時仍照殺，避免殘留 Excel 實例累積。
 
 **資源清理**：`POST /api/xls-booking/cleanup`（admin/staff）可清理超過 24 小時的 job/report 與超過 7 天的上傳檔；先傳 `{ "dryRun": true }` 可只列出清單。PDF 合併後會自動刪除中間 SLI/ELI xlsx 與 LibreOffice profile。
 

@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-10-13T21:39:09",
+  "templateSha256": "f82302918fc7168f5f19d02d2bdb6f0f6a5f738d722f176cc34c18c3ba874977",
+  "blankPdfSha256": "8376c8c9baa2718edfa6721546265db331d90bd7f5a8f5f36ba757d94223aa3e",
+  "blankPdfBytes": 125285,
+  "calibrationResidualPt": 0.0,
+  "analyticDeltaMaxPt": 42.25,
+  "notes": [
+    "calibrationResidualPt＝疊字與 Excel 在「錨定邊」的最大差異（這是實際定位精度）",
+    "analyticDeltaMaxPt＝僅供診斷：先前用「頁面設定解析式換算」的偏差，box 已改為以 marker 錨定",
+    "非錨定邊殘差 1~3pt 來自 Helvetica 與 Arial 的 @ 字形高度不同，與實際資料定位無關"
+  ],
+  "prePageSizes": {
+    "air": [
+      915.32,
+      1295.45
+    ],
+    "ELI LETTER": [
+      594.96,
+      842.04
+    ]
+  },
+  "transforms": {
+    "air": {
+      "scale": 0.6352774401607101,
+      "ox": 58.04515500313499,
+      "oy": 6.66849942565797,
+      "samples": 2,
+      "scaleSpread": 0.0034
+    },
+    "ELI LETTER": {
+      "scale": 1.003578671357214,
+      "ox": 46.091640989335424,
+      "oy": 16.589005723582726,
+      "samples": 3,
+      "scaleSpread": 0.00471
+    }
+  },
+  "pymupdf": "1.28.2",
+  "backdropDpi": 120
+}

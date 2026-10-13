@@ -2,36 +2,52 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/5 下午4:07:02
+> 最後更新：2026/10/13 下午9:43:31
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
+M Dockerfile
 M FILE_INVENTORY.md
-M PROJECT_MAP.md
+M README.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
-M routes/xls-booking-helpers.js
+M docs/README.md
+M docs/design/xls-pdf-parallel-prd.md
+M public/css/xls-booking.css
+M public/js/xls-booking-workflow.js
 M routes/xls-booking.js
-M scripts/test-cnee-lookup.js
+M scripts/sli-eli-generate.py
+M scripts/test-sli-generate.py
+M scripts/xls-sli-eli.js
 M scripts/xls-workflow.js
-?? scripts/xls-exceljs-guard.js
+?? data/templates/sli-eli-blank-meta.json
+?? data/templates/sli-eli-blank-p1.png
+?? data/templates/sli-eli-blank-p2.png
+?? data/templates/sli-eli-blank.pdf
+?? data/templates/sli-eli-fieldmap.default.json
+?? data/templates/sli-eli-fieldmap.json
+?? docs/design/xls-sli-eli-overlay-prd.md
+?? scripts/build-sli-eli-blank.py
+?? scripts/sli-eli-font-optimize.py
+?? scripts/test-a4-integration.js
+?? scripts/test-pdf-a4.js
 ```
 
-## 📁 檔案清單（共 177 個檔案）
+## 📁 檔案清單（共 218 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（490 B）
-- `CLAUDE.md`（20.6 KB）
-- `Dockerfile`（738 B）
+- `CLAUDE.md`（27.5 KB）
+- `Dockerfile`（884 B）
 - `PROJECT_MAP.md`（14.9 KB）
-- `README.md`（20.2 KB）
-- `WORKSPACE_STATE.md`（8.1 KB）
+- `README.md`（21.4 KB）
+- `WORKSPACE_STATE.md`（13.1 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -56,16 +72,55 @@ M scripts/xls-workflow.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（560.6 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（593.3 KB）
+- `data/templates/sli-eli-blank-meta.json`（1.2 KB）
+- `data/templates/sli-eli-blank.pdf`（122.3 KB）
+- `data/templates/sli-eli-fieldmap.default.json`（11.4 KB）
+- `data/templates/sli-eli-fieldmap.json`（11.4 KB）
+
+### data/test-p2
+
+- `data/test-p2/analyze-geometry.py`（2.5 KB）
+- `data/test-p2/annots-probe.py`（3.0 KB）
+- `data/test-p2/bitmap-p0-200.pdf`（53.8 KB）
+- `data/test-p2/bitmap-p0-300.pdf`（87.5 KB）
+- `data/test-p2/bitmap-p0-400.pdf`（128.8 KB）
+- `data/test-p2/bitmap-p1-200.pdf`（56.5 KB）
+- `data/test-p2/bitmap-p1-300.pdf`（102.8 KB）
+- `data/test-p2/bitmap-p1-400.pdf`（160.2 KB）
+- `data/test-p2/bitmap-probe.py`（1.7 KB）
+- `data/test-p2/breakdown-probe.py`（2.9 KB）
+- `data/test-p2/clean.pdf`（143.4 KB）
+- `data/test-p2/date-check.py`（425 B）
+- `data/test-p2/font-probe.py`（3.0 KB）
+- `data/test-p2/gid-probe.py`（2.8 KB）
+- `data/test-p2/glyph-probe.py`（1.5 KB）
+- `data/test-p2/hinting-probe.py`（2.8 KB）
+- `data/test-p2/list-fieldmap.py`（746 B）
+- `data/test-p2/noannots-clean.pdf`（143.4 KB）
+- `data/test-p2/noannots.pdf`（143.4 KB）
+- `data/test-p2/opt-a.pdf`（279.9 KB）
+- `data/test-p2/opt-b.pdf`（286.2 KB）
+- `data/test-p2/opt.pdf`（281.4 KB）
+- `data/test-p2/opt2.pdf`（208.3 KB）
+- `data/test-p2/opt3.pdf`（143.1 KB）
+- `data/test-p2/opt4.pdf`（123.4 KB）
+- `data/test-p2/overlay-check.pdf`（132.1 KB）
+- `data/test-p2/stream-probe.py`（1.6 KB）
+- `data/test-p2/subset-probe.py`（1.9 KB）
+- `data/test-p2/ttf-tables-probe.py`（1.4 KB）
+- `data/test-p2/verify-build.py`（2.6 KB）
+- `data/test-p2/verify-fieldmap.py`（2.5 KB）
+- `data/test-p2/verify-output.py`（1.6 KB）
 
 ### db
 
 - `db/database.js`（15.0 KB）
-- `db/db-dump.sql`（153.3 KB）
+- `db/db-dump.sql`（150.8 KB）
 
 ### docs
 
-- `docs/README.md`（2.2 KB）
+- `docs/README.md`（2.5 KB）
 
 ### docs/archive
 
@@ -75,7 +130,8 @@ M scripts/xls-workflow.js
 ### docs/design
 
 - `docs/design/order-system-design.md`（9.6 KB）
-- `docs/design/xls-pdf-parallel-prd.md`（18.2 KB）
+- `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（18.9 KB）
 
 ### docs/research
 
@@ -104,7 +160,7 @@ M scripts/xls-workflow.js
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
 - `public/css/uld-packing.css`（9.6 KB）
-- `public/css/xls-booking.css`（18.4 KB）
+- `public/css/xls-booking.css`（18.8 KB）
 
 ### public/css/utils
 
@@ -131,7 +187,7 @@ M scripts/xls-workflow.js
 - `public/js/xls-booking-standard.js`（13.1 KB）
 - `public/js/xls-booking-state.js`（6.8 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
-- `public/js/xls-booking-workflow.js`（11.1 KB）
+- `public/js/xls-booking-workflow.js`（12.3 KB）
 
 ### public/js/orders
 
@@ -209,7 +265,7 @@ M scripts/xls-workflow.js
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/xls-booking-helpers.js`（5.6 KB）
-- `routes/xls-booking.js`（13.9 KB）
+- `routes/xls-booking.js`（14.0 KB）
 
 ### routes/auth
 
@@ -229,6 +285,7 @@ M scripts/xls-workflow.js
 ### scripts
 
 - `scripts/analyze-xls.py`（1.7 KB）
+- `scripts/build-sli-eli-blank.py`（32.4 KB）
 - `scripts/cleanup-test-data.js`（1.1 KB）
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
@@ -241,9 +298,11 @@ M scripts/xls-workflow.js
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
 - `scripts/seed-admin.js`（2.6 KB）
-- `scripts/sli-eli-generate.py`（7.2 KB）
+- `scripts/sli-eli-font-optimize.py`（18.8 KB）
+- `scripts/sli-eli-generate.py`（15.2 KB）
 - `scripts/solve-worker.js`（1.1 KB）
 - `scripts/sync-project-state.js`（6.3 KB）
+- `scripts/test-a4-integration.js`（4.5 KB）
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-bp3d.js`（14.3 KB）
 - `scripts/test-cnee-lookup.js`（9.6 KB）
@@ -255,8 +314,9 @@ M scripts/xls-workflow.js
 - `scripts/test-openpyxl-bridge.py`（1.3 KB）
 - `scripts/test-packing-api.js`（5.7 KB）
 - `scripts/test-packing-projects.js`（7.1 KB）
+- `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
-- `scripts/test-sli-generate.py`（1.6 KB）
+- `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
 - `scripts/verify-dummy-orders.js`（3.8 KB）
@@ -264,9 +324,9 @@ M scripts/xls-workflow.js
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）
-- `scripts/xls-sli-eli.js`（8.3 KB）
+- `scripts/xls-sli-eli.js`（11.9 KB）
 - `scripts/xls-utils.js`（7.1 KB）
-- `scripts/xls-workflow.js`（23.6 KB）
+- `scripts/xls-workflow.js`（29.5 KB）
 
 ### utils
 

@@ -40,6 +40,8 @@ npm start        # 或 node server.js
 - **Windows**：安裝 Office（走 Excel COM / pywin32）
 - **Linux / Docker**：Python 3 + `openpyxl` + `pypdf` + LibreOffice（`Dockerfile` 已備）
 - 並行度：預設 `XLS_PDF_CONCURRENCY=2`，可在介面選 1–4；單機 Windows Excel COM 建議用 `1`
+- 紙張：預設輸出 **A4**（`PDF_PAPER=a4`）。Excel 的匯出紙張由印表機驅動決定，因此 A4 由 Node 端 `normalizePdfToA4()` 在合併後等比正規化（＝模板原設計的 A4 × 65%）；`PDF_PAPER=custom` 可還原舊的自訂紙張（322.8×456.9mm）
+- PDF 瘦身：預設開啟字型優化（`PDF_FONT_OPT=on`，需 Python + `pymupdf`）——移除 PDF 用不到的 `name`/hinting 表與 glyf 指令，實測 **533 KB → 123 KB（-77%）**，150dpi 逐像素差異 0.000%；`off` 可停用
 
 ## 📁 專案目錄結構
 
@@ -174,6 +176,9 @@ CBM     ：0.52
 | 快速操作 | ①~④ 步驟跳轉列（捲動時固定在頂部）；完成後提供「回① / ▶ 處理下一個檔案」快捷按鈕 |
 | 巨集相容 | 直接以 Excel COM 開啟模板（Windows），避開 openpyxl/exceljs 轉檔不相容 |
 | PDF 並行 | 介面可選 1–4 個 worker（`XLS_PDF_CONCURRENCY` 為預設值；Windows Excel COM 建議 1），取消時終止全部子程序 |
+| A4 紙張 | 產出一律 A4（`PDF_PAPER=a4`，預設）：合併後以 pdf-lib 等比正規化（＝模板原設計 A4 × 65%）；`custom` 可還原舊的印表機自訂紙張。執行結果會顯示實測頁面尺寸 |
+| PDF 瘦身 | 預設 `PDF_FONT_OPT=on`：移除 PDF 用不到的 `name`/hinting 表與 glyf 指令（純 Python + PyMuPDF，免 Ghostscript），實測 **533 KB → 123 KB（-77%）**、逐像素差異 0.000%，文字仍可搜尋 |
+| 疊字背景 | `python scripts/build-sli-eli-blank.py` 產生 A4 空白背景（122 KB）、編輯器底圖與 `sli-eli-fieldmap.json`（10 欄位座標，實測校準殘差 0.00 pt） |
 | 資源清理 | `POST /api/xls-booking/cleanup`（admin/staff）清理逾 24 小時的 job/report、逾 7 天的上傳檔；先傳 `{ "dryRun": true }` 只列清單 |
 | 權限 | 需登入，登入後 Sidebar 解鎖 |
 

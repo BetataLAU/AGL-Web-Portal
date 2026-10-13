@@ -27,6 +27,7 @@
 |------|------|
 | `order-system-design.md` | 收/送貨訂單系統原始設計（2026-01，已實作；含「與現況差異」對照表） |
 | `xls-pdf-parallel-prd.md` | Shipper Role「SLI/ELI PDF 多工並行」PRD（2026-09 已完成，含實作結果摘要） |
+| `xls-sli-eli-overlay-prd.md` | Shipper Role「A4 修正 ＋ PDF 字型瘦身 ＋ 疊字背景/版面編輯器」PRD 與**交接文件**（2026-10-13；P1/P2 已完成並驗證，P3～P5 待做，含驗證指令、陷阱、新對話提示詞） |
 
 ### archive/
 

@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-noto-cjk \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
-  && python3 -m pip install --no-cache-dir --break-system-packages openpyxl pypdf
+  && python3 -m pip install --no-cache-dir --break-system-packages openpyxl pypdf pymupdf
+# pymupdf：PDF 字型優化（移除 PDF 用不到的 name/hinting/glyf 指令）與頁面渲染，見 scripts/sli-eli-font-optimize.py
 
 WORKDIR /app
 COPY package*.json ./

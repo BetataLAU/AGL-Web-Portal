@@ -533,6 +533,22 @@
   padding-left: 20px;
 }
 
+/* 執行結果：紙張驗證（A4 修正） */
+.xls-paper-info {
+  margin: 6px 0;
+  font-size: 0.86rem;
+  color: #0f766e;
+}
+.xls-paper-warn {
+  margin: 6px 0;
+  padding: 8px 12px;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400e;
+  font-size: 0.86rem;
+}
+
 /* 執行區 */
 .xls-run-row {
   display: flex;

@@ -250,6 +250,8 @@ router.post('/process', async (req, res) => {
             errors: result.errors,
             warnings: result.warnings || [],
             duplicates: result.duplicates || [],
+            paper: result.paper || null,
+            fontOpt: result.fontOpt || null,
             syncWarning,
             fileResults: result.results || [],
             workDir: result.workDir,

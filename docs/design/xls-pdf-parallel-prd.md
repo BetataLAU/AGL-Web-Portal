@@ -12,6 +12,9 @@
   - Step 4 merge 有限並行（`Math.min(getPdfConcurrency(...), 4)`）；Step 5 ZIP 依 group 進行。
 - `scripts/sli-eli-generate.py`：新增 `--shard-index / --shard-total` 分片與 `--lo-profile`（獨立 LibreOffice profile，避開 profile 鎖）；Windows Excel COM 每個 worker 使用獨立實例。
 - 取消（AbortController）會終止全部子程序；未指定時預設 `2`，單機 Windows Excel COM 建議 `1`（見 `CLAUDE.md`「PDF 產生並行度」）。
+- **2026-10-13 容錯強化**（實機症狀：`PDF worker failed: … -2147352567 'Document not saved…'`，35 筆中僅 1 筆 ELI 匯出失敗卻讓整批無產出）
+  - `sli-eli-generate.py`：`export_sheet_pdf()` 先刪殘檔再重試（3 次）＋驗證檔案存在且 > 0 byte；單筆失敗印 `FAIL: {MAWB} …` 後**繼續其餘筆**，最後以 exit code 1 回報；Excel 清理僅在 PID 仍為 `EXCEL.EXE` 時 `taskkill`。
+  - `xls-workflow.js`：`runPdfWorkers()` 改回傳 `{ outputs, failures }`——worker 失敗保留 stdout（已產出的 PDF 不白做）＋失敗 shard 自動重排一次；`pdfPairs` 改以 MAWB 配對（原以陣列索引配對，缺檔會導致後續 SLI/ELI 錯位）；`count` 改為「實際合併完成的 PDF 數」。
 - 本文 §9「執行 SOP」、§10「開放問題」、§11「量測紀錄表」保留為**歷史執行紀錄**，後續調整不需再回填。
 
 ---

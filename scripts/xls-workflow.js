@@ -36,6 +36,9 @@ const {
   makeEli,
   xlsxToPdf,
   mergePdfs,
+  readPdfPageSizes,
+  normalizePdfToA4,
+  optimizePdfFontsInPlace,
   zipFiles,
   planZipParts,
 } = require('./xls-sli-eli');
@@ -54,6 +57,8 @@ function getPdfConcurrency(recordCount, configuredValue = null) {
 
 function terminatePdfWorker(child) {
   if (!child || child.killed) return;
+  // 子程序已結束就不要再 taskkill（PID 可能已被系統回收給其他程序，誤殺會更嚴重）
+  if (child.exitCode !== null || child.signalCode !== null) return;
   if (process.platform === 'win32' && child.pid) {
     execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
   } else {
@@ -61,14 +66,22 @@ function terminatePdfWorker(child) {
   }
 }
 
-async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, concurrency, signal, onProgress }) {
+/**
+ * 併行執行 PDF worker（依 shard 切分）。
+ * 回傳 { outputs, failures }：
+ *   - outputs：每個成功 worker 的 stdout（含 `OK: {MAWB}` / `PROGRESS: i/N` / `FAIL: …`）
+ *   - failures：仍失敗的 worker（保留 stdout，避免已產出的 PDF 被整批丟棄）
+ * 設計：單一 worker 失敗不再中斷其他 worker；失敗的 shard 會自動再排一次（換新 Excel 實例重試）。
+ */
+async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, concurrency, signal, onProgress, paperMode }) {
   const workerCount = getPdfConcurrency(recordCount, concurrency);
   const children = new Set();
+  const outputs = [];
+  const failures = [];
   let completed = 0;
-  let nextShard = 1;
-  let failed = null;
+  let aborted = false;
   const abortHandler = () => {
-    failed = new Error('已中止');
+    aborted = true;
     for (const child of children) terminatePdfWorker(child);
   };
   if (signal) signal.addEventListener('abort', abortHandler, { once: true });
@@ -80,6 +93,7 @@ async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, co
       '--shard-index', String(shardIndex),
       '--shard-total', String(workerCount),
       '--lo-profile', path.join(workDir, `lo-profile-${shardIndex}`),
+      '--paper', paperMode || 'a4',
     ], {
       timeout: 600000,
       maxBuffer: 10 * 1024 * 1024,
@@ -87,18 +101,24 @@ async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, co
     }, (err, stdout, stderr) => {
       if (err) terminatePdfWorker(child);
       children.delete(child);
+      const attach = (failure) => {
+        failure.stdout = stdout || '';
+        failure.stderr = stderr || '';
+        failure.shardIndex = shardIndex;
+        return failure;
+      };
       if (err) {
         const details = [
           stderr && stderr.trim(),
           `exitCode=${err.code == null ? 'null' : err.code}`,
           `signal=${err.signal || 'none'}`,
-          stdout && stdout.trim() ? `workerOutput=${stdout.trim().slice(-1000)}` : '',
+          stdout && stdout.trim() ? `workerOutput=${stdout.trim().slice(-600)}` : '',
         ].filter(Boolean).join(' | ');
-        reject(new Error(`PDF worker failed: ${details || err.message}`));
+        reject(attach(new Error(details || err.message)));
         return;
       }
       if (stderr && stderr.includes('ERROR')) {
-        reject(new Error(`SLI/ELI 產生失敗: ${stderr}`));
+        reject(attach(new Error(`SLI/ELI 產生失敗: ${stderr.trim()}`)));
         return;
       }
       resolve(stdout);
@@ -120,41 +140,51 @@ async function runPdfWorkers({ py, script, payloadFile, workDir, recordCount, co
           const shardCompleted = Math.min(done, total);
           const overall = completed + shardCompleted;
           onProgress(
-            Math.round(25 + 55 * (overall / recordCount)),
-            `產生 SLI/ELI PDF（${overall}/${recordCount}，${workerCount} workers）...`
+            Math.round(25 + 55 * (Math.min(overall, recordCount) / recordCount)),
+            `產生 SLI/ELI PDF（${Math.min(overall, recordCount)}/${recordCount}，${workerCount} workers）...`
           );
         }
       }
     });
   });
 
+  // 每個 shard 先排一次；失敗的 shard 再排一次（換新的 Python/Excel 實例重試）
+  const MAX_SHARD_ATTEMPTS = 2;
+  const queue = [];
+  for (let i = 1; i <= workerCount; i++) queue.push({ shardIndex: i, attempt: 1 });
+
   const workerLoop = async () => {
-    while (!failed) {
-      if (signal && signal.aborted) throw new Error('已中止');
-      const shardIndex = nextShard++;
-      if (shardIndex > workerCount) return [];
-      const shardRecords = Math.floor((recordCount - shardIndex) / workerCount) + 1;
-      const stdout = await runWorker(shardIndex);
-      completed += shardRecords;
-      onProgress(
-        Math.round(25 + 55 * (completed / recordCount)),
-        `產生 SLI/ELI PDF（${completed}/${recordCount}，${workerCount} workers）...`
-      );
-      return stdout;
+    while (queue.length) {
+      if (aborted || (signal && signal.aborted)) throw new Error('已中止');
+      const task = queue.shift();
+      const shardRecords = Math.floor((recordCount - task.shardIndex) / workerCount) + 1;
+      try {
+        outputs.push(await runWorker(task.shardIndex));
+      } catch (err) {
+        if (aborted || (signal && signal.aborted)) throw err;
+        if (err.stdout) outputs.push(err.stdout); // 保留該 worker 已產出的 OK 行
+        if (task.attempt < MAX_SHARD_ATTEMPTS) {
+          queue.push({ shardIndex: task.shardIndex, attempt: task.attempt + 1 });
+        } else {
+          failures.push({ shardIndex: task.shardIndex, attempt: task.attempt, message: err.message });
+        }
+      }
+      if (task.attempt === 1) {
+        completed += shardRecords;
+        onProgress(
+          Math.round(25 + 55 * (Math.min(completed, recordCount) / recordCount)),
+          `產生 SLI/ELI PDF（${Math.min(completed, recordCount)}/${recordCount}，${workerCount} workers）...`
+        );
+      }
     }
-    return [];
   };
 
   try {
-    const outputs = await Promise.all(Array.from({ length: workerCount }, () => workerLoop()));
-    return outputs.flat();
-  } catch (err) {
-    failed = err;
-    for (const child of children) terminatePdfWorker(child);
-    throw err;
+    await Promise.all(Array.from({ length: workerCount }, () => workerLoop()));
   } finally {
     if (signal) signal.removeEventListener('abort', abortHandler);
   }
+  return { outputs, failures };
 }
 
 // 欄位類型定義
@@ -375,6 +405,31 @@ function planDateGroups(allRecords, mergedPdfs) {
 async function runWorkflow(opts) {
   const { files, defs, reportTemplate, sliTemplate, concurrency, onProgress, signal } = opts;
 
+  // ===== 紙張設定（A4 修正）=====
+  // 預設 a4：Python 端強制 A4 直式 + FitToPage；custom：維持模板原設定（＝舊行為）。
+  // 產出後以 pdf-lib 實測每頁尺寸回報（量測失敗不影響產出；不符只警示不中斷）。
+  const paperMode = String(process.env.PDF_PAPER || 'a4').toLowerCase() === 'custom' ? 'custom' : 'a4';
+  const A4_SIZE = { width: 595.28, height: 841.89 };
+  const PAPER_TOLERANCE_PT = 2;
+  const paperReport = { mode: paperMode, measured: null, ok: true, issues: [] };
+  const describeSizes = (sizes) => sizes.map((s) => `${s.width.toFixed(1)}x${s.height.toFixed(1)}`).join(' / ');
+  const verifyMergedPaper = async (filePath, mawb) => {
+    try {
+      const sizes = await readPdfPageSizes(filePath);
+      if (!paperReport.measured) paperReport.measured = describeSizes(sizes);
+      if (paperMode !== 'a4') return;
+      const offSpec = sizes.filter((s) => Math.abs(s.width - A4_SIZE.width) > PAPER_TOLERANCE_PT
+        || Math.abs(s.height - A4_SIZE.height) > PAPER_TOLERANCE_PT);
+      if (sizes.length !== 2 || offSpec.length) {
+        paperReport.ok = false;
+        const msg = `MAWB ${mawb} 紙張非 A4（實測 ${describeSizes(sizes)}，頁數 ${sizes.length}）`;
+        if (!paperReport.issues.includes(msg)) paperReport.issues.push(msg);
+      }
+    } catch (e) {
+      // 量測失敗不影響產出（僅無法驗證紙張）
+    }
+  };
+
   const assertActive = () => {
     if (signal && signal.aborted) {
       const e = new Error('已中止');
@@ -471,8 +526,7 @@ async function runWorkflow(opts) {
   await fsp.mkdir(WORK_DIR, { recursive: true });
   assertActive();
   const workDir = await fsp.mkdtemp(path.join(WORK_DIR, 'job-'));
-  const sliPdfs = [];
-  const eliPdfs = [];
+  const pdfPairs = []; // [{ mawb, sli, eli }]（依 MAWB 配對，避免任何一筆缺檔造成後續全部錯位）
   let pdfCount = 0;
 
   // 批次呼叫 Excel COM 腳本（一次開工作簿，逐筆填 SLI/ELI 並產出 PDF/xlsx）
@@ -511,7 +565,7 @@ async function runWorkflow(opts) {
       // 確保 openpyxl 可用（Dockerfile pip 安裝不完整時自動補裝）
       await ensurePythonModule('openpyxl');
       const script = path.join(__dirname, 'sli-eli-generate.py');
-      const outputs = await runPdfWorkers({
+      const { outputs, failures } = await runPdfWorkers({
         py,
         script,
         payloadFile,
@@ -520,16 +574,38 @@ async function runWorkflow(opts) {
         concurrency,
         signal,
         onProgress: reportProgress,
+        paperMode,
       });
-      // 收集產出的 PDF
-      const okLines = outputs.flatMap((stdout) => stdout.split('\n')).filter((l) => l.startsWith('OK: '));
-      pdfCount = okLines.length;
-      for (const line of okLines) {
-        const mawb = line.replace('OK: ', '').trim();
+      // 逐行解析 worker 輸出（失敗的 worker 也保留了 stdout，故已產出的 PDF 不會白做）
+      const outputLines = outputs.flatMap((stdout) => stdout.split('\n')).map((l) => l.trim());
+      const pushError = (msg) => { if (!errors.includes(msg)) errors.push(msg); };
+      for (const failure of failures) {
+        pushError(`SLI/ELI 產生失敗（worker #${failure.shardIndex}，已重試）: ${failure.message}`);
+      }
+      for (const line of outputLines) {
+        if (line.startsWith('FAIL: ')) pushError(`SLI/ELI 產生失敗：${line.slice('FAIL: '.length)}`);
+      }
+      // 收集產出的 PDF：以 MAWB 為索引（重試／重覆 MAWB 皆自動去重）
+      const okMawbs = new Set();
+      for (const line of outputLines) {
+        if (line.startsWith('OK: ')) {
+          const mawb = line.slice('OK: '.length).trim();
+          if (mawb) okMawbs.add(mawb);
+        }
+      }
+      for (const mawb of okMawbs) {
         const sliPdf = path.join(workDir, `${mawb} SLI.pdf`);
         const eliPdf = path.join(workDir, `${mawb} ELI.pdf`);
-        if (fs.existsSync(sliPdf)) sliPdfs.push(sliPdf);
-        if (fs.existsSync(eliPdf)) eliPdfs.push(eliPdf);
+        const hasSli = fs.existsSync(sliPdf);
+        const hasEli = fs.existsSync(eliPdf);
+        if (!hasSli && !hasEli) {
+          errors.push(`MAWB ${mawb} 找不到產出的 SLI/ELI PDF（未合併）`);
+          continue;
+        }
+        if (!hasSli || !hasEli) {
+          errors.push(`MAWB ${mawb} 只產生 ${hasSli ? 'SLI' : 'ELI'} PDF，缺少 ${hasSli ? 'ELI' : 'SLI'}（未合併）`);
+        }
+        pdfPairs.push({ mawb, sli: hasSli ? sliPdf : null, eli: hasEli ? eliPdf : null });
       }
     } catch (e) {
       errors.push(`SLI/ELI 批次產生失敗: ${e.message}`);
@@ -537,26 +613,28 @@ async function runWorkflow(opts) {
   }
 
   // Step 4: 合併 SLI+ELI → {MAWB}.pdf，刪除單獨檔
-  reportProgress(80, `合併 ${sliPdfs.length} 組 SLI + ELI PDF...`);
+  const mergeTargets = pdfPairs.filter((p) => p.sli && p.eli);
+  reportProgress(80, `合併 ${mergeTargets.length} 組 SLI + ELI PDF...`);
   assertActive();
   const mergedPdfs = [];
   let nextMerge = 0;
-  const mergeWorkerCount = Math.min(getPdfConcurrency(sliPdfs.length, concurrency), 4);
+  const mergeWorkerCount = Math.min(getPdfConcurrency(mergeTargets.length, concurrency), 4);
   const mergeWorker = async () => {
     while (true) {
       assertActive();
       const i = nextMerge++;
-      if (i >= sliPdfs.length) return;
-      // 依 sliPdfs 檔名取 MAWB
-      const m = path.basename(sliPdfs[i]).match(/^(\d{3}-\d{8}) SLI\.pdf$/);
-      if (!m || !eliPdfs[i]) continue;
-      const mawb = m[1];
+      if (i >= mergeTargets.length) return;
+      const { mawb, sli, eli } = mergeTargets[i];
       const mergedPath = path.join(workDir, `${mawb}.pdf`);
       try {
-        await mergePdfs([sliPdfs[i], eliPdfs[i]], mergedPath);
+        await mergePdfs([sli, eli], mergedPath);
+        // A4 修正：Excel 匯出的紙張由印表機驅動決定（air 實測 322.8×456.9mm），
+        // 這裡把非 A4 頁等比縮成 A4（＝模板原設計的 A4 × 65%），PDF_PAPER=custom 時跳過。
+        if (paperMode === 'a4') await normalizePdfToA4(mergedPath);
+        await verifyMergedPaper(mergedPath, mawb); // A4 驗證（不符只警示，不中斷）
         mergedPdfs.push(mergedPath);
-        await fsp.unlink(sliPdfs[i]).catch(() => {});
-        await fsp.unlink(eliPdfs[i]).catch(() => {});
+        await fsp.unlink(sli).catch(() => {});
+        await fsp.unlink(eli).catch(() => {});
         await fsp.unlink(path.join(workDir, `${mawb} SLI.xlsx`)).catch(() => {});
         await fsp.unlink(path.join(workDir, `${mawb} ELI.xlsx`)).catch(() => {});
       } catch (e) {
@@ -566,6 +644,28 @@ async function runWorkflow(opts) {
   };
   if (mergeWorkerCount) {
     await Promise.all(Array.from({ length: mergeWorkerCount }, () => mergeWorker()));
+  }
+  // 成功產出的份數 = 實際合併完成的 PDF 數（避免把失敗/缺檔的也算進去）
+  pdfCount = mergedPdfs.length;
+
+  // ===== Step 4.5：PDF 字型優化（瘦身）=====
+  // 實測 533 KB -> 123 KB（-77%），渲染逐像素差異 0.000%（移除 PDF 用不到的
+  // name／hinting 表與 glyf 指令）。環境缺 Python/PyMuPDF 時自動略過、不影響產出。
+  const fontOptEnabled = String(process.env.PDF_FONT_OPT || 'on').toLowerCase() !== 'off';
+  let fontOpt = null;
+  if (fontOptEnabled && mergedPdfs.length) {
+    reportProgress(87, `PDF 瘦身中（字型優化 ${mergedPdfs.length} 份）...`);
+    fontOpt = await optimizePdfFontsInPlace(mergedPdfs);
+    if (!fontOpt) fontOpt = { files: 0, before: 0, after: 0, reductionPct: 0, items: [], skipped: true };
+  } else if (!fontOptEnabled) {
+    fontOpt = { files: 0, before: 0, after: 0, reductionPct: 0, items: [], disabled: true };
+  }
+  // 紙張驗證未通過：不阻斷（檔案仍可下載），但明確列出實測尺寸避免靜默產出不符規格
+  if (!paperReport.ok && paperReport.issues.length) {
+    errors.push(
+      `紙張驗證未通過（PDF_PAPER=${paperReport.mode}）：${paperReport.issues.slice(0, 3).join('；')}` +
+      (paperReport.issues.length > 3 ? `（共 ${paperReport.issues.length} 筆）` : '')
+    );
   }
   for (let i = 1; i <= getPdfConcurrency(recordsPayload.length, concurrency); i++) {
     await fsp.rm(path.join(workDir, `lo-profile-${i}`), { recursive: true, force: true }).catch(() => {});
@@ -615,6 +715,8 @@ async function runWorkflow(opts) {
     results,   // 每個檔案的處理筆數（套用勾選過濾後）
     warnings: cneeWarnings, // 缺 CNEE 的 MAWB 警告清單
     duplicates, // 重覆 MAWB 警告清單（不阻斷；同一 MAWB 出現 2 次或以上）
+    paper: paperReport, // 紙張驗證結果（mode / measured / ok / issues）
+    fontOpt, // PDF 字型優化結果（files / before / after / reductionPct / skipped）
     workDir,
   };
 }

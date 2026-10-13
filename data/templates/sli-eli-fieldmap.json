@@ -1,0 +1,560 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-13T21:39:09",
+  "template": "cainiao-sli-eli-template.xlsx",
+  "templateSha256": "f82302918fc7168f5f19d02d2bdb6f0f6a5f738d722f176cc34c18c3ba874977",
+  "blankPdf": "sli-eli-blank.pdf",
+  "blankPdfSha256": "8376c8c9baa2718edfa6721546265db331d90bd7f5a8f5f36ba757d94223aa3e",
+  "paper": {
+    "name": "A4",
+    "widthPt": 595.28,
+    "heightPt": 841.89
+  },
+  "coordinateSystem": "pt, origin top-left (x right / y down)",
+  "font": {
+    "mode": "standard",
+    "regular": "Helvetica",
+    "bold": "Helvetica-Bold",
+    "note": "Helvetica 與 Arial 公制相容；如需字形完全一致可改內嵌 Liberation Sans"
+  },
+  "pages": [
+    {
+      "index": 0,
+      "sheet": "air",
+      "label": "SLI",
+      "widthPt": 595.28,
+      "heightPt": 841.89,
+      "background": "sli-eli-blank-p1.png",
+      "pngDpi": 120,
+      "pageScale": {
+        "x": 0.65035,
+        "y": 0.64988
+      }
+    },
+    {
+      "index": 1,
+      "sheet": "ELI LETTER",
+      "label": "ELI",
+      "widthPt": 594.96,
+      "heightPt": 842.04,
+      "background": "sli-eli-blank-p2.png",
+      "pngDpi": 120,
+      "pageScale": {
+        "x": 1.00054,
+        "y": 0.99982
+      }
+    }
+  ],
+  "fields": [
+    {
+      "key": "sli.D23",
+      "page": 0,
+      "sheet": "air",
+      "label": "MAWB（SLI）",
+      "source": "mawb",
+      "cell": "D23",
+      "range": "D23",
+      "box": {
+        "x": 91.88,
+        "y": 256.61,
+        "w": 113.87,
+        "h": 25.73
+      },
+      "origin": {
+        "x": 91.88,
+        "y": 269.47
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 10.16,
+        "bold": true,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "center"
+      },
+      "wrap": true,
+      "lineHeightPt": 12.19,
+      "maxLines": 2,
+      "marker": "@@D23@@",
+      "markerRect": [
+        91.88,
+        263.65,
+        151.75,
+        275.29
+      ],
+      "calibrationDelta": [
+        0.48,
+        25.53
+      ],
+      "textBaselineOffsetPt": 3.95,
+      "calibrationResidual": [
+        -0.0,
+        -1.16,
+        1.17
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "sli.D25",
+      "page": 0,
+      "sheet": "air",
+      "label": "航空公司（SLI）",
+      "source": "flightCompany",
+      "cell": "D25",
+      "range": "D25",
+      "box": {
+        "x": 91.88,
+        "y": 277.02,
+        "w": 113.87,
+        "h": 25.73
+      },
+      "origin": {
+        "x": 91.88,
+        "y": 289.89
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 10.16,
+        "bold": true,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "center"
+      },
+      "wrap": true,
+      "lineHeightPt": 12.19,
+      "maxLines": 2,
+      "marker": "@@D25@@",
+      "markerRect": [
+        91.88,
+        284.07,
+        151.75,
+        295.71
+      ],
+      "calibrationDelta": [
+        0.48,
+        11.16
+      ],
+      "textBaselineOffsetPt": 3.94,
+      "calibrationResidual": [
+        -0.0,
+        -1.16,
+        1.16
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "sli.D27",
+      "page": 0,
+      "sheet": "air",
+      "label": "DEST（SLI）",
+      "source": "dest",
+      "cell": "D27",
+      "range": "D27",
+      "box": {
+        "x": 91.88,
+        "y": 297.42,
+        "w": 113.87,
+        "h": 25.73
+      },
+      "origin": {
+        "x": 91.88,
+        "y": 310.29
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 10.16,
+        "bold": true,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "center"
+      },
+      "wrap": true,
+      "lineHeightPt": 12.19,
+      "maxLines": 2,
+      "marker": "@@D27@@",
+      "markerRect": [
+        91.88,
+        304.47,
+        151.75,
+        316.1
+      ],
+      "calibrationDelta": [
+        0.48,
+        -3.22
+      ],
+      "textBaselineOffsetPt": 3.94,
+      "calibrationResidual": [
+        -0.0,
+        -1.16,
+        1.16
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "sli.D9",
+      "page": 0,
+      "sheet": "air",
+      "label": "Consignee（SLI）",
+      "source": "cnee",
+      "cell": "D9",
+      "range": "D9:E13",
+      "box": {
+        "x": 91.28,
+        "y": 130.38,
+        "w": 236.8,
+        "h": 57.65
+      },
+      "origin": {
+        "x": 91.28,
+        "y": 131.35
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 5.72,
+        "bold": true,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "top"
+      },
+      "wrap": true,
+      "lineHeightPt": 6.86,
+      "maxLines": 8,
+      "marker": "@@D9@@",
+      "markerRect": [
+        91.28,
+        131.35,
+        121.73,
+        137.91
+      ],
+      "calibrationDelta": [
+        -0.12,
+        42.25
+      ],
+      "textBaselineOffsetPt": 6.15,
+      "calibrationResidual": [
+        0.0,
+        0.0,
+        1.31
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "sli.D72",
+      "page": 0,
+      "sheet": "air",
+      "label": "航班日期（SLI）",
+      "source": "flightDate",
+      "cell": "D72",
+      "range": "D72",
+      "box": {
+        "x": 91.52,
+        "y": 732.5,
+        "w": 113.87,
+        "h": 9.53
+      },
+      "origin": {
+        "x": 91.52,
+        "y": 740.56
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 6.99,
+        "bold": true,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "bottom"
+      },
+      "wrap": false,
+      "lineHeightPt": 8.39,
+      "maxLines": 1,
+      "marker": "@@D72@@",
+      "markerRect": [
+        91.52,
+        732.54,
+        132.85,
+        740.56
+      ],
+      "calibrationDelta": [
+        0.12,
+        -42.25
+      ],
+      "textBaselineOffsetPt": -2.09,
+      "calibrationResidual": [
+        0.0,
+        -1.58,
+        -0.0
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "eli.F8",
+      "page": 1,
+      "sheet": "ELI LETTER",
+      "label": "MAWB（ELI）",
+      "source": "mawb",
+      "cell": "F8",
+      "range": "F8:J8",
+      "box": {
+        "x": 153.38,
+        "y": 137.7,
+        "w": 105.38,
+        "h": 15.81
+      },
+      "origin": {
+        "x": 206.07,
+        "y": 150.98
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 12.04,
+        "bold": false,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "center",
+        "v": "bottom"
+      },
+      "wrap": false,
+      "lineHeightPt": 14.45,
+      "maxLines": 1,
+      "marker": "@@F8@@",
+      "markerRect": [
+        174.62,
+        137.6,
+        237.51,
+        150.98
+      ],
+      "calibrationDelta": [
+        1.91,
+        27.51
+      ],
+      "textBaselineOffsetPt": -3.6,
+      "calibrationResidual": [
+        -0.02,
+        -3.16,
+        0.0
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "eli.P11",
+      "page": 1,
+      "sheet": "ELI LETTER",
+      "label": "DEST（ELI）",
+      "source": "dest",
+      "cell": "P11",
+      "range": "P11:T11",
+      "box": {
+        "x": 359.59,
+        "y": 173.58,
+        "w": 132.47,
+        "h": 15.81
+      },
+      "origin": {
+        "x": 425.82,
+        "y": 186.86
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 12.04,
+        "bold": false,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "center",
+        "v": "bottom"
+      },
+      "wrap": false,
+      "lineHeightPt": 14.45,
+      "maxLines": 1,
+      "marker": "@@P11@@",
+      "markerRect": [
+        390.67,
+        173.48,
+        460.98,
+        186.86
+      ],
+      "calibrationDelta": [
+        -2.63,
+        24.25
+      ],
+      "textBaselineOffsetPt": -3.6,
+      "calibrationResidual": [
+        -0.0,
+        -3.16,
+        0.0
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "eli.M16",
+      "page": 1,
+      "sheet": "ELI LETTER",
+      "label": "Consignee（ELI）",
+      "source": "cnee",
+      "cell": "M16",
+      "range": "M16:T20",
+      "box": {
+        "x": 300.29,
+        "y": 229.94,
+        "w": 195.7,
+        "h": 79.03
+      },
+      "origin": {
+        "x": 300.29,
+        "y": 231.3
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 8.03,
+        "bold": false,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "top"
+      },
+      "wrap": true,
+      "lineHeightPt": 9.64,
+      "maxLines": 8,
+      "marker": "@@M16@@",
+      "markerRect": [
+        300.29,
+        231.3,
+        348.41,
+        240.27
+      ],
+      "calibrationDelta": [
+        1.3,
+        22.03
+      ],
+      "textBaselineOffsetPt": 8.64,
+      "calibrationResidual": [
+        0.0,
+        0.0,
+        2.07
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "eli.N21",
+      "page": 1,
+      "sheet": "ELI LETTER",
+      "label": "聯絡電話（ELI）",
+      "source": "cneeTel",
+      "cell": "N21",
+      "range": "N21:T21",
+      "box": {
+        "x": 320.95,
+        "y": 300.7,
+        "w": 174.62,
+        "h": 15.81
+      },
+      "origin": {
+        "x": 320.95,
+        "y": 314.82
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 8.03,
+        "bold": false,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "left",
+        "v": "bottom"
+      },
+      "wrap": true,
+      "lineHeightPt": 9.64,
+      "maxLines": 2,
+      "marker": "@@N21@@",
+      "markerRect": [
+        320.95,
+        305.85,
+        368.23,
+        314.82
+      ],
+      "calibrationDelta": [
+        0.88,
+        10.7
+      ],
+      "textBaselineOffsetPt": -2.4,
+      "calibrationResidual": [
+        0.0,
+        -2.07,
+        0.0
+      ],
+      "anchorResidualPt": 0.0
+    },
+    {
+      "key": "eli.N57",
+      "page": 1,
+      "sheet": "ELI LETTER",
+      "label": "航班日期（ELI）",
+      "source": "flightDate",
+      "cell": "N57",
+      "range": "N57:T57",
+      "box": {
+        "x": 317.89,
+        "y": 700.8,
+        "w": 174.62,
+        "h": 12.04
+      },
+      "origin": {
+        "x": 405.2,
+        "y": 710.95
+      },
+      "font": {
+        "excelName": "Arial",
+        "sizePt": 9.03,
+        "bold": false,
+        "italic": false,
+        "color": "#000000"
+      },
+      "align": {
+        "h": "center",
+        "v": "bottom"
+      },
+      "wrap": false,
+      "lineHeightPt": 10.84,
+      "maxLines": 1,
+      "marker": "@@N57@@",
+      "markerRect": [
+        378.67,
+        700.91,
+        431.73,
+        710.95
+      ],
+      "calibrationDelta": [
+        -2.18,
+        -32.73
+      ],
+      "textBaselineOffsetPt": -2.7,
+      "calibrationResidual": [
+        -0.08,
+        -2.37,
+        -0.0
+      ],
+      "anchorResidualPt": 0.0
+    }
+  ]
+}

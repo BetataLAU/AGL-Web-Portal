@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-10-13T21:39:09",
+  "generatedAt": "2026-10-13T22:30:17",
   "templateSha256": "f82302918fc7168f5f19d02d2bdb6f0f6a5f738d722f176cc34c18c3ba874977",
-  "blankPdfSha256": "8376c8c9baa2718edfa6721546265db331d90bd7f5a8f5f36ba757d94223aa3e",
-  "blankPdfBytes": 125285,
-  "calibrationResidualPt": 0.0,
+  "blankPdfSha256": "b400459e1d9f6f642acd4a95eb70acfcd8687cad8c0d0940cca43ef519162ae2",
+  "blankPdfBytes": 116759,
+  "calibrationResidualPt": 1.37,
   "analyticDeltaMaxPt": 42.25,
   "notes": [
     "calibrationResidualPt＝疊字與 Excel 在「錨定邊」的最大差異（這是實際定位精度）",

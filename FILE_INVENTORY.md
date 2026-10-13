@@ -2,52 +2,37 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/13 下午9:43:31
+> 最後更新：2026/10/13 下午10:36:36
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
-M Dockerfile
 M FILE_INVENTORY.md
-M README.md
 M WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx
-M database.db
-M db/sessions.db
-M docs/README.md
-M docs/design/xls-pdf-parallel-prd.md
-M public/css/xls-booking.css
-M public/js/xls-booking-workflow.js
-M routes/xls-booking.js
-M scripts/sli-eli-generate.py
-M scripts/test-sli-generate.py
-M scripts/xls-sli-eli.js
-M scripts/xls-workflow.js
-?? data/templates/sli-eli-blank-meta.json
-?? data/templates/sli-eli-blank-p1.png
-?? data/templates/sli-eli-blank-p2.png
-?? data/templates/sli-eli-blank.pdf
-?? data/templates/sli-eli-fieldmap.default.json
-?? data/templates/sli-eli-fieldmap.json
-?? docs/design/xls-sli-eli-overlay-prd.md
-?? scripts/build-sli-eli-blank.py
-?? scripts/sli-eli-font-optimize.py
-?? scripts/test-a4-integration.js
-?? scripts/test-pdf-a4.js
+M data/templates/sli-eli-blank-meta.json
+M data/templates/sli-eli-blank.pdf
+M data/templates/sli-eli-fieldmap.default.json
+M data/templates/sli-eli-fieldmap.json
+M docs/design/xls-sli-eli-overlay-prd.md
+M scripts/build-sli-eli-blank.py
+?? scripts/sli-eli-blank-widen-fonts.js
+?? scripts/sli-eli-diff.py
+?? scripts/sli-eli-overlay.js
+?? scripts/test-sli-eli-overlay.js
 ```
 
-## 📁 檔案清單（共 218 個檔案）
+## 📁 檔案清單（共 266 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（490 B）
-- `CLAUDE.md`（27.5 KB）
+- `CLAUDE.md`（30.7 KB）
 - `Dockerfile`（884 B）
 - `PROJECT_MAP.md`（14.9 KB）
 - `README.md`（21.4 KB）
-- `WORKSPACE_STATE.md`（13.1 KB）
+- `WORKSPACE_STATE.md`（14.9 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -74,9 +59,30 @@ M scripts/xls-workflow.js
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
 - `data/templates/shipper-role-summary-2026.xlsx`（593.3 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
-- `data/templates/sli-eli-blank.pdf`（122.3 KB）
-- `data/templates/sli-eli-fieldmap.default.json`（11.4 KB）
-- `data/templates/sli-eli-fieldmap.json`（11.4 KB）
+- `data/templates/sli-eli-blank.pdf`（114.0 KB）
+- `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
+- `data/templates/sli-eli-fieldmap.json`（13.7 KB）
+
+### data/test-blank-build
+
+- `data/test-blank-build/baseline-probe.pdf`（123.8 KB）
+- `data/test-blank-build/blank-2p.pdf`（529.4 KB）
+- `data/test-blank-build/blank-ELI_LETTER.pdf`（194.5 KB）
+- `data/test-blank-build/blank-a4.pdf`（530.2 KB）
+- `data/test-blank-build/blank-air.pdf`（353.1 KB）
+- `data/test-blank-build/blank-widened.pdf`（762.1 KB）
+- `data/test-blank-build/charset-ELI_LETTER.pdf`（236.9 KB）
+- `data/test-blank-build/charset-air.pdf`（398.3 KB）
+- `data/test-blank-build/geometry.json`（9.0 KB）
+- `data/test-blank-build/marker-long-2p.pdf`（530.8 KB）
+- `data/test-blank-build/marker-long-a4.pdf`（531.6 KB）
+- `data/test-blank-build/marker-short-2p.pdf`（530.2 KB）
+- `data/test-blank-build/marker-short-a4.pdf`（531.0 KB）
+- `data/test-blank-build/markerA-ELI_LETTER.pdf`（195.2 KB）
+- `data/test-blank-build/markerA-air.pdf`（353.3 KB）
+- `data/test-blank-build/markerB-ELI_LETTER.pdf`（195.2 KB）
+- `data/test-blank-build/markerB-air.pdf`（354.2 KB）
+- `data/test-blank-build/template-copy-32528.xlsx`（93.7 KB）
 
 ### data/test-p2
 
@@ -109,9 +115,47 @@ M scripts/xls-workflow.js
 - `data/test-p2/stream-probe.py`（1.6 KB）
 - `data/test-p2/subset-probe.py`（1.9 KB）
 - `data/test-p2/ttf-tables-probe.py`（1.4 KB）
-- `data/test-p2/verify-build.py`（2.6 KB）
+- `data/test-p2/verify-build.py`（2.7 KB）
 - `data/test-p2/verify-fieldmap.py`（2.5 KB）
 - `data/test-p2/verify-output.py`（1.6 KB）
+
+### data/test-p3
+
+- `data/test-p3/apply-calibration.js`（4.7 KB）
+- `data/test-p3/baseline-model.json`（156 B）
+- `data/test-p3/ink-bbox.py`（1.7 KB）
+- `data/test-p3/measure-baseline-delta.py`（2.6 KB）
+- `data/test-p3/measure-refs.py`（3.7 KB）
+- `data/test-p3/measure-wrap.py`（3.8 KB）
+- `data/test-p3/mine-065-49876385.pdf`（124.6 KB）
+- `data/test-p3/probe-diff-regions.py`（1.8 KB）
+- `data/test-p3/probe-font-dict.py`（1.4 KB）
+- `data/test-p3/probe-font-floor.py`（2.2 KB）
+- `data/test-p3/probe-font-floor2.py`（2.6 KB）
+- `data/test-p3/probe-line-extents.py`（1.4 KB）
+- `data/test-p3/probe-mine-vs-ideal.py`（1.8 KB）
+- `data/test-p3/probe-shift.py`（1.8 KB）
+- `data/test-p3/probe-span-size.py`（1.2 KB）
+- `data/test-p3/probe-text-pos.py`（2.1 KB）
+- `data/test-p3/probe-visual.py`（1.8 KB）
+- `data/test-p3/ref-065-49011480.pdf`（544.9 KB）
+- `data/test-p3/ref-065-49011491.pdf`（544.9 KB）
+- `data/test-p3/ref-065-49011502.pdf`（544.9 KB）
+- `data/test-p3/ref-065-49876374.pdf`（542.9 KB）
+- `data/test-p3/ref-065-49876385.pdf`（536.5 KB）
+- `data/test-p3/try-customname.js`（1.6 KB）
+
+### data/test-p3-overlay
+
+- `data/test-p3-overlay/jobs.json`（244 B）
+
+### data/test-p3-overlay/mine
+
+- `data/test-p3-overlay/mine/065-49876385.pdf`（116.4 KB）
+
+### data/test-p3-overlay/ref
+
+- `data/test-p3-overlay/ref/065-49876385.pdf`（536.5 KB）
 
 ### db
 
@@ -131,7 +175,7 @@ M scripts/xls-workflow.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（18.9 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（34.9 KB）
 
 ### docs/research
 
@@ -285,7 +329,7 @@ M scripts/xls-workflow.js
 ### scripts
 
 - `scripts/analyze-xls.py`（1.7 KB）
-- `scripts/build-sli-eli-blank.py`（32.4 KB）
+- `scripts/build-sli-eli-blank.py`（40.8 KB）
 - `scripts/cleanup-test-data.js`（1.1 KB）
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
@@ -298,8 +342,11 @@ M scripts/xls-workflow.js
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
 - `scripts/seed-admin.js`（2.6 KB）
+- `scripts/sli-eli-blank-widen-fonts.js`（11.8 KB）
+- `scripts/sli-eli-diff.py`（5.3 KB）
 - `scripts/sli-eli-font-optimize.py`（18.8 KB）
 - `scripts/sli-eli-generate.py`（15.2 KB）
+- `scripts/sli-eli-overlay.js`（34.7 KB）
 - `scripts/solve-worker.js`（1.1 KB）
 - `scripts/sync-project-state.js`（6.3 KB）
 - `scripts/test-a4-integration.js`（4.5 KB）
@@ -316,6 +363,7 @@ M scripts/xls-workflow.js
 - `scripts/test-packing-projects.js`（7.1 KB）
 - `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
+- `scripts/test-sli-eli-overlay.js`（10.3 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）

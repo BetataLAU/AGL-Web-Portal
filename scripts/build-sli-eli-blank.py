@@ -46,6 +46,35 @@ A4_TOLERANCE_PT = 1.0
 CALIBRATION_TOLERANCE_PT = 2.5
 BACKDROP_DPI = 120
 
+# ===== P4 前置：讓背景內嵌的 Arial 子集涵蓋「疊字可能畫出的所有字元」 =====
+# 空白 PDF 是「清空動態格」後匯出的，子集只有 static 字符（缺 J/Q/部分數字…），
+# 疊字的 fontMode='auto'（沿用內嵌 Arial）幾乎用不上。做法：清空／marker 匯出完成後，
+# 再把動態格填入「全字符集」匯出一份 charset PDF（**不出貨，只當字型來源**），
+# 由 scripts/sli-eli-blank-widen-fonts.js 把它的 Arial 字型程式搬進空白（像素必須完全相同）。
+CHARSET = ''.join(chr(c) for c in list(range(0x20, 0x7f)) + list(range(0xa0, 0x100)))
+CHARSET_FONT_SIZE = 2          # 只為撐出字型子集，內容不會出貨
+CHARSET_CELL_CHUNKS = 2        # 每個字型（regular/bold）用幾個動態格
+
+# ===== fieldmap 校準（實測 Excel 參考 PDF 後得到的值；見 docs/design/xls-sli-eli-overlay-prd.md §1 P3）=====
+# 為何不靠建置腳本自己算：
+#  1) font.sizePt：建置腳本用 marker 墨跡寬度推導縮放會低估 air 頁 ~2.4%（實測值直接寫入較準）
+#  2) lineHeightPt：Excel 行距 ≈ size × 1.27（不是 1.2）；D9/M16 實測 7.56 / 10.20
+#  3) textBaselineOffsetPt：Excel 用「行盒」定位（Arial hhea ascent 0.9053em / descent 0.2124em），
+#     不是墨跡 → 見 baseline_offset()；P2 用 `@` 墨跡校準會偏 0.3~1.4pt（實測已修正）
+#  4) dateFormat：日期格會把 payload 的 'YYYY-MM-DD' 顯示成 Excel 數字格式（例 03/Oct/2026）
+CALIB_SIZE_PT = {
+    'sli.D23': 10.44, 'sli.D25': 10.44, 'sli.D27': 10.44, 'sli.D9': 5.88, 'sli.D72': 7.20,
+    'eli.F8': 12.00, 'eli.P11': 12.00, 'eli.M16': 8.04, 'eli.N21': 8.04, 'eli.N57': 9.00,
+}
+CALIB_LINE_HEIGHT_PT = {
+    'sli.D23': 13.25, 'sli.D25': 13.25, 'sli.D27': 13.25, 'sli.D9': 7.56, 'sli.D72': 9.13,
+    'eli.F8': 15.22, 'eli.P11': 15.22, 'eli.M16': 10.20, 'eli.N21': 10.20, 'eli.N57': 11.42,
+}
+CALIB_DATE_FORMAT = {'sli.D72': 'dd/MMM/yyyy', 'eli.N57': 'dd/MMM/yyyy'}
+WRAP_PAD_PT = 5.0              # Excel 可用換行寬度 = 合併格寬 − 左右內距（實測）
+ARIAL_ASCENT_EM = 0.9053       # Arial hhea ascent（Excel 垂直定位用行盒）
+ARIAL_DESCENT_EM = 0.2124      # Arial hhea descent
+
 # 要清空／校準的動態欄位（依 sheet）— 與 scripts/xls-workflow.js 的 recordsPayload 對應
 FIELDS = [
     {'key': 'sli.D23', 'page': 0, 'sheet': 'air', 'cell': 'D23', 'source': 'mawb',
@@ -145,6 +174,35 @@ def set_cell_values(wb, sheet, values):
             ma.Value = value
 
 
+def set_charset_sink(wb, sheet):
+    """把「全字符集」塞進該 sheet 的動態格（P4 前置）。
+
+    目的：讓 Excel 匯出時把這些字符的字形放進 Arial 子集，之後疊字就能沿用背景內嵌的
+    Arial（0 額外位元組、字形與 Excel 完全相同）。這份匯出**不會出貨**，只是字型來源。
+    - 每個字型（regular / bold）用 CHARSET_CELL_CHUNKS 個動態格分攤全部字元
+    - 字級小（2pt）、WrapText=Off、內容都在格子寬度內 → 不會被裁掉、不會重排
+    """
+    ws = wb.Worksheets(sheet)
+    cells = [f['cell'] for f in FIELDS if f['sheet'] == sheet]
+    per_font = max(1, len(CHARSET) // CHARSET_CELL_CHUNKS + 1)
+    chunks = [CHARSET[i:i + per_font] for i in range(0, len(CHARSET), per_font)]
+    for ci, cell in enumerate(cells):
+        ma = ws.Range(cell).MergeArea
+        ma.ClearContents()
+    idx = 0
+    for want_bold in (False, True):
+        for chunk in chunks:
+            if idx >= len(cells):
+                break
+            ma = ws.Range(cells[idx]).MergeArea
+            ma.Value = chunk
+            ma.Font.Name = 'Arial'
+            ma.Font.Size = CHARSET_FONT_SIZE
+            ma.Font.Bold = want_bold
+            ma.WrapText = False
+            idx += 1
+
+
 def dump_geometry(wb):
     """讀取 10 個欄位的合併範圍框與樣式、兩個工作表的頁面設定。"""
     geo = {'fields': {}, 'pages': {}}
@@ -199,6 +257,24 @@ def merge_pdfs(paths, out):
         src.close()
     doc.save(out, garbage=4, deflate=True, use_objstms=1)
     doc.close()
+
+
+def widen_fonts(blank_pdf, charset_pdfs, out_pdf):
+    """把「字符集匯出 PDF」的 Arial 字型程式搬進空白（呼叫 Node 工具）。
+
+    會驗證字符覆蓋率（不足即建置失敗）並印出子集字符數變化。
+    """
+    cmd = ['node', os.path.join(ROOT, 'scripts', 'sli-eli-blank-widen-fonts.js'),
+           '--blank', blank_pdf, '--out', out_pdf]
+    for p in charset_pdfs:
+        cmd += ['--charset', p]
+    res = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8',
+                         errors='replace', timeout=180000)
+    for line in (res.stdout or '').strip().splitlines():
+        print(f'   {line}', flush=True)
+    if res.returncode != 0:
+        print(f'ERROR: 字型加寬失敗：{(res.stderr or "").strip()}', file=sys.stderr)
+        sys.exit(1)
 
 
 def a4_normalize(src, out):
@@ -371,21 +447,58 @@ def _measure_probe(marker_pdf, probe_pdf, fields):
     return res
 
 
-def calibrate_baselines(blank_pdf, marker_pdf, fields, rounds=2):
-    """自我校準每個欄位的 `textBaselineOffsetPt`（相對 origin.y），使疊字與 Excel 一致。
+def baseline_offset(f):
+    """Excel 的垂直定位＝「行盒」（Arial hhea ascent/descent），不是墨跡。
 
-    作法：畫一次 → 與 Excel 的 marker 比對 → 修正偏移 → 再畫；最後再量一次作為驗證，
-    並把最終殘差寫回各欄位的 calibrationResidual。回傳最大殘差（pt）。
+    實測（5 筆參考 PDF 的 span origin）驗證：與 Excel 實際 baseline 誤差 ≤ 0.03 pt。
+    P2 舊法用 `@` 字元的**墨跡**反推（`@` 在 Arial 的墨跡高度剛好等於 ascent）→ 真實資料偏 0.3~1.4pt。
     """
-    cap, desc = 0.73, 0.21
+    size = f['font']['sizePt']
+    v = f['align']['v']
+    if v == 'top':
+        return round(ARIAL_ASCENT_EM * size, 2)
+    if v == 'bottom':
+        return round(-ARIAL_DESCENT_EM * size, 2)
+    return round((ARIAL_ASCENT_EM - ARIAL_DESCENT_EM) / 2.0 * size, 2)
+
+
+def apply_calibration(fields, transforms, kpage):
+    """把「實測 Excel 參考 PDF」得到的校準值寫進欄位（見 CALIB_* 常數註解）。"""
     for f in fields:
-        size = f['font']['sizePt']
-        v = f['align']['v']
-        base = cap if v == 'top' else (-desc if v == 'bottom' else (cap - desc) / 2.0)
-        f['textBaselineOffsetPt'] = round(base * size, 2)
+        key = f['key']
+        tr = transforms.get(f['sheet']) or {}
+        if key in CALIB_SIZE_PT:
+            f['font']['sizePt'] = CALIB_SIZE_PT[key]
+        if key in CALIB_LINE_HEIGHT_PT:
+            f['lineHeightPt'] = CALIB_LINE_HEIGHT_PT[key]
+        merge_w = f['box']['w'] / (tr.get('scale') or 1.0)   # 還原成 Excel 點
+        page_scale = (kpage.get(f['sheet']) or (1.0, 1.0))[0]
+        f['wrapWidthPt'] = round((merge_w - WRAP_PAD_PT) * page_scale, 2)
+        f['textBaselineOffsetPt'] = baseline_offset(f)
+        if key in CALIB_DATE_FORMAT:
+            f['dateFormat'] = CALIB_DATE_FORMAT[key]
+        else:
+            f.pop('dateFormat', None)
+        if f.get('wrap'):
+            # Excel 對「放不下的行」是不畫 → 行數上限 = floor(儲存格高 / 行距)
+            f['maxLines'] = max(1, int(f['box']['h'] // f['lineHeightPt']))
+        f['calibration'] = {
+            'note': 'P3/P4 校準（實測 Excel 輸出；見 docs/design/xls-sli-eli-overlay-prd.md）',
+            'wrapPadPt': WRAP_PAD_PT,
+        }
+
+
+def calibrate_baselines(blank_pdf, marker_pdf, fields, rounds=0):
+    """量測 `textBaselineOffsetPt` 與 Excel 的殘差（殘差寫回 calibrationResidual）。
+
+    `textBaselineOffsetPt` 由 apply_calibration() 用解析模型設定（**不再用 `@` 墨跡迭代**，
+    那正是 P2 偏 0.3~1.4pt 的原因）。rounds>0 時才做迭代修正（僅除錯用）。
+    """
+    for f in fields:
+        f['textBaselineOffsetPt'] = baseline_offset(f)
 
     probe = os.path.join(WORK, 'baseline-probe.pdf')
-    for _ in range(max(1, rounds)):
+    for _ in range(max(0, rounds)):
         _draw_probe(blank_pdf, fields, probe)
         for f in fields:
             d = _measure_probe(marker_pdf, probe, fields).get(f['key'])
@@ -535,7 +648,7 @@ def main():
     wb = None
     excel_pid = None
     geo = None
-    blank_pdfs, short_pdfs, long_pdfs = {}, {}, {}
+    blank_pdfs, short_pdfs, long_pdfs, charset_pdfs = {}, {}, {}, {}
     try:
         excel = win32com.client.DispatchEx('Excel.Application')
         excel.Visible = False
@@ -577,6 +690,15 @@ def main():
             p = geo['pages'][s]
             print(f'   {s}: zoom={p["zoom"]} paper={p["paperSize"]} area={p["printArea"]} '
                   f'邊界(L{p["leftMargin"]:.1f} T{p["topMargin"]:.1f}) centerH={p["centerH"]}', flush=True)
+
+        print('3b) 填入「全字符集」匯出（P4 前置；僅作字型來源，不出貨）...', flush=True)
+        for sheet in SHEETS:
+            set_charset_sink(wb, sheet)
+        for sheet in SHEETS:
+            out = os.path.join(WORK, f'charset-{sheet.replace(" ", "_")}.pdf')
+            export_sheet(wb, sheet, out)
+            charset_pdfs[sheet] = out
+            print(f'   charset[{sheet}] {os.path.getsize(out) / 1024:.1f} KB', flush=True)
     finally:
         if wb is not None:
             try:
@@ -603,10 +725,10 @@ def main():
         print('ERROR: 無法取得 Excel 幾何資料（匯出失敗？）', file=sys.stderr)
         sys.exit(1)
 
-    return build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force)
+    return build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, charset_pdfs, keep_work, force)
 
 
-def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force):
+def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, charset_pdfs, keep_work, force):
     print('4) 量測原始頁面尺寸並 A4 正規化 ...', flush=True)
     pre_sizes, kpage = {}, {}
     for sheet in SHEETS:
@@ -636,10 +758,20 @@ def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force):
         marker_hits[tag] = measure_markers(a4, names)
         print(f'   marker[{tag}]: A4 正規化完成，實測 {len(marker_hits[tag])}/{len(names)} 個', flush=True)
 
-    print('5) 背景字型優化 ...', flush=True)
+    print('5) 背景字型加寬（沿用 Excel 內嵌 Arial 子集；P4 前置）...', flush=True)
+    blank_widened = os.path.join(WORK, 'blank-widened.pdf')
+    widen_fonts(blank_a4, [charset_pdfs[s] for s in SHEETS if s in charset_pdfs], blank_widened)
+    diff_ratio, _ = load_font_optimizer().diff_pages(blank_a4, blank_widened, dpi=150)
+    print(f'   加寬前後背景像素差異 {diff_ratio * 100:.4f}%'
+          f'{"（必須 0.0000，否則字型搬移破壞了外觀）" if diff_ratio else "（外觀完全不變）"}', flush=True)
+    if diff_ratio > 0:
+        print('ERROR: 字型搬移改變了背景外觀，已中止', file=sys.stderr)
+        sys.exit(1)
+
+    print('6) 背景字型優化 ...', flush=True)
     blank_out = os.path.join(TEMPLATES, 'sli-eli-blank.pdf')
-    load_font_optimizer().optimize_pdf(blank_a4, blank_out)
-    print(f'   {os.path.getsize(blank_a4) / 1024:.1f} KB -> {os.path.getsize(blank_out) / 1024:.1f} KB',
+    load_font_optimizer().optimize_pdf(blank_widened, blank_out)
+    print(f'   {os.path.getsize(blank_widened) / 1024:.1f} KB -> {os.path.getsize(blank_out) / 1024:.1f} KB',
           flush=True)
 
     print('6) marker 校準（實測寬度求縮放 + 最小平方法求頁面原點）...', flush=True)
@@ -661,12 +793,20 @@ def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force):
     if len(fields) != len(FIELDS):
         print(f'   警告：只產生 {len(fields)}/{len(FIELDS)} 個欄位', flush=True)
 
-    print('6b) 自我校準 baseline 偏移（畫一次 → 比對 Excel → 修正）...', flush=True)
+    print('7) 套用實測校準（字級／行距／baseline 解析模型／換行寬度／日期格式）...', flush=True)
+    apply_calibration(fields, transforms, kpage)
+    for f in fields:
+        print(f'   {f["key"]:9s} size={f["font"]["sizePt"]:5.2f} lh={f["lineHeightPt"]:5.2f} '
+              f'baseline={f["textBaselineOffsetPt"]:6.2f} wrapW={f["wrapWidthPt"]:6.2f} '
+              f'maxLines={f["maxLines"]}{" dateFormat=" + f["dateFormat"] if f.get("dateFormat") else ""}',
+              flush=True)
+
+    print('7b) 量測 baseline 殘差（畫一次 → 與 Excel marker 比對）...', flush=True)
     marker_short_a4 = os.path.join(WORK, 'marker-short-a4.pdf')
-    base_worst = calibrate_baselines(blank_out, marker_short_a4, fields, rounds=2)
+    base_worst = calibrate_baselines(blank_out, marker_short_a4, fields, rounds=0)
     print(f'   校準後與 Excel 的最大差異 {base_worst:.2f} pt', flush=True)
 
-    print('7) 產生編輯器底圖 ...', flush=True)
+    print('8) 產生編輯器底圖 ...', flush=True)
     pngs = render_backdrops(blank_out, os.path.join(TEMPLATES, 'sli-eli-blank'), BACKDROP_DPI)
     for path, w, h, size in pngs:
         print(f'   {os.path.basename(path)} {w}x{h}px {size / 1024:.1f} KB', flush=True)
@@ -686,13 +826,21 @@ def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force):
     doc.close()
 
     fieldmap = {
-        'version': 1, 'generatedAt': now,
+        'version': 2, 'generatedAt': now,
         'template': os.path.basename(TEMPLATE), 'templateSha256': sha256(TEMPLATE),
         'blankPdf': os.path.basename(blank_out), 'blankPdfSha256': sha256(blank_out),
         'paper': {'name': 'A4', 'widthPt': A4_W, 'heightPt': A4_H},
         'coordinateSystem': 'pt, origin top-left (x right / y down)',
-        'font': {'mode': 'standard', 'regular': 'Helvetica', 'bold': 'Helvetica-Bold',
-                 'note': 'Helvetica 與 Arial 公制相容；如需字形完全一致可改內嵌 Liberation Sans'},
+        'font': {'mode': 'auto', 'regular': 'Helvetica', 'bold': 'Helvetica-Bold',
+                 'note': '優先沿用背景內嵌的 Arial 子集（字形與 Excel 相同、0 額外位元組）；'
+                         '未涵蓋的字符自動退回 pdf-lib 標準字型（公制與 Arial 相容）'},
+        'calibration': {
+            'appliedAt': now,
+            'method': 'measure Excel reference PDFs (A4-normalized) with PyMuPDF spans',
+            'baselineModel': {'ascentEm': ARIAL_ASCENT_EM, 'descentEm': ARIAL_DESCENT_EM,
+                              'note': 'Excel 用行盒定位；勿用 `@` 墨跡迭代（P2 曾偏 0.3~1.4pt）'},
+            'wrapPadPt': WRAP_PAD_PT,
+        },
         'pages': pages, 'fields': fields,
     }
     default_path = os.path.join(TEMPLATES, 'sli-eli-fieldmap.default.json')
@@ -711,9 +859,12 @@ def build_outputs(geo, blank_pdfs, short_pdfs, long_pdfs, keep_work, force):
         'calibrationResidualPt': round(base_worst, 2),
         'analyticDeltaMaxPt': round(worst, 2),
         'notes': [
-            'calibrationResidualPt＝疊字與 Excel 在「錨定邊」的最大差異（這是實際定位精度）',
+            'calibrationResidualPt＝以 `@` marker 量到的最大殘差（**僅診斷**：`@` 在 Arial 的墨跡'
+            '高度＝ascent，與 Helvetica 不同 → 這個數字不代表真實資料的定位精度）',
+            'textBaselineOffsetPt 已改用解析模型（Arial 行盒 ascent 0.9053em / descent 0.2124em）：'
+            '與 Excel 實際 baseline 的誤差 ≤ 0.03pt（實測 5 筆參考 PDF）',
             'analyticDeltaMaxPt＝僅供診斷：先前用「頁面設定解析式換算」的偏差，box 已改為以 marker 錨定',
-            '非錨定邊殘差 1~3pt 來自 Helvetica 與 Arial 的 @ 字形高度不同，與實際資料定位無關',
+            '真正的保真度指標＝scripts/test-sli-eli-overlay.js 的 150dpi 逐像素差異',
         ],
         'prePageSizes': {s: [round(v, 2) for v in pre_sizes[s]] for s in SHEETS},
         'transforms': {s: transforms.get(s) for s in SHEETS},

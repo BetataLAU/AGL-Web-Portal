@@ -1,6 +1,6 @@
 # PRD／交接：SLI/ELI「A4 修正 + 字型瘦身 + 疊字背景」
 
-> 建立：2026-10-13 ｜ 狀態：**P1、P2 已完成並驗證；P3～P5 待做**
+> 建立：2026-10-13 ｜ 狀態：**P1～P3 ＋ P4 前置已完成並驗證；P4（接主流程/UI）、P5 待做**
 > 適用對話：Shipper Role 專案（`routes/xls-booking.js` / `scripts/xls-*`）
 > 交接用途：新對話只要讀本檔 + `CLAUDE.md` 的「Shipper Role Project」段落即可接上。
 
@@ -121,37 +121,104 @@
 - `source` 對應 `recordsPayload`：`mawb` / `dest` / `flightCompany` / `flightDate` / `cnee` / `cneeTel`
 - 兩個頁面的實測縮放（**與 PageSetup 的 65%/100% 不同**）：`air` = **0.63528**、`ELI LETTER` = **1.00358**（存於 `sli-eli-blank-meta.json` 的 `transforms`）
 
+### P3 疊字產生器 ✅（本次完成）
+
+`scripts/sli-eli-overlay.js`：**純 Node + pdf-lib**，不需 Excel／Python／LibreOffice，**也不需 merge**（背景本身就是 SLI+ELI 兩頁）。
+
+```
+每筆 MAWB：背景 PDF（引擎建立時載入一次，快取）→ copyPages([0,1]) → 依 fieldmap 排版 10 欄位 → 寫出 {MAWB}.pdf
+```
+
+**可 require 的乾淨 API**（P4 直接使用）：
+
+| API | 回傳 |
+|---|---|
+| `createOverlayEngine({ blankPdf, fieldmap, fontMode, strict, logger })` | 引擎物件（載入背景＋fieldmap＋偵測內嵌字型；`strict` 會在資產不符時 throw） |
+| `engine.render(rec, outPath?)` | `{ status:'ok', mawb, file, bytes, ms, pages, sizes, fontPaths }` 或 `{ status:'fallback', reason:'non-latin1', unsupported, message, ms }`（**不寫檔**） |
+| `engine.renderMany(records, outDir, { onRecord })` | `{ ok:[], fallback:[], errors:[], ms, totalMs, bytes }`（單筆例外不中斷） |
+| `engine.partition(records)` | `{ renderable:[rec…], fallback:[{mawb, unsupported, record}…] }`（P4 分派舊引擎用） |
+| `engine.check(rec)` / `engine.values(rec)` | 退回判定（含不支援字元清單）／逐欄位文字 |
+| `engine.layout(rec)` | 只排版不繪製（P5 編輯器預覽與驗證共用同一份數學） |
+| `engine.describe()` | 資產摘要（背景 sha／頁尺寸／內嵌字型覆蓋率／issues） |
+| `renderRecord(rec, outPath?)` / `renderRecords(...)` | 便利函式（內部快取預設引擎） |
+| `wrapText` / `layoutLines` / `wrapWidthOf` / `formatExcelDate` … | 純函式，P5 共用 |
+
+**排版規則（= fieldmap 的語意）**
+
+| 項目 | 規則 |
+|---|---|
+| 水平 | `x = origin.x`（left）／`origin.x - width/2`（center）／`origin.x - width`（right）；width 用字型實測 |
+| baseline | 首行 `origin.y + textBaselineOffsetPt`，之後每行 `+= lineHeightPt` |
+| 垂直區塊 | `top` 由 origin.y 往下；`center` 以 origin.y 為區塊中心；`bottom` 以 origin.y 為區塊底部 |
+| 換行 | 先依 `\n` 分段 → 再依 **`wrapWidthPt`**（新增鍵）以空白貪婪折行（超長單字硬切）→ 超過 `maxLines` 截斷 |
+| 日期 | `dateFormat`（新增鍵）＝ Excel 數字格式；`2026-10-03` → **`03/Oct/2026`** |
+| 字型 | `fontMode='auto'`（預設）：優先沿用背景內嵌的 Excel Arial 子集；不可用時退回 pdf-lib `StandardFonts.Helvetica`／`Helvetica-Bold`（0 byte） |
+| CJK／非 Latin-1 | **不畫**（避免亂碼）→ `status='fallback'`，由呼叫端退回舊 Excel 引擎 |
+
+**P3 校準：fieldmap v1 → v2（實測 Excel 輸出後修正，兩份 fieldmap 都已更新）**
+
+| 欄位 | v1（P2 建置腳本） | v2（P3 實測校正） | 依據 |
+|---|---|---|---|
+| `font.sizePt`（air 頁 5 欄） | 10.16 / 5.72 / 6.99… | **10.44 / 5.88 / 7.20…**（+2.4~3.0%） | P2 用「marker ink 寬度 ÷ Helvetica 字寬」推導縮放（0.63528）會低估；實際 = **Excel Font.Size × (A4 寬 ÷ 匯出頁寬) = 0.65035** |
+| `font.sizePt`（ELI 頁） | 12.04 / 8.03 / 9.03 | **12.00 / 8.04 / 9.00**（-0.3%） | 同上（ELI 頁實際縮放 ≈ 1.0） |
+| `lineHeightPt` | `size × 1.2`（假設值） | **實測**（D9 = 7.56、M16 = 10.20，其餘 `size × 1.2687`） | Excel 行距比 ≈ 1.2687（D9 為 1.2857），不是 1.2 |
+| `wrapWidthPt`（新增） | 無（用 `box.w`） | **合併格寬（校正後）− 5pt** | Excel 換行有左右內距，`box.w` 會讓 M16 的 CNEE 少斷一行 |
+| `maxLines` | `round(box.h / (size×1.2))` | **`floor(box.h / lineHeightPt)`**（D9/M16 皆 7） | Excel 對放不下的行是**不畫**（實測 M16 只畫 7 行） |
+| `dateFormat`（新增） | 無 | `dd/MMM/yyyy`（D72 / N57） | payload 是 `2026-10-03`，Excel 顯示 **`03/Oct/2026`** |
+| `calibration` / `version` | 無 | `version: 2`、`calibration` 記來源 | 可追溯 |
+
+校正後的**逐欄位 ink 邊界**與 Excel 在 600dpi（1px = 0.12pt）下 **dx/dy = 0.00 pt 全數對齊**；折行、行距、日期字串、字級全部與 Excel 一致。
+
+**實測數據（Windows / Node 24；`node scripts/test-sli-eli-overlay.js --ref <job>`）**
+
+| 項目 | 結果 |
+|---|---|
+| 檔案大小 | **116.4 KB／份**（背景 114.0 KB，**未內嵌任何新字型**） |
+| 每筆耗時 | **冷啟動 12–16 ms ＋ 每筆 45–55 ms**（序列；不含 Excel／Python；＝舊流程每筆約 1.5 s 的 ~3%） |
+| 頁數 / 尺寸 | 2 頁、595.3×841.9 / 595.0×842.0（A4 ±1pt） |
+| 文字可抽取 | ✅（MAWB 可在兩頁搜尋到） |
+| 退回舊引擎 | 5 筆中 4 筆（CNEE 含全形 `，`／`（）`）→ **判定正確**、不寫檔、不畫亂碼 |
+| **150dpi 逐像素差異** | **頁0 0.230% / 頁1 0.329%（皆 < 0.5% ✅）**；合成 3 筆 0.139% |
+
+**差異的真正來源（P4 前置時找到並修掉，重要）**
+
+- 受控實驗：把 Excel 參考檔自己的文字「原地、原字級」用 Helvetica 重畫 → 0.248%/0.355%；用真 Arial → 0.187%/0.290%。
+  我們原本是 0.432%/0.638% → 高於地板，代表**不是**字型外形問題。
+- 逐欄位比對後發現：`textBaselineOffsetPt`（P2 用 `@` marker 的**墨跡**校準）與 Excel 實際 baseline 差 **0.3～1.4 pt**（v=top −0.8~−1.4、v=center −0.32、v=bottom +0.7~+1.1）→ 每個字符都落在錯誤的次像素位置，大文字欄位（D9/M16）尤其明顯。
+- **Excel 的垂直定位用「行盒」而非墨跡**（`@` 在 Arial 的墨跡高度剛好等於 ascent，才讓 P2 的墨跡校準看起來可用）。改成解析模型後與 Excel 實測 baseline **誤差 ≤ 0.03 pt**：
+
+  ```
+  v=top    : baseline = origin.y + 0.9053 × size      (Arial hhea ascent)
+  v=bottom : baseline = origin.y − 0.2124 × size      (Arial hhea descent)
+  v=center : baseline = origin.y + (0.9053−0.2124)/2 × size
+  ```
+
+  套用後差異直接從 0.432/0.638 → **0.230/0.329**（其餘為標準字型被檢視器取代後的描邊光柵，已在門檻內）。
+- 量測工具：`python data/test-p3/measure-baseline-delta.py`（用參考 PDF 的 span origin 驗證模型）。
+
+**P4 前置：讓背景內嵌的 Arial 子集更完整（已做，效果部分）**
+
+- 空白是「清空動態格」後匯出的 → 它的 Arial 子集只有 static 字符（62/68 個），`fontMode='auto'` 幾乎用不上。
+- 建置腳本新增「字符集匯出」：把 10 個動態格填入 ASCII 0x20–0x7E ＋ Latin-1 0xA0–0xFF（2pt、不換行、格子內塞得下）匯出一份 **charset PDF（不出貨，只當字型來源）**，再由 `scripts/sli-eli-blank-widen-fonts.js`（純 pdf-lib，無新相依）把它的 Arial 字型程式（FontFile2＋FontDescriptor＋/Widths）搬進空白。
+- 驗證：建置時強制 assert **加寬前後空白像素差異 0.0000%**（實測通過）、字符覆蓋率（不足即建置失敗）。產出空白與 commit 版**像素與文字完全相同**，且更小（122.3 → **114.0 KB**）。
+- ⚠️ **但覆蓋率只部分回復**：後續的字型優化（`subset_fonts`）會再依「未被內容引用」剃掉字元（213 → 75/72）→ 只對「字符剛好落在子集內」的資料生效（例：合成 3 筆走內嵌路徑、差異 0.139%）。**要 100% 生效**需改成：先優化空白 → 再優化 charset PDF → 最後才加寬（順序調換），代價是每份約 +35 KB（內嵌 Arial 全字符集）；因目前已在門檻內、且使用者重視檔案大小，**暫不啟用**（列為選項）。
+
 ---
 
-## 2. 未完成（P3 ～ P5）
-
-### P3 疊字產生器（下一步，建議先做）
-
-新增 `scripts/sli-eli-overlay.js`（純 Node + pdf-lib，**不需要 Python／Excel／LibreOffice**）：
-
-```
-每筆 MAWB：
-  背景 PDF（快取在記憶體）→ copyPages([0,1]) → 依 fieldmap 畫 10 段文字 → 寫出 `{MAWB}.pdf`
-```
-
-實作要點：
-- 文字起點：`x = origin.x`（left）／`origin.x - width/2`（center）／`origin.x - width`（right，width 由 Helvetica 或嵌入字型量測）
-- 首行 baseline：`origin.y + textBaselineOffsetPt`；多行則每行 `+= lineHeightPt`
-- 垂直區塊對齊：`top` 由 origin.y 往下；`center` 以 origin.y 為區塊中心；`bottom` 以 origin.y 為區塊底部（即上面三個鍵的語意）
-- 換行：`wrap=true` 時依 `box.w` 自動折行（可用 `@pdf-lib` 無內建 → 需自寫；量測字寬用 Helvetica / 嵌入字型）
-- 字型：預設用 pdf-lib `StandardFonts.Helvetica` / `Helvetica-Bold`（**0 byte**，與 Arial 公制相容）
-  - ⚠️ 動態字串若含 Latin-1 以外的字元（CNEE 偶爾有中文）→ **該筆自動退回舊引擎**並在結果面板示警
-- 產出檔名與現行相同（`{MAWB}.pdf`），**不需再 merge**（背景本身就是 SLI+ELI 兩頁）
-
-預期：**每份 ~125 KB、每筆 5–20 ms**（vs 現在每筆約 1.5 秒 Excel 匯出＋每筆一次 Python merge）。
-
-驗收：與 Excel 版逐頁 150dpi 比對 < 0.5%、頁數 2、尺寸 A4、文字可抽取、30 筆總時間 < 3 秒。
+## 2. 未完成（P4 ～ P5）
 
 ### P4 接進主流程 + UI 最頂開關
 
-- `scripts/xls-workflow.js`：`XLS_PDF_ENGINE=overlay|com`（未設定＝`com`，保留舊行為）；overlay 模式跳過 Step 3/4，改呼叫 P3，但仍要走 Step 4.5（A4 驗證／字型優化視情況）
-- **失敗自動退回舊引擎**：背景 PDF／fieldmap 缺失、`templateSha256` 不符、CJK 內容、任何例外 → 退回 `com` 路徑並在結果標示
-- `routes/xls-booking.js`：`POST /process` 接受 `engine`（白名單）、結果帶 `engine`／`fallbackWarning`
+**P4 前置 ✅ 已完成（本次）**
+- 建置腳本內建「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）：背景的 Arial 子集覆蓋率提升（並使空白 122.3 → 114.0 KB、像素與 commit 版完全相同；建置時 assert 加寬前後 0.0000%）
+- 建置腳本內建 **baseline 解析模型**（Arial 行盒）＋ 實測校準值（字級／行距／換行寬度／`maxLines`／`dateFormat`）→ 150dpi 差異 0.432/0.638 → **0.230/0.329（已在門檻內）**
+- 選項（暫不啟用）：把「優化空白 → 優化 charset → 加寬」的順序調換可讓內嵌 Arial 100% 生效（差異再降到 ~0.14/0.25），代價每份約 +35 KB
+
+- `scripts/xls-workflow.js`：`XLS_PDF_ENGINE=overlay|com`（未設定＝`com`，保留舊行為）
+  - overlay 模式**跳過 Step 3（Excel COM 產生 SLI/ELI PDF）與 Step 4（merge／A4 正規化）**，直接用 `engine.render()` 寫出 `{MAWB}.pdf`（背景已是 A4，**不需 Step 4.5 字型優化**——只有已優化的背景字型＋標準字型參照）
+  - 用 `engine.partition(records)` 分派：`fallback` 的記錄（非 Latin-1）走舊 COM 路徑，其餘用疊字；仍要保留 `result.fontOpt` / `result.paper` 的相容欄位（overlay 模式可回報 `skipped`／實測尺寸）
+- **失敗自動退回**：背景 PDF／fieldmap 缺失、`blankPdfSha256` 不符、`engine` 建立例外、單筆 render 例外 → 該筆退回 `com`
+- `routes/xls-booking.js`：`POST /process` 接受 `engine`（白名單）、結果帶 `engine`／`fallbackCount`
 - UI（需求 3「新的功能放到最頂」與需求 2「舊網站保留」）：
   - `public/index.html`：④ 執行產生的 `.xls-run-row` **最前面**加「PDF 產生方式」選擇器（預設舊版 Excel）
   - 側邊欄新 nav-item（`sli-eli-layout.html`）放 **HOME 之後第一位**（`sanitizeNavOrder` 的 `NAV_PAGE_RE` 已允許 `*.html`，`MAX_ORDER_ITEMS=20`）
@@ -173,7 +240,16 @@
 
 ## 3. 檔案地圖（本次工作）
 
-### 新增
+### 新增（P3）
+
+| 檔案 | 角色 |
+|---|---|
+| `scripts/sli-eli-overlay.js` | **疊字產生器引擎**（pdf-lib；可 require 的 API、排版純函式、內嵌 Arial 子集沿用、非 Latin-1 退回判定） |
+| `scripts/sli-eli-diff.py` | 150dpi 逐像素比對＋文字抽取橋接（以 importlib 重用 `sli-eli-font-optimize.py` 的 `diff_pages`；`--jobs` 批次模式） |
+| `scripts/test-sli-eli-overlay.js` | P3 驗收腳本（頁數／A4／文字可抽取／差異 < 0.5%／檔案大小／每筆耗時／fallback 判定） |
+| `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（跨文件搬移 FontFile2/Descriptor/Widths；驗證覆蓋率、像素必須不變） |
+
+### 新增（P1 / P2）
 
 | 檔案 | 角色 |
 |---|---|
@@ -201,6 +277,14 @@
 | `Dockerfile` | pip 加 `pymupdf` |
 | `CLAUDE.md` / `README.md` | A4 修正、字型優化、P2 產物與陷阱（**已寫入，供新對話自動載入**） |
 
+### 修改（P3）
+
+| 檔案 | 變更 |
+|---|---|
+| `data/templates/sli-eli-fieldmap.json` / `.default.json` | **v2 校準**（建置腳本現在會直接產出）：實測字級、行距、`wrapWidthPt`、`dateFormat`、`maxLines` floor、**baseline 解析模型** |
+| `scripts/build-sli-eli-blank.py` | P4 前置：新增「字符集匯入格」匯出＋呼叫 `sli-eli-blank-widen-fonts.js`＋assert 加寬像素不變；內建實測校準表與 baseline 解析模型 |
+| `data/templates/sli-eli-blank.pdf` | 加寬後再優化 → **114.0 KB**（與 commit 版像素／文字完全相同） |
+
 ---
 
 ## 4. 環境需求與開關
@@ -212,6 +296,7 @@
 | `PDF_PAPER` | `a4`（預設）｜`custom`（完全還原舊行為） |
 | `PDF_FONT_OPT` | `on`（預設）｜`off` |
 | `XLS_PDF_ENGINE` | 尚未實作（P4）；未設定＝舊版 Excel 引擎 |
+| `fontMode`（P3 引擎參數） | `auto`（預設，優先沿用背景內嵌的 Arial 子集）｜`standard`（強制 pdf-lib 標準字型） |
 | `XLS_PDF_CONCURRENCY` | 既有（預設 2；Windows COM 建議 1） |
 | `DATA_DIR` | 既有（覆寫 `data/`） |
 
@@ -233,13 +318,43 @@ node scripts/test-a4-integration.js
 $env:PDF_FONT_OPT='off'; node scripts/test-a4-integration.js; Remove-Item Env:PDF_FONT_OPT
 
 # P2 產物：重建（模板變更時必須重跑）＋ 驗證
+#   註：重建現在包含「字符集匯出 + 字型加寬」（P4 前置）與實測校準表，全部自動化
 python scripts/build-sli-eli-blank.py --keep-work --force
-python data/test-p2/verify-build.py      # 期望：驗證 PASS、錨定邊殘差 0.00 pt
+python data/test-p2/verify-build.py      # 期望：驗證 PASS、加寬前後像素 0.0000%、空白 ~114 KB
 python data/test-p2/list-fieldmap.py     # 列出 10 欄位座標與殘差
+
+# P4 前置：baseline 解析模型驗證（期望模型誤差 ≤ 0.03pt）
+python data/test-p3/measure-baseline-delta.py
+
+# 字型加寬單獨用（把 charset PDF 的 Arial 搬進空白）
+node scripts/sli-eli-blank-widen-fonts.js --blank blank-a4.pdf --charset charset-air.pdf charset-eli.pdf --out widened.pdf
 
 # 字型瘦身單獨用
 python scripts/sli-eli-font-optimize.py <in.pdf> <out.pdf> --diff
 python scripts/sli-eli-font-optimize.py <in.pdf> --report
+
+# ===== P3 疊字產生器 =====
+# 驗收（會自動找最近含 payload + {MAWB}.pdf 的 job；建議指定真實 job）
+# 期望：2 頁 A4、文字可抽取、每份 ~125 KB、每筆 15–55 ms、差異 < 0.5%（未達時會列出逐頁數字與地板值）
+node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0
+node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0 --limit 1 --dpi 150
+node scripts/test-sli-eli-overlay.js --no-diff          # 只驗結構（無參考檔時）
+
+# 單筆／批次（API 冒煙測試）
+node -e "require('./scripts/sli-eli-overlay').renderRecord({mawb:'999-12345678',dest:'LHR',flightCompany:'CX',flightDate:new Date(),cnee:'ACME LTD',cneeTel:'+44 20 1234'}, 'data/test-p3/one.pdf').then(r=>console.log(r.status,r.bytes,r.fontPaths))"
+
+# 逐像素比對橋接（單筆／批次）
+python scripts/sli-eli-diff.py --mine a.pdf --ref b.pdf --dpi 150 --needle 065-49876385 --json
+```
+
+### P3 校準工具（`.gitignore` 內，需要時重跑；產生 fieldmap v2 的實測值）
+
+```powershell
+python data/test-p3/measure-refs.py     # 逐欄位實測字級／行距（期望：D9 5.88/7.56、M16 8.04/10.20）
+python data/test-p3/measure-wrap.py     # 交期換行寬度上下界、日期顯示格式（期望：03/Oct/2026）
+node   data/test-p3/apply-calibration.js  # 把實測值寫進兩份 fieldmap（可重複執行；值由 box/meta 推導）
+python data/test-p3/ink-bbox.py a.pdf b.pdf   # 逐欄位 ink 邊界位移（期望 0.00 pt）
+python data/test-p3/probe-visual.py a.pdf b.pdf  # 逐欄位「ref/mine/差異」目視對照圖
 ```
 
 ---
@@ -256,48 +371,82 @@ python scripts/sli-eli-font-optimize.py <in.pdf> --report
 8. **Excel 殘留行程會鎖住檔案**：建置腳本每次用不同檔名的工作複本（`template-copy-<pid>.xlsx`）；清理用 `taskkill`（`Quit()` 常無效），並先用 `tasklist` 確認 PID 仍是 `EXCEL.EXE`。
 9. **`FILE_INVENTORY.md` 是自動產生，勿手改**：要更新請跑 `npm run sync`（會一併更新 `PROJECT_MAP.md` / `WORKSPACE_STATE.md` / `.project-state.json`）。
 10. **`data/work` 已累積 ~2.5 GB / 148 個 job**（`.gitignore` 內）：需要時用 `POST /api/xls-booking/cleanup`。
+11. **`PDFName.asString()` 會帶前導 `/`**（pdf-lib）：比對 `/WinAnsiEncoding`、`/FlateDecode`、資源名（`/F1`）時要先去掉 `/`，否則會靜默比對失敗（P3 一開始就是這樣抓不到內嵌字型）。
+12. **pdf-lib 的標準字型「延遲嵌入」**：`embedFont()` 不會立刻建立 font dict，要改動它必須先 `font.embed()`，否則 `context.lookup(font.ref, PDFDict)` 得到 `undefined`。
+13. **pdf-lib 的標準字型不寫 `/Widths`**：`StandardFontEmbedder` 只寫 `/BaseFont`＋`/Encoding`。P3 已自行補上 Helvetica AFM 的 `/Widths`（32–255）；雖然對 MuPDF 的取代字型排版沒有差別，但對其他檢視器是正確且必要的。
+14. **Excel 對「放不下的行」是不畫（不是溢出）**：換行欄位若行數超過儲存格高度，Excel 直接省略後面幾行 → `maxLines = floor(box.h / lineHeightPt)`，不要用 `round`、也不要用 `size×1.2`。
+15. **Excel 的日期格會格式化 payload 字串**：`2026-10-03` 會被 Excel 當日期、以格子的數字格式顯示成 **`03/Oct/2026`**。疊字必須套用同樣格式（fieldmap `dateFormat`），否則 PDF 內容與舊引擎不同。
+16. **Excel 實際字級 ≠ `Font.Size × transforms.scale`**：P2 建置腳本用 marker ink 寬度推導縮放（air = 0.63528）會低估 ~2.4%；正確值是 **`Font.Size × (A4 寬 ÷ 匯出頁寬)` = 0.65035**（ELI 頁 ≈ 1.0）。目前 `font.sizePt` 由實測校準表（`CALIB_SIZE_PT`）給定、`box.w/h` 仍用 marker 縮放（只影響編輯器顯示框與 `wrapWidthPt` 推導，已驗證安全）；**重建時若要改，請兩者一起改**。
+17. **`textBaselineOffsetPt` 不要用 `@` 墨跡校準（P2 的坑）**：Excel 的垂直定位用**行盒**（Arial hhea ascent 0.9053em／descent 0.2124em），`@` 的墨跡高度剛好等於 ascent 才讓墨跡法看起來可用，但真實資料會偏 **0.3~1.4pt**（v=top −0.8~−1.4、v=center −0.32、v=bottom +0.7~+1.1）→ 150dpi 差異從 0.33% 惡化到 0.64%。改用解析模型（`baseline_offset()`）後與 Excel 誤差 ≤ 0.03pt。驗證：`python data/test-p3/measure-baseline-delta.py`。
+18. **150dpi 逐像素差異的地板 ≈ 0.19~0.29%**：把 Excel 自己的文字原地原字級重畫（真 Arial）仍有 0.187%/0.290%（Helvetica 0.248%/0.355%）→ 判讀差異值要扣掉地板；目前實測 0.230/0.329（已 < 0.5%）。差異幾乎全部在 10 個欄位框內（框外 0.002%）。
+19. **字型優化會把「未被內容引用」的字元剃掉**：`sli-eli-font-optimize.py` 的 `subset_fonts()` 只保留內容流用到的字符 → 「先加寬空白再優化」會把 charset 的字元又剃掉（213 → 75/72）。若要用內嵌 Arial 全字符集，順序必須是「優化空白 → 優化 charset PDF → 加寬」，且加寬後**不能再跑優化**。
+20. **驗證腳本不要平行跑**：`scripts/test-sli-eli-overlay.js` 的輸出目錄固定為 `data/test-p3-overlay/`，同時跑兩份會互相刪檔，造成 diff 靜默略過（曾出現「假 PASS」；已在腳本內改成明確 FAIL）。
+21. **跨文件搬移 PDF 物件要小心間接引用**：`/Widths` 在 Excel 產出常是 `12 0 R`（間接），只複製純量值會讓它整個消失（PDF 仍可讀、只有排版會變）→ 搬移前必須 `context.lookup(ref)`。
 
 ---
 
-## 7. 未提交變更（寫本文件當下）
+## 7. 未提交變更（P3 ＋ P4 前置完成當下）
 
 ```
-M CLAUDE.md / Dockerfile / README.md / WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx / database.db / db/sessions.db   ← 使用者跑 job 造成的例行變更
-M docs/design/xls-pdf-parallel-prd.md
-M public/css/xls-booking.css / public/js/xls-booking-workflow.js
-M routes/xls-booking.js
-M scripts/sli-eli-generate.py / scripts/test-sli-generate.py / scripts/xls-sli-eli.js / scripts/xls-workflow.js
-?? data/templates/sli-eli-blank*.{pdf,png,json} / sli-eli-fieldmap*.json
-?? scripts/{build-sli-eli-blank,sli-eli-font-optimize}.py, scripts/{test-a4-integration,test-pdf-a4}.js
+M  CLAUDE.md / WORKSPACE_STATE.md / FILE_INVENTORY.md
+M  docs/design/xls-sli-eli-overlay-prd.md
+M  scripts/build-sli-eli-blank.py                     ← P4 前置：校準表／baseline 模型／字符集加寬
+M  data/templates/sli-eli-fieldmap.json / .default.json   ← v2 校準（由建置腳本產出）
+M  data/templates/sli-eli-blank.pdf / sli-eli-blank-meta.json  ← 114.0 KB（像素與 commit 版相同）
+?? scripts/sli-eli-overlay.js / sli-eli-diff.py / test-sli-eli-overlay.js / sli-eli-blank-widen-fonts.js
+（P1/P2 的變更與使用者先前 WIP 已於 dd6c0ba commit）
 ```
-
-包含**使用者先前的 WIP**（Excel `Document not saved` 容錯強化）＋ 本次 P1/P2，建議一起 commit 成 checkpoint 後再開新對話做 P3。
 
 ---
 
-## 8. 新對話提示詞（直接複製）
+## 8. 新對話提示詞（剩餘 P4，直接複製）
 
 ```text
 延續 AGL-Web-Portal 的 Shipper Role 專案（SLI/ELI PDF）。
 
-請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦 + 已完成事項 + 陷阱），
-以及 CLAUDE.md 的「Shipper Role Project」段落。
+請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦＋已完成事項＋21 條陷阱）
+與 CLAUDE.md 的「Shipper Role Project」段落；開頭照例先跑 npm run sync。
 
-現況：
-- P1（輸出修正為 A4）與 P2（字型瘦身 545KB→123KB、疊字背景 sli-eli-blank.pdf、
-  fieldmap 10 欄位、編輯器底圖 PNG）都已完成並通過驗證。
-- 未提交變更尚未 commit（含使用者先前的 WIP）。
+現況（P1～P3 ＋ P4 前置都已完成並驗證，細節在 PRD §1 與 §2 P4 前置）：
+- P3 疊字產生器 scripts/sli-eli-overlay.js：純 Node＋pdf-lib，背景 = data/templates/sli-eli-blank.pdf
+  的兩頁 A4，直接把 10 個欄位疊上去輸出 {MAWB}.pdf（不需 Excel／Python／merge／字型優化）。
+  實測：每份 116.4 KB、每筆 45–55 ms（冷啟動 13 ms）、2 頁 A4、文字可抽取、
+  150dpi 逐像素差異 0.230%(p0)/0.329%(p1)（門檻 0.5%）；CNEE 含非 Latin-1（全形標點/中文）
+  時 engine.render() 回 status='fallback'（不寫檔），由呼叫端退回舊 Excel 引擎。
+- 乾淨 API：createOverlayEngine({blankPdf, fieldmap, fontMode, strict}) →
+  render / renderMany / partition / check / layout / describe；另有 renderRecord()。
+- 驗收：node scripts/test-sli-eli-overlay.js --ref data/work/job-xxx（勿平行跑，輸出目錄固定）。
 
+請做剩下的 P4（先不要動 P5 版面編輯器）：
+1. 接進主流程 scripts/xls-workflow.js：新增 XLS_PDF_ENGINE=overlay|com（未設定＝com＝現況，
+   必須 100% 不變）。overlay 模式跳過 Step 3（Excel COM 產生 SLI/ELI PDF）與 Step 4
+   （merge／A4 正規化），直接以 engine.render() 寫出 {MAWB}.pdf，也不用跑 Step 4.5 字型優化；
+   但 result 仍要保留相容欄位（paper / fontOpt 可回報 skipped 或實測值）。
+   用 engine.partition(records) 分派：非 Latin-1 的記錄走舊 COM 路徑（可與其他記錄混在同一批），
+   任何例外（背景／fieldmap 缺失、sha 不符、render 失敗）都要自動退回該筆的舊引擎路徑。
+2. routes/xls-booking.js：POST /process 接受 engine（白名單 overlay|com），結果帶
+   engine 與 fallbackCount；前端 public/js/xls-booking-workflow.js 在結果面板顯示產生方式與退回筆數。
+3. UI（需求 3「新功能放最頂」）：④ 執行產生的 .xls-run-row 最前面加「PDF 產生方式」選擇器
+   （預設「Excel（舊版）」）；側邊欄之後 P5 會再加一個新頁項目放最前。
+4. 驗收（請實際跑，並把數據寫進 PRD）：
+   - $env:XLS_PDF_ENGINE 未設定 → node scripts/test-a4-integration.js 必須與現況相同（PASS）
+   - $env:XLS_PDF_ENGINE='overlay' → node scripts/test-a4-integration.js 應 PASS 且各份 ~116 KB
+   - node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0 仍 PASS
+   - 更新 docs/design/xls-sli-eli-overlay-prd.md（P4 完成＋實測數據）、CLAUDE.md、WORKSPACE_STATE.md，
+     最後跑 npm run sync
+```
+
+---
+
+## 9. 舊提示詞（P3，已完成，保留供追溯）
+
+```text
+延續 AGL-Web-Portal 的 Shipper Role 專案（SLI/ELI PDF）。請先讀
+docs/design/xls-sli-eli-overlay-prd.md 與 CLAUDE.md 的「Shipper Role Project」段落。
 請從 P3 開始：新增 scripts/sli-eli-overlay.js，用 pdf-lib 把 10 個欄位資料疊到
 data/templates/sli-eli-blank.pdf 上，輸出 `{MAWB}.pdf`（2 頁 A4，不需 merge）。
-要求：
-1. 依 data/templates/sli-eli-fieldmap.json 的 origin / textBaselineOffsetPt /
-   align / wrap / lineHeightPt / box.w 排版（多行要自行折行）。
-2. 動態文字含非 Latin-1 字元時，回報「需退回舊引擎」而不是畫出亂碼。
-3. 寫一支驗證腳本：與 Excel 版逐頁 150dpi 比對（差異 < 0.5%）、頁數 2、尺寸 A4、
-   文字可抽取，並印出每份檔案大小與每筆耗時。
-4. 先不要動主流程（P4 才接 xls-workflow.js），但請保留可被 require 的乾淨 API。
-
-完成後把實測數據（大小／耗時／差異%）給我，再決定是否進 P4。
+要求：依 fieldmap 的 origin / textBaselineOffsetPt / align / wrap / lineHeightPt / box.w
+排版（多行自行折行）；非 Latin-1 回報退回舊引擎；寫驗證腳本（150dpi 差異 < 0.5%、
+頁數 2、A4、文字可抽取、印出檔案大小與每筆耗時）；先不要動主流程但保留可 require 的 API。
+→ 已完成（見 §1 P3）。
 ```

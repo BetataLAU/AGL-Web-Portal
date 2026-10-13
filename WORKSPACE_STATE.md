@@ -5,17 +5,23 @@
 
 ## 📌 目前狀態
 
-- **最後 commit**：`708fa1f` chore(sync): 同步 20261010 shipper report、DB 與 sessions 快照
+- **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態（尚未提交，含兩批工作）**：
-  - **(A) 使用者先前 WIP**：SLI/ELI 批次產生失敗（Excel `Document not saved`）容錯強化 → `scripts/sli-eli-generate.py`、`scripts/xls-workflow.js`、`docs/design/xls-pdf-parallel-prd.md`
-  - **(B) 本次 P1/P2**：A4 修正、PDF 字型瘦身、疊字背景＋fieldmap → 新增 `scripts/{sli-eli-font-optimize.py,build-sli-eli-blank.py,test-pdf-a4.js,test-a4-integration.js}`、`data/templates/sli-eli-blank*`、`data/templates/sli-eli-fieldmap*.json`、`data/templates/sli-eli-blank-meta.json`；修改 `scripts/xls-sli-eli.js`、`scripts/sli-eli-generate.py`、`routes/xls-booking.js`、`public/js/xls-booking-workflow.js`、`public/css/xls-booking.css`、`Dockerfile`、`CLAUDE.md`、`README.md`
-  - 例行變更：`data/templates/shipper-role-summary-2026.xlsx`、`database.db`、`db/sessions.db`
-- **交接文件（新對話請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md`（P1/P2 已完成＋實測數據、P3～P5 待辦設計、可執行驗證指令、10 個已踩過的陷阱、新對話提示詞）
+- **工作目錄狀態（尚未提交，P3 ＋ P4 前置）**：
+  - **(C) P3＋P4 前置**：新增 `scripts/sli-eli-overlay.js`、`scripts/sli-eli-diff.py`、`scripts/test-sli-eli-overlay.js`、`scripts/sli-eli-blank-widen-fonts.js`；修改 `scripts/build-sli-eli-blank.py`（校準表／baseline 模型／字符集加寬）、`data/templates/sli-eli-fieldmap{,.default}.json`（v2）、`data/templates/sli-eli-blank.pdf`（114.0 KB，像素不變）、`CLAUDE.md`、`docs/design/xls-sli-eli-overlay-prd.md`（+ 本檔）
+  - 例行變更：`data/templates/shipper-role-summary-2026.xlsx`、`database.db`、`db/sessions.db`、`server.*.log`
+- **交接文件（新對話請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md`（P1/P2/P3 已完成＋實測數據、P4～P5 待辦設計、可執行驗證指令、19 個已踩過的陷阱、新對話提示詞）
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **Shipper Role：A4 修正 + PDF 字型瘦身 + 疊字背景（本次 P1/P2，尚未提交）**：使用者需求＝加快 PDF 產生、把檔案從 ~500KB 降到 30–80KB，追加＝輸出改 A4、保留舊功能、新功能放最頂、提供版面編輯器。
+0. **Shipper Role P4 前置：差異根因修正 ＋ 字型加寬（本次，尚未提交）**：接續 P3。
+   - **找到並修掉差異的真正根因**：`textBaselineOffsetPt`（P2 用 `@` marker **墨跡**校準）與 Excel 實際 baseline 差 0.3~1.4pt。Excel 用**行盒**定位（Arial hhea ascent 0.9053em／descent 0.2124em，`@` 墨跡高度剛好等於 ascent 才讓舊法看起來可用）→ 改成解析模型後與 Excel 誤差 ≤0.03pt，**150dpi 差異 0.432/0.638 → 0.230/0.329（< 0.5% ✅）**。
+   - **建置腳本自動化**：`scripts/build-sli-eli-blank.py` 內建實測校準表（字級／行距／換行寬度／`maxLines` floor／`dateFormat`）＋ baseline 解析模型；新增「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`，純 pdf-lib），讓背景內嵌的 Arial 子集覆蓋率提升、空白 **122.3 → 114.0 KB**，且與 commit 版**像素／文字完全相同**（建置時 assert 加寬前後 0.0000%）。
+   - **實測**：每份 **116.4 KB**（更小）、每筆 45–55 ms、2 頁 A4、文字可抽取、非 Latin-1 正確退回；合成 3 筆 0.139%（走內嵌 Arial 路徑）。
+   - 限制（已記錄成陷阱）：字型優化會再剃掉未被內容引用的字元，故「內嵌 Arial 全字符集」只部分生效（要 100% 需改順序，代價 ~+35 KB/份，暫不啟用）。
+   - **待辦 P4**：接主流程（`XLS_PDF_ENGINE`）＋④ 最頂引擎選擇器＋自動 fallback → P5 版面編輯器。詳見 `docs/design/xls-sli-eli-overlay-prd.md`。
+1. **Shipper Role P3：疊字 PDF 產生器（工具與驗收腳本，已隨 P4 前置一起完成）**：`scripts/sli-eli-overlay.js`＋`scripts/sli-eli-diff.py`＋`scripts/test-sli-eli-overlay.js`；fieldmap v2。
+1. **Shipper Role：A4 修正 + PDF 字型瘦身 + 疊字背景（P1/P2，已於 `dd6c0ba` 提交）**：使用者需求＝加快 PDF 產生、把檔案從 ~500KB 降到 30–80KB，追加＝輸出改 A4、保留舊功能、新功能放最頂、提供版面編輯器。
    - **P1 A4**：實測 Excel 匯出紙張由「印表機驅動 DEVMODE ＋模板 printerSettings bin」決定，`PageSetup` 已是 A4/65% 仍匯出 915.3×1295.5pt（322.8×456.9mm = A4÷0.65）；改 PaperSize／存檔重開／FitToPage 皆無效。解法＝Node `normalizePdfToA4()`（pdf-lib `page.scale()`，內容流包 `q cm Q`、原始內容逐位元保留）→ 兩頁皆 A4、文字完全相同；`PDF_PAPER=custom` 可一鍵回滾。
    - **P2a 字型瘦身**：實測 Excel PDF 有 79% 是字型，且字型程式含 PDF 無用的 `name`（9–12KB/字型）與 hinting 表（4.6–14KB/字型）。新增 `scripts/sli-eli-font-optimize.py`（subset_fonts + 移除 name/hinting/glyf 指令 + 掃描 `/Length1` 找出隱藏字型）→ **545KB → 123.3KB（-76.8%）**、150dpi 逐像素差異 **0.000%**、文字仍可搜尋；接為 `runWorkflow` Step 4.5，`PDF_FONT_OPT=off` 可停用。48 檔 ZIP 24.3MB → 約 5.9MB。
    - **P2b 疊字背景＋fieldmap**：新增 `scripts/build-sli-eli-blank.py`（Excel COM + PyMuPDF，免 Ghostscript）產出 `sli-eli-blank.pdf`（A4、2 頁、動態格已清空、122KB）、編輯器底圖 PNG×2、`sli-eli-fieldmap.json`（10 欄位，**以 marker 實測位置錨定 + 自我校準 baseline，錨定邊殘差 0.00pt**）。
@@ -64,7 +70,8 @@
 
 ## 📋 下一步（待辦）
 
-- [ ] **P3 疊字產生器**：`scripts/sli-eli-overlay.js`（pdf-lib，背景＋10 欄位疊字；每份 ~125KB、每筆 5–20ms）＋與 Excel 版 150dpi 逐像素比對的驗證腳本
+- [x] **P3 疊字產生器**：`scripts/sli-eli-overlay.js`（pdf-lib，背景＋10 欄位疊字）＋ `scripts/sli-eli-diff.py` ＋ `scripts/test-sli-eli-overlay.js`；每份 116.4KB、每筆 45–55ms、150dpi 差異 0.230%/0.329%
+- [x] **P4 前置**：建置腳本內建 baseline 解析模型＋實測校準值（fieldmap v2 直接產出）＋「字符集匯出＋字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）；空白 122.3→114.0KB 且像素不變
 - [ ] **P4 接主流程**：`XLS_PDF_ENGINE=overlay|com`（未設定＝舊版）、失敗自動退回舊引擎、④ 執行產生的引擎選擇器放最前面、側邊欄新項目置頂、結果面板顯示工程
 - [ ] **P5 版面編輯器**：`public/sli-eli-layout.html`＋底圖拖曳編輯＋`/api/xls-booking/layout`（GET/PUT/reset/preview，寫入需 admin/staff）
 - [ ] **可選（若要 <120KB）**：簡化 `cainiao-sli-eli-template.xlsx`（減少字型家族與繪圖物件）；目前 123KB 的地板來自內容流 49.9KB＋PDF 結構 16KB

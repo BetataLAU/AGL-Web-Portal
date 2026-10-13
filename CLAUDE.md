@@ -141,6 +141,10 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/xls-cnee.js` | CNEE 對照區自動抽取 + DEST/REMARK 加權比對 |
 | `scripts/xls-report.js` | Report 模板寫入 |
 | `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包與分割 |
+| `scripts/sli-eli-overlay.js` | **疊字 PDF 產生器（P3）**：以 pdf-lib 把 fieldmap 的 10 欄位疊在 `sli-eli-blank.pdf` 上輸出 `{MAWB}.pdf`（不需 Excel／Python／merge） |
+| `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（純 pdf-lib，跨文件搬移 FontFile2/Descriptor/Widths） |
+| `scripts/sli-eli-diff.py` | 150dpi 逐像素比對＋文字抽取橋接（重用 `sli-eli-font-optimize.py` 的 `diff_pages`） |
+| `scripts/test-sli-eli-overlay.js` | P3 驗收（頁數/A4/文字可抽取/差異 < 0.5%/檔案大小/每筆耗時/fallback 判定） |
 | `scripts/xls-exceljs-guard.js` | 讀檔防護：略過異常大的 defined-name 範圍，避免 WPS 檔造成 OOM（上傳／預覽／process 皆載入） |
 | `public/js/xls-booking-state.js` | 前端：常數/狀態/工具/上傳拖曳/初始化 |
 | `public/js/xls-booking-upload.js` | 前端：上傳與檔案列表 |
@@ -206,7 +210,18 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **實測精度：錨定邊殘差 0.00 pt**；非錨定邊 1–3 pt 的差來自 Helvetica 與 Arial 的 `@` 字形高度不同（與真實資料定位無關）。
 - ⚠️ **不要用「頁面設定解析式」算座標**：Excel 的紙張／FitToPage 會讓推算偏差 40 pt 以上（`analyticDeltaMaxPt` 即為此診斷值），一律以 marker 實測為準。
 - 模板變更後必須重跑；`fieldmap.templateSha256` 用來偵測過期（`--force` 可覆寫作用中的 fieldmap）。
-- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1/P2 已完成清單與實測數據、**P3～P5 待辦設計**、可直接執行的驗證指令、**10 個已踩過的陷阱**，以及給新對話的提示詞。
+- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1／P2／P3／P4 前置已完成清單與實測數據、**P4（接主流程＋UI）、P5（版面編輯器）待辦設計**、可直接執行的驗證指令、**21 個已踩過的陷阱**，以及給新對話的提示詞（§8）。
+
+**疊字 PDF 產生器（P3 已完成，`scripts/sli-eli-overlay.js`）**：把 10 個欄位疊到 `data/templates/sli-eli-blank.pdf` 上直接輸出 `{MAWB}.pdf`（背景本來就是 A4 的 SLI+ELI 兩頁，**不需 merge、不需 Excel、不需 Python、不需字型優化**）。
+
+- API：`createOverlayEngine({ blankPdf, fieldmap, fontMode, strict })` → `engine.render(rec, outPath?)`／`renderMany(records, outDir)`／`partition(records)`／`check(rec)`／`layout(rec)`／`describe()`；另有 `renderRecord()` 便利函式。`status='fallback'`（`reason='non-latin1'`）代表該筆含 Latin-1 以外字元（CNEE 偶爾有中文或全形標點）**不寫檔**，由呼叫端退回舊 Excel 引擎。
+- fieldmap 語意：`origin`（依對齊的文字錨點）＋`textBaselineOffsetPt`＋`lineHeightPt`＋`align`＋`wrapWidthPt`（換行寬度）＋`maxLines`（Excel 對放不下的行**不畫**）＋`dateFormat`（Excel 日期顯示，例 `2026-10-03` → `03/Oct/2026`）。
+- **baseline 用解析模型（重要）**：Excel 的垂直定位用「行盒」（Arial hhea ascent 0.9053em／descent 0.2124em），**不是墨跡**；`v=top → +ascent×size`、`v=bottom → −descent×size`、`v=center → +(ascent−descent)/2×size`。P2 用 `@` marker 墨跡校準會偏 0.3~1.4pt（`@` 的墨跡高度剛好等於 ascent），修正後與 Excel 誤差 ≤ 0.03pt。
+- **fieldmap 已到 v2**（建置腳本直接產出實測校準值）：`font.sizePt`（air 頁 +2.4%）、`lineHeightPt`（1.27×size）、`wrapWidthPt`、`dateFormat`、`maxLines=floor(box.h/lineHeightPt)`、baseline 解析模型。
+- 實測（5 筆真實 job）：**116.4 KB／份、每筆 45–55 ms**（冷啟動 15 ms）＝舊流程每筆 ~1.5 s 的 3%；2 頁 A4、文字可抽取、非 Latin-1 4/5 筆正確退回。
+- 150dpi 逐像素差異 **0.230%(p0)／0.329%(p1)（皆 < 0.5% ✅）**；地板（把 Excel 的文字原地原字級重畫）實測 0.187~0.290%。
+- `fontMode='auto'` 會優先沿用背景內嵌的 Excel Arial 子集（0 額外位元組、字形與 Excel 完全相同），逐字符檢查 cmap、未涵蓋自動退回標準字型。建置腳本的「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）已提升覆蓋率（並讓空白 122.3 → 114.0 KB、像素與 commit 版完全相同）；但字型優化會再剃掉未被引用的字元，故只部分生效（要全效需調整順序，代價約 +35 KB/份，暫不啟用）。
+- 驗證：`node scripts/test-sli-eli-overlay.js --ref data/work/job-xxx`（**不要平行跑**，輸出目錄固定為 `data/test-p3-overlay/`）。
 
 **Excel 匯出容錯（重要）**：`ExportAsFixedFormat` 會偶發失敗 `-2147352567 / 'Document not saved…'`（輸出目錄不存在、目標 PDF 被防毒／索引／同步程序短暫鎖住，或該 Excel 實例狀態異常）。因此：
 - Python 端 `scripts/sli-eli-generate.py` 的 `export_sheet_pdf()` 會「先刪殘檔 → 重試」最多 3 次，並驗證 PDF 真的產出（存在且 > 0 byte）。

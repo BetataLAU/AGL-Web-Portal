@@ -69,6 +69,10 @@
               <a href="#section-home" class="nav-item active">
                 <i class="fa-solid fa-house"></i> <span>HOME</span>
               </a>
+              <a href="sli-eli-layout.html" class="nav-item" id="nav-sli-eli-layout">
+                <i class="fa-solid fa-table-cells-large"></i> <span>SLI/ELI 版面編輯器</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-sli-eli-layout-lock" title="需要登入"></i>
+              </a>
               <a href="#section-chat" class="nav-item">
                 <i class="fa-solid fa-robot"></i> <span>AI Playground</span>
               </a>
@@ -305,6 +309,13 @@
           <!-- Step 4: 執行 -->
           <h3 id="xls-step-4">④ 執行產生</h3>
           <div class="xls-run-row">
+            <label class="xls-engine-control" for="xls-pdf-engine">
+              <span>PDF 產生方式</span>
+              <select id="xls-pdf-engine" aria-label="PDF 產生方式">
+                <option value="com" selected>Excel（舊版）</option>
+                <option value="overlay">疊字（新版・較快）</option>
+              </select>
+            </label>
             <label class="xls-concurrency-control" for="xls-concurrency">
               <span>PDF 並行數</span>
               <select id="xls-concurrency" aria-label="PDF 並行數">

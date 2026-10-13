@@ -2,37 +2,49 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/13 下午10:36:36
+> 最後更新：2026/10/14 上午12:26:44
 
 ## 🔄 Git 變更狀態
 
 ```
+M .gitignore
 M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
 M WORKSPACE_STATE.md
-M data/templates/sli-eli-blank-meta.json
-M data/templates/sli-eli-blank.pdf
-M data/templates/sli-eli-fieldmap.default.json
-M data/templates/sli-eli-fieldmap.json
+M database.db
+M db/sessions.db
 M docs/design/xls-sli-eli-overlay-prd.md
-M scripts/build-sli-eli-blank.py
-?? scripts/sli-eli-blank-widen-fonts.js
-?? scripts/sli-eli-diff.py
-?? scripts/sli-eli-overlay.js
-?? scripts/test-sli-eli-overlay.js
+M public/css/xls-booking.css
+M public/index.html
+M public/js/auth.js
+M public/js/xls-booking-state.js
+M public/js/xls-booking-workflow.js
+M routes/xls-booking.js
+M scripts/fix-nav-order.js
+M scripts/test-nav-order-frontend.js
+M scripts/xls-workflow.js
+?? public/css/sli-eli-layout.css
+?? public/js/sli-eli-layout-editor.js
+?? public/js/sli-eli-layout-main.js
+?? public/js/sli-eli-layout-state.js
+?? public/sli-eli-layout.html
+?? routes/xls-booking-layout.js
+?? scripts/test-p4-engine.js
+?? scripts/test-sli-eli-layout.js
 ```
 
-## 📁 檔案清單（共 266 個檔案）
+## 📁 檔案清單（共 280 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
-- `.gitignore`（490 B）
-- `CLAUDE.md`（30.7 KB）
+- `.gitignore`（642 B）
+- `CLAUDE.md`（36.1 KB）
 - `Dockerfile`（884 B）
-- `PROJECT_MAP.md`（14.9 KB）
+- `PROJECT_MAP.md`（16.2 KB）
 - `README.md`（21.4 KB）
-- `WORKSPACE_STATE.md`（14.9 KB）
+- `WORKSPACE_STATE.md`（21.2 KB）
 - `package.json`（715 B）
 - `server.js`（7.2 KB）
 
@@ -62,6 +74,11 @@ M scripts/build-sli-eli-blank.py
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
 - `data/templates/sli-eli-fieldmap.json`（13.7 KB）
+
+### data/test-a4-integration
+
+- `data/test-a4-integration/report-copy.xlsx`（612.2 KB）
+- `data/test-a4-integration/synthetic.xlsx`（6.6 KB）
 
 ### data/test-blank-build
 
@@ -157,6 +174,16 @@ M scripts/build-sli-eli-blank.py
 
 - `data/test-p3-overlay/ref/065-49876385.pdf`（536.5 KB）
 
+### data/test-p4-engine-mixed
+
+- `data/test-p4-engine-mixed/report-copy.xlsx`（612.2 KB）
+- `data/test-p4-engine-mixed/synthetic-mixed.xlsx`（6.7 KB）
+
+### data/test-p4-engine-nobackground
+
+- `data/test-p4-engine-nobackground/report-copy.xlsx`（612.2 KB）
+- `data/test-p4-engine-nobackground/synthetic-mixed.xlsx`（6.7 KB）
+
 ### db
 
 - `db/database.js`（15.0 KB）
@@ -175,7 +202,7 @@ M scripts/build-sli-eli-blank.py
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（34.9 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（49.0 KB）
 
 ### docs/research
 
@@ -184,9 +211,10 @@ M scripts/build-sli-eli-blank.py
 
 ### public
 
-- `public/index.html`（22.0 KB）
+- `public/index.html`（22.7 KB）
 - `public/login.html`（8.5 KB）
 - `public/packing.html`（7.2 KB）
+- `public/sli-eli-layout.html`（5.8 KB）
 - `public/uld-packing.html`（14.8 KB）
 - `public/users.html`（31.5 KB）
 
@@ -200,11 +228,12 @@ M scripts/build-sli-eli-blank.py
 - `public/css/orders.css`（33.7 KB）
 - `public/css/packing.css`（7.8 KB）
 - `public/css/pallet.css`（31.9 KB）
+- `public/css/sli-eli-layout.css`（9.2 KB）
 - `public/css/uld-packing-3d.css`（1.6 KB）
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
 - `public/css/uld-packing.css`（9.6 KB）
-- `public/css/xls-booking.css`（18.8 KB）
+- `public/css/xls-booking.css`（19.0 KB）
 
 ### public/css/utils
 
@@ -216,7 +245,7 @@ M scripts/build-sli-eli-blank.py
 ### public/js
 
 - `public/js/animations.js`（10.1 KB）
-- `public/js/auth.js`（25.4 KB）
+- `public/js/auth.js`（26.0 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（18.7 KB）
 - `public/js/dbviewer.js`（42.8 KB）
@@ -224,14 +253,17 @@ M scripts/build-sli-eli-blank.py
 - `public/js/orders.js`（418 B）
 - `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
+- `public/js/sli-eli-layout-editor.js`（16.9 KB）
+- `public/js/sli-eli-layout-main.js`（10.8 KB）
+- `public/js/sli-eli-layout-state.js`（10.7 KB）
 - `public/js/theme.js`（5.2 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
 - `public/js/xls-booking-standard.js`（13.1 KB）
-- `public/js/xls-booking-state.js`（6.8 KB）
+- `public/js/xls-booking-state.js`（7.3 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
-- `public/js/xls-booking-workflow.js`（12.3 KB）
+- `public/js/xls-booking-workflow.js`（13.3 KB）
 
 ### public/js/orders
 
@@ -309,7 +341,8 @@ M scripts/build-sli-eli-blank.py
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/xls-booking-helpers.js`（5.6 KB）
-- `routes/xls-booking.js`（14.0 KB）
+- `routes/xls-booking-layout.js`（23.2 KB）
+- `routes/xls-booking.js`（14.9 KB）
 
 ### routes/auth
 
@@ -337,7 +370,7 @@ M scripts/build-sli-eli-blank.py
 - `scripts/fetch-bpp-research.py`（5.5 KB）
 - `scripts/fetch-github-repos.py`（1.6 KB）
 - `scripts/fill-sli-eli.py`（1.6 KB）
-- `scripts/fix-nav-order.js`（4.4 KB）
+- `scripts/fix-nav-order.js`（4.5 KB）
 - `scripts/generate-dummy-orders.js`（14.3 KB）
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
@@ -359,10 +392,12 @@ M scripts/build-sli-eli-blank.py
 - `scripts/test-nav-order-frontend.js`（6.7 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-openpyxl-bridge.py`（1.3 KB）
+- `scripts/test-p4-engine.js`（7.3 KB）
 - `scripts/test-packing-api.js`（5.7 KB）
 - `scripts/test-packing-projects.js`（7.1 KB）
 - `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
+- `scripts/test-sli-eli-layout.js`（9.8 KB）
 - `scripts/test-sli-eli-overlay.js`（10.3 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
@@ -374,7 +409,7 @@ M scripts/build-sli-eli-blank.py
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（11.9 KB）
 - `scripts/xls-utils.js`（7.1 KB）
-- `scripts/xls-workflow.js`（29.5 KB）
+- `scripts/xls-workflow.js`（35.2 KB）
 
 ### utils
 

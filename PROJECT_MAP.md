@@ -57,8 +57,9 @@
 | `packing-solutions.js` | 求解方案 CRUD（`/projects/:id/solutions`） |
 | `packing-solve.js` | 非同步求解 job（start / status / cancel） |
 | `packing-pdf.js` | `POST /projects/:id/export-pdf` |
-| `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup |
+| `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
+| `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
 | `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；單筆/批次編輯與刪除 |
 
 ### 前端 `public/`
@@ -90,8 +91,13 @@
 | `js/xls-booking-grid.js` | XLS Booking：預覽表格編輯（雙擊/右鍵/復原重做） |
 | `js/xls-booking-assign.js` | XLS Booking：拖曳指派欄位 |
 | `js/xls-booking-standard.js` | XLS Booking：標準化結果預覽、勾選、CNEE 補值 |
-| `js/xls-booking-workflow.js` | XLS Booking：啟動 job、輪詢、中止、結果呈現 |
+| `js/xls-booking-workflow.js` | XLS Booking：啟動 job、輪詢、中止、結果呈現（含 PDF 產生方式／退回筆數） |
+| `js/sli-eli-layout-state.js` | SLI/ELI 版面編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
+| `js/sli-eli-layout-editor.js` | SLI/ELI 版面編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
+| `js/sli-eli-layout-main.js` | SLI/ELI 版面編輯器：入口、工具列、儲存／還原／測試 PDF、PDF modal |
+| `sli-eli-layout.html` | SLI/ELI 版面編輯器獨立頁（側欄最上方；底圖拖曳編輯） |
 | `css/xls-booking.css` | XLS Booking 樣式 |
+| `css/sli-eli-layout.css` | SLI/ELI 版面編輯器樣式 |
 | `login.html` | 登入頁（原生 fetch 呼叫 /api/auth） |
 | `users.html` | 使用者管理頁（admin only） |
 | `js/utils/api.js` | 通用 API 封裝（`apiFetch`，401 自動跳登入） |
@@ -173,7 +179,9 @@ created_at, updated_at
 | POST | `/api/orders/note-templates` | 新增/更新備註文字範本 |
 
 > 訂單端點皆在 `/api/orders`（`requireAuth`）之下；customer 角色僅能存取自己公司資料。
-> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/packing`（裝箱，登入）、`/api/auth`、`/api/db`（`db_view`）。
+> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/packing`（裝箱，登入）、`/api/auth`、`/api/db`（`db_view`）、
+> `/api/xls-booking`（Shipper Role 空運單據，登入；`POST /process` 接受 `engine=overlay|com`）、
+> `/api/xls-booking/layout`（SLI/ELI 版面編輯器：`GET /`、`PUT /`、`POST /reset`、`POST /preview`、`GET /backups`、`GET /background/:page`；**寫入需 admin/staff**）。
 
 ### 電郵總結（`mailto:` 免設定）
 - 自動填收件人（運輸公司 email）、主旨、總結內容

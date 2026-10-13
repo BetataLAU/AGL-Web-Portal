@@ -24,6 +24,7 @@ let xlsState = {
   cneeOverrides: {}, // fileIndex -> { mawbKey: cnee }（③ 標準化預覽點擊填入，不需重新上傳）
   lastRunFiles: [], // 最近一次 ④ 執行涉及的 fileIndex（供「處理下一個檔案」判斷）
   pdfConcurrency: 1, // 每個 job 的 PDF worker 數（1–4；Windows COM 預設穩定模式）
+  pdfEngine: 'com', // PDF 產生引擎：'com'（Excel 舊版，預設）｜'overlay'（疊字，新版較快）
 };
 
 let xlsCurrentJobId = null; // 目前執行中的 job（供中止）
@@ -154,6 +155,14 @@ function setupXlsBookingSection() {
     concurrency.value = String(xlsState.pdfConcurrency);
     concurrency.addEventListener('change', () => {
       xlsState.pdfConcurrency = Math.min(4, Math.max(1, Number(concurrency.value) || 2));
+    });
+  }
+  // PDF 產生方式（P4）：預設 Excel 舊版（com）；疊字（overlay）為新版，失敗會自動退回舊引擎
+  const engineSel = document.getElementById('xls-pdf-engine');
+  if (engineSel) {
+    engineSel.value = xlsState.pdfEngine;
+    engineSel.addEventListener('change', () => {
+      xlsState.pdfEngine = engineSel.value === 'overlay' ? 'overlay' : 'com';
     });
   }
   const cleanupPreviewBtn = document.getElementById('xls-cleanup-preview-btn');

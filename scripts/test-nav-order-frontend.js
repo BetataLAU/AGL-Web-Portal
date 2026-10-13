@@ -9,7 +9,7 @@ const path = require('path');
 const vm = require('vm');
 
 const NAV_ITEM_HREFS = [
-  '#section-home', '#section-chat', '#section-skills', '#section-contour',
+  '#section-home', 'sli-eli-layout.html', '#section-chat', '#section-skills', '#section-contour',
   '#section-orders', '#section-xls-booking', '#section-palletization',
   'uld-packing.html', 'packing.html', '#section-dbviewer', 'users.html'
 ];
@@ -147,7 +147,7 @@ function check(name, ok, detail = '') {
   check('C1 已立即送出 PUT 到 /api/auth/me/nav-order', !!putCall && putCall.url === '/api/auth/me/nav-order');
   check('C2 PUT 包含 packing.html', putBody.includes('packing.html'));
   check('C3 PUT 包含 uld-packing.html', putBody.includes('uld-packing.html'));
-  check('C4 PUT 包含全部 10 個目錄項目（不含 HOME）', putBody.length === 10, `(實際 ${putBody.length} 項)`);
+  check('C4 PUT 包含全部 11 個目錄項目（不含 HOME）', putBody.length === 11, `(實際 ${putBody.length} 項)`);
   const dragIdx = putBody.indexOf('packing.html');
   check('C5 拖到 #section-chat 上方後順序正確',
     dragIdx !== -1 && putBody[dragIdx + 1] === '#section-chat',

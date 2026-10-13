@@ -442,6 +442,10 @@ async function setupAuthUI() {
     const xlsLock = document.getElementById('nav-xls-booking-lock');
     if (xlsLock) xlsLock.style.display = 'none';
 
+    // 解鎖 SLI/ELI 版面編輯器（登入即可檢視；儲存／還原需 admin 或 staff，由 API 判定）
+    const layoutLock = document.getElementById('nav-sli-eli-layout-lock');
+    if (layoutLock) layoutLock.style.display = 'none';
+
     // 解鎖 ULD 智能裝箱（登入即可用）
     const uldProjectsLock = document.getElementById('nav-uld-projects-lock');
     if (uldProjectsLock) uldProjectsLock.style.display = 'none';
@@ -513,16 +517,21 @@ async function setupAuthUI() {
     if (loginBtn) loginBtn.style.display = 'flex';
     if (loggedInBox) loggedInBox.style.display = 'none';
 
-    // 訂單系統 / Shipper Role Project / 資料庫 / 打板計劃 / 3D ULD 裝箱：顯示鎖頭，點擊導向登入頁
-    ['nav-orders', 'nav-xls-booking', 'nav-dbviewer', 'nav-palletization', 'nav-packing'].forEach(id => {
+    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃 / 3D ULD 裝箱：
+    // 顯示鎖頭，點擊導向登入頁（登入後跳回原本想看的區塊或頁面）
+    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization', 'nav-packing'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');
       nav.addEventListener('click', (e) => {
         e.preventDefault();
-        // 記住想前往的頁面（「不含」origin/port，登入後在同一 port 跳回）
+        // 記住想前往的位置（「不含」origin/port，登入後在同一 port 跳回）
+        // 頁面型目錄（sli-eli-layout.html）要記頁面路徑，不是 #section-*
         try {
-          sessionStorage.setItem('login-redirect', window.location.pathname + window.location.search + '#' + id.replace('nav-', 'section-'));
+          const target = id === 'nav-sli-eli-layout'
+            ? 'sli-eli-layout.html'
+            : window.location.pathname + window.location.search + '#' + id.replace('nav-', 'section-');
+          sessionStorage.setItem('login-redirect', target);
         } catch (err) { /* ignore */ }
         window.location.href = LOGIN_PAGE_URL;
       });

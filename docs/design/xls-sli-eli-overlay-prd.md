@@ -1,6 +1,6 @@
 # PRD／交接：SLI/ELI「A4 修正 + 字型瘦身 + 疊字背景」
 
-> 建立：2026-10-13 ｜ 狀態：**P1～P3 ＋ P4 前置已完成並驗證；P4（接主流程/UI）、P5 待做**
+> 建立：2026-10-13 ｜ 狀態：**P1～P5 全部完成並驗證（需求 1～4 已交付）；後續只剩選項（PRD §2 末）**
 > 適用對話：Shipper Role 專案（`routes/xls-booking.js` / `scripts/xls-*`）
 > 交接用途：新對話只要讀本檔 + `CLAUDE.md` 的「Shipper Role Project」段落即可接上。
 
@@ -205,11 +205,74 @@
 
 ---
 
-## 2. 未完成（P4 ～ P5）
+## 2. P4 / P5 已完成（後續只剩選項）
 
-### P4 接進主流程 + UI 最頂開關
+### P4 接進主流程 + UI 最頂開關 ✅ 已完成
 
-**P4 前置 ✅ 已完成（本次）**
+**引擎分派（`scripts/xls-workflow.js`）**
+- 新增 `XLS_PDF_ENGINE=overlay|com`（未設定＝`com`＝現況）；`runWorkflow({ pdfEngine })` 可由路由覆寫（優先於環境變數）；`resolvePdfEngineMode()` 已 re-export（供測試）。
+- **com**：Step 3（Excel COM）→ Step 4（merge／A4 正規化）→ Step 4.5（字型優化）＝**100% 舊行為**（同一份 payload、同一條程式碼路徑）。
+- **overlay**：`engine.partition(recordsPayload)` 分派 —— 可疊字的記錄直接 `renderMany()` 寫出 `{MAWB}.pdf`（**不經 Excel／不需 merge／不做 A4 正規化**）；非 Latin-1（CNEE 中文、全形標點 `，` `（）`）與任何例外（背景／fieldmap 缺失、`blankPdfSha256` 不符、`createOverlayEngine` 失敗、單筆 render 例外）都排入**同一批**的舊 COM 路徑（混合執行）。
+- 相容欄位：`result.engine = { mode, overlay, com, fallbackCount, fallbackReasons, overlayMs }`、`result.fallbackCount`；`result.paper` 照常實測（疊字背景本來就是 A4）。
+- `result.fontOpt`：純 overlay → `{files:0, skipped:true, engine:'overlay'}`（背景已優化＋標準字型 0 byte 內嵌）；**若本次有退回 COM 的檔案，只對那些檔案瘦身**（否則會退回 ~545 KB，與 com 模式的 123 KB 不一致）。
+
+**路由／前端**
+- `routes/xls-booking.js`：`POST /process` 接受 `engine`（白名單 `overlay|com`；其餘回 **400** `engine 僅支援 overlay 或 com`）；結果帶 `engine` / `fallbackCount`。
+- `public/index.html`：④ 執行產生的 `.xls-run-row` **最前面**加「PDF 產生方式」選擇器 `#xls-pdf-engine`（預設 `com`＝Excel（舊版）；新功能放最頂）＋ `public/css/xls-booking.css` 的 `.xls-engine-control`（主色外框）。
+- `public/js/xls-booking-state.js`：`xlsState.pdfEngine`（預設 `'com'`）＋初始化綁定；`public/js/xls-booking-workflow.js`：請求帶上 `engine`，結果面板顯示「🧩 PDF 產生方式／疊字 N 份／退回 Excel N 份／疊字耗時」，退回時列出 MAWB 與不支援字元。
+
+**實測（本機 Windows＋Excel 16.0，2026-10-13）**
+
+| 驗收 | 指令 | 結果 |
+|---|---|---|
+| com 模式與現況相同 | `node scripts/test-a4-integration.js` | **PASS**：3 份 **123.4 KB**、2 頁 A4（595.3×841.9 / 595.0×842.0）、fontOpt 3 份 **-76.9%**（1.56 → 0.36 MB）、耗時 **12.1 s** |
+| overlay 模式 | `$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js` | **PASS**：3 份 **116.0 KB**、2 頁 A4、`fontOpt.skipped=true`、耗時 **1.1 s**（≈11× 快） |
+| 混合批次（2 疊字＋1 退回） | `node scripts/test-p4-engine.js` | **PASS**：`engine={mode:'overlay',overlay:2,com:1,fallbackCount:1}`、116.0／131.3／115.9 KB、2 頁 A4、`errors=[]` |
+| 引擎不可用 → 全退回 COM | 同上 case 2（`SLI_ELI_BLANK_PDF` 指向不存在檔） | **PASS**：overlay=0／com=3／fallbackCount=3、明確回報「疊字引擎無法使用」、123.4／131.3／123.2 KB（字型優化 **-76.7%**） |
+| 路由白名單＋結果欄位 | 端對端（登入→上傳→`POST /process`） | `engine:'bogus'` → **400** `engine 僅支援 overlay 或 com`；`engine:'overlay'` → `mode='overlay'`、overlay=1／com=1／fallbackCount=1、fontOpt 只瘦身退回檔（**-76.4%**）、`paper.ok=true` |
+| P3 無回歸 | `node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0` | **PASS**：116.4 KB／61.1 ms、150dpi 差異 **0.230%／0.329%**、4 筆非 Latin-1 正確退回 |
+
+**側邊欄（需求 3「新功能放最頂」）**：`public/index.html` 的 nav 在 **HOME 之後第一位**新增 `sli-eli-layout.html`（`#nav-sli-eli-layout`）；`public/js/auth.js` 未登入時顯示鎖頭並導向登入頁、登入後解鎖；`scripts/fix-nav-order.js` 的 `DEFAULT_ORDER` 把它列為第一項（既有自訂排序的使用者執行該腳本即會就近補上；本機 admin 已修復 10 → 11 項）。
+
+### P5 版面編輯器（需求 4）✅ 已完成
+
+**新頁**：`public/sli-eli-layout.html` ＋ `public/js/sli-eli-layout-{state,editor,main}.js` ＋ `public/css/sli-eli-layout.css`（比照 `uld-packing.html` 的獨立頁模式；純靜態底圖、無新 CDN 相依）。
+
+**功能**：頁籤（SLI/ELI）、10 欄位清單（跨頁標示／超界警示）、畫布拖曳移動、8 向把手縮放、方向鍵微調（Shift=10pt）、5pt 格線吸附＋格線顯示、Undo/Redo（Ctrl+Z / Ctrl+Y，上限 60）、對齊工具（左／中／右／上／中／下＋「置中於框」）、屬性面板（錨點 X/Y、框 X/Y/W/H、字級、行高、水平／垂直對齊、顏色、粗體、換行）、單欄位「還原成 Excel 校準值」、全部還原、樣本或真實 job 資料即時預覽、縮放 50–150%、「產生測試 PDF」（iframe 預覽＋下載）、Ctrl+S 儲存、未儲存離開警告。
+
+**API（`routes/xls-booking-layout.js`，掛 `/api/xls-booking/layout`）**
+
+| Method | 路徑 | 權限 | 說明 |
+|---|---|---|---|
+| GET | `/layout` | 登入 | 作用中 fieldmap ＋ `defaultFieldmap` ＋ 頁面／底圖／樣本清單／備份清單／`canEdit`（admin or staff）＋ baseline 模型 |
+| PUT | `/layout` | admin／staff | 驗證（欄位白名單、box/origin 邊界、字級 4–72pt、顏色 `#RRGGBB`）→ 自動備份 → 寫檔；無變更不寫檔 |
+| POST | `/layout/reset` | admin／staff | 由 `sli-eli-fieldmap.default.json` 還原（可指定 `keys`）→ 備份 → 寫檔 |
+| POST | `/layout/preview` | 登入 | 用（可選）草稿 fieldmap 產生**排版結果**（`engine.layout()`）＋可選測試 PDF（base64）；非 Latin-1 樣本回報 `renderable=false` |
+| GET | `/layout/backups` | admin／staff | 備份清單（`sli-eli-fieldmap.bak-<ts>.json`，含毫秒避免同秒覆蓋） |
+| GET | `/layout/background/:page` | 登入 | 底圖 PNG（`data/templates/sli-eli-blank-pN.png`） |
+
+**推導值由後端統一計算（關鍵）**：編輯器只送 `origin / box / font / align / wrap / lineHeightPt`，後端推導並寫回
+`textBaselineOffsetPt`（依 baseline 模型 `v=top → +ascent×size`、`v=bottom → −descent×size`、`v=center → +(ascent−descent)/2×size`；
+實測與現有 fieldmap 完全一致：3.62 / 7.28 / −1.71 / −1.91）、`wrapWidthPt`（＝原值 ＋ 框寬變動量）、`maxLines`（`floor(box.h/lineHeightPt)`，`wrap=false` 時 1）。
+**預覽的文字行位置一律由伺服器 `engine.layout()` 回傳**（前端只做 pt→px 換算）→ 編輯器所見即 PDF 所見。
+
+**實測（`node scripts/test-sli-eli-layout.js`，自帶伺服器端對端，2026-10-13）**
+
+| 驗收 | 結果 |
+|---|---|
+| GET `/layout` | **OK**：10 欄位／2 頁（SLI+ELI）／`canEdit=true`／baseline `0.9053/0.2124`／`engineIssue=null` |
+| 底圖 PNG | **OK**：86,462 bytes（PNG magic 正確） |
+| POST `/preview`（樣本） | **OK**：`renderable=true`、`sli.D23` 1 行且有位置、未要求 PDF 時不回傳（省頻寬） |
+| POST `/preview`（wantPdf） | **OK**：**116.1 KB** PDF（含完整背景） |
+| PUT 超界／未知欄位 | **OK**：`400`「sli.D23：文字框超出頁面（頁面 595.28×841.89pt）」／`400`「zz.NOPE：未知欄位」 |
+| PUT 合法變更（位移 +5/+5、框寬 +10） | **OK**：`changed=['sli.D23']`、自動備份、`wrapWidthPt 113.32 → 123.32`、`textBaselineOffsetPt` 維持 3.62 |
+| 幾何一致性 | **OK**：預覽文字位置 `dx=+5.00 dy=+5.00` |
+| POST `/reset`（指定 key） | **OK**：`changed=['sli.D23']`、回到 `box x=91.88 w=113.87`（Excel 校準值） |
+| 備份清單 | **OK**：≥ 2 筆 |
+
+**尚待（選項，非需求）**：① 若要檔案 <120 KB → 簡化 `cainiao-sli-eli-template.xlsx`（減少字型家族／繪圖物件）；② 讓內嵌 Arial 全字符集生效（順序調整，代價約 +35 KB/份）。
+
+### P4 前置 ＋ P4 原始規格（已完成，保留供追溯）
 - 建置腳本內建「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）：背景的 Arial 子集覆蓋率提升（並使空白 122.3 → 114.0 KB、像素與 commit 版完全相同；建置時 assert 加寬前後 0.0000%）
 - 建置腳本內建 **baseline 解析模型**（Arial 行盒）＋ 實測校準值（字級／行距／換行寬度／`maxLines`／`dateFormat`）→ 150dpi 差異 0.432/0.638 → **0.230/0.329（已在門檻內）**
 - 選項（暫不啟用）：把「優化空白 → 優化 charset → 加寬」的順序調換可讓內嵌 Arial 100% 生效（差異再降到 ~0.14/0.25），代價每份約 +35 KB
@@ -224,16 +287,12 @@
   - 側邊欄新 nav-item（`sli-eli-layout.html`）放 **HOME 之後第一位**（`sanitizeNavOrder` 的 `NAV_PAGE_RE` 已允許 `*.html`，`MAX_ORDER_ITEMS=20`）
   - 驗收：`XLS_PDF_ENGINE` 未設定時行為與現況 100% 相同
 
-### P5 版面編輯器（需求 4）
+### P5 原始規格（已完成，保留供追溯）
 
-- 新頁 `public/sli-eli-layout.html` + `public/js/sli-eli-layout.js` + `public/css/sli-eli-layout.css`（比照 `uld-packing.html` 的獨立頁模式）
+- 新頁 `public/sli-eli-layout.html` + `public/js/sli-eli-layout-{state,editor,main}.js` + `public/css/sli-eli-layout.css`（比照 `uld-packing.html` 的獨立頁模式）
 - 底圖：直接用 `data/templates/sli-eli-blank-p{1,2}.png`（純靜態、無 CDN 相依）
 - 功能：頁籤（SLI/ELI）、10 欄位清單、拖曳移動、把手縮放、方向鍵微調（Shift=10pt）、格線吸附、Undo/Redo、對齊工具、單欄位／全部「還原成 Excel 校準值」、樣本或真實資料即時預覽、「產生測試 PDF」
-- API（掛在 `/api/xls-booking/layout`，**寫入需 `requireRole('admin','staff')`**）：
-  - `GET /layout`（fieldmap + default + 底圖 URL + 頁面尺寸）
-  - `PUT /layout`（驗證座標範圍／欄位白名單 → 寫檔並備份 `sli-eli-fieldmap.bak-<ts>.json`）
-  - `POST /layout/reset`（還原 `default`）
-  - `POST /layout/preview`（用單筆資料產生測試 PDF）
+- API（掛在 `/api/xls-booking/layout`，**寫入需 `requireRole('admin','staff')`**）：`GET /layout`、`PUT /layout`、`POST /layout/reset`、`POST /layout/preview`
 - 排版數學（換行／對齊／baseline）必須與 P3 共用同一份程式，避免「編輯器看到什麼 ≠ PDF 長什麼」
 
 ---
@@ -277,6 +336,46 @@
 | `Dockerfile` | pip 加 `pymupdf` |
 | `CLAUDE.md` / `README.md` | A4 修正、字型優化、P2 產物與陷阱（**已寫入，供新對話自動載入**） |
 
+### 新增（P5）
+
+| 檔案 | 角色 |
+|---|---|
+| `public/sli-eli-layout.html` | 版面編輯器獨立頁（比照 `uld-packing.html`；側欄：返回主頁／本頁／Shipper Role Project） |
+| `public/js/sli-eli-layout-state.js` | state／幾何（移動、縮放、對齊、吸附、推導值）／API 包裝／預覽排程 |
+| `public/js/sli-eli-layout-editor.js` | 畫布渲染（底圖＋欄位框＋文字行）、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
+| `public/js/sli-eli-layout-main.js` | 入口、工具列綁定、儲存／還原／產生測試 PDF、PDF modal、備份顯示 |
+| `public/css/sli-eli-layout.css` | 編輯器樣式（畫布、把手、屬性面板、modal） |
+| `routes/xls-booking-layout.js` | 版面編輯器 API（GET／PUT／reset／preview／backups／background）＋驗證與推導 |
+| `scripts/test-sli-eli-layout.js` | P5 驗收（自帶伺服器端對端；結束自動還原 fieldmap 並清除備份） |
+
+### 修改（P5）
+
+| 檔案 | 變更 |
+|---|---|
+| `routes/xls-booking.js` | 掛載 `router.use('/layout', layoutRouter)`（上層 `requireAuth`，寫入另檢 `requireRole`） |
+| `public/index.html` | 側欄 HOME 之後第一位新增 `sli-eli-layout.html`（`#nav-sli-eli-layout`） |
+| `public/js/auth.js` | 未登入顯示鎖頭並導向登入頁（`login-redirect` 記頁面路徑）、登入後解鎖 |
+| `scripts/fix-nav-order.js` | `DEFAULT_ORDER` 首項加 `sli-eli-layout.html`（既有自訂排序的使用者執行後會就近補上） |
+| `.gitignore` | 排除 `data/templates/sli-eli-fieldmap.bak-*.json`（編輯器自動備份，可重建） |
+| `scripts/test-nav-order-frontend.js` | 側欄 fixture 加入 `sli-eli-layout.html`（11 項）——新增頁面後同步更新，避免測試與實際側欄不一致 |
+
+### 新增（P4）
+
+| 檔案 | 用途 |
+|---|---|
+| `scripts/test-p4-engine.js` | 引擎分派驗證：case 0 `XLS_PDF_ENGINE` 解析（純函式）／case 1 混合批次（2 疊字＋1 退回）／case 2 背景缺失全退回 |
+
+### 修改（P4）
+
+| 檔案 | 變更 |
+|---|---|
+| `scripts/xls-workflow.js` | 新增 `resolvePdfEngineMode()`；`runWorkflow({ pdfEngine })`；`engine.partition()` 分派（overlay 直接 `renderMany()` 寫 `{MAWB}.pdf`、fallback 排入同批 COM）；`result.engine` / `result.fallbackCount`；overlay 只對退回檔做 Step 4.5 |
+| `routes/xls-booking.js` | `POST /process` 接受 `engine`（白名單，非法回 400）並傳入 `runWorkflow`；結果帶 `engine` / `fallbackCount` |
+| `public/index.html` | `.xls-run-row` 最前面新增「PDF 產生方式」`#xls-pdf-engine`（預設 Excel（舊版）） |
+| `public/js/xls-booking-state.js` | `xlsState.pdfEngine`（預設 `'com'`）＋初始化綁定 |
+| `public/js/xls-booking-workflow.js` | 請求帶 `engine`；結果面板顯示產生方式／疊字份數／退回筆數／耗時與退回原因 |
+| `public/css/xls-booking.css` | `.xls-engine-control`（與並行數選擇器同款式＋主色外框） |
+
 ### 修改（P3）
 
 | 檔案 | 變更 |
@@ -295,7 +394,8 @@
 | Railway / Docker | `Dockerfile` 已含 libreoffice + openpyxl + pypdf + **pymupdf**（A4／瘦身／建置都能跑） |
 | `PDF_PAPER` | `a4`（預設）｜`custom`（完全還原舊行為） |
 | `PDF_FONT_OPT` | `on`（預設）｜`off` |
-| `XLS_PDF_ENGINE` | 尚未實作（P4）；未設定＝舊版 Excel 引擎 |
+| `XLS_PDF_ENGINE` | `com`（預設／未設定＝舊版 Excel 引擎，行為 100% 不變）｜`overlay`（疊字引擎，P4） |
+| `SLI_ELI_BLANK_PDF` / `SLI_ELI_FIELDMAP` | 既有（P3 引擎可覆寫背景 PDF／fieldmap 路徑；缺失即自動退回 `com`） |
 | `fontMode`（P3 引擎參數） | `auto`（預設，優先沿用背景內嵌的 Arial 子集）｜`standard`（強制 pdf-lib 標準字型） |
 | `XLS_PDF_CONCURRENCY` | 既有（預設 2；Windows COM 建議 1） |
 | `DATA_DIR` | 既有（覆寫 `data/`） |
@@ -347,6 +447,30 @@ node -e "require('./scripts/sli-eli-overlay').renderRecord({mawb:'999-12345678',
 python scripts/sli-eli-diff.py --mine a.pdf --ref b.pdf --dpi 150 --needle 065-49876385 --json
 ```
 
+### P4 引擎分派驗證（2026-10-13 實測，全部 PASS）
+
+```powershell
+# com（預設／未設定）：與現況 100% 相同 → count=3、每份 123.4 KB、fontOpt -76.9%、耗時 ~12 s
+node scripts/test-a4-integration.js
+
+# overlay：3 份 116.0 KB、2 頁 A4、fontOpt {files:0, skipped:true}、耗時 ~1.1 s（≈11× 快）
+$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js; Remove-Item Env:XLS_PDF_ENGINE
+
+# 引擎分派專用：case 0 環境變數解析／case 1 混合批次（2 疊字＋1 退回）／case 2 背景缺失全退回
+node scripts/test-p4-engine.js
+```
+
+### P5 版面編輯器驗證（2026-10-13 實測，全部 PASS）
+
+```powershell
+# 自帶伺服器端對端：GET／preview／wantPdf／PUT 驗證（400）／備份／reset／幾何一致性
+# （會暫時改寫 data/templates/sli-eli-fieldmap.json，結束自動還原並清除本次備份）
+node scripts/test-sli-eli-layout.js
+
+# 瀏覽器手動檢查：登入後 → 側欄最上方「SLI/ELI 版面編輯器」
+#   http://127.0.0.1:3000/sli-eli-layout.html
+```
+
 ### P3 校準工具（`.gitignore` 內，需要時重跑；產生 fieldmap v2 的實測值）
 
 ```powershell
@@ -382,58 +506,70 @@ python data/test-p3/probe-visual.py a.pdf b.pdf  # 逐欄位「ref/mine/差異�
 19. **字型優化會把「未被內容引用」的字元剃掉**：`sli-eli-font-optimize.py` 的 `subset_fonts()` 只保留內容流用到的字符 → 「先加寬空白再優化」會把 charset 的字元又剃掉（213 → 75/72）。若要用內嵌 Arial 全字符集，順序必須是「優化空白 → 優化 charset PDF → 加寬」，且加寬後**不能再跑優化**。
 20. **驗證腳本不要平行跑**：`scripts/test-sli-eli-overlay.js` 的輸出目錄固定為 `data/test-p3-overlay/`，同時跑兩份會互相刪檔，造成 diff 靜默略過（曾出現「假 PASS」；已在腳本內改成明確 FAIL）。
 21. **跨文件搬移 PDF 物件要小心間接引用**：`/Widths` 在 Excel 產出常是 `12 0 R`（間接），只複製純量值會讓它整個消失（PDF 仍可讀、只有排版會變）→ 搬移前必須 `context.lookup(ref)`。
+22. **`engine.partition()` 只做分類、不會排程**：回傳的 `fallback[]` 記錄必須自己推回舊 COM 的 `comPayload` 佇列（`f.record`）。只把它們算進 `fallbackCount` 而不排程，會**靜默少產出**那些 PDF（count 變少、errors 卻是空的）——P4 實作時踩過一次，`scripts/test-p4-engine.js` case 1 就是防這個。
+23. **`engine.render()` 回傳的 `bytes` 是「位元組數」不是 PDF 內容**：要拿內容必須給 `outputPath` 再讀檔（`render(rec, tmpPath)` → `fs.readFile`）。用 `Buffer.from(r.bytes).toString('base64')` 只會得到全零 buffer／空 base64（P5 預覽 PDF 時踩過，測試才抓到）。
+24. **備份檔名只到「秒」會互相覆蓋**：同一秒內連續 PUT／reset（例如前端「儲存」後立刻「還原全部」）會讓後一次備份蓋掉前一次 → 檔名要帶毫秒，並在碰撞時加隨機後綴。`test-sli-eli-layout.js` 的「備份清單 ≥ 2 筆」就是防這個。
+25. **Windows 上用 PowerShell 對檔案做「插行」要小心**：以行號插入的編輯若錨點落在函式內部，會把後面的內容（含 `main().catch(...)`）擠到函式尾巴，造成「語法通過但 `main()` 從未被呼叫」的靜默失敗（P5 撰寫測試腳本時踩過）。寫大型檔案請用「附加到檔尾」或先刪檔重建。
 
 ---
 
-## 7. 未提交變更（P3 ＋ P4 前置完成當下）
+## 7. 未提交變更（P5 完成當下）
 
 ```
-M  CLAUDE.md / WORKSPACE_STATE.md / FILE_INVENTORY.md
+M  CLAUDE.md / WORKSPACE_STATE.md / FILE_INVENTORY.md / .gitignore
 M  docs/design/xls-sli-eli-overlay-prd.md
-M  scripts/build-sli-eli-blank.py                     ← P4 前置：校準表／baseline 模型／字符集加寬
-M  data/templates/sli-eli-fieldmap.json / .default.json   ← v2 校準（由建置腳本產出）
-M  data/templates/sli-eli-blank.pdf / sli-eli-blank-meta.json  ← 114.0 KB（像素與 commit 版相同）
+M  scripts/xls-workflow.js                       ← P4：XLS_PDF_ENGINE 分派 ＋ 自動退回 ＋ result.engine
+M  routes/xls-booking.js                         ← P4：engine 白名單（非法 400）＋ P5：掛載 /layout
+?? routes/xls-booking-layout.js                  ← P5：版面編輯器 API（GET/PUT/reset/preview/backups/background）
+M  public/index.html                             ← P4：PDF 產生方式選擇器；P5：側欄最頂新項目
+M  public/js/auth.js                             ← P5：新項目的鎖頭／登入後解鎖
+M  public/css/xls-booking.css / public/js/xls-booking-state.js / public/js/xls-booking-workflow.js   ← P4：引擎選擇器與結果面板
+?? public/sli-eli-layout.html / public/js/sli-eli-layout-{state,editor,main}.js / public/css/sli-eli-layout.css   ← P5：版面編輯器
+M  scripts/fix-nav-order.js                      ← P5：DEFAULT_ORDER 首項加 sli-eli-layout.html
+?? scripts/test-p4-engine.js / scripts/test-sli-eli-layout.js   ← P4／P5 驗收腳本
+M  database.db                                   ← P5：fix-nav-order.js 就近補上 sli-eli-layout.html（admin 10 → 11 項）
+M  scripts/build-sli-eli-blank.py / data/templates/sli-eli-fieldmap.json / .default.json / sli-eli-blank.pdf / sli-eli-blank-meta.json  ← P4 前置（校準＋字符集加寬，空白 114.0 KB）
 ?? scripts/sli-eli-overlay.js / sli-eli-diff.py / test-sli-eli-overlay.js / sli-eli-blank-widen-fonts.js
 （P1/P2 的變更與使用者先前 WIP 已於 dd6c0ba commit）
 ```
 
+*註：`data/templates/sli-eli-fieldmap.json` 目前內容與 commit 版相同（P5 測試結束會還原）；編輯器產生的 `sli-eli-fieldmap.bak-*.json` 已加入 `.gitignore`。*
+
 ---
 
-## 8. 新對話提示詞（剩餘 P4，直接複製）
+## 8. 新對話提示詞（P1～P5 已完成；沿用／維護用，直接複製）
 
 ```text
 延續 AGL-Web-Portal 的 Shipper Role 專案（SLI/ELI PDF）。
 
-請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦＋已完成事項＋21 條陷阱）
+請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦＋已完成事項＋25 條陷阱）
 與 CLAUDE.md 的「Shipper Role Project」段落；開頭照例先跑 npm run sync。
 
-現況（P1～P3 ＋ P4 前置都已完成並驗證，細節在 PRD §1 與 §2 P4 前置）：
-- P3 疊字產生器 scripts/sli-eli-overlay.js：純 Node＋pdf-lib，背景 = data/templates/sli-eli-blank.pdf
-  的兩頁 A4，直接把 10 個欄位疊上去輸出 {MAWB}.pdf（不需 Excel／Python／merge／字型優化）。
-  實測：每份 116.4 KB、每筆 45–55 ms（冷啟動 13 ms）、2 頁 A4、文字可抽取、
-  150dpi 逐像素差異 0.230%(p0)/0.329%(p1)（門檻 0.5%）；CNEE 含非 Latin-1（全形標點/中文）
-  時 engine.render() 回 status='fallback'（不寫檔），由呼叫端退回舊 Excel 引擎。
-- 乾淨 API：createOverlayEngine({blankPdf, fieldmap, fontMode, strict}) →
-  render / renderMany / partition / check / layout / describe；另有 renderRecord()。
-- 驗收：node scripts/test-sli-eli-overlay.js --ref data/work/job-xxx（勿平行跑，輸出目錄固定）。
+現況：P1～P5 全部完成並驗證（細節在 PRD §1／§2），需求 1～4 都已交付：
+- P1 A4 修正、P2a 字型瘦身 -77%、P2b 疊字背景＋fieldmap、P3 疊字產生器
+- P4 主流程引擎分派：XLS_PDF_ENGINE=overlay|com（未設定＝com＝舊行為 100% 不變）；
+  overlay 直接輸出 {MAWB}.pdf（116.0 KB／3 筆 1.1 秒）；非 Latin-1 或任何例外自動退回同批 COM；
+  ④ 執行產生最前面有「PDF 產生方式」選擇器；POST /process 接受 engine（白名單、非法 400）。
+- P5 版面編輯器：public/sli-eli-layout.html（側欄最上方）＋ /api/xls-booking/layout
+  （GET／PUT／reset／preview／backups／background；寫入需 admin/staff；每次寫檔自動備份）；
+  編輯器只送 origin/box/font/align/wrap/lineHeightPt，推導值（baseline 偏移／換行寬／maxLines）
+  一律由後端算，預覽文字位置由 engine.layout() 回傳 → 所見即 PDF 所見。
 
-請做剩下的 P4（先不要動 P5 版面編輯器）：
-1. 接進主流程 scripts/xls-workflow.js：新增 XLS_PDF_ENGINE=overlay|com（未設定＝com＝現況，
-   必須 100% 不變）。overlay 模式跳過 Step 3（Excel COM 產生 SLI/ELI PDF）與 Step 4
-   （merge／A4 正規化），直接以 engine.render() 寫出 {MAWB}.pdf，也不用跑 Step 4.5 字型優化；
-   但 result 仍要保留相容欄位（paper / fontOpt 可回報 skipped 或實測值）。
-   用 engine.partition(records) 分派：非 Latin-1 的記錄走舊 COM 路徑（可與其他記錄混在同一批），
-   任何例外（背景／fieldmap 缺失、sha 不符、render 失敗）都要自動退回該筆的舊引擎路徑。
-2. routes/xls-booking.js：POST /process 接受 engine（白名單 overlay|com），結果帶
-   engine 與 fallbackCount；前端 public/js/xls-booking-workflow.js 在結果面板顯示產生方式與退回筆數。
-3. UI（需求 3「新功能放最頂」）：④ 執行產生的 .xls-run-row 最前面加「PDF 產生方式」選擇器
-   （預設「Excel（舊版）」）；側邊欄之後 P5 會再加一個新頁項目放最前。
-4. 驗收（請實際跑，並把數據寫進 PRD）：
-   - $env:XLS_PDF_ENGINE 未設定 → node scripts/test-a4-integration.js 必須與現況相同（PASS）
-   - $env:XLS_PDF_ENGINE='overlay' → node scripts/test-a4-integration.js 應 PASS 且各份 ~116 KB
-   - node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0 仍 PASS
-   - 更新 docs/design/xls-sli-eli-overlay-prd.md（P4 完成＋實測數據）、CLAUDE.md、WORKSPACE_STATE.md，
-     最後跑 npm run sync
+驗收（都要 PASS；勿平行跑，overlay 測試輸出目錄固定）：
+  node scripts/test-sli-eli-overlay.js --ref data/work/job-zRSCW0
+  node scripts/test-a4-integration.js                                  # com：123.4 KB／~12 s
+  $env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js   # overlay：116.0 KB／~1.1 s
+  node scripts/test-p4-engine.js                                       # 引擎分派／自動退回
+  node scripts/test-sli-eli-layout.js                                  # 版面編輯器（自帶伺服器）
+
+若還要繼續，只剩「選項（非需求）」：
+1. 檔案再小於 120 KB → 簡化 cainiao-sli-eli-template.xlsx（減少字型家族／繪圖物件）；
+   目前地板＝內容流 49.9 KB ＋ PDF 結構 16 KB（詳見 PRD §1 P2a 剩餘瓶頸）。
+2. 讓「背景內嵌 Arial 全字符集」100% 生效 → 建置順序改為「優化空白 → 優化 charset PDF → 加寬」
+   （此後不可再優化），代價約 +35 KB/份；150dpi 差異可再降到 ~0.14/0.25。
+3. 若要動 fieldmap 結構（新增欄位／改來源）→ 必須同步 scripts/sli-eli-overlay.js 的
+   resolveFieldValue 對應與 build-sli-eli-blank.py 的建置，並跑上面的驗收。
+改完請更新 PRD、CLAUDE.md、WORKSPACE_STATE.md，最後 npm run sync。
 ```
 
 ---

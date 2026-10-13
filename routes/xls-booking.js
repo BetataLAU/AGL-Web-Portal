@@ -7,6 +7,7 @@
 // GET  /api/xls-booking/download/:type/:jobId/:name  - 下載產出檔案（report / zip）
 // GET  /api/xls-booking/report-template              - 直接下載 Report 模板（shipper-role-summary-2026.xlsx）
 // GET  /api/xls-booking/templates                    - 模板狀態檢查
+// /api/xls-booking/layout                      - SLI/ELI 版面編輯器 API（P5，見 xls-booking-layout.js）
 //
 // 註：路徑/Multer/session 儲存/讀檔工具已拆至 xls-booking-helpers.js（.clinerule.md：檔案大小控制）
 
@@ -30,8 +31,12 @@ const {
 } = require('./xls-booking-helpers');
 const { runWorkflow, standardizeRows, extractCneeLookupArea } = require('../scripts/xls-workflow');
 const { requireRole } = require('./auth/middleware');
+const layoutRouter = require('./xls-booking-layout');
 
 const router = express.Router();
+
+// SLI/ELI 版面編輯器（P5）：掛在 /api/xls-booking/layout（上層已 requireAuth；寫入另檢 requireRole）
+router.use('/layout', layoutRouter);
 
 // ===== Multer 錯誤統一轉 JSON（預設 Express 錯誤處理回傳 HTML） =====
 function uploadFilesMiddleware(req, res, next) {
@@ -182,9 +187,13 @@ function enqueueProcess(task) {
 
 router.post('/process', async (req, res) => {
   try {
-    const { uploadId, defs, concurrency } = req.body || {};
+    const { uploadId, defs, concurrency, engine } = req.body || {};
     if (!uploadId || !Array.isArray(defs) || !defs.length) {
       return res.status(400).json({ error: '缺少 uploadId 或欄位定義 defs' });
+    }
+    // PDF 產生引擎（白名單）：overlay（疊字，新版）｜com（Excel 舊版）；未指定＝伺服器預設（XLS_PDF_ENGINE）
+    if (engine !== undefined && engine !== null && engine !== '' && engine !== 'overlay' && engine !== 'com') {
+      return res.status(400).json({ error: 'engine 僅支援 overlay 或 com' });
     }
     const session = uploadSessions.get(uploadId);
     if (!session) return res.status(404).json({ error: '上傳工作階段已過期，請重新上傳' });
@@ -219,6 +228,7 @@ router.post('/process', async (req, res) => {
           reportTemplate: reportCopy,
           sliTemplate,
           concurrency: jobConcurrency,
+          pdfEngine: engine || undefined,
           signal: controller.signal,
           onProgress: (pct, msg) => {
             const job = jobs.get(jobId);
@@ -252,6 +262,8 @@ router.post('/process', async (req, res) => {
             duplicates: result.duplicates || [],
             paper: result.paper || null,
             fontOpt: result.fontOpt || null,
+            engine: result.engine || null,           // PDF 產生引擎（mode / overlay / com / fallbackReasons）
+            fallbackCount: result.fallbackCount || 0, // 退回舊 Excel 引擎的份數
             syncWarning,
             fileResults: result.results || [],
             workDir: result.workDir,

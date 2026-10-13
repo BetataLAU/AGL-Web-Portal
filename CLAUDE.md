@@ -120,7 +120,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端**：`login.html`（獨立登入頁）、`users.html`（使用者管理，admin only）、`js/auth.js`（Sidebar 登入狀態與鎖頭控制）、`js/utils/api.js`（401 自動跳轉登入頁）、`main.js`（受保護區塊僅登入後初始化）。
 
-**側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `uld-packing.html` / `packing.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
+**側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `sli-eli-layout.html` / `uld-packing.html` / `packing.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。新增頁面時也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`（既有使用者才不會被排到最後）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
 
 **注意**：
 - `auth.js` 的 `fetchCurrentUser` 不可用 `apiFetch`（401 會跳轉）；需用原生 fetch 且 401 回 null
@@ -136,7 +136,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 |------|------|
 | `routes/xls-booking.js` | API 路由（upload / preview / cnee-preview / process / status / cancel / download / report-template / templates） |
 | `routes/xls-booking-helpers.js` | 路由共用：DATA_DIR 路徑、Multer 設定、upload session / job Map、讀檔與預覽工具 |
-| `scripts/xls-workflow.js` | 主流程（standardizeRows + runWorkflow），re-export 全部歷史 API |
+| `scripts/xls-workflow.js` | 主流程（standardizeRows + runWorkflow），re-export 全部歷史 API；`XLS_PDF_ENGINE` 引擎分派（P4） |
 | `scripts/xls-utils.js` | 純工具：cleanCell / normalizeMawb / 日期 / 電話 / 航班 |
 | `scripts/xls-cnee.js` | CNEE 對照區自動抽取 + DEST/REMARK 加權比對 |
 | `scripts/xls-report.js` | Report 模板寫入 |
@@ -145,6 +145,14 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（純 pdf-lib，跨文件搬移 FontFile2/Descriptor/Widths） |
 | `scripts/sli-eli-diff.py` | 150dpi 逐像素比對＋文字抽取橋接（重用 `sli-eli-font-optimize.py` 的 `diff_pages`） |
 | `scripts/test-sli-eli-overlay.js` | P3 驗收（頁數/A4/文字可抽取/差異 < 0.5%/檔案大小/每筆耗時/fallback 判定） |
+| `scripts/test-p4-engine.js` | **P4 驗收**：`XLS_PDF_ENGINE` 解析、混合批次（疊字＋退回 COM）、背景缺失時全退回 |
+| `routes/xls-booking-layout.js` | **P5 版面編輯器 API**（掛 `/api/xls-booking/layout`）：GET／PUT／reset／preview／backups／background；驗證＋推導＋自動備份 |
+| `scripts/test-sli-eli-layout.js` | **P5 驗收**（自帶伺服器端對端；結束自動還原 fieldmap 並清除備份） |
+| `public/sli-eli-layout.html` | **P5 版面編輯器獨立頁**（底圖拖曳編輯；側欄新項目） |
+| `public/js/sli-eli-layout-state.js` | 編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
+| `public/js/sli-eli-layout-editor.js` | 編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
+| `public/js/sli-eli-layout-main.js` | 編輯器：入口、工具列、儲存／還原／測試 PDF、PDF modal |
+| `public/css/sli-eli-layout.css` | 編輯器樣式 |
 | `scripts/xls-exceljs-guard.js` | 讀檔防護：略過異常大的 defined-name 範圍，避免 WPS 檔造成 OOM（上傳／預覽／process 皆載入） |
 | `public/js/xls-booking-state.js` | 前端：常數/狀態/工具/上傳拖曳/初始化 |
 | `public/js/xls-booking-upload.js` | 前端：上傳與檔案列表 |
@@ -157,7 +165,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
@@ -210,7 +218,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **實測精度：錨定邊殘差 0.00 pt**；非錨定邊 1–3 pt 的差來自 Helvetica 與 Arial 的 `@` 字形高度不同（與真實資料定位無關）。
 - ⚠️ **不要用「頁面設定解析式」算座標**：Excel 的紙張／FitToPage 會讓推算偏差 40 pt 以上（`analyticDeltaMaxPt` 即為此診斷值），一律以 marker 實測為準。
 - 模板變更後必須重跑；`fieldmap.templateSha256` 用來偵測過期（`--force` 可覆寫作用中的 fieldmap）。
-- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1／P2／P3／P4 前置已完成清單與實測數據、**P4（接主流程＋UI）、P5（版面編輯器）待辦設計**、可直接執行的驗證指令、**21 個已踩過的陷阱**，以及給新對話的提示詞（§8）。
+- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1～P5 已完成清單與實測數據、後續選項、可直接執行的驗證指令、**25 個已踩過的陷阱**，以及給新對話的提示詞（§8）。
 
 **疊字 PDF 產生器（P3 已完成，`scripts/sli-eli-overlay.js`）**：把 10 個欄位疊到 `data/templates/sli-eli-blank.pdf` 上直接輸出 `{MAWB}.pdf`（背景本來就是 A4 的 SLI+ELI 兩頁，**不需 merge、不需 Excel、不需 Python、不需字型優化**）。
 
@@ -222,6 +230,24 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - 150dpi 逐像素差異 **0.230%(p0)／0.329%(p1)（皆 < 0.5% ✅）**；地板（把 Excel 的文字原地原字級重畫）實測 0.187~0.290%。
 - `fontMode='auto'` 會優先沿用背景內嵌的 Excel Arial 子集（0 額外位元組、字形與 Excel 完全相同），逐字符檢查 cmap、未涵蓋自動退回標準字型。建置腳本的「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）已提升覆蓋率（並讓空白 122.3 → 114.0 KB、像素與 commit 版完全相同）；但字型優化會再剃掉未被引用的字元，故只部分生效（要全效需調整順序，代價約 +35 KB/份，暫不啟用）。
 - 驗證：`node scripts/test-sli-eli-overlay.js --ref data/work/job-xxx`（**不要平行跑**，輸出目錄固定為 `data/test-p3-overlay/`）。
+
+**PDF 產生引擎 `XLS_PDF_ENGINE`（P4 已完成）**：`runWorkflow` 可用 `XLS_PDF_ENGINE=overlay|com`（未設定＝`com`＝**100% 舊行為**）切換引擎；UI ④「執行產生」的 `.xls-run-row` **最前面**有「PDF 產生方式」選擇器（預設 Excel（舊版）），`POST /api/xls-booking/process` 接受 `engine`（白名單，非法回 400）並在結果帶 `engine` / `fallbackCount`；前端結果面板顯示產生方式／疊字份數／退回筆數／耗時。
+
+- **overlay**：`engine.partition(recordsPayload)` 分派 —— 可疊字的記錄直接 `renderMany()` 寫出 `{MAWB}.pdf`（跳過 Step 3 Excel COM、Step 4 merge／A4 正規化、Step 4.5 字型優化）；非 Latin-1（CNEE 中文／全形標點）與任何例外（背景／fieldmap 缺失、`blankPdfSha256` 不符、`createOverlayEngine` 失敗、單筆 render 例外）都排入**同一批**的舊 COM 路徑（`result.engine.fallbackReasons` 列出 MAWB 與不支援字元）。
+- **相容欄位**：`result.engine = { mode, overlay, com, fallbackCount, fallbackReasons, overlayMs }`、`result.fallbackCount`；`result.paper` 照常實測（疊字背景本來就是 A4）；`result.fontOpt` 純 overlay 時 `{files:0, skipped:true, engine:'overlay'}`，**若本次有退回 COM 的檔案則只對那些檔案瘦身**（否則會退回 ~545 KB，與 com 的 123 KB 不一致）。
+- 實測（2026-10-13）：com＝3 份 **123.4 KB**／12.1 s；overlay＝3 份 **116.0 KB**／**1.1 s**（≈11× 快）；混合批次（2 疊字＋1 退回）count=3、`engine={overlay:2, com:1, fallbackCount:1}`、errors=[]；背景缺失時全退回 COM 且明確回報「疊字引擎無法使用」。
+- ⚠️ `partition()` **只分類不排程**：`fallback[]` 必須自己推回 COM 佇列（`f.record`），否則會靜默少產出（PRD 陷阱 22）。
+- 驗證：`node scripts/test-p4-engine.js`（引擎分派）、`$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js`（overlay 端對端）。
+
+**SLI/ELI 版面編輯器（P5 已完成）**：獨立頁 `public/sli-eli-layout.html`（側欄在 **HOME 之後第一位**，未登入顯示鎖頭並導向登入頁）；左＝欄位清單、中＝A4 底圖畫布、右＝屬性面板。
+
+- 功能：拖曳移動、8 向把手縮放、方向鍵微調（Shift=10pt）、5pt 吸附＋格線、Undo/Redo（Ctrl+Z / Ctrl+Y）、對齊工具（含「置中於框」）、字級／行高／顏色／粗體／換行、單欄位還原（草稿）＋全部還原（立即寫檔）、縮放 50–150%、樣本或**真實 job 資料**即時預覽、「產生測試 PDF」（iframe＋下載）、Ctrl+S 儲存、未儲存離開警告。
+- API（`routes/xls-booking-layout.js`，掛 `/api/xls-booking/layout`；上層已 `requireAuth`）：`GET /`（fieldmap＋default＋頁面／底圖／樣本／備份／`canEdit`）、`PUT /`（**admin/staff**；白名單＋邊界驗證 → 自動備份 → 寫檔）、`POST /reset`（**admin/staff**；由 `sli-eli-fieldmap.default.json` 還原，可指定 keys）、`POST /preview`（草稿排版＋可選 PDF base64）、`GET /backups`、`GET /background/:page`（底圖 PNG）。
+- **推導值一律由後端計算**：前端只送 `origin / box / font / align / wrap / lineHeightPt`；後端算 `textBaselineOffsetPt`（baseline 行盒模型）、`wrapWidthPt`（原值＋框寬變動量）、`maxLines`（`floor(box.h/lineHeightPt)`），並把權威值回傳給前端同步 → **預覽文字位置全部來自 `engine.layout()`，所見即 PDF 所見**。
+- 每次寫檔備份 `data/templates/sli-eli-fieldmap.bak-<ts>.json`（含毫秒；已加入 `.gitignore`）。
+- ⚠️ `engine.render()` 的 `bytes` 是**位元組數**不是內容 → 要 PDF 內容必須 `render(rec, tmpPath)` 再讀檔（PRD 陷阱 23）。
+- 導覽：新增頁面時除了 `index.html` 的 nav，也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`，否則已有自訂排序的使用者會看到它被排到最後（本機 admin 已用該腳本修復）。
+- 驗證：`node scripts/test-sli-eli-layout.js`（自帶伺服器端對端：GET／preview／wantPdf／PUT 400／備份／reset／幾何一致性；結束自動還原 fieldmap）。
 
 **Excel 匯出容錯（重要）**：`ExportAsFixedFormat` 會偶發失敗 `-2147352567 / 'Document not saved…'`（輸出目錄不存在、目標 PDF 被防毒／索引／同步程序短暫鎖住，或該 Excel 實例狀態異常）。因此：
 - Python 端 `scripts/sli-eli-generate.py` 的 `export_sheet_pdf()` 會「先刪殘檔 → 重試」最多 3 次，並驗證 PDF 真的產出（存在且 > 0 byte）。

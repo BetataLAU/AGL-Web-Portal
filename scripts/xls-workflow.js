@@ -55,6 +55,16 @@ function getPdfConcurrency(recordCount, configuredValue = null) {
   return Math.min(Math.max(1, requested), 4, recordCount);
 }
 
+// ===== PDF 產生引擎（P4）=====
+// XLS_PDF_ENGINE=overlay|com；未設定＝com（＝100% 舊行為）。呼叫端亦可用 opts.pdfEngine 覆寫。
+//   com     ：Step 3（Excel COM 產生 SLI/ELI PDF）→ Step 4（merge／A4 正規化）→ Step 4.5（字型優化）
+//   overlay ：可疊字的記錄用 sli-eli-overlay 直接寫出 {MAWB}.pdf（跳過 Step 3/4/4.5）；
+//             非 Latin-1 或任何例外（背景／fieldmap 缺失、sha 不符、render 失敗）退回該筆的 com 路徑。
+function resolvePdfEngineMode(requested) {
+  const raw = String(requested || process.env.XLS_PDF_ENGINE || 'com').trim().toLowerCase();
+  return raw === 'overlay' ? 'overlay' : 'com';
+}
+
 function terminatePdfWorker(child) {
   if (!child || child.killed) return;
   // 子程序已結束就不要再 taskkill（PID 可能已被系統回收給其他程序，誤殺會更嚴重）
@@ -400,10 +410,24 @@ function planDateGroups(allRecords, mergedPdfs) {
  *   - defs: Array<{ fileIndex, sheetIndex, headerRow, firstDataRow, fieldMap, cneeLookup }>
  *   - reportTemplate: string (report xlsx 路徑)
  *   - sliTemplate: string (模板 xlsm 路徑)
- * @returns {Promise<{zipPath, reportPath, count, errors}>}
+ *   - pdfEngine: 'overlay' | 'com'（選填；未給則用 XLS_PDF_ENGINE 環境變數，再無則 'com'）
+ * @returns {Promise<{zipPath, reportPath, count, errors, engine, fallbackCount}>}
  */
 async function runWorkflow(opts) {
   const { files, defs, reportTemplate, sliTemplate, concurrency, onProgress, signal } = opts;
+
+  // ===== P4：PDF 產生引擎分派 =====
+  // overlay 模式：可疊字的記錄直接 engine.render() 寫出 {MAWB}.pdf（跳過 Step 3/4/4.5）；
+  // 非 Latin-1（CNEE 中文／全形標點）或任何例外的記錄自動退回舊 Excel COM 路徑（同批可混合）。
+  const engineMode = resolvePdfEngineMode(opts.pdfEngine);
+  const engineReport = {
+    mode: engineMode,      // 本次實際使用的引擎（'overlay' | 'com'）
+    overlay: 0,            // 疊字引擎成功產出的份數
+    com: 0,                // 走 Excel COM 路徑的份數（含退回）
+    fallbackCount: 0,      // 因故退回舊引擎的份數
+    fallbackReasons: [],   // [{ mawb, chars }]（非 Latin-1 或引擎不可用）
+    overlayMs: 0,          // 疊字渲染總耗時
+  };
 
   // ===== 紙張設定（A4 修正）=====
   // 預設 a4：Python 端強制 A4 直式 + FitToPage；custom：維持模板原設定（＝舊行為）。
@@ -527,9 +551,11 @@ async function runWorkflow(opts) {
   assertActive();
   const workDir = await fsp.mkdtemp(path.join(WORK_DIR, 'job-'));
   const pdfPairs = []; // [{ mawb, sli, eli }]（依 MAWB 配對，避免任何一筆缺檔造成後續全部錯位）
+  const mergedPdfs = []; // 最終 {MAWB}.pdf（overlay 直接寫入；com 由 Step 4 合併寫入）
+  const overlayPdfPaths = new Set(); // 由疊字引擎產出的檔案（Step 4.5 只對「退回舊引擎」的檔案瘦身）
   let pdfCount = 0;
 
-  // 批次呼叫 Excel COM 腳本（一次開工作簿，逐筆填 SLI/ELI 並產出 PDF/xlsx）
+  // 逐筆 payload（兩條引擎共用同一份格式：overlay 依 sli/eli 格號疊字，com 交給 Python 填表）
   const recordsPayload = [];
   for (const rec of allRecords) {
     if (!rec.mawb) continue;
@@ -555,12 +581,67 @@ async function runWorkflow(opts) {
     });
   }
 
-  if (recordsPayload.length) {
+  // ===== 引擎分派（P4）：overlay 先直接疊字，其餘（含任何例外）走舊 COM =====
+  // com 模式：comPayload === recordsPayload（後續 Step 3/4/4.5 與現況完全相同）
+  let comPayload = recordsPayload;
+  if (engineMode === 'overlay' && recordsPayload.length) {
+    let engine = null;
+    try {
+      // strict：背景 PDF／fieldmap 缺失或 blankPdfSha256 不符 → 丟例外 → 全部退回舊引擎
+      engine = await require('./sli-eli-overlay').createOverlayEngine({ strict: true });
+    } catch (e) {
+      errors.push(`疊字引擎無法使用，已全部改用 Excel 引擎：${e.message}`);
+    }
+    if (!engine) {
+      comPayload = recordsPayload.slice(0, recordsPayload.length);
+      engineReport.fallbackCount = recordsPayload.length;
+    } else {
+      const { renderable, fallback } = engine.partition(recordsPayload);
+      comPayload = [];
+      engineReport.fallbackCount = fallback.length;
+      engineReport.fallbackReasons = fallback.map((f) => ({
+        mawb: f.mawb,
+        chars: (f.unsupported || []).flatMap((u) => u.chars.map((c) => c.ch)).slice(0, 30).join(''),
+      }));
+      // 非 Latin-1 → 該筆直接排入舊 COM 路徑（與可疊字的記錄混在同一批執行）
+      for (const f of fallback) if (f.record) comPayload.push(f.record);
+      const byMawb = new Map(recordsPayload.map((r) => [String(r.mawb), r]));
+      if (renderable.length) {
+        reportProgress(25, `疊字產生 SLI/ELI PDF（0/${renderable.length}）...`);
+        const tOverlay = Date.now();
+        const batch = await engine.renderMany(renderable, workDir, {
+          onRecord: (r, i, n) => reportProgress(25 + Math.round(40 * (i / n)), `疊字產生 PDF（${i}/${n}）...`),
+        });
+        engineReport.overlayMs = Date.now() - tOverlay;
+        engineReport.overlay += batch.ok.length;
+        // 單筆失敗或仍判定不可疊字 → 該筆退回舊引擎（不中斷其他筆）
+        const needCom = new Set();
+        for (const item of batch.fallback) needCom.add(String(item.mawb));
+        for (const item of batch.errors) {
+          needCom.add(String(item.mawb));
+          errors.push(`MAWB ${item.mawb} 疊字產生失敗（已改用 Excel 引擎）：${item.message}`);
+        }
+        for (const item of batch.ok) {
+          // 背景本來就是 A4（此處僅量測回報紙張尺寸，不符只警示不中斷）
+          await verifyMergedPaper(item.file, item.mawb);
+          mergedPdfs.push(item.file);
+          overlayPdfPaths.add(item.file);
+        }
+        for (const mawb of needCom) {
+          const rec = byMawb.get(mawb);
+          if (rec) comPayload.push(rec);
+        }
+      }
+    }
+  }
+  engineReport.com = comPayload.length;
+
+  if (comPayload.length) {
     try {
       // 將 payload 寫入暫存 JSON 檔（execFileAsync 不支援 stdin input，改用檔案參數）
-      reportProgress(25, `產生 ${recordsPayload.length} 份 SLI/ELI PDF（Excel 轉檔中，0/${recordsPayload.length}）...`);
+      reportProgress(25, `產生 ${comPayload.length} 份 SLI/ELI PDF（Excel 轉檔中，0/${comPayload.length}）...`);
       const payloadFile = path.join(workDir, 'sli-eli-payload.json');
-      await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: recordsPayload }), 'utf-8');
+      await fsp.writeFile(payloadFile, JSON.stringify({ template: sliTemplate, work_dir: workDir, records: comPayload }), 'utf-8');
       const py = resolvePython();
       // 確保 openpyxl 可用（Dockerfile pip 安裝不完整時自動補裝）
       await ensurePythonModule('openpyxl');
@@ -570,7 +651,7 @@ async function runWorkflow(opts) {
         script,
         payloadFile,
         workDir,
-        recordCount: recordsPayload.length,
+        recordCount: comPayload.length,
         concurrency,
         signal,
         onProgress: reportProgress,
@@ -616,7 +697,6 @@ async function runWorkflow(opts) {
   const mergeTargets = pdfPairs.filter((p) => p.sli && p.eli);
   reportProgress(80, `合併 ${mergeTargets.length} 組 SLI + ELI PDF...`);
   assertActive();
-  const mergedPdfs = [];
   let nextMerge = 0;
   const mergeWorkerCount = Math.min(getPdfConcurrency(mergeTargets.length, concurrency), 4);
   const mergeWorker = async () => {
@@ -651,9 +731,22 @@ async function runWorkflow(opts) {
   // ===== Step 4.5：PDF 字型優化（瘦身）=====
   // 實測 533 KB -> 123 KB（-77%），渲染逐像素差異 0.000%（移除 PDF 用不到的
   // name／hinting 表與 glyf 指令）。環境缺 Python/PyMuPDF 時自動略過、不影響產出。
+  // overlay 模式：疊字輸出的背景已是「已優化」字型（＋標準字型 0 byte 內嵌），無需再瘦身；
+  // 但本次若有「退回舊引擎」的檔案（非 Latin-1 等），那些是未優化的 Excel 輸出 → 只對它們瘦身，
+  // 否則會退回 ~545KB（與 com 模式的 123KB 不一致）。
   const fontOptEnabled = String(process.env.PDF_FONT_OPT || 'on').toLowerCase() !== 'off';
   let fontOpt = null;
-  if (fontOptEnabled && mergedPdfs.length) {
+  if (engineMode === 'overlay') {
+    const comPdfs = mergedPdfs.filter((p) => !overlayPdfPaths.has(p));
+    if (fontOptEnabled && comPdfs.length) {
+      reportProgress(87, `PDF 瘦身中（退回舊引擎的 ${comPdfs.length} 份）...`);
+      fontOpt = await optimizePdfFontsInPlace(comPdfs);
+      if (!fontOpt) fontOpt = { files: 0, before: 0, after: 0, reductionPct: 0, items: [], skipped: true, engine: 'overlay' };
+      else fontOpt.engine = 'overlay';
+    } else {
+      fontOpt = { files: 0, before: 0, after: 0, reductionPct: 0, items: [], skipped: true, engine: 'overlay' };
+    }
+  } else if (fontOptEnabled && mergedPdfs.length) {
     reportProgress(87, `PDF 瘦身中（字型優化 ${mergedPdfs.length} 份）...`);
     fontOpt = await optimizePdfFontsInPlace(mergedPdfs);
     if (!fontOpt) fontOpt = { files: 0, before: 0, after: 0, reductionPct: 0, items: [], skipped: true };
@@ -667,7 +760,7 @@ async function runWorkflow(opts) {
       (paperReport.issues.length > 3 ? `（共 ${paperReport.issues.length} 筆）` : '')
     );
   }
-  for (let i = 1; i <= getPdfConcurrency(recordsPayload.length, concurrency); i++) {
+  for (let i = 1; i <= getPdfConcurrency(comPayload.length, concurrency); i++) {
     await fsp.rm(path.join(workDir, `lo-profile-${i}`), { recursive: true, force: true }).catch(() => {});
   }
 
@@ -717,6 +810,8 @@ async function runWorkflow(opts) {
     duplicates, // 重覆 MAWB 警告清單（不阻斷；同一 MAWB 出現 2 次或以上）
     paper: paperReport, // 紙張驗證結果（mode / measured / ok / issues）
     fontOpt, // PDF 字型優化結果（files / before / after / reductionPct / skipped）
+    engine: engineReport, // PDF 產生引擎（mode / overlay / com / fallbackCount / fallbackReasons / overlayMs）
+    fallbackCount: engineReport.fallbackCount, // 退回舊 Excel 引擎的份數（相容欄位，P4）
     workDir,
   };
 }
@@ -743,6 +838,7 @@ module.exports = {
   flightCompany,
   FIELD_TYPES,
   // 子模組共用函式（一併 re-export，供外部使用）
+  resolvePdfEngineMode,
   sleep,
   cleanCell,
   excelSerialToDate,

@@ -62,6 +62,7 @@ async function runXlsWorkflow() {
         uploadId: xlsState.uploadId,
         defs: bodyDefs,
         concurrency: xlsState.pdfConcurrency,
+        engine: xlsState.pdfEngine,
       }),
     });
     const jobId = startRes.jobId;
@@ -191,6 +192,24 @@ function renderResult(res) {
     html += `<div class="xls-warning-box">${xlsEscapeHtml(res.syncWarning)}</div>`;
   }
   html += `<p>成功產生 ${res.count} 份 PDF（已合併 SLI + ELI）。</p>`;
+  // PDF 產生方式（P4）：顯示本次引擎、疊字份數與退回舊引擎筆數
+  if (res.engine) {
+    const modeLabel = res.engine.mode === 'overlay' ? '疊字（新版）' : 'Excel（舊版）';
+    let line = `🧩 PDF 產生方式：${modeLabel}`;
+    if (res.engine.mode === 'overlay') {
+      line += `（疊字 ${res.engine.overlay} 份`;
+      if (res.fallbackCount) line += `、退回 Excel ${res.fallbackCount} 份`;
+      line += '）';
+      if (res.engine.overlayMs) line += `，疊字耗時 ${(res.engine.overlayMs / 1000).toFixed(1)} 秒`;
+    }
+    html += `<p class="xls-paper-info">${line}</p>`;
+    if (res.engine.fallbackReasons && res.engine.fallbackReasons.length) {
+      html += `<p class="xls-preview-note">↩︎ 以下記錄自動退回 Excel 引擎（含 pdf-lib 標準字型不支援的字元）：` +
+        res.engine.fallbackReasons.map((f) =>
+          `${xlsEscapeHtml(f.mawb)}${f.chars ? `（${xlsEscapeHtml(f.chars)}）` : ''}`
+        ).join('；') + `</p>`;
+    }
+  }
   // 紙張驗證（A4 修正）：顯示實際量測到的頁面尺寸，未通過時明確警示
   if (res.paper) {
     const label = res.paper.mode === 'a4' ? 'A4' : '模板原紙張（custom）';

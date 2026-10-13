@@ -13,7 +13,9 @@ const DATA_DIR = process.env.DATA_DIR;
 const DB_PATH = process.env.DB_PATH || (DATA_DIR ? path.join(DATA_DIR, 'database.db') : path.join(__dirname, '..', 'database.db'));
 
 // index.html 目錄的預設順序（不含固定不動的 HOME）
+// 註：新增頁面（如 sli-eli-layout.html）務必加入本清單，否則已有自訂排序的使用者會把它排到最後。
 const DEFAULT_ORDER = [
+  'sli-eli-layout.html',
   '#section-chat',
   '#section-skills',
   '#section-contour',

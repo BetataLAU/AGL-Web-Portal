@@ -557,20 +557,27 @@
   margin-top: 12px;
   flex-wrap: wrap;
 }
-.xls-concurrency-control {
+.xls-concurrency-control,
+.xls-engine-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--text, inherit);
   font-size: 0.88rem;
 }
-.xls-concurrency-control select {
+.xls-concurrency-control select,
+.xls-engine-control select {
   min-height: 36px;
   padding: 6px 28px 6px 10px;
   border: 1px solid var(--border-color, #cbd5e1);
   border-radius: 8px;
   background: var(--bg, #fff);
   color: inherit;
+}
+/* 「PDF 產生方式」是新功能 → 視覺上優先（放在最前並加主色外框） */
+.xls-engine-control select {
+  border-color: var(--primary, #2563eb);
+  font-weight: 600;
 }
 .xls-status {
   font-size: 0.9rem;

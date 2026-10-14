@@ -152,8 +152,8 @@
 | 垂直區塊 | `top` 由 origin.y 往下；`center` 以 origin.y 為區塊中心；`bottom` 以 origin.y 為區塊底部 |
 | 換行 | 先依 `\n` 分段 → 再依 **`wrapWidthPt`**（新增鍵）以空白貪婪折行（超長單字硬切）→ 超過 `maxLines` 截斷 |
 | 日期 | `dateFormat`（新增鍵）＝ Excel 數字格式；`2026-10-03` → **`03/Oct/2026`** |
-| 字型 | `fontMode='auto'`（預設）：優先沿用背景內嵌的 Excel Arial 子集；不可用時退回 pdf-lib `StandardFonts.Helvetica`／`Helvetica-Bold`（0 byte） |
-| CJK／非 Latin-1 | **不畫**（避免亂碼）→ `status='fallback'`，由呼叫端退回舊 Excel 引擎 |
+| 字型 | `fontMode='auto'`（預設）：優先沿用背景內嵌的 Excel Arial 子集；不可用時退回 pdf-lib `StandardFonts.Helvetica`／`Helvetica-Bold`（0 byte）；CJK／全形字元再用 fontkit 子集（見 §1 字元處理） |
+| CJK／全形字元 | **可以畫**：fontkit 按需子集內嵌 CJK 字型（`PDF_CJK=auto` 預設）；找不到字型或字型缺該字形才 `status='fallback'` 退回舊 Excel 引擎 |
 
 **P3 校準：fieldmap v1 → v2（實測 Excel 輸出後修正，兩份 fieldmap 都已更新）**
 
@@ -202,6 +202,41 @@
 - 建置腳本新增「字符集匯出」：把 10 個動態格填入 ASCII 0x20–0x7E ＋ Latin-1 0xA0–0xFF（2pt、不換行、格子內塞得下）匯出一份 **charset PDF（不出貨，只當字型來源）**，再由 `scripts/sli-eli-blank-widen-fonts.js`（純 pdf-lib，無新相依）把它的 Arial 字型程式（FontFile2＋FontDescriptor＋/Widths）搬進空白。
 - 驗證：建置時強制 assert **加寬前後空白像素差異 0.0000%**（實測通過）、字符覆蓋率（不足即建置失敗）。產出空白與 commit 版**像素與文字完全相同**，且更小（122.3 → **114.0 KB**）。
 - ⚠️ **但覆蓋率只部分回復**：後續的字型優化（`subset_fonts`）會再依「未被內容引用」剃掉字元（213 → 75/72）→ 只對「字符剛好落在子集內」的資料生效（例：合成 3 筆走內嵌路徑、差異 0.139%）。**要 100% 生效**需改成：先優化空白 → 再優化 charset PDF → 最後才加寬（順序調換），代價是每份約 +35 KB（內嵌 Arial 全字符集）；因目前已在門檻內、且使用者重視檔案大小，**暫不啟用**（列為選項）。
+
+---
+
+### 字元處理：第 0／1／2 層 ✅ 2026-10-14
+
+**問題**：舊版只要遇到「pdf-lib 標準字型編不出來」的字元就整筆退回 Excel（每筆 ~4 s、123~131 KB）。實測 178 個歷史 job、2,789 筆：**462 筆（16.6%）含非 Latin-1 字元**，其中 **122 筆其實只含 U+2013 `–`**（誤判）、**340 筆真的有中文／全形標點**（`：，（）、是否 測試客戶有限公司 台北市信義區`）。
+
+**政策（使用者確認：只做無損；不做任何可見字元替換）**
+
+| 層 | 檔案 | 做法 | 實測效果 |
+|---|---|---|---|
+| 0 淨化 | `scripts/pdf-charset.js` `sanitizeText()` | 移除零寬（U+200B–200F、U+FEFF、U+2060–2064）、C0 控制字元、變體選擇器（U+FE00–FE0F）、U+180E；U+0085/U+2028/U+2029 → `\n`。**不**碰 U+00AD、U+00A0、U+3000 | 與 Excel 顯示一致（Excel 也不畫），無損 |
+| 1 WinAnsi | 同檔 `isStdFontChar`／`winAnsiByte`／`winAnsiHex` | 由「Latin-1」放寬為 **WinAnsiEncoding 可編碼**：ASCII＋Latin-1＋0x80–0x9F 的 27 個特殊字（`–` `—` `’` `“”` `€` `™` `•` `…`…）。`winAnsiHex` 改走對照表（舊版把 U+2013 寫成 `3F` `?`） | **122 筆不再退回**：116.5 KB／~50 ms（純 ASCII 同級） |
+| 2 CJK 子集 | `scripts/pdf-cjk-font.js` ＋ overlay 的字型混排 | `@pdf-lib/fontkit` 按需子集內嵌（只有該筆真的用到才內嵌）；`makeMeasure()` 逐段累加寬度（全形 1em → 不位移） | 340 筆 → **+4~7 KB／~50 ms**；`160-17592201`＝119.4 KB／74 ms、diff 0.244%/0.396% |
+
+**關鍵實測數據**
+
+| 項目 | 數值 |
+|---|---|
+| `msjh.ttc`（微軟正黑體）fontkit 解析 | 24 ms（快取後 0.15 ms） |
+| 子集大小 | 1 個全形字元 **+4.1 KB**；11 個漢字 **+6.9 KB**（mingliu 更小：+2.0/+4.0 KB） |
+| 真實記錄（`data/work/job-mTI8nS/160-17592201`，D9/M16 的 `：`） | **119.4 KB／74 ms**、2 頁 A4、150dpi 差異 **0.244% / 0.396%**、文字可搜尋 |
+| P4 混合批次（3 筆，其中 1 筆中文 CNEE） | `PDF_CJK=auto` → overlay=3／com=0、CJK 份 **123.7 KB**（Excel 退回版 131.3 KB）、overlayMs 159 ms；`PDF_CJK=off` → overlay=2／com=1（`reason='cjk-disabled'`） |
+| 對照（舊行為） | 退回 Excel：131.3 KB／~4 s／筆 |
+
+**`.ttc` 陷阱（最重要）**：`@pdf-lib/fontkit` 對 `.ttc` 回傳 `TrueTypeCollection`（**沒有 `createSubset`**）→ `doc.embedFont(ttcBytes,{subset:true})` 直接爆 `_this.font.createSubset is not a function`。必須：① 從 `obj.fonts` 挑單一字型（`MicrosoftJhengHeiRegular`／`PMingLiU`…）② 用 `new CustomFontSubsetEmbedder(fontkitFont, raw)` ＋ `PDFFont.of(ref, doc, embedder)` ＋ `doc.fonts.push(pdfFont)` 自行建立 PDFFont（`doc.embedFont` 的官方路徑只適用單一字型檔）。已解析的 fontkit 字型可跨文件重用 → 解析成本只付一次。
+
+**候選鏈**（`SLI_ELI_CJK_FONT` 覆寫、逗號分隔；`cjkStrict:true` 只用手上清單）
+- Windows：`msjh.ttc`（微軟正黑體，與模板靜態中文同字型家族）→ `mingliu.ttc` → `msyh.ttc` → `simsun.ttc` → `kaiu.ttf`
+- Linux／Docker（已安裝 `fonts-noto-cjk` ＋ `fonts-droid-fallback`）：`NotoSansCJK-Regular.ttc` → `DroidSansFallbackFull.ttf`（standalone TTF 保險）→ `NotoSerifCJK-Regular.ttc`
+- 可變字型（VF，例如 `NotoSansTC-VF.ttf` 預設實例是 **Thin**，筆畫與 Excel 不同）預設跳過。
+
+**驗收**：`node scripts/test-sli-eli-charset.js`（第 0／1／2 層 ＋ 實筆 KB/ms ＋ 與 Excel 的 150dpi 差異 ＋ `PDF_CJK=off` 回滾 ＋ 字型缺失模擬）。
+
+**已知限制**：① 字型缺字（emoji、罕見漢字）仍退回 Excel（`reason='no-glyph'`）② Excel 自己對 `：` 這類字元也是靠檢視器字型替代（實測 `160-17592201` 的參考 PDF 把 `：` 掛在 *Calibri* 上，而 Calibri 根本沒有 U+FF1A 字形）→ 疊字用真正的 CJK 字型反而更確定 ③ 不做可見字元替換（`：`→`:` 會改內容、改字寬、改折行，報關文件不允許）。
 
 ---
 
@@ -298,6 +333,14 @@
 ---
 
 ## 3. 檔案地圖（本次工作）
+
+### 新增（字元處理，2026-10-14）
+
+| 檔案 | 角色 |
+|---|---|
+| `scripts/pdf-charset.js` | **第 0 層淨化 ＋ 第 1 層 WinAnsi**：`sanitizeText()`／`isStdFontChar()`／`isStdFont()`／`winAnsiByte()`／`winAnsiHex()`／`findUnsupportedChars()`／`WINANSI_EXTRA_CODES`（建置工具共用同一份） |
+| `scripts/pdf-cjk-font.js` | **第 2 層 CJK 字型**：平台候選鏈、`.ttc` 集合取單一字型、`hasGlyph()`／`measureWidth()`、解析快取（`loadCjkFont`／`clearCache`） |
+| `scripts/test-sli-eli-charset.js` | 字元處理驗收（第 0／1／2 層 ＋ 實筆 KB/ms ＋ 與 Excel 的 150dpi 差異 ＋ `PDF_CJK=off` 與缺字型模擬） |
 
 ### 新增（P3）
 
@@ -409,6 +452,10 @@
 | `XLS_PDF_ENGINE` | `com`（預設／未設定＝舊版 Excel 引擎，行為 100% 不變）｜`overlay`（疊字引擎，P4） |
 | `SLI_ELI_BLANK_PDF` / `SLI_ELI_FIELDMAP` | 既有（P3 引擎可覆寫背景 PDF／fieldmap 路徑；缺失即自動退回 `com`） |
 | `fontMode`（P3 引擎參數） | `auto`（預設，優先沿用背景內嵌的 Arial 子集）｜`standard`（強制 pdf-lib 標準字型） |
+| `PDF_CJK` | `auto`（預設：CJK／全形字元用 fontkit 按需子集內嵌）｜`off`（**完全停用** → 含 CJK 的記錄退回 Excel＝舊行為，一鍵回滾） |
+| `SLI_ELI_CJK_FONT` | CJK 字型候選路徑（逗號分隔，優先於平台預設）；引擎另有 `cjkStrict:true`（只用手上清單，維運「鎖定字型」用） |
+| npm 依賴 | 新增 **`@pdf-lib/fontkit`**（CJK 子集內嵌必需）。未安裝／找不到字型／字型缺字形時全部自動退回 Excel 引擎，**不會讓流程失敗** |
+| Docker 字型 | `fonts-noto-cjk`（Noto CJK `.ttc`）＋ **`fonts-droid-fallback`**（`DroidSansFallbackFull.ttf`，standalone TTF 保險；fontkit 對 OTC/CFF 不支援時的後備） |
 | `XLS_PDF_CONCURRENCY` | 既有（預設 2；Windows COM 建議 1） |
 | `DATA_DIR` | 既有（覆寫 `data/`） |
 
@@ -444,6 +491,18 @@ node scripts/sli-eli-blank-widen-fonts.js --blank blank-a4.pdf --charset charset
 # 字型瘦身單獨用
 python scripts/sli-eli-font-optimize.py <in.pdf> <out.pdf> --diff
 python scripts/sli-eli-font-optimize.py <in.pdf> --report
+
+# ===== 字元處理（第 0／1／2 層）=====
+# 驗收：淨化（無損）＋WinAnsi 放寬（與 @pdf-lib/standard-fonts 官方表逐筆核對）＋CJK 子集
+# 期望：CHARSET CHECK: PASS；case B（160-17592201）= 119.4 KB / ~74 ms / diff 0.244%・0.396%
+node scripts/test-sli-eli-charset.js
+node scripts/test-sli-eli-charset.js --no-diff        # 只驗邏輯與 KB/ms（不需參考檔）
+
+# 回滾驗證：PDF_CJK=off → 含 CJK 的記錄應退回 Excel（CHARSET CHECK 的 case C 就是驗這個）
+$env:PDF_CJK='off'; node scripts/test-sli-eli-charset.js --no-diff; Remove-Item Env:PDF_CJK
+
+# 單筆冒煙（CJK）：應為 status=ok 且 fontPaths 含 cjk-subset
+node -e "require('./scripts/sli-eli-overlay').createOverlayEngine().then(async e=>{const r=await e.render({mawb:'999-1',sli:{D23:'999-1',D9:'ACME \u4E2D\u6587\uFF1A\u6E2C\u8A66'},eli:{}}, 'data/test-p3/cjk.pdf');console.log(r.status,r.bytes,r.fontPaths,JSON.stringify(e.cjk))})"
 
 # ===== P3 疊字產生器 =====
 # 驗收（會自動找最近含 payload + {MAWB}.pdf 的 job；建議指定真實 job）
@@ -531,6 +590,11 @@ python data/test-p3/probe-visual.py a.pdf b.pdf  # 逐欄位「ref/mine/差異�
 24. **備份檔名只到「秒」會互相覆蓋**：同一秒內連續 PUT／reset（例如前端「儲存」後立刻「還原全部」）會讓後一次備份蓋掉前一次 → 檔名要帶毫秒，並在碰撞時加隨機後綴。`test-sli-eli-layout.js` 的「備份清單 ≥ 2 筆」就是防這個。
 25. **Windows 上用 PowerShell 對檔案做「插行」要小心**：以行號插入的編輯若錨點落在函式內部，會把後面的內容（含 `main().catch(...)`）擠到函式尾巴，造成「語法通過但 `main()` 從未被呼叫」的靜默失敗（P5 撰寫測試腳本時踩過）。寫大型檔案請用「附加到檔尾」或先刪檔重建。
 26. **來源試算表的文字會直接進檔名 → 必須過濾 Windows 非法字元**：客戶的「航班號」欄位其實是 `5Y8050/ 13th Oct`（航班號＋日期），舊版 Step 5 直接拿它組 ZIP 檔名 → `/` 在 Windows 既非法又是路徑分隔，`path.join` 後變成子目錄 → `ENOENT`（`: ...\job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`），PDF 已產出但整批 ZIP 失敗。修法：`sanitizeFileLabel()`（`xls-utils.js`）＋ `zipBaseName()`（`xls-workflow.js`），並用 `scripts/test-zip-naming.js` 固定（含「舊寫法會 ENOENT」對照組）。**注意：不可把既有檔名 `20260803 - CX257` 改掉**（日期與標籤之間的 ` - ` 要保留 → 過濾規則必須綁定「非法字元本身」，不能無腦合併所有 `- `）。
+27. **`@pdf-lib/fontkit` 對 `.ttc` 回傳 `TrueTypeCollection`（沒有 `createSubset`）**：`doc.embedFont(ttcBytes, { subset: true })` 會直接爆 `_this.font.createSubset is not a function`（`msjh.ttc` 實測）。必須從 `obj.fonts` 挑單一字型（`MicrosoftJhengHeiRegular`／`PMingLiU`…）再 `new CustomFontSubsetEmbedder(fontkitFont, raw)` ＋ `PDFFont.of(ref, doc, embedder)` ＋ **`doc.fonts.push(pdfFont)`**（`doc.fonts` 是 pdf-lib 在 `flush()` 時內嵌字型的來源，不 push 就不會被寫進 PDF）。已解析的 fontkit 字型可跨文件重用（解析 24 ms → 快取 0.15 ms）。
+28. **可變字型（VF）沒有「正確的預設實例」**：`NotoSansTC-VF.ttf` 的 `postscriptName` 是 `NotoSansTC-Thin` → 筆畫極細，與 Excel 不符。`scripts/pdf-cjk-font.js` 以 `font.variationAxes` 判斷並跳過 VF；Windows 用 `msjh.ttc`／`mingliu.ttc`，Linux 用 `NotoSansCJK-Regular.ttc`／`DroidSansFallbackFull.ttf`。
+29. **背景 PDF 內嵌的 CJK 字型不能沿用**：`sli-eli-blank.pdf` 的 `MicrosoftJhengHeiBold`／`PMingLiU` 已被 P2a 字型優化剃過 —— **沒有 `cmap` table**、`glyf` 只剩被引用的字形（p1 的 PMingLiU `glyf` 只有 98 bytes）→ 無法對應動態文字的字元。這也是第 2 層要自己用 fontkit 內嵌子集的原因（不是「不想用」而是「不能用」）。
+30. **不要用「可見字元替換」解決 CJK**：`：` → `:` 會改動報關文件內容，且全形 1em → 半形 0.278em 會讓同一行後續文字左移 4~6pt（150dpi 約 8~12px）、可能改變折行位置（實測 `160-17592201` 的 D9／M16 就在字串中間）。政策＝只做無損淨化（第 0 層）＋WinAnsi 放寬（第 1 層）＋CJK 子集（第 2 層），其餘一律退回 Excel 並在結果面板列出（`reason='no-glyph'`）。
+31. **`winAnsiHex` 不能用 `charCodeAt` 直接當位元組**：WinAnsi 特殊字（U+2013 `–` 等 27 個）在 Unicode 是 0x2013 但位元組是 `0x96` → 舊寫法會輸出 `3F`（`?`）。`scripts/pdf-charset.js` 的 `winAnsiByte()` 是唯一的對照來源，且 `scripts/test-sli-eli-charset.js` 會與 `@pdf-lib/standard-fonts` 的官方表逐筆核對（218 個 codepoint）。
 
 ---
 
@@ -556,6 +620,26 @@ M  scripts/build-sli-eli-blank.py / data/templates/sli-eli-fieldmap.json / .defa
 （P1/P2 的變更與使用者先前 WIP 已於 dd6c0ba commit；P3/P4 前置已於 35b14e0 commit）
 ```
 
+### 字元處理（2026-10-14，未提交）
+
+```
+M  package.json / package-lock.json              ← 新增 @pdf-lib/fontkit（CJK 子集內嵌）
+?? scripts/pdf-charset.js                        ← 第 0 層淨化 ＋ 第 1 層 WinAnsi（與官方表核對）
+?? scripts/pdf-cjk-font.js                       ← 第 2 層 CJK 字型解析（.ttc 取單一字型／快取）
+?? scripts/test-sli-eli-charset.js               ← 字元處理驗收（三層＋實筆 KB/ms＋150dpi 差異＋回滾）
+M  scripts/sli-eli-overlay.js                    ← sanitizeText＋WinAnsi 放寬＋CJK 子集混排（makeMeasure／drawMixedText／embedCjkFontInto）＋check().reason／usesCjk
+M  scripts/sli-eli-blank-widen-fonts.js          ← REQUIRED 由 pdf-charset 提供（補上 27 個 WinAnsi 特殊字）
+M  scripts/build-sli-eli-blank.py                ← CHARSET 同步加入 27 個 WinAnsi 特殊字（重建時才會生效）
+M  scripts/xls-workflow.js                       ← fallbackReasons 帶 reason＋engine.cjkFont
+M  routes/xls-booking-layout.js                  ← preview 訊息依「缺字型／字型缺字形」分流＋帶 reason
+M  public/js/xls-booking-workflow.js / public/js/sli-eli-layout-main.js   ← 文案（不再說「pdf-lib 標準字型不支援」）
+M  Dockerfile                                    ← 追加 fonts-droid-fallback（standalone CJK TTF 後備）
+M  scripts/test-p4-engine.js                     ← case 1 改為 PDF_CJK=off；新增 case 1b（auto → 3 筆全疊字）
+M  scripts/test-sli-eli-overlay.js               ← 顯示 CJK 字型資訊與退回 reason
+```
+
+*註：`sli-eli-blank.pdf` **尚未重建** → 27 個 WinAnsi 特殊字目前走標準字型（字形與 Arial 相容，差異在 150dpi 地板內）；下次重建時 `build-sli-eli-blank.py` 會把它們併進內嵌 Arial 子集。*
+
 *註：`data/templates/sli-eli-fieldmap.json` 目前內容與 commit 版相同（P5 測試結束會還原）；編輯器產生的 `sli-eli-fieldmap.bak-*.json` 已加入 `.gitignore`。*
 
 ---
@@ -565,7 +649,7 @@ M  scripts/build-sli-eli-blank.py / data/templates/sli-eli-fieldmap.json / .defa
 ```text
 延續 AGL-Web-Portal 的 Shipper Role 專案（SLI/ELI PDF）。
 
-請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦＋已完成事項＋25 條陷阱）
+請先讀 docs/design/xls-sli-eli-overlay-prd.md（交接待辦＋已完成事項＋31 條陷阱）
 與 CLAUDE.md 的「Shipper Role Project」段落；開頭照例先跑 npm run sync。
 
 現況：P1～P5 全部完成並驗證（細節在 PRD §1／§2），需求 1～4 都已交付：

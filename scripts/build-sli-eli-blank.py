@@ -51,7 +51,17 @@ BACKDROP_DPI = 120
 # 疊字的 fontMode='auto'（沿用內嵌 Arial）幾乎用不上。做法：清空／marker 匯出完成後，
 # 再把動態格填入「全字符集」匯出一份 charset PDF（**不出貨，只當字型來源**），
 # 由 scripts/sli-eli-blank-widen-fonts.js 把它的 Arial 字型程式搬進空白（像素必須完全相同）。
-CHARSET = ''.join(chr(c) for c in list(range(0x20, 0x7f)) + list(range(0xa0, 0x100)))
+#   ＋ WinAnsiEncoding 0x80–0x9F 的 27 個「特殊字」Unicode（例 U+2013 `–`、U+201C `“`）
+#   ⚠️ 這份清單必須與 scripts/pdf-charset.js 的 WINANSI_EXTRA_CODES 一致，
+#      否則 scripts/sli-eli-blank-widen-fonts.js 的覆蓋率斷言會讓建置失敗（這是刻意的）。
+#      Arial／Arial-Bold 已實測涵蓋這 27 個 codepoint。
+WINANSI_EXTRA_CODES = [
+    0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6,
+    0x2030, 0x0160, 0x2039, 0x0152, 0x017d, 0x2018, 0x2019, 0x201c,
+    0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a,
+    0x0153, 0x017e, 0x0178,
+]
+CHARSET = ''.join(chr(c) for c in list(range(0x20, 0x7f)) + list(range(0xa0, 0x100)) + WINANSI_EXTRA_CODES)
 CHARSET_FONT_SIZE = 2          # 只為撐出字型子集，內容不會出貨
 CHARSET_CELL_CHUNKS = 2        # 每個字型（regular/bold）用幾個動態格
 

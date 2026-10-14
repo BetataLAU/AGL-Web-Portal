@@ -1,7 +1,8 @@
 // ===== Shipper Role Project - P4 引擎分派驗證（overlay / com 混合批次 + 自動退回） =====
 // 驗收項目（PRD §P4）：
-//   1) 混合批次：同一次執行中，可疊字的記錄用疊字引擎、非 Latin-1 的記錄自動退回 Excel COM
-//      （result.engine = { mode:'overlay', overlay, com, fallbackCount, fallbackReasons }）
+//   1) 混合批次：同一次執行中，可疊字的記錄用疊字引擎、無法疊字的記錄自動退回 Excel
+//      （result.engine = { mode:'overlay', overlay, com, fallbackCount, fallbackReasons, cjkFont }）
+//   1b) PDF_CJK=auto（預設）：含中文／全形字元的記錄也能疊字（不必退回 Excel）
 //   2) 引擎不可用（背景 PDF／fieldmap 缺失、sha 不符）→ 全部自動退回 Excel 引擎（不中斷、明確回報）
 //   3) 兩種情況每份 PDF 仍為 2 頁 A4，且 errors 不得出現非預期訊息
 //
@@ -84,16 +85,24 @@ async function main() {
   if (saved === undefined) delete process.env.XLS_PDF_ENGINE; else process.env.XLS_PDF_ENGINE = saved;
 
   // ---- case 1：混合批次（overlay + 自動退回 com）----
-  console.log('\n=== case 1：混合批次（2 筆疊字 + 1 筆非 Latin-1 退回 Excel）===');
+  // PDF_CJK=off → 模擬「環境沒有 CJK 字型」：含中文／全形字元的記錄整筆退回 Excel（舊行為）。
+  console.log('\n=== case 1：混合批次（2 筆疊字 + 1 筆 CJK 退回 Excel；PDF_CJK=off）===');
+  const savedCjkMode = process.env.PDF_CJK;
+  process.env.PDF_CJK = 'off';
   const f1 = await buildSynthetic('test-p4-engine-mixed');
-  const r1 = await runWorkflow({
-    files: [{ originalName: 'synthetic-mixed.xlsx', path: f1.srcPath }],
-    defs: f1.defs,
-    reportTemplate: f1.reportCopy,
-    sliTemplate: path.join(TEMPLATES, 'cainiao-sli-eli-template.xlsx'),
-    concurrency: 1,
-    pdfEngine: 'overlay',
-  });
+  let r1;
+  try {
+    r1 = await runWorkflow({
+      files: [{ originalName: 'synthetic-mixed.xlsx', path: f1.srcPath }],
+      defs: f1.defs,
+      reportTemplate: f1.reportCopy,
+      sliTemplate: path.join(TEMPLATES, 'cainiao-sli-eli-template.xlsx'),
+      concurrency: 1,
+      pdfEngine: 'overlay',
+    });
+  } finally {
+    if (savedCjkMode === undefined) delete process.env.PDF_CJK; else process.env.PDF_CJK = savedCjkMode;
+  }
   const pdfs1 = await inspectPdfs(r1.workDir);
   console.log(`  engine=${JSON.stringify(r1.engine)}`);
   console.log(`  fallbackCount=${r1.fallbackCount}  errors=${JSON.stringify(r1.errors)}`);
@@ -104,8 +113,38 @@ async function main() {
   check('engine.com=1、fallbackCount=1', r1.engine.com === 1 && r1.fallbackCount === 1);
   check('退回原因含該 MAWB 與非 Latin-1 字元', r1.engine.fallbackReasons.length === 1
     && r1.engine.fallbackReasons[0].mawb === '160-15102743' && /，/.test(r1.engine.fallbackReasons[0].chars));
+  check("退回原因 reason='cjk-disabled'（PDF_CJK=off）", r1.engine.fallbackReasons[0].reason === 'cjk-disabled',
+    String(r1.engine.fallbackReasons[0].reason));
   check('每份 2 頁 A4', pdfs1.length === 3 && pdfs1.every((p) => p.ok));
   check('errors=[]', r1.errors.length === 0, JSON.stringify(r1.errors));
+
+  // ---- case 1b：預設（PDF_CJK=auto）→ 含 CJK 的記錄也走疊字，不再退回 Excel ----
+  console.log('\n=== case 1b：預設（PDF_CJK=auto）→ 3 筆全部疊字，engine.com=0 ===');
+  const f1b = await buildSynthetic('test-p4-engine-cjk');
+  const r1b = await runWorkflow({
+    files: [{ originalName: 'synthetic-mixed.xlsx', path: f1b.srcPath }],
+    defs: f1b.defs,
+    reportTemplate: f1b.reportCopy,
+    sliTemplate: path.join(TEMPLATES, 'cainiao-sli-eli-template.xlsx'),
+    concurrency: 1,
+    pdfEngine: 'overlay',
+  });
+  const pdfs1b = await inspectPdfs(r1b.workDir);
+  console.log(`  engine=${JSON.stringify(r1b.engine)}`);
+  console.log(`  fallbackCount=${r1b.fallbackCount}  errors=${JSON.stringify(r1b.errors)}`);
+  pdfs1b.forEach((p) => console.log(`  ${p.name}: pages=${p.pages} ${p.ok ? 'A4' : 'NOT-A4'} ${p.kb} KB`));
+  check('count=3', r1b.count === 3, `count=${r1b.count}`);
+  if (r1b.engine.cjkFont) {
+    check('engine.overlay=3、com=0、fallbackCount=0（CJK 也疊字）',
+      r1b.engine.overlay === 3 && r1b.engine.com === 0 && r1b.fallbackCount === 0,
+      `overlay=${r1b.engine.overlay} com=${r1b.engine.com} fallback=${r1b.fallbackCount}`);
+    check('engine.cjkFont 回報本次使用的字型', !!r1b.engine.cjkFont, String(r1b.engine.cjkFont));
+    check('每份 2 頁 A4', pdfs1b.length === 3 && pdfs1b.every((p) => p.ok));
+  } else {
+    check('環境無 CJK 字型 → 允許退回（engine.com>0 且 fallbackReasons 有記錄）',
+      r1b.engine.com > 0 && r1b.engine.fallbackReasons.length > 0,
+      `com=${r1b.engine.com} cjkFont=${r1b.engine.cjkFont}`);
+  }
 
   // ---- case 2：引擎不可用 → 全部退回 Excel 引擎 ----
   console.log('\n=== case 2：背景 PDF 缺失 → 全部自動退回 Excel 引擎 ===');

@@ -35,6 +35,8 @@
 | `scripts/xls-report.js` | Report 模板寫入 |
 | `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包 |
 | `scripts/xls-exceljs-guard.js` | 讀檔防護：略過異常大的 defined-name 範圍，避免 WPS 檔造成 OOM（上傳／預覽／process 必載） |
+| `scripts/pdf-charset.js` | SLI/ELI 字元支援判定（第 0 層淨化＋第 1 層 WinAnsi；與 `@pdf-lib/standard-fonts` 逐筆核對） |
+| `scripts/pdf-cjk-font.js` | SLI/ELI CJK 字型解析（fontkit 按需子集；`.ttc` 取單一字型、解析快取；`PDF_CJK`／`SLI_ELI_CJK_FONT`） |
 | `scripts/test-xls-preview-formula.js` | 公式／複合儲存格預覽測試（② 預覽與日期顯示，免伺服器） |
 
 ### 後端 `routes/`

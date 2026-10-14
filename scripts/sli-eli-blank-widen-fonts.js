@@ -20,11 +20,18 @@ const path = require('path');
 const zlib = require('zlib');
 const { PDFDocument, PDFName, PDFDict, PDFArray, PDFNumber, PDFRawStream } = require('pdf-lib');
 
+const { WINANSI_EXTRA_CODES } = require('./pdf-charset');
+
 const WANT_RE = /(?:^|\+)Arial(-Bold)?MT$/; // Excel 產出：<TAG>+ArialMT / <TAG>+Arial-BoldMT
+// 標準字型（WinAnsi）可編碼的**全部**字元 ＝ ASCII ＋ Latin-1 ＋ WinAnsi 0x80–0x9F 的 27 個特殊字
+// （U+2013 `–`、U+201C `“`…）。這份清單必須與 scripts/pdf-charset.js 的 STD_FONT_CHARS 一致，
+// 否則建置出來的背景會缺字 → 疊字引擎只能退回標準字型（字形與 Excel 不一致）。
+// Arial / Arial-Bold 已實測涵蓋這 27 個 codepoint（cmap 3412 chars）。
 const REQUIRED = [
   ...Array.from({ length: 0x7f - 0x20 }, (_, i) => 0x20 + i),
   ...Array.from({ length: 0x100 - 0xa0 }, (_, i) => 0xa0 + i),
-]; // 191 個字元（與 overlay 的 isLatin1Char 一致）
+  ...WINANSI_EXTRA_CODES,
+];
 
 function pdfNameStr(obj) {
   if (!obj || typeof obj.asString !== 'function') return '';

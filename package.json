@@ -11,6 +11,7 @@
     "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "archiver": "^6.0.2",
     "bcryptjs": "^3.0.3",
     "connect-sqlite3": "^0.9.18",

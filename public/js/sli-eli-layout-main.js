@@ -170,7 +170,8 @@ async function lelTestPdf() {
     lelSyncFromPreview(res);
     if (!res.renderable) {
       const chars = res.fallback ? res.fallback.unsupported.map((u) => u.sample || u.label).join('、') : '';
-      lelShowModal(`此樣本含 pdf-lib 標準字型不支援的字元（${lelEsc(chars)}）。<br>正式流程會自動退回 Excel 引擎；請改用「內建範例資料」或其他 Latin-1 樣本。`);
+      const why = res.fallback && res.fallback.message ? res.fallback.message : '此樣本含無法輸出的字元。';
+      lelShowModal(`${lelEsc(why)}<br>字元：${lelEsc(chars)}<br>正式流程會自動退回 Excel 引擎；請改用「內建範例資料」或其他樣本。`);
       return;
     }
     if (!res.pdf) { lelShowModal('引擎未回傳 PDF（請檢查 data/templates/sli-eli-blank.pdf）'); return; }

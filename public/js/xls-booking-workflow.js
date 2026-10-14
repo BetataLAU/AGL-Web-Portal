@@ -204,7 +204,7 @@ function renderResult(res) {
     }
     html += `<p class="xls-paper-info">${line}</p>`;
     if (res.engine.fallbackReasons && res.engine.fallbackReasons.length) {
-      html += `<p class="xls-preview-note">↩︎ 以下記錄自動退回 Excel 引擎（含 pdf-lib 標準字型不支援的字元）：` +
+      html += `<p class="xls-preview-note">↩︎ 以下記錄自動退回 Excel 引擎（含標準字型與 CJK 字型都無法輸出的字元）：` +
         res.engine.fallbackReasons.map((f) =>
           `${xlsEscapeHtml(f.mawb)}${f.chars ? `（${xlsEscapeHtml(f.chars)}）` : ''}`
         ).join('；') + `</p>`;

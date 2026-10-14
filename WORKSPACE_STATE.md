@@ -7,17 +7,25 @@
 
 - **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正）**：
+- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理）**：
+  - **(G) 字元處理（第 0/1/2 層）**：新增 `scripts/pdf-charset.js`、`scripts/pdf-cjk-font.js`、`scripts/test-sli-eli-charset.js`；修改 `scripts/sli-eli-overlay.js`（淨化／WinAnsi 放寬／CJK 子集混排／`check().reason`）、`scripts/xls-workflow.js`（`fallbackReasons.reason`＋`engine.cjkFont`）、`scripts/sli-eli-blank-widen-fonts.js`＋`scripts/build-sli-eli-blank.py`（27 個 WinAnsi 特殊字）、`routes/xls-booking-layout.js`＋`public/js/xls-booking-workflow.js`＋`public/js/sli-eli-layout-main.js`（文案）、`Dockerfile`（`fonts-droid-fallback`）、`package.json`（`@pdf-lib/fontkit`）
   - **(F) ZIP 檔名修正**：`scripts/xls-utils.js`（`sanitizeFileLabel()`）、`scripts/xls-workflow.js`（`zipBaseName()`＋Step 5 改用它）、新增 `scripts/test-zip-naming.js`
   - **(E) P5 版面編輯器**：新增 `public/sli-eli-layout.html`、`public/js/sli-eli-layout-{state,editor,main}.js`、`public/css/sli-eli-layout.css`、`routes/xls-booking-layout.js`、`scripts/test-sli-eli-layout.js`；修改 `routes/xls-booking.js`（掛載 `/layout`）、`public/index.html`（側欄最頂新項目）、`public/js/auth.js`（鎖頭／解鎖）、`scripts/fix-nav-order.js`（DEFAULT_ORDER 首項）、`.gitignore`（fieldmap 備份）、`database.db`（admin 導覽排序 10 → 11 項）
   - **(D) P4**：`scripts/xls-workflow.js`（`XLS_PDF_ENGINE=overlay|com` 分派／失敗自動退回／`result.engine`＋`result.fallbackCount`）、`routes/xls-booking.js`（`engine` 白名單，非法回 400）、`public/index.html`＋`public/css/xls-booking.css`（④ `.xls-run-row` 最前「PDF 產生方式」選擇器）、`public/js/xls-booking-state.js`＋`xls-booking-workflow.js`（`xlsState.pdfEngine`＋結果面板顯示產生方式／退回筆數）、新增 `scripts/test-p4-engine.js`
   - **(C) P3＋P4 前置**：新增 `scripts/sli-eli-overlay.js`、`scripts/sli-eli-diff.py`、`scripts/test-sli-eli-overlay.js`、`scripts/sli-eli-blank-widen-fonts.js`；修改 `scripts/build-sli-eli-blank.py`（校準表／baseline 模型／字符集加寬）、`data/templates/sli-eli-fieldmap{,.default}.json`（v2）、`data/templates/sli-eli-blank.pdf`（114.0 KB，像素不變）、`CLAUDE.md`、`docs/design/xls-sli-eli-overlay-prd.md`（+ 本檔）
   - 例行變更：`data/templates/shipper-role-summary-2026.xlsx`、`database.db`、`db/sessions.db`、`server.*.log`
-- **交接文件（新對話請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md`（P1～P5 已完成＋實測數據、後續選項、可執行驗證指令、25 個已踩過的陷阱、新對話提示詞（§8））
+- **交接文件（新對話請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md`（P1～P5 已完成＋字元處理三層＋實測數據、後續選項、可執行驗證指令、31 個已踩過的陷阱、新對話提示詞（§8））
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **修正：ZIP 檔名未過濾 Windows 非法字元（生產問題，本次，尚未提交）**：使用者實際跑 13 筆時失敗 `ENOENT ... job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`。
+0. **字元處理：第 0/1/2 層（本次，尚未提交）**：舊版遇到「pdf-lib 標準字型編不出來」的字元就整筆退回 Excel（每筆 ~4 s、123–131 KB）。實測 178 個歷史 job、2,789 筆：462 筆（16.6%）含非 Latin-1，其中 **122 筆其實只含 `–`（U+2013）**、340 筆真的含中文／全形標點。
+   - **第 0 層淨化**（`scripts/pdf-charset.js` `sanitizeText()`）：移除零寬（U+200B–200F／U+FEFF）／C0 控制字元／變體選擇器／U+180E；U+0085/U+2028/U+2029 → `\n`。**不做**任何可見字元替換（U+00AD／U+00A0／U+3000 保留）。
+   - **第 1 層 WinAnsi 放寬**：判定由 Latin-1 改為「WinAnsiEncoding 可編碼」（ASCII＋Latin-1＋0x80–0x9F 的 27 個特殊字），`winAnsiHex` 改走 `winAnsiByte()` 對照表（舊版把 U+2013 寫成 `3F` `?`）→ **122 筆不再退回**（116.5 KB／~50 ms）。
+   - **第 2 層 CJK 子集**（`scripts/pdf-cjk-font.js`＋`@pdf-lib/fontkit`）：按需子集內嵌（只有該筆用到才 +4~7 KB；`msjh.ttc` 解析 24 ms、快取 0.15 ms）；`makeMeasure()` 逐段累加寬度（全形 1em → 不位移）。**關鍵坑**：fontkit 對 `.ttc` 回傳 `TrueTypeCollection`（沒有 `createSubset`）→ 必須挑單一字型＋`new CustomFontSubsetEmbedder(...)`。`PDF_CJK=off` 一鍵回滾、`SLI_ELI_CJK_FONT` 可覆寫字型。
+   - **實測**：`160-17592201`（含 `：`）＝**119.4 KB／74 ms**、150dpi 差異 **0.244%/0.396%**、文字可搜尋；P4 混合批次 `auto` → **overlay=3／com=0**、CJK 份 **123.7 KB**（Excel 退回版 131.3 KB）；`off` → overlay=2／com=1（`reason='cjk-disabled'`）。
+   - **驗證**：新增 `scripts/test-sli-eli-charset.js` → **PASS**；`test-sli-eli-overlay.js` PASS、`test-p4-engine.js` PASS（含新 case 1b）、`test-sli-eli-layout.js` PASS、`test-a4-integration.js` PASS（com 模式 100% 不變）。
+   - **已知限制**：字型缺字（emoji／罕見漢字）仍退回（`reason='no-glyph'`）；`sli-eli-blank.pdf` 尚未重建 → 27 個 WinAnsi 特殊字目前走標準字型（重建後會併進內嵌 Arial 子集）。
+1. **修正：ZIP 檔名未過濾 Windows 非法字元（生產問題，本次，尚未提交）**：使用者實際跑 13 筆時失敗 `ENOENT ... job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`。
    - **根因**：來源「航班號」欄位的實際內容是 **`5Y8050/ 13th Oct`**（航班號＋日期），Step 5 直接用它組 ZIP 檔名 → `/` 在 Windows 既非法又是路徑分隔 → `path.join` 產生子目錄 → archiver 建檔 ENOENT（PDF 已產出，ZIP 失敗）。
    - **修法**：`scripts/xls-utils.js` 新增 `sanitizeFileLabel()`（非法字元連同前後空白→`-`、控制字元→空白、去頭尾空白與句點、長度上限 80、保留名稱 CON/NUL/COM1… 加 `_`、空字串→fallback）；`scripts/xls-workflow.js` 新增 `zipBaseName(grp)` 並改用於 Step 5（含 `path.basename()` 防禦）。
    - **相容**：既有命名慣例不變（實測仍為 `20260803 - CX257 SLI x 3.zip`；`20261013 - 5Y8050/ 13th Oct…` 變成 `20261013 - 5Y8050-13th Oct…`）。
@@ -97,7 +105,9 @@
 - [x] **P4 前置**：建置腳本內建 baseline 解析模型＋實測校準值（fieldmap v2 直接產出）＋「字符集匯出＋字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）；空白 122.3→114.0KB 且像素不變
 - [x] **P4 接主流程**：`XLS_PDF_ENGINE=overlay|com`（未設定＝舊版，行為 100% 不變）、`engine.partition()` 分派＋失敗自動退回舊引擎（同批混合）、④ 執行產生最前面的「PDF 產生方式」選擇器、`/process` 白名單＋結果帶 `engine`／`fallbackCount`、結果面板顯示產生方式與退回筆數；實測 com 123.4KB／12.1s、overlay 116.0KB／1.1s、混合批次與全退回皆 PASS（`scripts/test-p4-engine.js`）
 - [x] **P5 版面編輯器**：`public/sli-eli-layout.html`＋底圖拖曳／把手縮放／方向鍵／吸附／Undo-Redo／對齊／屬性面板＋`/api/xls-booking/layout`（GET/PUT/reset/preview/backups/background，寫入需 admin/staff）＋側欄新項目置頂（`NAV_PAGE_RE` 已允許 `*.html`）；驗收 `scripts/test-sli-eli-layout.js` 全 PASS（測試 PDF 116.1 KB）
-- [ ] **可選（非需求）**：① 若要 <120KB → 簡化 `cainiao-sli-eli-template.xlsx`（目前地板＝內容流 49.9KB＋PDF 結構 16KB）；② 讓內嵌 Arial 全字符集 100% 生效（順序調整，+35KB/份）
+- [x] **字元處理（第 0/1/2 層）**：`scripts/pdf-charset.js`（淨化＋WinAnsi 放寬，與官方表逐筆核對）＋`scripts/pdf-cjk-font.js`（`@pdf-lib/fontkit` 按需子集、`.ttc` 取單一字型、解析快取）；`PDF_CJK=auto|off`、`SLI_ELI_CJK_FONT`；實測 CJK 份 **119.4 KB／74 ms**、diff 0.244%/0.396%（Excel 退回版 131.3 KB／~4 s）；`–` 的 122 筆不再退回；驗收 `scripts/test-sli-eli-charset.js` **PASS**
+- [ ] **待重建背景（建議）**：`python scripts/build-sli-eli-blank.py --keep-work --force` —— 讓 27 個 WinAnsi 特殊字併進內嵌 Arial 子集（字形與 Excel 完全相同）。不重建也能正確輸出（走標準字型），且重建後需重跑 `node scripts/test-sli-eli-overlay.js` 與 `python data/test-p2/verify-build.py`
+- [ ] **可選（非需求）**：① 若要 <120KB → 簡化 `cainiao-sli-eli-template.xlsx`（目前地板＝內容流 49.9KB＋PDF 結構 16KB）；② 讓內嵌 Arial 全字符集 100% 生效（順序調整，+35KB/份）；③ 為 CJK 準備「粗體專用字型」`SLI_ELI_CJK_BOLD_FONT`（Excel 的粗體格用 MicrosoftJhengHeiBold，目前粗體格也用同一支 regular CJK）
 - [ ] 確認地圖機制運作：開新 chat，驗證 AI 會自動讀 `CLAUDE.md` + 執行 `npm run sync`
 - [ ] **REMARK：本機 log 清理** —— `server.err.log` / `server.out.log` 被執行中的服務鎖住無法刪除；停掉服務後執行 `Remove-Item server.*.log`（已在 `.gitignore`，不影響版控）
 - [ ] **REMARK：template 備份管理** —— `data/templates/cainiao-sli-eli-template (BAK).xlsx` 目前僅存本機（已加入 `.gitignore`）；如需進版控請用 `git add -f`

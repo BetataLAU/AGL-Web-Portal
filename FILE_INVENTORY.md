@@ -2,34 +2,47 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/14 上午12:42:52
+> 最後更新：2026/10/14 下午5:37:23
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
+M Dockerfile
+M README.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
 M docs/design/xls-sli-eli-overlay-prd.md
-M scripts/xls-utils.js
+M package-lock.json
+M package.json
+M public/js/sli-eli-layout-main.js
+M public/js/xls-booking-workflow.js
+M routes/xls-booking-layout.js
+M scripts/build-sli-eli-blank.py
+M scripts/sli-eli-blank-widen-fonts.js
+M scripts/sli-eli-overlay.js
+M scripts/test-p4-engine.js
+M scripts/test-sli-eli-overlay.js
 M scripts/xls-workflow.js
-?? scripts/test-zip-naming.js
+?? scripts/pdf-charset.js
+?? scripts/pdf-cjk-font.js
+?? scripts/test-sli-eli-charset.js
 ```
 
-## 📁 檔案清單（共 281 個檔案）
+## 📁 檔案清單（共 290 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（37.4 KB）
-- `Dockerfile`（884 B）
+- `CLAUDE.md`（41.2 KB）
+- `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（16.2 KB）
-- `README.md`（21.4 KB）
-- `WORKSPACE_STATE.md`（22.7 KB）
-- `package.json`（715 B）
+- `README.md`（22.5 KB）
+- `WORKSPACE_STATE.md`（26.3 KB）
+- `package.json`（750 B）
 - `server.js`（7.2 KB）
 
 ### bp3d
@@ -53,7 +66,7 @@ M scripts/xls-workflow.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（593.0 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（595.8 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -61,7 +74,7 @@ M scripts/xls-workflow.js
 
 ### data/test-a4-integration
 
-- `data/test-a4-integration/report-copy.xlsx`（612.0 KB）
+- `data/test-a4-integration/report-copy.xlsx`（614.6 KB）
 - `data/test-a4-integration/synthetic.xlsx`（6.6 KB）
 
 ### data/test-blank-build
@@ -84,6 +97,19 @@ M scripts/xls-workflow.js
 - `data/test-blank-build/markerB-ELI_LETTER.pdf`（195.2 KB）
 - `data/test-blank-build/markerB-air.pdf`（354.2 KB）
 - `data/test-blank-build/template-copy-32528.xlsx`（93.7 KB）
+
+### data/test-charset
+
+- `data/test-charset/jobs.json`（238 B）
+
+### data/test-charset/mine
+
+- `data/test-charset/mine/160-17592201.pdf`（119.4 KB）
+- `data/test-charset/mine/752-30231530.pdf`（116.5 KB）
+
+### data/test-charset/ref
+
+- `data/test-charset/ref/160-17592201.pdf`（126.1 KB）
 
 ### data/test-p2
 
@@ -152,20 +178,25 @@ M scripts/xls-workflow.js
 
 ### data/test-p3-overlay/mine
 
-- `data/test-p3-overlay/mine/065-49876385.pdf`（116.4 KB）
+- `data/test-p3-overlay/mine/160-17592201.pdf`（119.4 KB）
 
 ### data/test-p3-overlay/ref
 
-- `data/test-p3-overlay/ref/065-49876385.pdf`（536.5 KB）
+- `data/test-p3-overlay/ref/160-17592201.pdf`（126.1 KB）
+
+### data/test-p4-engine-cjk
+
+- `data/test-p4-engine-cjk/report-copy.xlsx`（614.6 KB）
+- `data/test-p4-engine-cjk/synthetic-mixed.xlsx`（6.7 KB）
 
 ### data/test-p4-engine-mixed
 
-- `data/test-p4-engine-mixed/report-copy.xlsx`（612.0 KB）
+- `data/test-p4-engine-mixed/report-copy.xlsx`（614.6 KB）
 - `data/test-p4-engine-mixed/synthetic-mixed.xlsx`（6.7 KB）
 
 ### data/test-p4-engine-nobackground
 
-- `data/test-p4-engine-nobackground/report-copy.xlsx`（612.0 KB）
+- `data/test-p4-engine-nobackground/report-copy.xlsx`（614.6 KB）
 - `data/test-p4-engine-nobackground/synthetic-mixed.xlsx`（6.7 KB）
 
 ### db
@@ -186,7 +217,7 @@ M scripts/xls-workflow.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（52.0 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（62.5 KB）
 
 ### docs/research
 
@@ -238,7 +269,7 @@ M scripts/xls-workflow.js
 - `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
 - `public/js/sli-eli-layout-editor.js`（16.9 KB）
-- `public/js/sli-eli-layout-main.js`（10.8 KB）
+- `public/js/sli-eli-layout-main.js`（10.9 KB）
 - `public/js/sli-eli-layout-state.js`（10.7 KB）
 - `public/js/theme.js`（5.2 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
@@ -325,7 +356,7 @@ M scripts/xls-workflow.js
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/xls-booking-helpers.js`（5.6 KB）
-- `routes/xls-booking-layout.js`（23.2 KB）
+- `routes/xls-booking-layout.js`（23.8 KB）
 - `routes/xls-booking.js`（14.9 KB）
 
 ### routes/auth
@@ -346,7 +377,7 @@ M scripts/xls-workflow.js
 ### scripts
 
 - `scripts/analyze-xls.py`（1.7 KB）
-- `scripts/build-sli-eli-blank.py`（40.8 KB）
+- `scripts/build-sli-eli-blank.py`（41.5 KB）
 - `scripts/cleanup-test-data.js`（1.1 KB）
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
@@ -358,12 +389,14 @@ M scripts/xls-workflow.js
 - `scripts/generate-dummy-orders.js`（14.3 KB）
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
+- `scripts/pdf-charset.js`（5.9 KB）
+- `scripts/pdf-cjk-font.js`（8.4 KB）
 - `scripts/seed-admin.js`（2.6 KB）
-- `scripts/sli-eli-blank-widen-fonts.js`（11.8 KB）
+- `scripts/sli-eli-blank-widen-fonts.js`（12.3 KB）
 - `scripts/sli-eli-diff.py`（5.3 KB）
 - `scripts/sli-eli-font-optimize.py`（18.8 KB）
 - `scripts/sli-eli-generate.py`（15.2 KB）
-- `scripts/sli-eli-overlay.js`（34.7 KB）
+- `scripts/sli-eli-overlay.js`（41.5 KB）
 - `scripts/solve-worker.js`（1.1 KB）
 - `scripts/sync-project-state.js`（6.3 KB）
 - `scripts/test-a4-integration.js`（4.5 KB）
@@ -376,13 +409,14 @@ M scripts/xls-workflow.js
 - `scripts/test-nav-order-frontend.js`（6.7 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-openpyxl-bridge.py`（1.3 KB）
-- `scripts/test-p4-engine.js`（7.3 KB）
+- `scripts/test-p4-engine.js`（9.5 KB）
 - `scripts/test-packing-api.js`（5.7 KB）
 - `scripts/test-packing-projects.js`（7.1 KB）
 - `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
+- `scripts/test-sli-eli-charset.js`（17.1 KB）
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
-- `scripts/test-sli-eli-overlay.js`（10.3 KB）
+- `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
@@ -394,7 +428,7 @@ M scripts/xls-workflow.js
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（11.9 KB）
 - `scripts/xls-utils.js`（9.2 KB）
-- `scripts/xls-workflow.js`（36.7 KB）
+- `scripts/xls-workflow.js`（37.2 KB）
 
 ### utils
 

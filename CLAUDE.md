@@ -141,10 +141,13 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/xls-cnee.js` | CNEE 對照區自動抽取 + DEST/REMARK 加權比對 |
 | `scripts/xls-report.js` | Report 模板寫入 |
 | `scripts/xls-sli-eli.js` | SLI/ELI 填表、PDF 轉換/合併、ZIP 打包與分割 |
-| `scripts/sli-eli-overlay.js` | **疊字 PDF 產生器（P3）**：以 pdf-lib 把 fieldmap 的 10 欄位疊在 `sli-eli-blank.pdf` 上輸出 `{MAWB}.pdf`（不需 Excel／Python／merge） |
-| `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（純 pdf-lib，跨文件搬移 FontFile2/Descriptor/Widths） |
+| `scripts/sli-eli-overlay.js` | **疊字 PDF 產生器（P3）**：以 pdf-lib 把 fieldmap 的 10 欄位疊在 `sli-eli-blank.pdf` 上輸出 `{MAWB}.pdf`（不需 Excel／Python／merge）；字元三層判定（見下） |
+| `scripts/pdf-charset.js` | **字元支援判定（共用）**：第 0 層 `sanitizeText`（無損淨化）＋第 1 層 WinAnsi 可編碼集合／`winAnsiByte`／`winAnsiHex`（與 `@pdf-lib/standard-fonts` 逐筆核對） |
+| `scripts/pdf-cjk-font.js` | **CJK 字型解析（fontkit）**：平台候選鏈、`.ttc` 集合取單一字型、覆蓋率判定、公制量測、解析快取（`SLI_ELI_CJK_FONT`／`PDF_CJK`） |
+| `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（純 pdf-lib，跨文件搬移 FontFile2/Descriptor/Widths；`REQUIRED` 由 `pdf-charset` 提供） |
 | `scripts/sli-eli-diff.py` | 150dpi 逐像素比對＋文字抽取橋接（重用 `sli-eli-font-optimize.py` 的 `diff_pages`） |
 | `scripts/test-sli-eli-overlay.js` | P3 驗收（頁數/A4/文字可抽取/差異 < 0.5%/檔案大小/每筆耗時/fallback 判定） |
+| `scripts/test-sli-eli-charset.js` | **字元處理驗收**：第 0/1/2 層逐項（含與官方 WinAnsi 表核對）＋實筆 KB/ms＋與 Excel 參考的 150dpi 差異＋`PDF_CJK=off` 回滾 |
 | `scripts/test-p4-engine.js` | **P4 驗收**：`XLS_PDF_ENGINE` 解析、混合批次（疊字＋退回 COM）、背景缺失時全退回 |
 | `routes/xls-booking-layout.js` | **P5 版面編輯器 API**（掛 `/api/xls-booking/layout`）：GET／PUT／reset／preview／backups／background；驗證＋推導＋自動備份 |
 | `scripts/test-sli-eli-layout.js` | **P5 驗收**（自帶伺服器端對端；結束自動還原 fieldmap 並清除備份） |
@@ -219,26 +222,41 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **實測精度：錨定邊殘差 0.00 pt**；非錨定邊 1–3 pt 的差來自 Helvetica 與 Arial 的 `@` 字形高度不同（與真實資料定位無關）。
 - ⚠️ **不要用「頁面設定解析式」算座標**：Excel 的紙張／FitToPage 會讓推算偏差 40 pt 以上（`analyticDeltaMaxPt` 即為此診斷值），一律以 marker 實測為準。
 - 模板變更後必須重跑；`fieldmap.templateSha256` 用來偵測過期（`--force` 可覆寫作用中的 fieldmap）。
-- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1～P5 已完成清單與實測數據、後續選項、可直接執行的驗證指令、**25 個已踩過的陷阱**，以及給新對話的提示詞（§8）。
+- **交接文件（接續開發前請先讀）**：`docs/design/xls-sli-eli-overlay-prd.md` —— 內含 P1～P5 已完成清單與實測數據、後續選項、可直接執行的驗證指令、**31 個已踩過的陷阱**，以及給新對話的提示詞（§8）。
 
 **疊字 PDF 產生器（P3 已完成，`scripts/sli-eli-overlay.js`）**：把 10 個欄位疊到 `data/templates/sli-eli-blank.pdf` 上直接輸出 `{MAWB}.pdf`（背景本來就是 A4 的 SLI+ELI 兩頁，**不需 merge、不需 Excel、不需 Python、不需字型優化**）。
 
-- API：`createOverlayEngine({ blankPdf, fieldmap, fontMode, strict })` → `engine.render(rec, outPath?)`／`renderMany(records, outDir)`／`partition(records)`／`check(rec)`／`layout(rec)`／`describe()`；另有 `renderRecord()` 便利函式。`status='fallback'`（`reason='non-latin1'`）代表該筆含 Latin-1 以外字元（CNEE 偶爾有中文或全形標點）**不寫檔**，由呼叫端退回舊 Excel 引擎。
+- API：`createOverlayEngine({ blankPdf, fieldmap, fontMode, strict, cjkMode, cjkFont, cjkStrict })` → `engine.render(rec, outPath?)`／`renderMany(records, outDir)`／`partition(records)`／`check(rec)`／`layout(rec)`／`describe()`；另有 `renderRecord()` 便利函式。`status='fallback'`（`reason='non-latin1'`）代表該筆含「標準字型與 CJK 字型都無法輸出」的字元（或 `PDF_CJK=off`／環境沒有 CJK 字型）**不寫檔**，由呼叫端退回舊 Excel 引擎；`check()` 另回 `unsupported[].reason`（`no-cjk-font`｜`no-glyph`｜`cjk-disabled`）與 `usesCjk`（該筆是否需要 CJK 子集）。
+
+**字元處理政策（三層，不做任何可見字元替換）**：`scripts/pdf-charset.js`（第 0／1 層）＋`scripts/pdf-cjk-font.js`（第 2 層）。
+
+| 層 | 內容 | 效果（實測 178 個歷史 job、2789 筆） |
+|---|---|---|
+| 0 | `sanitizeText`：移除零寬（U+200B–200F／U+FEFF）／C0 控制字元／變體選擇器；U+2028/2029/U+0085 → `\n`。**不**觸碰 U+00AD、U+00A0、U+3000 | 無損（Excel 也不會畫），減少無謂退回 |
+| 1 | WinAnsi 可編碼集合（ASCII＋Latin-1＋0x80–0x9F 的 27 個特殊字：`–` `—` `’` `“”` `•` `…` `€` `™`…）＋ `winAnsiByte/Hex` | **122 筆（4.4%）原本因 `–` 退回** → 現在直接疊字（116.5 KB／~50 ms，與純 ASCII 記錄同級） |
+| 2 | CJK／全形字元 → fontkit **按需子集**內嵌（`@pdf-lib/fontkit`；只有該筆真的用到才內嵌） | 340 筆（12.2%）從「退回 COM 123~131 KB／~4 s」→ 疊字 **+4~7 KB／~50 ms** |
+
+- **第 2 層實測**：`msjh.ttc`（微軟正黑體）解析 **24 ms**（結果快取，第 2 次 0.15 ms）；1 個全形字元 +4.1 KB、11 個漢字 +6.9 KB；真實記錄 `160-17592201`（含 `：`）＝**119.4 KB／74 ms**、150dpi 差異 **0.244%／0.396%**、文字可搜尋；P4 混合批次 3 筆（含中文 CNEE）全疊字＝**123.7 KB**（Excel 是 131.3 KB）。
+- **`.ttc` 陷阱**：`@pdf-lib/fontkit` 對 `.ttc` 回傳 `TrueTypeCollection`（沒有 `createSubset`）→ `doc.embedFont(ttcBytes)` 直接爆錯。`pdf-cjk-font.js` 會挑出 collection 內的單一字型（如 `MicrosoftJhengHeiRegular`），並用 `new CustomFontSubsetEmbedder(fontkitFont, raw)` 建立 PDFFont（已解析的字型可跨文件重用）。
+- **候選鏈**（`SLI_ELI_CJK_FONT` 可覆寫，逗號分隔；`cjkStrict:true` 只用手上清單）：Windows `msjh.ttc` → `mingliu.ttc` → `msyh.ttc` → `simsun.ttc` → `kaiu.ttf`；Linux（Docker 已裝 `fonts-noto-cjk`＋`fonts-droid-fallback`）`NotoSansCJK-Regular.ttc` → `DroidSansFallbackFull.ttf` → `NotoSerifCJK-Regular.ttc`。可變字型（VF，如 `NotoSansTC-VF.ttf` 預設是 Thin）預設跳過。
+- **開關**：`PDF_CJK=auto`（預設）｜`off`（＝舊行為：含 CJK 的記錄整筆退回 Excel）。找不到字型／字型缺該字形時仍自動退回，**不會讓流程失敗**。
+- 折行／對齊：同一欄位可能「英文＋全形」混排，`makeMeasure()` 會逐段用實際字型累加寬度（全形字寬 = 1em，與 Excel／Calibri 相同 → 不會造成整行位移）。
 - fieldmap 語意：`origin`（依對齊的文字錨點）＋`textBaselineOffsetPt`＋`lineHeightPt`＋`align`＋`wrapWidthPt`（換行寬度）＋`maxLines`（Excel 對放不下的行**不畫**）＋`dateFormat`（Excel 日期顯示，例 `2026-10-03` → `03/Oct/2026`）。
 - **baseline 用解析模型（重要）**：Excel 的垂直定位用「行盒」（Arial hhea ascent 0.9053em／descent 0.2124em），**不是墨跡**；`v=top → +ascent×size`、`v=bottom → −descent×size`、`v=center → +(ascent−descent)/2×size`。P2 用 `@` marker 墨跡校準會偏 0.3~1.4pt（`@` 的墨跡高度剛好等於 ascent），修正後與 Excel 誤差 ≤ 0.03pt。
 - **fieldmap 已到 v2**（建置腳本直接產出實測校準值）：`font.sizePt`（air 頁 +2.4%）、`lineHeightPt`（1.27×size）、`wrapWidthPt`、`dateFormat`、`maxLines=floor(box.h/lineHeightPt)`、baseline 解析模型。
-- 實測（5 筆真實 job）：**116.4 KB／份、每筆 45–55 ms**（冷啟動 15 ms）＝舊流程每筆 ~1.5 s 的 3%；2 頁 A4、文字可抽取、非 Latin-1 4/5 筆正確退回。
+- 實測（5 筆真實 job）：**116.4 KB／份、每筆 45–55 ms**（冷啟動 15 ms）＝舊流程每筆 ~1.5 s 的 3%；2 頁 A4、文字可抽取；含 `–`／CJK 的記錄現在也能疊字（三層字元政策見下）。
 - 150dpi 逐像素差異 **0.230%(p0)／0.329%(p1)（皆 < 0.5% ✅）**；地板（把 Excel 的文字原地原字級重畫）實測 0.187~0.290%。
 - `fontMode='auto'` 會優先沿用背景內嵌的 Excel Arial 子集（0 額外位元組、字形與 Excel 完全相同），逐字符檢查 cmap、未涵蓋自動退回標準字型。建置腳本的「字符集匯出 + 字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）已提升覆蓋率（並讓空白 122.3 → 114.0 KB、像素與 commit 版完全相同）；但字型優化會再剃掉未被引用的字元，故只部分生效（要全效需調整順序，代價約 +35 KB/份，暫不啟用）。
 - 驗證：`node scripts/test-sli-eli-overlay.js --ref data/work/job-xxx`（**不要平行跑**，輸出目錄固定為 `data/test-p3-overlay/`）。
 
 **PDF 產生引擎 `XLS_PDF_ENGINE`（P4 已完成）**：`runWorkflow` 可用 `XLS_PDF_ENGINE=overlay|com`（未設定＝`com`＝**100% 舊行為**）切換引擎；UI ④「執行產生」的 `.xls-run-row` **最前面**有「PDF 產生方式」選擇器（預設 Excel（舊版）），`POST /api/xls-booking/process` 接受 `engine`（白名單，非法回 400）並在結果帶 `engine` / `fallbackCount`；前端結果面板顯示產生方式／疊字份數／退回筆數／耗時。
 
-- **overlay**：`engine.partition(recordsPayload)` 分派 —— 可疊字的記錄直接 `renderMany()` 寫出 `{MAWB}.pdf`（跳過 Step 3 Excel COM、Step 4 merge／A4 正規化、Step 4.5 字型優化）；非 Latin-1（CNEE 中文／全形標點）與任何例外（背景／fieldmap 缺失、`blankPdfSha256` 不符、`createOverlayEngine` 失敗、單筆 render 例外）都排入**同一批**的舊 COM 路徑（`result.engine.fallbackReasons` 列出 MAWB 與不支援字元）。
-- **相容欄位**：`result.engine = { mode, overlay, com, fallbackCount, fallbackReasons, overlayMs }`、`result.fallbackCount`；`result.paper` 照常實測（疊字背景本來就是 A4）；`result.fontOpt` 純 overlay 時 `{files:0, skipped:true, engine:'overlay'}`，**若本次有退回 COM 的檔案則只對那些檔案瘦身**（否則會退回 ~545 KB，與 com 的 123 KB 不一致）。
+- **overlay**：`engine.partition(recordsPayload)` 分派 —— 可疊字的記錄直接 `renderMany()` 寫出 `{MAWB}.pdf`（跳過 Step 3 Excel COM、Step 4 merge／A4 正規化、Step 4.5 字型優化）；**真正無法疊字**的情況（`PDF_CJK=off`／環境無 CJK 字型／字型缺該字形／emoji 等超範圍字元）與任何例外（背景／fieldmap 缺失、`blankPdfSha256` 不符、`createOverlayEngine` 失敗、單筆 render 例外）才排入**同一批**的舊 COM 路徑（`result.engine.fallbackReasons` 列出 MAWB、字元與 `reason`）。
+- **相容欄位**：`result.engine = { mode, overlay, com, fallbackCount, fallbackReasons, overlayMs, cjkFont }`、`result.fallbackCount`；`result.paper` 照常實測（疊字背景本來就是 A4）；`result.fontOpt` 純 overlay 時 `{files:0, skipped:true, engine:'overlay'}`，**若本次有退回 COM 的檔案則只對那些檔案瘦身**（否則會退回 ~545 KB，與 com 的 123 KB 不一致）。
 - 實測（2026-10-13）：com＝3 份 **123.4 KB**／12.1 s；overlay＝3 份 **116.0 KB**／**1.1 s**（≈11× 快）；混合批次（2 疊字＋1 退回）count=3、`engine={overlay:2, com:1, fallbackCount:1}`、errors=[]；背景缺失時全退回 COM 且明確回報「疊字引擎無法使用」。
+- 實測（2026-10-14，字元政策後）：同一混合批次 `PDF_CJK=off` → overlay=2／com=1（`reason='cjk-disabled'`）；`PDF_CJK=auto` → **overlay=3／com=0**、`cjkFont='msjh.ttc'`、CJK 份 **123.7 KB**（Excel 退回版是 131.3 KB），overlayMs 159 ms。
 - ⚠️ `partition()` **只分類不排程**：`fallback[]` 必須自己推回 COM 佇列（`f.record`），否則會靜默少產出（PRD 陷阱 22）。
-- 驗證：`node scripts/test-p4-engine.js`（引擎分派）、`$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js`（overlay 端對端）。
+- 驗證：`node scripts/test-p4-engine.js`（引擎分派）、`node scripts/test-sli-eli-charset.js`（字元三層）、`$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js`（overlay 端對端）。
 
 **SLI/ELI 版面編輯器（P5 已完成）**：獨立頁 `public/sli-eli-layout.html`（側欄在 **HOME 之後第一位**，未登入顯示鎖頭並導向登入頁）；左＝欄位清單、中＝A4 底圖畫布、右＝屬性面板。
 

@@ -438,15 +438,17 @@ async function runWorkflow(opts) {
 
   // ===== P4：PDF 產生引擎分派 =====
   // overlay 模式：可疊字的記錄直接 engine.render() 寫出 {MAWB}.pdf（跳過 Step 3/4/4.5）；
-  // 非 Latin-1（CNEE 中文／全形標點）或任何例外的記錄自動退回舊 Excel COM 路徑（同批可混合）。
+  // 無法疊字的記錄（標準字型與 CJK 字型都編不出來的字元、PDF_CJK=off、引擎不可用、單筆例外）
+  // 自動退回舊 Excel 路徑（同批可混合）。
   const engineMode = resolvePdfEngineMode(opts.pdfEngine);
   const engineReport = {
     mode: engineMode,      // 本次實際使用的引擎（'overlay' | 'com'）
     overlay: 0,            // 疊字引擎成功產出的份數
     com: 0,                // 走 Excel COM 路徑的份數（含退回）
     fallbackCount: 0,      // 因故退回舊引擎的份數
-    fallbackReasons: [],   // [{ mawb, chars }]（非 Latin-1 或引擎不可用）
+    fallbackReasons: [],   // [{ mawb, chars, reason }]（reason: no-cjk-font | no-glyph | cjk-disabled）
     overlayMs: 0,          // 疊字渲染總耗時
+    cjkFont: null,         // 本次使用的 CJK 字型（無則 null → 含 CJK 的記錄會退回）
   };
 
   // ===== 紙張設定（A4 修正）=====
@@ -619,9 +621,13 @@ async function runWorkflow(opts) {
       const { renderable, fallback } = engine.partition(recordsPayload);
       comPayload = [];
       engineReport.fallbackCount = fallback.length;
+      engineReport.cjkFont = engine.cjk && engine.cjk.available
+        ? path.basename(String(engine.cjk.path)) : null;
       engineReport.fallbackReasons = fallback.map((f) => ({
         mawb: f.mawb,
         chars: (f.unsupported || []).flatMap((u) => u.chars.map((c) => c.ch)).slice(0, 30).join(''),
+        // reason：no-cjk-font（環境缺 CJK 字型）｜no-glyph（字型未涵蓋）｜cjk-disabled（PDF_CJK=off）
+        reason: (f.unsupported || [])[0] ? f.unsupported[0].reason : undefined,
       }));
       // 非 Latin-1 → 該筆直接排入舊 COM 路徑（與可疊字的記錄混在同一批執行）
       for (const f of fallback) if (f.record) comPayload.push(f.record);

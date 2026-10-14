@@ -9,9 +9,11 @@
 //   box.w＝換行寬度、lineHeightPt＝行高、align＝對齊、wrap＝是否自動折行。
 //   錨定邊殘差 0.00 pt（見 sli-eli-blank-meta.json）。
 //
-// 字型：pdf-lib 標準字型 Helvetica / Helvetica-Bold（0 byte、與 Arial 公制相容）。
-//   ⚠️ 動態文字含 Latin-1 以外的字元（例：CNEE 的中文或全形標點 `，` `（`）時，
-//      該筆 **不畫**（避免亂碼），回傳 status='fallback' 交由呼叫端退回舊 Excel 引擎。
+// 字型（三層；判定與字型載入分別在 scripts/pdf-charset.js 與 scripts/pdf-cjk-font.js）：
+//   1) 標準字型 Helvetica／Helvetica-Bold（0 byte；WinAnsi 可編碼字元，含 `–` `—` `’` `“”` `•` `…` 等特殊字）
+//   2) 背景內嵌的 Excel Arial 子集（字形與 Excel 相同、0 額外位元組）—— 僅限黑色且子集涵蓋該字元時
+//   3) CJK／全形字元（例：CNEE 的中文、全形標點 `，` `（` `：`）→ fontkit 按需子集嵌入 CJK 字型
+//      （實測 +4~7 KB／份、解析 24 ms；`PDF_CJK=off` 可停用 → 行為回到「整筆退回 Excel」）
 //
 // 用法（P4 之後由 xls-workflow.js 呼叫；在此之前用 scripts/test-sli-eli-overlay.js 驗證）：
 //   const { renderRecord } = require('./sli-eli-overlay');
@@ -23,7 +25,14 @@ const fs = require('fs');
 const fsp = fs.promises;
 const crypto = require('crypto');
 const zlib = require('zlib');
-const { PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFNumber, PDFArray, PDFRawStream } = require('pdf-lib');
+const {
+  PDFDocument, StandardFonts, rgb, PDFName, PDFDict, PDFNumber, PDFArray, PDFRawStream,
+  PDFFont, CustomFontSubsetEmbedder,
+} = require('pdf-lib');
+const {
+  sanitizeText, isStdFontChar, isStdFont, winAnsiHex, findUnsupportedChars,
+} = require('./pdf-charset');
+const { loadCjkFont } = require('./pdf-cjk-font');
 
 // ===== 路徑與常數 =====
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
@@ -33,38 +42,18 @@ const DEFAULT_FIELDMAP = path.join(TEMPLATES_DIR, 'sli-eli-fieldmap.json');
 const A4_SIZE = { width: 595.28, height: 841.89 };
 const A4_TOLERANCE_PT = 1;
 
-// ===== Latin-1（WinAnsi 可印）判定 =====
-// 允許：TAB / LF / CR、0x20–0x7E（ASCII 可印）、0xA0–0xFF（Latin-1 補充，WinAnsi 直接對應）。
-// 其餘（CJK、全形標點、WinAnsi 特殊字 U+2018 等）一律視為不支援 → 退回舊引擎。
-function isLatin1Char(code) {
-  if (code === 0x09 || code === 0x0a || code === 0x0d) return true;
-  return (code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff);
-}
+// ===== 字元支援判定（實作在 scripts/pdf-charset.js，建置工具共用同一份）=====
+//   第 0 層「淨化」（sanitizeText）：移除 Excel 也不會畫的不可見字元（零寬／BOM／控制字元）
+//   第 1 層「WinAnsi」：ASCII ＋ Latin-1 ＋ WinAnsi 特殊字（U+2013 `–` 等 27 個）
+//   第 2 層「CJK」：由 engine 注入的 CJK 字型判定（找不到字型時一律 false → 退回 Excel）
+// `isLatin1Char`／`isLatin1` 保留為相容別名（語意已由「Latin-1」擴大為「WinAnsi 可編碼」）。
+const isLatin1Char = isStdFontChar;
+const isLatin1 = isStdFont;
 
-/** 是否全部字元都可安全用 Helvetica（Latin-1）繪製 */
-function isLatin1(text) {
-  if (text === null || text === undefined) return true;
-  const s = String(text);
-  for (let i = 0; i < s.length; i++) {
-    if (!isLatin1Char(s.charCodeAt(i))) return false;
-  }
-  return true;
-}
-
-/** 找出不支援的字元（去重）；回傳 [{ch, code, count}] */
-function findUnsupportedChars(text) {
-  if (text === null || text === undefined) return [];
-  const s = String(text);
-  const map = new Map();
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    if (isLatin1Char(code)) continue;
-    const key = s[i];
-    const e = map.get(key);
-    if (e) e.count += 1;
-    else map.set(key, { ch: s[i], code, count: 1 });
-  }
-  return Array.from(map.values());
+/** 把 CJK 字型併入支援判定（沒有字型時等同標準字型判定） */
+function supportFnOf(cjkFont) {
+  if (!cjkFont || typeof cjkFont.hasGlyph !== 'function') return isStdFontChar;
+  return (code) => isStdFontChar(code) || cjkFont.hasGlyph(code);
 }
 
 // ===== 值正規化 =====
@@ -73,11 +62,11 @@ function dateToLocalISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** 任意值 → 繪製用字串（換行統一為 \n、TAB → 4 空白） */
+/** 任意值 → 繪製用字串（換行統一為 \n、TAB → 4 空白、並做第 0 層無損淨化） */
 function toText(value) {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : dateToLocalISO(value);
-  return String(value).replace(/\r\n?/g, '\n').replace(/\t/g, '    ');
+  return sanitizeText(String(value).replace(/\r\n?/g, '\n').replace(/\t/g, '    '));
 }
 
 // ===== Excel 日期顯示（重要）=====
@@ -431,16 +420,6 @@ function findEmbeddedExcelFonts(page, doc) {
   return found.regular || found.bold ? found : null;
 }
 
-/** Latin-1 可印字元 → WinAnsi 單一位元組（與字型 /Encoding /WinAnsiEncoding 一致） */
-function winAnsiHex(text) {
-  let hex = '';
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    hex += (c > 0xff ? 0x3f : c).toString(16).padStart(2, '0'); // 理論上不會發生（已先擋非 Latin-1）
-  }
-  return hex.toUpperCase();
-}
-
 function fmtNum(n) {
   return String(Math.round(n * 10000) / 10000);
 }
@@ -448,6 +427,85 @@ function fmtNum(n) {
 /** 檔名安全化（MAWB 正常形如 065-12345678，防萬一） */
 function safeFileName(name) {
   return String(name || '').replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '') || 'unnamed';
+}
+
+// ===== 混合字型（標準字型 ＋ CJK 字型子集）=====
+/**
+ * 依「標準字型 / CJK 字型」把文字切成連續區段（標準字元＝WinAnsi 可編碼）。
+ * @returns {{text:string, cjk:boolean}[]}
+ */
+function splitRuns(text) {
+  const runs = [];
+  let cur = null;
+  for (const ch of String(text === null || text === undefined ? '' : text)) {
+    const isCjk = !isStdFontChar(ch.codePointAt(0));
+    if (!cur || cur.cjk !== isCjk) {
+      cur = { text: ch, cjk: isCjk };
+      runs.push(cur);
+    } else {
+      cur.text += ch;
+    }
+  }
+  return runs;
+}
+
+/**
+ * 量測代理（只實作 pdf-lib font 的 widthOfTextAtSize，供 wrapText／layoutLines 使用）。
+ * 同一欄位可能「英文＋全形標點／中文」混排，必須逐段用「實際會畫的字型」累加，
+ * 否則行寬會算錯（進而與 Excel 的折行不一致）。純標準字元時直接呼叫原字型（零額外成本）。
+ * @param {{widthOfTextAtSize:(t:string,s:number)=>number}} primaryFont
+ * @param {((text:string,size:number)=>number)|null} cjkWidth 未提供 → 直接回傳 primaryFont
+ */
+function makeMeasure(primaryFont, cjkWidth) {
+  if (!cjkWidth) return primaryFont;
+  return {
+    widthOfTextAtSize(text, size) {
+      const s = String(text === null || text === undefined ? '' : text);
+      if (isStdFont(s)) return primaryFont.widthOfTextAtSize(s, size);
+      let total = 0;
+      for (const run of splitRuns(s)) {
+        total += run.cjk ? cjkWidth(run.text, size) : primaryFont.widthOfTextAtSize(run.text, size);
+      }
+      return total;
+    },
+  };
+}
+
+/**
+ * 把 CJK 字型以「按需子集」嵌入指定文件，回傳 pdf-lib PDFFont。
+ *
+ * 為何不用 `doc.embedFont(bytes, { subset: true })`：`@pdf-lib/fontkit` 對 `.ttc`
+ * 會回傳 TrueTypeCollection（沒有 createSubset）→ 直接爆錯（見 scripts/pdf-cjk-font.js）。
+ * 已解析的 fontkit 字型可跨文件重用，這裡只做「產生子集＋寫入物件」。
+ */
+async function embedCjkFontInto(doc, cjkFont) {
+  try {
+    const embedder = new CustomFontSubsetEmbedder(cjkFont.fontkitFont, cjkFont.raw, 'CJKSubset');
+    const ref = doc.context.nextRef();
+    const pdfFont = PDFFont.of(ref, doc, embedder);
+    doc.fonts.push(pdfFont); // pdf-lib 在 flush() 時才會 embedIntoContext
+    return pdfFont;
+  } catch (e) {
+    // 保險：退回 pdf-lib 官方路徑（單一字型檔如 kaiu.ttf／DroidSansFallbackFull.ttf 可用）
+    return doc.embedFont(cjkFont.raw, { subset: true, customName: 'CJKSubset' });
+  }
+}
+
+/**
+ * 逐段繪製一行文字（標準字型／CJK 子集混排）。x 前進量＝實際字型的字寬，
+ * 與 makeMeasure() 同一套公式 → 與 layoutLines() 算出的位置完全一致。
+ * @returns {number|null} 繪製後的 x；缺少所需字型時回傳 null（呼叫端視為失敗）
+ */
+function drawMixedText(page, item, fonts) {
+  const std = item.bold ? fonts.bold : fonts.regular;
+  let x = item.x;
+  for (const run of splitRuns(item.text)) {
+    const font = run.cjk ? fonts.cjk : std;
+    if (!font) return null;
+    page.drawText(run.text, { x, y: item.y, size: item.size, font, color: item.color });
+    x += font.widthOfTextAtSize(run.text, item.size);
+  }
+  return x;
 }
 
 // ===== 引擎 =====
@@ -506,6 +564,27 @@ async function createOverlayEngine(options = {}) {
     }
   });
 
+  // ===== CJK 字型（第 2 層）：把中文／全形字元交給 fontkit 子集內嵌 =====
+  // `PDF_CJK=off`（或 options.cjkMode='off'）可一鍵停用 → 行為回到「含 CJK 的記錄整筆退回 Excel」。
+  // 與 engine 一併載入：解析成本一次（實測 msjh.ttc 24 ms）且結果跨筆共用，
+  // 因此 check()／partition() 仍是同步函式（xls-workflow 直接同步呼叫）。
+  const cjkMode = String(options.cjkMode || process.env.PDF_CJK || 'auto').toLowerCase() === 'off' ? 'off' : 'auto';
+  let cjkFont = null;
+  let cjkLoadError = null;
+  if (cjkMode !== 'off') {
+    // cjkFont：候選路徑（陣列或逗號分隔字串）；cjkStrict：只用這些路徑，不追加平台預設
+    const loaded = await loadCjkFont({ fonts: options.cjkFont, strict: !!options.cjkStrict });
+    if (loaded && !loaded.error) cjkFont = loaded;
+    else {
+      cjkLoadError = (loaded && loaded.error) || '未知錯誤';
+      if (logger && logger.warn) {
+        logger.warn(`[sli-eli-overlay] 找不到可用的 CJK 字型（${cjkLoadError}）`
+          + '→ 含中文／全形字元的記錄將自動退回 Excel 引擎');
+      }
+    }
+  }
+  const supports = supportFnOf(cjkFont);
+
   const engine = {
     blankPdf,
     fieldmapPath,
@@ -519,13 +598,30 @@ async function createOverlayEngine(options = {}) {
     fontMode,
     embeddedFonts,
     fontNames: { regular: StandardFonts.Helvetica, bold: StandardFonts.HelveticaBold },
+    cjkMode,
+    cjkFont,
+    cjk: {
+      mode: cjkMode,
+      available: !!cjkFont,
+      path: cjkFont ? cjkFont.path : null,
+      postscriptName: cjkFont ? cjkFont.postscriptName : null,
+      error: cjkLoadError,
+    },
+    /** 字元支援判定（標準字型 or CJK 字型涵蓋）；check()／驗證腳本共用 */
+    supports,
 
-    /** 檢查記錄是否需要退回舊引擎（不繪製） */
+    /**
+     * 檢查記錄是否需要退回舊引擎（不繪製）。
+     * @returns {{ok:boolean, unsupported:Array, usesCjk:boolean}}
+     *   unsupported[].reason：'no-cjk-font'（環境沒有 CJK 字型）｜'no-glyph'（字型未涵蓋該字元）
+     *   usesCjk：該筆需要用 CJK 字型才畫得出來（render 時才嵌入子集）
+     */
     check(rec) {
       const unsupported = [];
+      let usesCjk = false;
       for (const field of fields) {
         const text = fieldText(rec, field);
-        const bad = findUnsupportedChars(text);
+        const bad = findUnsupportedChars(text, supports);
         if (bad.length) {
           unsupported.push({
             key: field.key,
@@ -533,10 +629,13 @@ async function createOverlayEngine(options = {}) {
             label: field.label || field.key,
             chars: bad,
             sample: bad.map((b) => b.ch).join(''),
+            reason: cjkFont ? 'no-glyph' : (cjkMode === 'off' ? 'cjk-disabled' : 'no-cjk-font'),
           });
+        } else if (!isStdFont(text)) {
+          usesCjk = true;
         }
       }
-      return { ok: unsupported.length === 0, unsupported };
+      return { ok: unsupported.length === 0, unsupported, usesCjk };
     },
 
     /** 依欄位順序回傳記錄的欄位文字（供除錯／驗證） */
@@ -567,13 +666,19 @@ async function createOverlayEngine(options = {}) {
     /**
      * 量測用字型（與繪製用的標準字型同一份公制；pdf-lib 的字型綁定文件，
      * 因此用一個丟棄式 PDFDocument 產生，專供 layout() 量測字寬）。
+     * 有 CJK 字型時回傳「混排量測代理」（見 makeMeasure）：CJK 區段用 fontkit 公制量，
+     * 與 pdf-lib CustomFontEmbedder 同一條公式 → layout() 預覽與 render() 位置一致。
      */
     async measureFonts() {
       if (!measureFonts) {
         const tmp = await PDFDocument.create();
+        const regular = await tmp.embedFont(StandardFonts.Helvetica);
+        const bold = await tmp.embedFont(StandardFonts.HelveticaBold);
+        const cjkWidth = cjkFont ? (text, size) => cjkFont.measureWidth(text, size) : null;
         measureFonts = {
-          regular: await tmp.embedFont(StandardFonts.Helvetica),
-          bold: await tmp.embedFont(StandardFonts.HelveticaBold),
+          regular: makeMeasure(regular, cjkWidth),
+          bold: makeMeasure(bold, cjkWidth),
+          raw: { regular, bold }, // 診斷用（純 pdf-lib 字型）
         };
       }
       return measureFonts;
@@ -630,6 +735,9 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
       if (!check.ok) {
         const detail = check.unsupported
           .map((u) => `${u.label}${u.sample ? `（含 ${u.sample}）` : ''}`).join('、');
+        const why = engine.cjk.available
+          ? '含 CJK 字型未涵蓋的字元'
+          : (engine.cjkMode === 'off' ? 'PDF_CJK=off（已停用 CJK 字型）' : '環境沒有可用的 CJK 字型');
         return {
           status: 'fallback',
           reason: 'non-latin1',
@@ -638,7 +746,7 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
           bytes: 0,
           ms: elapsedMs(),
           unsupported: check.unsupported,
-          message: `需退回舊引擎（Excel COM）：MAWB ${mawb || '(無)'} 的 ${detail} 含非 Latin-1 字元，pdf-lib 標準字型無法正確輸出`,
+          message: `需退回舊引擎（Excel）：MAWB ${mawb || '(無)'} 的 ${detail} 含標準字型無法輸出的字元（${why}）`,
         };
       }
 
@@ -647,9 +755,20 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
       for (const p of copied) out.addPage(p);
       const embedOpts = (which) => (fontCustomNames && fontCustomNames[which]
         ? { customName: fontCustomNames[which] } : {});
-      const fonts = {
+      const drawFonts = {
         regular: applyWinAnsiWidths(await out.embedFont(engine.fontNames.regular, embedOpts('regular'))),
         bold: applyWinAnsiWidths(await out.embedFont(engine.fontNames.bold, embedOpts('bold'))),
+        cjk: null,
+      };
+      // 3) 只有該筆真的用到 CJK／全形字元時才嵌入 CJK 子集（沒有就完全不影響檔案大小與耗時）
+      let cjkWidthFn = null;
+      if (check.usesCjk && engine.cjkFont) {
+        drawFonts.cjk = await embedCjkFontInto(out, engine.cjkFont);
+        cjkWidthFn = (text, size) => drawFonts.cjk.widthOfTextAtSize(text, size);
+      }
+      const measureFonts = {
+        regular: makeMeasure(drawFonts.regular, cjkWidthFn),
+        bold: makeMeasure(drawFonts.bold, cjkWidthFn),
       };
       const pages = out.getPages();
       const fontPaths = [];
@@ -663,7 +782,7 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
           if (value.trim() === '') continue;
           const bold = !!(field.font && field.font.bold);
           const size = fontSizeOf(field);
-          const font = bold ? fonts.bold : fonts.regular;
+          const font = fontFor(field, measureFonts); // 混排量測（標準字型／CJK 逐段累加）
           const color = hexToRgb(field.font && field.font.color);
           const isBlack = !(field.font && field.font.color) || /^#?0{6}$/i.test(field.font.color);
           for (const ln of layoutLines(wrapText(value, field, font), field, font)) {
@@ -687,16 +806,17 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
           drawWithEmbeddedFont(page, out, items, embedded);
           fontPaths.push('embedded');
         } else {
+          let drawn = true;
           for (const it of items) {
-            page.drawText(it.text, {
-              x: it.x,
-              y: it.y,
-              size: it.size,
-              font: it.bold ? fonts.bold : fonts.regular,
-              color: it.color,
-            });
+            if (drawMixedText(page, it, drawFonts) === null) drawn = false;
           }
-          fontPaths.push(embedded ? 'standard(字符未涵蓋)' : (engine.fontMode === 'standard' ? 'standard' : 'standard(無內嵌Arial)'));
+          if (!drawn) {
+            // 理論上不會走到（check() 已擋）；保險：讓呼叫端把該筆退回 Excel 引擎
+            throw new Error(`MAWB ${mawb}：缺少繪製字元所需的字型（請確認 PDF_CJK／SLI_ELI_CJK_FONT 設定）`);
+          }
+          const base = embedded ? 'standard(字符未涵蓋)'
+            : (engine.fontMode === 'standard' ? 'standard' : 'standard(無內嵌Arial)');
+          fontPaths.push(cjkWidthFn ? `${base}+cjk-subset` : base);
         }
       }
       const bytes = await out.save({ useObjectStreams: true, updateFieldAppearances: false });
@@ -777,6 +897,7 @@ function makeRenderer(engine, tplDoc, fontCustomNames) {
         blankSha256: engine.blankSha256,
         fonts: engine.fontNames,
         fontMode: engine.fontMode,
+        cjk: engine.cjk,
         embeddedFonts: engine.embeddedFonts.map((f, i) => (f
           ? `p${i}: ${f.regular ? `${f.regular.resName}=${f.regular.baseFont}(${f.regular.chars.size} chars)` : '-'}`
             + ` / ${f.bold ? `${f.bold.resName}=${f.bold.baseFont}(${f.bold.chars.size} chars)` : '-'}`
@@ -823,9 +944,13 @@ module.exports = {
   DEFAULT_FIELDMAP,
   A4_SIZE,
   A4_TOLERANCE_PT,
-  // 文字支援判定
+  // 文字支援判定（實作在 scripts/pdf-charset.js；isLatin1* 為相容別名）
   isLatin1,
   isLatin1Char,
+  isStdFont,
+  isStdFontChar,
+  sanitizeText,
+  winAnsiHex,
   findUnsupportedChars,
   toText,
   resolveFieldValue,
@@ -839,6 +964,10 @@ module.exports = {
   layoutLines,
   fontSizeOf,
   lineHeightOf,
+  // 混合字型（標準字型 ＋ CJK 子集）
+  splitRuns,
+  makeMeasure,
+  drawMixedText,
   // 引擎
   createOverlayEngine,
   getDefaultEngine,

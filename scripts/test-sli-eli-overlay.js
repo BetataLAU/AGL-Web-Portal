@@ -79,6 +79,9 @@ async function main() {
   console.log(`fieldmap   : ${path.basename(info.fieldmapPath)} v${engine.fieldmap.version} ${info.fieldCount} 欄位`);
   console.log(`字型       : ${info.fonts.regular} / ${info.fonts.bold}（標準字型，0 byte 內嵌）`);
   console.log(`字型模式   : ${info.fontMode}（auto＝優先沿用背景內嵌的 Excel Arial 子集）`);
+  console.log(`CJK 字型   : ${info.cjk && info.cjk.available
+    ? `${path.basename(String(info.cjk.path))}（${info.cjk.postscriptName}；PDF_CJK=${info.cjk.mode}）`
+    : `不可用（${info.cjk ? info.cjk.mode : '?'}：${(info.cjk && info.cjk.error) || '無'}）`}`);
   (info.embeddedFonts || []).forEach((s) => console.log(`             內嵌字型 ${s}`));
   console.log(`資產問題   : ${info.issues.length ? info.issues.join('；') : '（無）'}`);
   console.log(`冷啟動載入 : ${coldMs} ms（背景＋fieldmap；每筆渲染共用）`);
@@ -147,11 +150,12 @@ async function main() {
   const times = [];
   for (const { r } of results) {
     if (r.status !== 'ok') {
-      // 退回舊引擎的記錄：必須真的含 Latin-1 以外的字元（否則就是誤判）
+      // 退回舊引擎的記錄：必須真的含「標準字型與 CJK 字型都無法輸出」的字元（否則就是誤判）
       const genuine = (r.unsupported || []).length > 0
         && r.unsupported.every((u) => u.chars.some((c) => c.code > 0xff));
       if (!genuine) allOk = false;
-      console.log(`  ${r.mawb}  → 退回舊引擎：${genuine ? '判定正確' : 'FAIL（判定錯誤）'}`
+      const reason = (r.unsupported || [])[0] ? (r.unsupported[0].reason || '-') : '-';
+      console.log(`  ${r.mawb}  → 退回舊引擎：${genuine ? '判定正確' : 'FAIL（判定錯誤）'}（${reason}）`
         + `  ${(r.unsupported || []).map((u) => `${u.label}=${u.sample}`).join(', ')}`);
       continue;
     }

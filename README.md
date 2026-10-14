@@ -42,6 +42,7 @@ npm start        # 或 node server.js
 - 並行度：預設 `XLS_PDF_CONCURRENCY=2`，可在介面選 1–4；單機 Windows Excel COM 建議用 `1`
 - 紙張：預設輸出 **A4**（`PDF_PAPER=a4`）。Excel 的匯出紙張由印表機驅動決定，因此 A4 由 Node 端 `normalizePdfToA4()` 在合併後等比正規化（＝模板原設計的 A4 × 65%）；`PDF_PAPER=custom` 可還原舊的自訂紙張（322.8×456.9mm）
 - PDF 瘦身：預設開啟字型優化（`PDF_FONT_OPT=on`，需 Python + `pymupdf`）——移除 PDF 用不到的 `name`/hinting 表與 glyf 指令，實測 **533 KB → 123 KB（-77%）**，150dpi 逐像素差異 0.000%；`off` 可停用
+- 字元處理（疊字引擎，三層）：①**無損淨化**（移除零寬／BOM／控制字元）②**WinAnsi 放寬**（`–` `’` `“”` `€`… 共 27 個特殊字不再誤判為「不支援」）③**CJK 字型子集**（`@pdf-lib/fontkit` 按需內嵌中文／全形字元，只有該筆用到才 **+4~7 KB**）。`PDF_CJK=off` 可一鍵回滾成「含 CJK 的記錄退回 Excel」；`SLI_ELI_CJK_FONT` 可指定字型檔。**不做任何可見字元替換**（例：`：`→`:` 會改動報關文件內容與折行）。實測含 `：` 的記錄：**119 KB／74 ms**（Excel 退回版 131 KB／~4 s）
 
 ## 📁 專案目錄結構
 
@@ -178,7 +179,9 @@ CBM     ：0.52
 | PDF 並行 | 介面可選 1–4 個 worker（`XLS_PDF_CONCURRENCY` 為預設值；Windows Excel COM 建議 1），取消時終止全部子程序 |
 | A4 紙張 | 產出一律 A4（`PDF_PAPER=a4`，預設）：合併後以 pdf-lib 等比正規化（＝模板原設計 A4 × 65%）；`custom` 可還原舊的印表機自訂紙張。執行結果會顯示實測頁面尺寸 |
 | PDF 瘦身 | 預設 `PDF_FONT_OPT=on`：移除 PDF 用不到的 `name`/hinting 表與 glyf 指令（純 Python + PyMuPDF，免 Ghostscript），實測 **533 KB → 123 KB（-77%）**、逐像素差異 0.000%，文字仍可搜尋 |
-| 疊字背景 | `python scripts/build-sli-eli-blank.py` 產生 A4 空白背景（122 KB）、編輯器底圖與 `sli-eli-fieldmap.json`（10 欄位座標，實測校準殘差 0.00 pt） |
+| 疊字背景 | `python scripts/build-sli-eli-blank.py` 產生 A4 空白背景（114 KB）、編輯器底圖與 `sli-eli-fieldmap.json`（10 欄位座標，實測校準殘差 0.00 pt） |
+| PDF 產生方式 | ④ 執行產生最前面的選擇器：`Excel（舊版）`（預設）或 `疊字（新版）`；`XLS_PDF_ENGINE=overlay\|com` 可設預設值。真正無法疊字的記錄（`PDF_CJK=off`／環境無 CJK 字型／emoji 等缺字）自動退回 Excel（同批可混合），結果面板會列出退回的 MAWB 與字元 |
+| 中文／全形字元 | 疊字引擎內嵌 CJK 字型子集（fontkit，按需）：含中文 CNEE 的記錄不再整筆退回 Excel；`PDF_CJK=off` 可回滾 |
 | 資源清理 | `POST /api/xls-booking/cleanup`（admin/staff）清理逾 24 小時的 job/report、逾 7 天的上傳檔；先傳 `{ "dryRun": true }` 只列清單 |
 | 權限 | 需登入，登入後 Sidebar 解鎖 |
 

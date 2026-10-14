@@ -495,15 +495,30 @@ router.post('/preview', async (req, res) => {
           await fsp.unlink(tmpPdf).catch(() => {});
         }
       }
-      return { check, fields, pdf, pageSizes: engine.pageSizes, blankBytes: engine.blankBytes, issues: engine.issues };
+      return {
+        check,
+        fields,
+        pdf,
+        pageSizes: engine.pageSizes,
+        blankBytes: engine.blankBytes,
+        issues: engine.issues,
+        // 樣本不可疊字時，讓訊息說清楚是「缺字型」還是「字型缺該字形」
+        cjkNote: engine.cjk.available
+          ? `此樣本含 CJK 字型（${engine.cjk.postscriptName || '?'}）未涵蓋的字元`
+          : (engine.cjk.mode === 'off'
+            ? '此樣本含 CJK／全形字元，但 PDF_CJK=off（已停用 CJK 字型）'
+            : `此樣本含 CJK／全形字元，但環境沒有可用的 CJK 字型${engine.cjk.error ? `（${engine.cjk.error}）` : ''}`),
+      };
     });
 
     res.json({
       ok: true,
       renderable: result.check.ok,
       fallback: result.check.ok ? null : {
-        message: '此樣本含 pdf-lib 標準字型不支援的字元；正式產生時該筆會自動退回 Excel 引擎（預覽仍顯示可支援欄位的位置）',
-        unsupported: result.check.unsupported.map((u) => ({ key: u.key, label: u.label, sample: u.sample })),
+        message: `${result.cjkNote}；正式產生時該筆會自動退回 Excel 引擎（預覽仍顯示可支援欄位的位置）`,
+        unsupported: result.check.unsupported.map((u) => ({
+          key: u.key, label: u.label, sample: u.sample, reason: u.reason,
+        })),
       },
       sample: { id: sample.id, label: sample.label, mawb: sample.record.mawb },
       pages: (draft.pages || []).map((p) => ({

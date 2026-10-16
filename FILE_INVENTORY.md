@@ -2,36 +2,21 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/14 下午5:37:23
+> 最後更新：2026/10/16 下午6:25:20
 
 ## 🔄 Git 變更狀態
 
 ```
-M CLAUDE.md
-M Dockerfile
-M README.md
-M WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx
+M FILE_INVENTORY.md
 M database.db
 M db/sessions.db
 M docs/design/xls-sli-eli-overlay-prd.md
-M package-lock.json
-M package.json
+M public/js/sli-eli-layout-editor.js
 M public/js/sli-eli-layout-main.js
-M public/js/xls-booking-workflow.js
-M routes/xls-booking-layout.js
-M scripts/build-sli-eli-blank.py
-M scripts/sli-eli-blank-widen-fonts.js
-M scripts/sli-eli-overlay.js
-M scripts/test-p4-engine.js
-M scripts/test-sli-eli-overlay.js
-M scripts/xls-workflow.js
-?? scripts/pdf-charset.js
-?? scripts/pdf-cjk-font.js
-?? scripts/test-sli-eli-charset.js
+?? scripts/test-sli-eli-layout-frontend.js
 ```
 
-## 📁 檔案清單（共 290 個檔案）
+## 📁 檔案清單（共 294 個檔案）
 
 ### (根目錄)
 
@@ -39,7 +24,7 @@ M scripts/xls-workflow.js
 - `.gitignore`（642 B）
 - `CLAUDE.md`（41.2 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（16.2 KB）
+- `PROJECT_MAP.md`（16.5 KB）
 - `README.md`（22.5 KB）
 - `WORKSPACE_STATE.md`（26.3 KB）
 - `package.json`（750 B）
@@ -62,11 +47,15 @@ M scripts/xls-workflow.js
 - `bp3d/ga-lns/init.js`（2.1 KB）
 - `bp3d/ga-lns/search.js`（3.5 KB）
 
+### data
+
+- `data/test-commit-check-head-report.xlsx`（738.1 KB）
+
 ### data/templates
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（595.8 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（600.8 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -98,18 +87,10 @@ M scripts/xls-workflow.js
 - `data/test-blank-build/markerB-air.pdf`（354.2 KB）
 - `data/test-blank-build/template-copy-32528.xlsx`（93.7 KB）
 
-### data/test-charset
-
-- `data/test-charset/jobs.json`（238 B）
-
 ### data/test-charset/mine
 
-- `data/test-charset/mine/160-17592201.pdf`（119.4 KB）
+- `data/test-charset/mine/160-15102743.pdf`（123.7 KB）
 - `data/test-charset/mine/752-30231530.pdf`（116.5 KB）
-
-### data/test-charset/ref
-
-- `data/test-charset/ref/160-17592201.pdf`（126.1 KB）
 
 ### data/test-p2
 
@@ -174,15 +155,19 @@ M scripts/xls-workflow.js
 
 ### data/test-p3-overlay
 
-- `data/test-p3-overlay/jobs.json`（244 B）
+- `data/test-p3-overlay/jobs.json`（730 B）
 
 ### data/test-p3-overlay/mine
 
-- `data/test-p3-overlay/mine/160-17592201.pdf`（119.4 KB）
+- `data/test-p3-overlay/mine/160-15102742.pdf`（116.0 KB）
+- `data/test-p3-overlay/mine/160-15102743.pdf`（123.7 KB）
+- `data/test-p3-overlay/mine/160-15102744.pdf`（115.9 KB）
 
 ### data/test-p3-overlay/ref
 
-- `data/test-p3-overlay/ref/160-17592201.pdf`（126.1 KB）
+- `data/test-p3-overlay/ref/160-15102742.pdf`（123.4 KB）
+- `data/test-p3-overlay/ref/160-15102743.pdf`（131.3 KB）
+- `data/test-p3-overlay/ref/160-15102744.pdf`（123.2 KB）
 
 ### data/test-p4-engine-cjk
 
@@ -217,7 +202,7 @@ M scripts/xls-workflow.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（62.5 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（64.2 KB）
 
 ### docs/research
 
@@ -415,6 +400,7 @@ M scripts/xls-workflow.js
 - `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-q7-api.js`（2.6 KB）
 - `scripts/test-sli-eli-charset.js`（17.1 KB）
+- `scripts/test-sli-eli-layout-frontend.js`（9.7 KB）
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）

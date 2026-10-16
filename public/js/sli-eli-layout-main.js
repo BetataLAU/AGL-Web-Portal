@@ -190,6 +190,10 @@ async function lelTestPdf() {
     if (btn) btn.disabled = false;
     lelRenderStage();
     lelRenderList();
+    lelRenderProps();
+    lelRenderToolbarState();
+  }
+}
 
 // ===== UI 綁定 =====
 function lelBindUi() {
@@ -295,8 +299,3 @@ async function lelInit() {
 }
 
 document.addEventListener('DOMContentLoaded', lelInit);
-
-    lelRenderProps();
-    lelRenderToolbarState();
-  }
-}

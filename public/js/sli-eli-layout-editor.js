@@ -224,6 +224,12 @@ function lelKeydown(e) {
   const step = e.shiftKey ? LEL_LIMITS.moveStepShiftPt : LEL_LIMITS.moveStepPt;
   lelPushUndo();
   lelMoveField(f, dir[0] * step, dir[1] * step);
+  lelRenderStage();
+  lelRenderList();
+  lelRenderProps();
+  lelRenderToolbarState();
+  lelSchedulePreview(true);
+}
 
 // ===== 屬性面板 =====
 function lelNumInput(id, label, value, step) {
@@ -342,11 +348,4 @@ function lelBindProps(f) {
   bind('lel-prop-center-h', () => lelApplyProp((x) => lelSetAlign(x, 'h', 'center')));
   bind('lel-prop-center-v', () => lelApplyProp((x) => lelSetAlign(x, 'v', 'center')));
   bind('lel-prop-center', () => lelApplyProp((x) => { lelSetAlign(x, 'h', 'center'); lelSetAlign(x, 'v', 'center'); }));
-}
-
-  lelRenderStage();
-  lelRenderList();
-  lelRenderProps();
-  lelRenderToolbarState();
-  lelSchedulePreview(true);
 }

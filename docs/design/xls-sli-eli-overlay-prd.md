@@ -546,6 +546,15 @@ node scripts/test-zip-naming.js
 # （會暫時改寫 data/templates/sli-eli-fieldmap.json，結束自動還原並清除本次備份）
 node scripts/test-sli-eli-layout.js
 
+# 前端（瀏覽器語意）驗收：用 vm＋DOM stub 實際載入 sli-eli-layout-{state,editor,main}.js，
+# 觸發 DOMContentLoaded 後檢查畫面（欄位清單／底圖／方塊／分頁／狀態列）＋全域函式
+# 期望：全部通過（12 項）
+node scripts/test-sli-eli-layout-frontend.js
+
+# 對照組（確認這支測得住）：先取出壞掉的版本，應該要有 10 項失敗
+#   git show <壞掉的 commit>:public/js/sli-eli-layout-main.js > head-main.js
+#   node scripts/test-sli-eli-layout-frontend.js head-main.js
+
 # 瀏覽器手動檢查：登入後 → 側欄最上方「SLI/ELI 版面編輯器」
 #   http://127.0.0.1:3000/sli-eli-layout.html
 ```
@@ -588,7 +597,10 @@ python data/test-p3/probe-visual.py a.pdf b.pdf  # 逐欄位「ref/mine/差異�
 22. **`engine.partition()` 只做分類、不會排程**：回傳的 `fallback[]` 記錄必須自己推回舊 COM 的 `comPayload` 佇列（`f.record`）。只把它們算進 `fallbackCount` 而不排程，會**靜默少產出**那些 PDF（count 變少、errors 卻是空的）——P4 實作時踩過一次，`scripts/test-p4-engine.js` case 1 就是防這個。
 23. **`engine.render()` 回傳的 `bytes` 是「位元組數」不是 PDF 內容**：要拿內容必須給 `outputPath` 再讀檔（`render(rec, tmpPath)` → `fs.readFile`）。用 `Buffer.from(r.bytes).toString('base64')` 只會得到全零 buffer／空 base64（P5 預覽 PDF 時踩過，測試才抓到）。
 24. **備份檔名只到「秒」會互相覆蓋**：同一秒內連續 PUT／reset（例如前端「儲存」後立刻「還原全部」）會讓後一次備份蓋掉前一次 → 檔名要帶毫秒，並在碰撞時加隨機後綴。`test-sli-eli-layout.js` 的「備份清單 ≥ 2 筆」就是防這個。
-25. **Windows 上用 PowerShell 對檔案做「插行」要小心**：以行號插入的編輯若錨點落在函式內部，會把後面的內容（含 `main().catch(...)`）擠到函式尾巴，造成「語法通過但 `main()` 從未被呼叫」的靜默失敗（P5 撰寫測試腳本時踩過）。寫大型檔案請用「附加到檔尾」或先刪檔重建。
+25. **「以行號插入」的編輯會把後段內容擠進前一個函式 → 語法通過但程式從未執行**：錨點落在函式內部時，後面所有程式碼（含 `main().catch(...)`／`DOMContentLoaded` 註冊）會被包進那個函式內，大括號總數剛好平衡 → `node --check` 與 `npm start` 都不會報錯，只是「**什麼都不會發生**」。
+    - **P5 前端檔案曾實際受害（2026-10-16 發現）**：`sli-eli-layout-main.js` 的 `lelTestPdf()` finally 少了收尾 → `lelBindUi()`／`lelInit()`／`document.addEventListener('DOMContentLoaded', …)` 全被包進去（`lelInit` 變成非全域、監聽器 0 個）→ 編輯器頁面**整頁空白、按鈕無效**（欄位（10）清單空的、底圖不出現）；`sli-eli-layout-editor.js` 的 `lelKeydown()` 同樣少了收尾 → `lelRenderProps()`／`lelApplyProp()` 非全域 → 屬性面板與對齊工具一按就 `ReferenceError`（被 `lelInit` 的 try/catch 吞掉，只顯示「載入失敗」）。兩者都只有「真的在瀏覽器/DOM 裡跑一遍」才會浮現。
+    - **防護**：新增 `scripts/test-sli-eli-layout-frontend.js`（vm ＋ DOM stub；檢查 27 個跨檔案函式都是全域、`DOMContentLoaded` 註冊 1 個、初始化後畫面內容正確）。改前端檔案後**必跑**這支，不要只看 `node --check`。
+    - **寫大型檔案的原則**：用「附加到檔尾」或先刪檔重建，不要用行號插行；插行後務必確認最後一個函式仍有自己的收尾 `}`。
 26. **來源試算表的文字會直接進檔名 → 必須過濾 Windows 非法字元**：客戶的「航班號」欄位其實是 `5Y8050/ 13th Oct`（航班號＋日期），舊版 Step 5 直接拿它組 ZIP 檔名 → `/` 在 Windows 既非法又是路徑分隔，`path.join` 後變成子目錄 → `ENOENT`（`: ...\job-Oh8QGx\20261013 - 5Y8050\ 13th Oct SLI x 13.zip`），PDF 已產出但整批 ZIP 失敗。修法：`sanitizeFileLabel()`（`xls-utils.js`）＋ `zipBaseName()`（`xls-workflow.js`），並用 `scripts/test-zip-naming.js` 固定（含「舊寫法會 ENOENT」對照組）。**注意：不可把既有檔名 `20260803 - CX257` 改掉**（日期與標籤之間的 ` - ` 要保留 → 過濾規則必須綁定「非法字元本身」，不能無腦合併所有 `- `）。
 27. **`@pdf-lib/fontkit` 對 `.ttc` 回傳 `TrueTypeCollection`（沒有 `createSubset`）**：`doc.embedFont(ttcBytes, { subset: true })` 會直接爆 `_this.font.createSubset is not a function`（`msjh.ttc` 實測）。必須從 `obj.fonts` 挑單一字型（`MicrosoftJhengHeiRegular`／`PMingLiU`…）再 `new CustomFontSubsetEmbedder(fontkitFont, raw)` ＋ `PDFFont.of(ref, doc, embedder)` ＋ **`doc.fonts.push(pdfFont)`**（`doc.fonts` 是 pdf-lib 在 `flush()` 時內嵌字型的來源，不 push 就不會被寫進 PDF）。已解析的 fontkit 字型可跨文件重用（解析 24 ms → 快取 0.15 ms）。
 28. **可變字型（VF）沒有「正確的預設實例」**：`NotoSansTC-VF.ttf` 的 `postscriptName` 是 `NotoSansTC-Thin` → 筆畫極細，與 Excel 不符。`scripts/pdf-cjk-font.js` 以 `font.variationAxes` 判斷並跳過 VF；Windows 用 `msjh.ttc`／`mingliu.ttc`，Linux 用 `NotoSansCJK-Regular.ttc`／`DroidSansFallbackFull.ttf`。

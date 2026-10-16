@@ -269,6 +269,8 @@
 
 **側邊欄（需求 3「新功能放最頂」）**：`public/index.html` 的 nav 在 **HOME 之後第一位**新增 `sli-eli-layout.html`（`#nav-sli-eli-layout`）；`public/js/auth.js` 未登入時顯示鎖頭並導向登入頁、登入後解鎖；`scripts/fix-nav-order.js` 的 `DEFAULT_ORDER` 把它列為第一項（既有自訂排序的使用者執行該腳本即會就近補上；本機 admin 已修復 10 → 11 項）。
 
+> **2026-10-16 修訂（側邊欄改為「主 / 子功能」層級）**：SLI/ELI 版面編輯器在資訊架構上是 `Shipper Role Project` 的**子功能**，但原本側欄兩者同級、看不出隸屬關係 → 改為「子項緊跟在主項之後 ＋ `.nav-child` 縮排／樹狀連接線／「子功能」標籤」呈現（主項 `.nav-parent` 加粗＋左緣強調條），樣式在 `public/css/layout.css`。`public/index.html` 的 DOM 順序、`scripts/fix-nav-order.js` 的 `DEFAULT_ORDER` ＋ `CHILD_AFTER_PARENT` 一併調整（修復既有使用者的自訂排序時把子項搬回主項之後）；子功能頁面（`public/sli-eli-layout.html`）側欄與頁首同步標示。此修訂取代上文「側欄在 HOME 之後第一位」的配置；驗證：`node scripts/test-nav-hierarchy.js`（23 項）。
+
 ### P5 版面編輯器（需求 4）✅ 已完成
 
 **新頁**：`public/sli-eli-layout.html` ＋ `public/js/sli-eli-layout-{state,editor,main}.js` ＋ `public/css/sli-eli-layout.css`（比照 `uld-packing.html` 的獨立頁模式；純靜態底圖、無新 CDN 相依）。

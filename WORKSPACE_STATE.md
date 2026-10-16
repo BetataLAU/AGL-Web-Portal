@@ -7,7 +7,8 @@
 
 - **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理）**：
+- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理 ＋ 側欄主/子層級）**：
+  - **(H) 側欄主/子功能層級（本次）**：修改 `public/index.html`（主項 `.nav-parent`／子項 `.nav-child`＋「子功能」標籤，子項移到主項之後）、`public/css/layout.css`（層級樣式：縮排／樹狀連接線／標籤／省略號保護）、`public/sli-eli-layout.html`＋`public/css/sli-eli-layout.css`（子功能頁側欄與頁首標示）、`scripts/fix-nav-order.js`（`DEFAULT_ORDER`＋`CHILD_AFTER_PARENT`）、`scripts/test-nav-order-frontend.js`（stub 順序）；新增 `scripts/test-nav-hierarchy.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`WORKSPACE_STATE.md`
   - **(G) 字元處理（第 0/1/2 層）**：新增 `scripts/pdf-charset.js`、`scripts/pdf-cjk-font.js`、`scripts/test-sli-eli-charset.js`；修改 `scripts/sli-eli-overlay.js`（淨化／WinAnsi 放寬／CJK 子集混排／`check().reason`）、`scripts/xls-workflow.js`（`fallbackReasons.reason`＋`engine.cjkFont`）、`scripts/sli-eli-blank-widen-fonts.js`＋`scripts/build-sli-eli-blank.py`（27 個 WinAnsi 特殊字）、`routes/xls-booking-layout.js`＋`public/js/xls-booking-workflow.js`＋`public/js/sli-eli-layout-main.js`（文案）、`Dockerfile`（`fonts-droid-fallback`）、`package.json`（`@pdf-lib/fontkit`）
   - **(F) ZIP 檔名修正**：`scripts/xls-utils.js`（`sanitizeFileLabel()`）、`scripts/xls-workflow.js`（`zipBaseName()`＋Step 5 改用它）、新增 `scripts/test-zip-naming.js`
   - **(E) P5 版面編輯器**：新增 `public/sli-eli-layout.html`、`public/js/sli-eli-layout-{state,editor,main}.js`、`public/css/sli-eli-layout.css`、`routes/xls-booking-layout.js`、`scripts/test-sli-eli-layout.js`；修改 `routes/xls-booking.js`（掛載 `/layout`）、`public/index.html`（側欄最頂新項目）、`public/js/auth.js`（鎖頭／解鎖）、`scripts/fix-nav-order.js`（DEFAULT_ORDER 首項）、`.gitignore`（fieldmap 備份）、`database.db`（admin 導覽排序 10 → 11 項）
@@ -18,7 +19,14 @@
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **字元處理：第 0/1/2 層（本次，尚未提交）**：舊版遇到「pdf-lib 標準字型編不出來」的字元就整筆退回 Excel（每筆 ~4 s、123–131 KB）。實測 178 個歷史 job、2,789 筆：462 筆（16.6%）含非 Latin-1，其中 **122 筆其實只含 `–`（U+2013）**、340 筆真的含中文／全形標點。
+0. **側邊欄「主 / 子功能層級」（本次，尚未提交）**：使用者反映 `Shipper Role Project`（主功能）與 `SLI/ELI 版面編輯器`（子功能）在側邊欄「看起來一樣大」，看不出隸屬關係（實際兩者是主／子功能）。
+   - **做法（方案 A：純視覺，不動 DOM 結構／JS）**：`index.html` 主項加 `.nav-parent`、子項加 `.nav-child` ＋ `<span class="nav-badge">子功能</span>` ＋ `data-nav-parent`／`title`；子項 DOM 由「HOME 之後第一位」移到主項的**下一個**。
+   - **樣式**（`public/css/layout.css`）：主項加粗＋左緣 primary 漸層強調條（用 `::after`，因 `.nav-item::before` 已被光掃動畫佔用）；子項縮排 14px ＋字級 0.85rem ＋淡化＋ L 型樹狀連接線（子項需 `overflow:visible` 才能跨過 10px 間距 → 連帶關閉子項光掃）＋「子功能」膠囊標籤；導航名稱溢出改省略號（`text-overflow:ellipsis`），確保右側鎖頭／拖曳把手不被擠出。
+   - **子功能自己的頁面**（`public/sli-eli-layout.html`）：側欄改為「主項在上、子項縮排並標 active（含子功能標籤）」；頁首 `h1` 加「Shipper Role Project 子功能」chip（`lel-chip-muted`，樣式在 `public/css/sli-eli-layout.css`）。
+   - **排序一致性**：`scripts/fix-nav-order.js` 的 `DEFAULT_ORDER` 改為子項緊跟主項，並新增 `CHILD_AFTER_PARENT` ＋ `moveChildrenAfterParents()`（修復既有使用者的自訂排序時會把子項搬回主項之後）；`scripts/test-nav-order-frontend.js` 的 stub 目錄順序同步更新。
+   - **驗證**：新增 `scripts/test-nav-hierarchy.js`（23 項靜態斷言：HTML 標記／DOM 順序／CSS 規則／修復腳本／stub 一致性）**PASS**；`scripts/test-nav-order-frontend.js`、`scripts/test-sli-eli-layout-frontend.js` 皆 **PASS**；`node scripts/fix-nav-order.js` 對本機 admin 回報「無需修改（11 項）」（子項已在主項之後，未動 DB）。
+   - **已知限制**：方案 A 為純視覺 → 拖曳排序仍可把子項拖離主項（不強制綁定）；若要「父子綁定拖曳」或「可收合群組」需改 `public/js/main.js` 的 `setupSidebarReorder()`。
+1. **字元處理：第 0/1/2 層（本次，尚未提交）**：舊版遇到「pdf-lib 標準字型編不出來」的字元就整筆退回 Excel（每筆 ~4 s、123–131 KB）。實測 178 個歷史 job、2,789 筆：462 筆（16.6%）含非 Latin-1，其中 **122 筆其實只含 `–`（U+2013）**、340 筆真的含中文／全形標點。
    - **第 0 層淨化**（`scripts/pdf-charset.js` `sanitizeText()`）：移除零寬（U+200B–200F／U+FEFF）／C0 控制字元／變體選擇器／U+180E；U+0085/U+2028/U+2029 → `\n`。**不做**任何可見字元替換（U+00AD／U+00A0／U+3000 保留）。
    - **第 1 層 WinAnsi 放寬**：判定由 Latin-1 改為「WinAnsiEncoding 可編碼」（ASCII＋Latin-1＋0x80–0x9F 的 27 個特殊字），`winAnsiHex` 改走 `winAnsiByte()` 對照表（舊版把 U+2013 寫成 `3F` `?`）→ **122 筆不再退回**（116.5 KB／~50 ms）。
    - **第 2 層 CJK 子集**（`scripts/pdf-cjk-font.js`＋`@pdf-lib/fontkit`）：按需子集內嵌（只有該筆用到才 +4~7 KB；`msjh.ttc` 解析 24 ms、快取 0.15 ms）；`makeMeasure()` 逐段累加寬度（全形 1em → 不位移）。**關鍵坑**：fontkit 對 `.ttc` 回傳 `TrueTypeCollection`（沒有 `createSubset`）→ 必須挑單一字型＋`new CustomFontSubsetEmbedder(...)`。`PDF_CJK=off` 一鍵回滾、`SLI_ELI_CJK_FONT` 可覆寫字型。
@@ -101,6 +109,7 @@
 
 ## 📋 下一步（待辦）
 
+- [x] **側欄主/子功能層級**：主功能 `.nav-parent`（加粗＋左緣強調條）、子功能 `.nav-child`（縮排＋樹狀連接線＋「子功能」標籤）；子項固定排在主項之後（`index.html` DOM＋`fix-nav-order.js` 的 `DEFAULT_ORDER`／`CHILD_AFTER_PARENT`）；子功能頁（`sli-eli-layout.html`）側欄與頁首同步標示；驗收 `node scripts/test-nav-hierarchy.js`（23 項）PASS
 - [x] **P3 疊字產生器**：`scripts/sli-eli-overlay.js`（pdf-lib，背景＋10 欄位疊字）＋ `scripts/sli-eli-diff.py` ＋ `scripts/test-sli-eli-overlay.js`；每份 116.4KB、每筆 45–55ms、150dpi 差異 0.230%/0.329%
 - [x] **P4 前置**：建置腳本內建 baseline 解析模型＋實測校準值（fieldmap v2 直接產出）＋「字符集匯出＋字型加寬」（`scripts/sli-eli-blank-widen-fonts.js`）；空白 122.3→114.0KB 且像素不變
 - [x] **P4 接主流程**：`XLS_PDF_ENGINE=overlay|com`（未設定＝舊版，行為 100% 不變）、`engine.partition()` 分派＋失敗自動退回舊引擎（同批混合）、④ 執行產生最前面的「PDF 產生方式」選擇器、`/process` 白名單＋結果帶 `engine`／`fallbackCount`、結果面板顯示產生方式與退回筆數；實測 com 123.4KB／12.1s、overlay 116.0KB／1.1s、混合批次與全退回皆 PASS（`scripts/test-p4-engine.js`）

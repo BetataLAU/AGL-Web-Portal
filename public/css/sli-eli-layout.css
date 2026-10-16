@@ -56,6 +56,14 @@
   background: rgba(100, 116, 139, 0.12);
   color: var(--text-muted, #64748b);
 }
+/* 頁首 h1 內的「隸屬主功能」標籤（縮小、與標題同列） */
+.lel-header h1 .lel-chip {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
 
 /* ---- 工具列 ---- */
 .lel-toolbar {

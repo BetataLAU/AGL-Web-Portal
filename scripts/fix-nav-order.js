@@ -5,6 +5,7 @@
 // 本腳本會針對已有自訂排序的使用者：
 //   1. 移除非法 / 重複的 key（驗證規則與 routes/auth/auth-router.js 一致）
 //   2. 補回缺少但合法的目錄項目，位置依 index.html 的預設順序就近插入
+//   3. 把「子功能」搬到其「主功能」之後（維持側邊欄縮排層級看起來正確，見 CHILD_AFTER_PARENT）
 // 用法：node scripts/fix-nav-order.js
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
@@ -13,20 +14,44 @@ const DATA_DIR = process.env.DATA_DIR;
 const DB_PATH = process.env.DB_PATH || (DATA_DIR ? path.join(DATA_DIR, 'database.db') : path.join(__dirname, '..', 'database.db'));
 
 // index.html 目錄的預設順序（不含固定不動的 HOME）
-// 註：新增頁面（如 sli-eli-layout.html）務必加入本清單，否則已有自訂排序的使用者會把它排到最後。
+// 註 1：新增頁面（如 sli-eli-layout.html）務必加入本清單，否則已有自訂排序的使用者會把它排到最後。
+// 註 2：子功能（sli-eli-layout.html）緊跟在主功能（#section-xls-booking）之後，
+//       與 index.html 的 DOM 順序、以及側邊欄的縮排層級一致。
 const DEFAULT_ORDER = [
-  'sli-eli-layout.html',
   '#section-chat',
   '#section-skills',
   '#section-contour',
   '#section-orders',
   '#section-xls-booking',
+  'sli-eli-layout.html',
   '#section-palletization',
   'uld-packing.html',
   'packing.html',
   '#section-dbviewer',
   'users.html'
 ];
+
+// 子功能 → 主功能的對應：側邊欄以「縮排＋樹狀連接線」呈現隸屬關係（public/css/layout.css 的
+// .nav-parent / .nav-child），子項若排在主項上方，層級看起來會相反 → 修復時把子項搬到主項之後。
+const CHILD_AFTER_PARENT = {
+  'sli-eli-layout.html': '#section-xls-booking'
+};
+
+// 把子功能搬到主功能後面（其餘項目順序不變；找不到主項或已在主項之後則不動）
+function moveChildrenAfterParents(order) {
+  const result = order.slice();
+  Object.keys(CHILD_AFTER_PARENT).forEach(child => {
+    const parent = CHILD_AFTER_PARENT[child];
+    const childPos = result.indexOf(child);
+    if (childPos === -1) return;
+    const parentPos = result.indexOf(parent);
+    if (parentPos === -1) return;
+    if (childPos === parentPos + 1) return;
+    result.splice(childPos, 1);
+    result.splice(result.indexOf(parent) + 1, 0, child);
+  });
+  return result;
+}
 
 // 與後端相同的驗證規則（站內錨點 + 頁面連結）
 const NAV_KEY_MAX_LEN = 100;
@@ -59,7 +84,7 @@ function repairNavOrder(rawOrder) {
     }
     result.splice(insertAt, 0, key);
   });
-  return result;
+  return moveChildrenAfterParents(result);
 }
 
 const db = new sqlite3.Database(DB_PATH, (err) => {

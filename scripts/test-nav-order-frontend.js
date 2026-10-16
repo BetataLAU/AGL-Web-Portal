@@ -9,8 +9,8 @@ const path = require('path');
 const vm = require('vm');
 
 const NAV_ITEM_HREFS = [
-  '#section-home', 'sli-eli-layout.html', '#section-chat', '#section-skills', '#section-contour',
-  '#section-orders', '#section-xls-booking', '#section-palletization',
+  '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
+  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization',
   'uld-packing.html', 'packing.html', '#section-dbviewer', 'users.html'
 ];
 

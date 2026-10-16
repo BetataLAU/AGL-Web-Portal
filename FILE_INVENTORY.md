@@ -2,31 +2,38 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/16 下午6:25:20
+> 最後更新：2026/10/16 下午6:44:42
 
 ## 🔄 Git 變更狀態
 
 ```
+M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
+M WORKSPACE_STATE.md
 M database.db
 M db/sessions.db
 M docs/design/xls-sli-eli-overlay-prd.md
-M public/js/sli-eli-layout-editor.js
-M public/js/sli-eli-layout-main.js
-?? scripts/test-sli-eli-layout-frontend.js
+M public/css/layout.css
+M public/css/sli-eli-layout.css
+M public/index.html
+M public/sli-eli-layout.html
+M scripts/fix-nav-order.js
+M scripts/test-nav-order-frontend.js
+?? scripts/test-nav-hierarchy.js
 ```
 
-## 📁 檔案清單（共 294 個檔案）
+## 📁 檔案清單（共 295 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（41.2 KB）
+- `CLAUDE.md`（42.1 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（16.5 KB）
 - `README.md`（22.5 KB）
-- `WORKSPACE_STATE.md`（26.3 KB）
+- `WORKSPACE_STATE.md`（29.6 KB）
 - `package.json`（750 B）
 - `server.js`（7.2 KB）
 
@@ -202,7 +209,7 @@ M public/js/sli-eli-layout-main.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（64.2 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
 ### docs/research
 
@@ -211,10 +218,10 @@ M public/js/sli-eli-layout-main.js
 
 ### public
 
-- `public/index.html`（22.7 KB）
+- `public/index.html`（23.1 KB）
 - `public/login.html`（8.5 KB）
 - `public/packing.html`（7.2 KB）
-- `public/sli-eli-layout.html`（5.8 KB）
+- `public/sli-eli-layout.html`（6.2 KB）
 - `public/uld-packing.html`（14.8 KB）
 - `public/users.html`（31.5 KB）
 
@@ -224,11 +231,11 @@ M public/js/sli-eli-layout-main.js
 - `public/css/base.css`（3.8 KB）
 - `public/css/components.css`（7.4 KB）
 - `public/css/dbviewer.css`（15.6 KB）
-- `public/css/layout.css`（16.3 KB）
+- `public/css/layout.css`（18.6 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/packing.css`（7.8 KB）
 - `public/css/pallet.css`（31.9 KB）
-- `public/css/sli-eli-layout.css`（9.2 KB）
+- `public/css/sli-eli-layout.css`（9.4 KB）
 - `public/css/uld-packing-3d.css`（1.6 KB）
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
@@ -370,7 +377,7 @@ M public/js/sli-eli-layout-main.js
 - `scripts/fetch-bpp-research.py`（5.5 KB）
 - `scripts/fetch-github-repos.py`（1.6 KB）
 - `scripts/fill-sli-eli.py`（1.6 KB）
-- `scripts/fix-nav-order.js`（4.5 KB）
+- `scripts/fix-nav-order.js`（5.8 KB）
 - `scripts/generate-dummy-orders.js`（14.3 KB）
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
@@ -391,6 +398,7 @@ M public/js/sli-eli-layout-main.js
 - `scripts/test-customer-isolation.js`（7.0 KB）
 - `scripts/test-galms.js`（8.0 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
+- `scripts/test-nav-hierarchy.js`（7.5 KB）
 - `scripts/test-nav-order-frontend.js`（6.7 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-openpyxl-bridge.py`（1.3 KB）

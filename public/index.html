@@ -69,10 +69,6 @@
               <a href="#section-home" class="nav-item active">
                 <i class="fa-solid fa-house"></i> <span>HOME</span>
               </a>
-              <a href="sli-eli-layout.html" class="nav-item" id="nav-sli-eli-layout">
-                <i class="fa-solid fa-table-cells-large"></i> <span>SLI/ELI 版面編輯器</span>
-                <i class="fa-solid fa-lock nav-lock-icon" id="nav-sli-eli-layout-lock" title="需要登入"></i>
-              </a>
               <a href="#section-chat" class="nav-item">
                 <i class="fa-solid fa-robot"></i> <span>AI Playground</span>
               </a>
@@ -86,9 +82,17 @@
                 <i class="fa-solid fa-box"></i> <span>訂單系統</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-orders-lock" title="需要登入"></i>
               </a>
-              <a href="#section-xls-booking" class="nav-item" id="nav-xls-booking">
+              <!-- 主功能：Shipper Role Project（子功能緊跟在後，以縮排＋樹狀連接線呈現隸屬關係） -->
+              <a href="#section-xls-booking" class="nav-item nav-parent" id="nav-xls-booking">
                 <i class="fa-solid fa-file-export"></i> <span>Shipper Role Project</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-xls-booking-lock" title="需要登入"></i>
+              </a>
+              <!-- 子功能：SLI/ELI 版面編輯器（Shipper Role Project 的子頁，獨立頁面） -->
+              <a href="sli-eli-layout.html" class="nav-item nav-child" id="nav-sli-eli-layout"
+                 data-nav-parent="#section-xls-booking" title="SLI/ELI 版面編輯器（隸屬 Shipper Role Project）">
+                <i class="fa-solid fa-table-cells-large"></i> <span>SLI/ELI 版面編輯器</span>
+                <span class="nav-badge">子功能</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-sli-eli-layout-lock" title="需要登入"></i>
               </a>
               <a href="#section-palletization" class="nav-item" id="nav-palletization">
                 <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>

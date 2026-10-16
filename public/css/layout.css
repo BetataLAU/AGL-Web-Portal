@@ -93,6 +93,96 @@
   transform: translateX(3px);
 }
 
+/* ===== Sidebar 主 / 子功能層級 =====
+   用法：主功能加 .nav-parent、子功能加 .nav-child（可再標 data-nav-parent="#section-xxx"）；
+   子功能請排在主功能「後一個」（DOM 順序 + 預設排序，見 scripts/fix-nav-order.js）。
+   只加 class、不改 DOM 結構 → 拖曳排序（main.js）與鎖頭（auth.js）完全不受影響。 */
+.nav-parent {
+  font-weight: 700;
+}
+
+/* 主功能左緣強調條（.nav-item::before 已被「光掃」效果使用，故改用 ::after） */
+.nav-parent::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 58%;
+  border-radius: 0 3px 3px 0;
+  background: var(--primary-gradient);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* 子功能：縮排 + 縮小字級 + 淡化 */
+.nav-child {
+  margin-left: 14px;
+  padding: 8px 8px 8px 16px;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  overflow: visible; /* 樹狀連接線需跨過與主功能之間的 10px 間距 */
+}
+
+/* 子項不跑光掃：overflow:visible 會讓掃光溢出圓角 */
+.nav-child::before {
+  display: none;
+}
+
+/* 樹狀連接線（L 型，往上連接主功能卡片） */
+.nav-child::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: -10px;
+  width: 8px;
+  height: calc(50% + 10px);
+  border-left: 1.5px solid rgba(148, 163, 184, 0.55);
+  border-bottom: 1.5px solid rgba(148, 163, 184, 0.55);
+  border-bottom-left-radius: 8px;
+  pointer-events: none;
+}
+
+.nav-child > i:first-child {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.nav-child.active,
+.nav-child:hover {
+  color: var(--text-main);
+}
+
+/* 「子功能」標籤 */
+.nav-badge {
+  flex-shrink: 0;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
+}
+
+.nav-child .nav-badge {
+  background: var(--surface-glow);
+  color: var(--primary);
+}
+
+/* 名稱過長時縮成「…」：確保右側鎖頭／拖曳把手不被擠出（子項縮排後可用寬度變小） */
+.nav-item > span:not(.nav-badge):not(.nav-right-wrap) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ===== Sidebar 登入區塊 ===== */
 .sidebar-login {
   display: flex;

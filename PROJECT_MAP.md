@@ -97,7 +97,7 @@
 | `js/sli-eli-layout-state.js` | SLI/ELI 版面編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
 | `js/sli-eli-layout-editor.js` | SLI/ELI 版面編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
 | `js/sli-eli-layout-main.js` | SLI/ELI 版面編輯器：入口、工具列、儲存／還原／測試 PDF、PDF modal |
-| `sli-eli-layout.html` | SLI/ELI 版面編輯器獨立頁（側欄最上方；底圖拖曳編輯） |
+| `sli-eli-layout.html` | SLI/ELI 版面編輯器獨立頁（Shipper Role Project 的**子功能**，側欄縮排＋「子功能」標籤；底圖拖曳編輯） |
 | `css/xls-booking.css` | XLS Booking 樣式 |
 | `css/sli-eli-layout.css` | SLI/ELI 版面編輯器樣式 |
 | `login.html` | 登入頁（原生 fetch 呼叫 /api/auth） |

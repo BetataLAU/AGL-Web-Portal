@@ -122,6 +122,8 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `sli-eli-layout.html` / `uld-packing.html` / `packing.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。新增頁面時也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`（既有使用者才不會被排到最後）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
 
+**側邊欄「主 / 子功能」層級**：主功能加 `.nav-parent`、子功能加 `.nav-child`（樣式在 `public/css/layout.css`：主項加粗＋左緣漸層強調條；子項縮排 14px＋縮小字級＋L 型樹狀連接線＋「子功能」`nav-badge` 標籤）。**子項必須排在主項的下一個**（`index.html` DOM 順序與 `fix-nav-order.js` 的 `DEFAULT_ORDER` 要一致），否則縮排層級看起來會相反；`fix-nav-order.js` 的 `CHILD_AFTER_PARENT` ＋ `moveChildrenAfterParents()` 會在修復時把子項搬回主項之後。靜態驗證：`node scripts/test-nav-hierarchy.js`（HTML 標記／DOM 順序／CSS 規則／修復腳本／測試 stub 一致性）。
+
 **注意**：
 - `auth.js` 的 `fetchCurrentUser` 不可用 `apiFetch`（401 會跳轉）；需用原生 fetch 且 401 回 null
 - `login.html` 不可引入 `api.js`（登入失敗 401 會造成無限跳轉），用原生 fetch
@@ -152,7 +154,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `routes/xls-booking-layout.js` | **P5 版面編輯器 API**（掛 `/api/xls-booking/layout`）：GET／PUT／reset／preview／backups／background；驗證＋推導＋自動備份 |
 | `scripts/test-sli-eli-layout.js` | **P5 驗收**（自帶伺服器端對端；結束自動還原 fieldmap 並清除備份） |
 | `scripts/test-zip-naming.js` | **ZIP 檔名安全化驗收**：`sanitizeFileLabel`／`zipBaseName` 單元＋端到端 `zipFiles()`（含舊寫法 ENOENT 對照組） |
-| `public/sli-eli-layout.html` | **P5 版面編輯器獨立頁**（底圖拖曳編輯；側欄新項目） |
+| `public/sli-eli-layout.html` | **P5 版面編輯器獨立頁**（底圖拖曳編輯；側欄為 Shipper Role Project 的**子功能**：`.nav-child` 縮排＋「子功能」標籤） |
 | `public/js/sli-eli-layout-state.js` | 編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
 | `public/js/sli-eli-layout-editor.js` | 編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
 | `public/js/sli-eli-layout-main.js` | 編輯器：入口、工具列、儲存／還原／測試 PDF、PDF modal |
@@ -258,7 +260,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - ⚠️ `partition()` **只分類不排程**：`fallback[]` 必須自己推回 COM 佇列（`f.record`），否則會靜默少產出（PRD 陷阱 22）。
 - 驗證：`node scripts/test-p4-engine.js`（引擎分派）、`node scripts/test-sli-eli-charset.js`（字元三層）、`$env:XLS_PDF_ENGINE='overlay'; node scripts/test-a4-integration.js`（overlay 端對端）。
 
-**SLI/ELI 版面編輯器（P5 已完成）**：獨立頁 `public/sli-eli-layout.html`（側欄在 **HOME 之後第一位**，未登入顯示鎖頭並導向登入頁）；左＝欄位清單、中＝A4 底圖畫布、右＝屬性面板。
+**SLI/ELI 版面編輯器（P5 已完成）**：獨立頁 `public/sli-eli-layout.html`（側欄位置＝**主功能 `Shipper Role Project` 之後**，以 `.nav-child` 縮排＋樹狀連接線＋「子功能」標籤標示隸屬關係；未登入顯示鎖頭並導向登入頁）；左＝欄位清單、中＝A4 底圖畫布、右＝屬性面板。
 
 - 功能：拖曳移動、8 向把手縮放、方向鍵微調（Shift=10pt）、5pt 吸附＋格線、Undo/Redo（Ctrl+Z / Ctrl+Y）、對齊工具（含「置中於框」）、字級／行高／顏色／粗體／換行、單欄位還原（草稿）＋全部還原（立即寫檔）、縮放 50–150%、樣本或**真實 job 資料**即時預覽、「產生測試 PDF」（iframe＋下載）、Ctrl+S 儲存、未儲存離開警告。
 - API（`routes/xls-booking-layout.js`，掛 `/api/xls-booking/layout`；上層已 `requireAuth`）：`GET /`（fieldmap＋default＋頁面／底圖／樣本／備份／`canEdit`）、`PUT /`（**admin/staff**；白名單＋邊界驗證 → 自動備份 → 寫檔）、`POST /reset`（**admin/staff**；由 `sli-eli-fieldmap.default.json` 還原，可指定 keys）、`POST /preview`（草稿排版＋可選 PDF base64）、`GET /backups`、`GET /background/:page`（底圖 PNG）。

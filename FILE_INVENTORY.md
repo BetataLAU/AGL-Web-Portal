@@ -2,38 +2,35 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/16 下午6:44:42
+> 最後更新：2026/10/28 下午12:03:32
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
-M FILE_INVENTORY.md
 M PROJECT_MAP.md
+M README.md
 M WORKSPACE_STATE.md
+M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
-M docs/design/xls-sli-eli-overlay-prd.md
-M public/css/layout.css
-M public/css/sli-eli-layout.css
-M public/index.html
-M public/sli-eli-layout.html
-M scripts/fix-nav-order.js
-M scripts/test-nav-order-frontend.js
-?? scripts/test-nav-hierarchy.js
+M public/css/xls-booking.css
+M public/js/xls-booking-standard.js
+M public/js/xls-booking-state.js
+?? scripts/test-xls-standard-cols.js
 ```
 
-## 📁 檔案清單（共 295 個檔案）
+## 📁 檔案清單（共 296 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（42.1 KB）
+- `CLAUDE.md`（42.3 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（16.5 KB）
-- `README.md`（22.5 KB）
-- `WORKSPACE_STATE.md`（29.6 KB）
+- `PROJECT_MAP.md`（16.7 KB）
+- `README.md`（22.7 KB）
+- `WORKSPACE_STATE.md`（31.7 KB）
 - `package.json`（750 B）
 - `server.js`（7.2 KB）
 
@@ -62,7 +59,7 @@ M scripts/test-nav-order-frontend.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（600.8 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（626.5 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -240,7 +237,7 @@ M scripts/test-nav-order-frontend.js
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
 - `public/css/uld-packing.css`（9.6 KB）
-- `public/css/xls-booking.css`（19.0 KB）
+- `public/css/xls-booking.css`（20.3 KB）
 
 ### public/css/utils
 
@@ -267,8 +264,8 @@ M scripts/test-nav-order-frontend.js
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
-- `public/js/xls-booking-standard.js`（13.1 KB）
-- `public/js/xls-booking-state.js`（7.3 KB）
+- `public/js/xls-booking-standard.js`（19.7 KB）
+- `public/js/xls-booking-state.js`（7.4 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.3 KB）
 
@@ -413,6 +410,7 @@ M scripts/test-nav-order-frontend.js
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
+- `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
 - `scripts/verify-dummy-orders.js`（3.8 KB）

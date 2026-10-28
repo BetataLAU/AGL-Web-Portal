@@ -110,6 +110,144 @@ async function xlsEnsureStandardized(fileIndex) {
   return f._stdCache;
 }
 
+// ===== ③ 標準化預覽：欄寬（可拖曳調整，記憶在 localStorage） =====
+// 表格是 table-layout: fixed，預設各欄共用寬度。拖曳表頭右緣時：
+//   1) 先把「每一欄目前的實際寬度」定格成 px（col.style.width）
+//   2) 表格總寬改成各欄相加，之後只調整被拖曳的那一欄
+// → 其他欄位不會被連帶壓縮，空間不足時表格出現橫向捲軸（與 Excel 行為一致）。
+const XLS_STD_COL_WIDTH_STORAGE_KEY = 'xls-std-col-widths';
+const XLS_STD_COL_DEFAULT_WIDTHS = { check: 44, mawb: 150, cnee: 220 };
+const XLS_STD_COL_FALLBACK_WIDTH = 120;
+const XLS_STD_COL_MAX_WIDTH = 900;
+
+function xlsStdColMinWidth(key) {
+  return key === 'check' ? 44 : 56;
+}
+
+function xlsStdColDefaultWidth(key) {
+  return XLS_STD_COL_DEFAULT_WIDTHS[key] || XLS_STD_COL_FALLBACK_WIDTH;
+}
+
+// 讀取欄寬設定（xlsState.stdColWidths 為快取；第一次由 localStorage 還原）
+function xlsLoadStdColWidths() {
+  if (xlsState.stdColWidths) return xlsState.stdColWidths;
+  const widths = {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(XLS_STD_COL_WIDTH_STORAGE_KEY) || '{}');
+    if (parsed && typeof parsed === 'object') {
+      Object.keys(parsed).forEach((key) => {
+        const w = Number(parsed[key]);
+        if (Number.isFinite(w) && w > 0) {
+          widths[key] = Math.round(Math.min(XLS_STD_COL_MAX_WIDTH, Math.max(xlsStdColMinWidth(key), w)));
+        }
+      });
+    }
+  } catch (e) {
+    // localStorage 不可用（隱私模式）或內容毀損：改用預設寬度
+  }
+  xlsState.stdColWidths = widths;
+  return widths;
+}
+
+function xlsPersistStdColWidths() {
+  try {
+    localStorage.setItem(XLS_STD_COL_WIDTH_STORAGE_KEY, JSON.stringify(xlsLoadStdColWidths()));
+  } catch (e) {
+    // 無法寫入時仍可在本次工作階段使用（xlsState.stdColWidths 已有值）
+  }
+}
+
+function xlsStdColWidth(key) {
+  const w = Number(xlsLoadStdColWidths()[key]);
+  return Number.isFinite(w) && w > 0 ? w : xlsStdColDefaultWidth(key);
+}
+
+// 拖曳中的狀態（一次只會有一個欄寬在調整）
+let xlsStdColDrag = null;
+
+function xlsStartStdColResize(ev, fileIndex, colKey) {
+  if (!ev || (typeof ev.button === 'number' && ev.button > 0)) return; // 只接受左鍵／觸控
+  const panel = document.getElementById('xls-standardized-panel');
+  const table = panel ? panel.querySelector('.xls-standardized-table') : null;
+  if (!table) return;
+  const cols = Array.prototype.slice.call(table.querySelectorAll('colgroup > col'));
+  const ths = Array.prototype.slice.call(table.querySelectorAll('thead > tr > th'));
+  const targetCol = cols.find((c) => c.getAttribute('data-col-key') === colKey);
+  if (!targetCol || cols.length !== ths.length) return;
+
+  ev.preventDefault();
+  ev.stopPropagation();
+
+  const widths = {};
+  let total = 0;
+  cols.forEach((col, i) => {
+    const w = Math.round(ths[i].getBoundingClientRect().width);
+    widths[col.getAttribute('data-col-key')] = w;
+    total += w;
+    col.style.width = `${w}px`;
+  });
+
+  const startWidth = widths[colKey] || xlsStdColDefaultWidth(colKey);
+  const handle = ev.currentTarget && ev.currentTarget.classList ? ev.currentTarget : null;
+  if (handle) handle.classList.add('xls-resizing');
+  xlsStdColDrag = { startX: ev.clientX, startWidth, total, lastWidth: null, colKey, targetCol, table, handle };
+  document.body.classList.add('xls-col-resizing');
+  window.addEventListener('pointermove', xlsOnStdColResizeMove);
+  window.addEventListener('pointerup', xlsEndStdColResize);
+  window.addEventListener('pointercancel', xlsEndStdColResize);
+}
+
+function xlsOnStdColResizeMove(ev) {
+  const drag = xlsStdColDrag;
+  if (!drag) return;
+  const min = xlsStdColMinWidth(drag.colKey);
+  const next = Math.round(Math.min(XLS_STD_COL_MAX_WIDTH, Math.max(min, drag.startWidth + (ev.clientX - drag.startX))));
+  if (next === drag.lastWidth) return;
+  drag.lastWidth = next;
+  drag.targetCol.style.width = `${next}px`;
+  drag.table.style.width = `${drag.total - drag.startWidth + next}px`;
+}
+
+function xlsEndStdColResize() {
+  const drag = xlsStdColDrag;
+  if (!drag) return;
+  window.removeEventListener('pointermove', xlsOnStdColResizeMove);
+  window.removeEventListener('pointerup', xlsEndStdColResize);
+  window.removeEventListener('pointercancel', xlsEndStdColResize);
+  document.body.classList.remove('xls-col-resizing');
+  if (drag.handle && drag.handle.classList) drag.handle.classList.remove('xls-resizing');
+  if (drag.lastWidth) {
+    xlsLoadStdColWidths()[drag.colKey] = drag.lastWidth;
+    xlsPersistStdColWidths();
+  }
+  xlsStdColDrag = null;
+}
+
+// 雙擊表頭邊界：只把那一個欄位恢復預設寬度
+function xlsResetStdColWidth(ev, fileIndex, colKey) {
+  if (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  const widths = xlsLoadStdColWidths();
+  if (widths[colKey] !== undefined) {
+    delete widths[colKey];
+    xlsPersistStdColWidths();
+  }
+  xlsRenderStandardized(fileIndex);
+}
+
+// 「重設全部欄寬」按鈕：清掉所有記憶，回到預設分配
+function xlsResetStdColWidths(fileIndex) {
+  xlsState.stdColWidths = {};
+  try {
+    localStorage.removeItem(XLS_STD_COL_WIDTH_STORAGE_KEY);
+  } catch (e) {
+    // 忽略：清不掉也不影響本次工作階段的預設值
+  }
+  xlsRenderStandardized(fileIndex);
+}
+
 function xlsRenderStandardized(fileIndex) {
   const f = xlsState.files[fileIndex];
   if (!f || !f._stdCache) return;
@@ -133,24 +271,41 @@ function xlsRenderStandardized(fileIndex) {
   const prevWrap = panel.querySelector('.xls-standardized-table-wrap');
   const savedScroll = prevWrap ? { left: prevWrap.scrollLeft, top: prevWrap.scrollTop } : null;
   const otherTypes = assignedTypes.filter((t) => t.value !== 'mawb');
+  // 欄位順序＝畫面順序；key 用來記住欄寬（可拖曳表頭右緣調整，見 xlsStartStdColResize）
+  const cols = [
+    { key: 'check', label: '', cls: 'xls-check-col' },
+    { key: 'mawb', label: 'MAWB#', cls: '' },
+    { key: 'cnee', label: 'CNEE', cls: 'xls-cnee-col' },
+    ...otherTypes.map((t) => ({ key: t.value, label: t.label, cls: '' })),
+  ];
+  const colWidths = cols.map((c) => xlsStdColWidth(c.key));
+  const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
   const missingCnee = standardized.filter((r) => !r.cnee).length;
   const cneeHint = (f._cneeBlocks && f._cneeBlocks.length) ? '（CNEE 自動由下方對照區比對，點擊 CNEE 格可手動補值）' : '（點擊 CNEE 格可手動補值）';
   panel.innerHTML = `
     <h4>標準化結果預覽（${xlsEscapeHtml(f.originalName)}）</h4>
     <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）${missingCnee ? ` &nbsp;🔴 <b>${missingCnee}</b> 筆缺 CNEE <button type="button" class="pill xls-jump-cnee" onclick="xlsJumpFirstMissingCnee(${fileIndex})">📍 跳至第一筆</button>` : ''}</p>
     <p class="xls-preview-note">${cneeHint}</p>
+    <p class="xls-preview-note">↔ 拖曳表頭右緣可調整欄寬（雙擊該邊界只恢復該欄；欄寬會記住）
+      <button type="button" class="pill xls-reset-col-widths" onclick="xlsResetStdColWidths(${fileIndex})">重設全部欄寬</button>
+    </p>
     ${f._cneeWarning ? `<div class="xls-warning-box">⚠️ ${xlsEscapeHtml(f._cneeWarning)}<br><button type="button" class="pill" onclick="xlsRetryStandardized(${fileIndex})">↻ 重試 CNEE 比對</button></div>` : ''}
     <div class="xls-standardized-table-wrap">
-      <table class="xls-preview-table">
+      <table class="xls-preview-table xls-standardized-table" style="width:${tableWidth}px; min-width:100%;">
+        <colgroup>
+          ${cols.map((c, i) => `<col data-col-key="${c.key}" style="width:${colWidths[i]}px" />`).join('')}
+        </colgroup>
         <thead><tr>
-          <th class="xls-check-col">
+          ${cols.map((c) => {
+            if (c.key === 'check') {
+              return `<th class="xls-check-col" data-col-key="check">
             <label title="全選 / 全部不選">
               <input type="checkbox" id="xls-select-all-${fileIndex}" ${allSelected ? 'checked' : ''} onchange="xlsToggleAll(${fileIndex})" />
             </label>
-          </th>
-          <th>MAWB#</th>
-          <th class="xls-cnee-col">CNEE</th>
-          ${otherTypes.map((t) => `<th>${xlsEscapeHtml(t.label)}</th>`).join('')}
+          </th>`;
+            }
+            return `<th${c.cls ? ` class="${c.cls}"` : ''} data-col-key="${c.key}">${xlsEscapeHtml(c.label)}<span class="xls-col-resizer" title="拖曳調整欄寬（雙擊恢復預設）" onpointerdown="xlsStartStdColResize(event, ${fileIndex}, '${c.key}')" ondblclick="xlsResetStdColWidth(event, ${fileIndex}, '${c.key}')"></span></th>`;
+          }).join('')}
         </tr></thead>
         <tbody>
           ${standardized.map((r) => {

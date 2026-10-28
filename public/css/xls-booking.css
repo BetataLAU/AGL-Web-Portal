@@ -233,11 +233,58 @@
   table-layout: fixed;
   min-width: 760px;
 }
+/* ③ 欄寬由 colgroup 控制（可拖曳表頭右緣調整），避免 CSS 固定寬度蓋掉使用者設定 */
+.xls-standardized-table thead th,
+.xls-standardized-table tbody td {
+  max-width: none;
+}
 .xls-standardized-table-wrap .xls-cnee-col,
 .xls-standardized-table-wrap .xls-cnee-cell {
-  width: 220px;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+/* 欄寬拖曳把手：貼在表頭右緣（th 為 sticky → 可當定位容器） */
+.xls-col-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 3;
+  touch-action: none;       /* 觸控拖曳時不要被頁面捲動搶走 */
+  user-select: none;
+}
+.xls-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--border-color, #cbd5e1);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.xls-col-resizer:hover::after,
+.xls-col-resizer.xls-resizing::after {
+  opacity: 1;
+  background: var(--primary, #2563eb);
+}
+/* 拖曳欄寬時：整個頁面維持 col-resize 游標且不選取文字 */
+body.xls-col-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.xls-col-resizing * {
+  cursor: col-resize !important;
+}
+.xls-reset-col-widths {
+  margin-left: 6px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
 }
 .xls-preview-table thead th {
   background: var(--bg-muted, #f1f5f9);
@@ -419,12 +466,12 @@
 }
 
 /* ③ 標準化預覽：CNEE 欄（自動對照 + 點擊補值） */
+/* 寬度由 colgroup（可拖曳）決定，這裡不再設 min-width，否則欄寬拉不窄 */
 .xls-cnee-col {
-  min-width: 160px;
+  min-width: 0;
 }
 .xls-cnee-cell {
   cursor: pointer;
-  min-width: 150px;
   white-space: pre-line;
   line-height: 1.45;
   transition: background 0.15s ease;

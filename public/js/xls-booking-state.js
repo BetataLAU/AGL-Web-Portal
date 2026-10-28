@@ -22,6 +22,7 @@ let xlsState = {
   defs: [], // 每個檔案一個欄位定義
   selections: {}, // fileIndex -> { all: [mawbKey], selected: Set<mawbKey> }（標準化預覽勾選）
   cneeOverrides: {}, // fileIndex -> { mawbKey: cnee }（③ 標準化預覽點擊填入，不需重新上傳）
+  fieldOverrides: {}, // fileIndex -> { 原mawbKey: { mawb, dest, flight } }（③ 雙擊修改 MAWB#／DEST／航班號）
   lastRunFiles: [], // 最近一次 ④ 執行涉及的 fileIndex（供「處理下一個檔案」判斷）
   stdColWidths: null, // ③ 標準化預覽欄寬 { 欄位 key: px }；null＝尚未從 localStorage 還原
   pdfConcurrency: 1, // 每個 job 的 PDF worker 數（1–4；Windows COM 預設穩定模式）

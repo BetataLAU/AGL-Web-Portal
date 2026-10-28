@@ -226,6 +226,7 @@ function standardizeRows(rows, def) {
     fieldMap = {},      // { 欄索引(0-based): FIELD_TYPES 值 }
     cneeLookup = null,  // 新版 { enabled, auto } 或舊版 { enabled, destCol, remarkCol, cneeCol, startRow, endRow }
     cneeOverrides = {}, // { mawb: 手動補值 }（前端 ③ 標準化預覽點擊填入）
+    fieldOverrides = {}, // { 原mawb: { mawb, dest, flight } }（前端 ③ 雙擊修改；以原 MAWB 識別同一列）
   } = def;
 
   const records = [];
@@ -314,6 +315,19 @@ function standardizeRows(rows, def) {
       }
     }
 
+    // 套用 ③ 手動修改的 DEST／航班號：必須在 CNEE 對照前，改對 DEST 後才能用新 DEST 重新比對。
+    // 以「原 MAWB」識別同一列，所以 rec.mawb 先保留原值，最後才換成修改後的值。
+    const sourceMawb = rec.mawb;
+    const fieldOv = (sourceMawb && fieldOverrides) ? fieldOverrides[sourceMawb] : null;
+    if (fieldOv) {
+      if (fieldOv.dest !== undefined && fieldOv.dest !== null && fieldOv.dest !== '') {
+        rec.dest = cleanCell(fieldOv.dest).toUpperCase();
+      }
+      if (fieldOv.flight !== undefined && fieldOv.flight !== null && fieldOv.flight !== '') {
+        rec.flight = cleanCell(fieldOv.flight).toUpperCase();
+      }
+    }
+
     // 套用 CNEE 對照區（若該列沒有直接 CNEE 欄）
     if (!rec.cnee && lookupEntries.length) {
       if (lookupAuto) {
@@ -340,11 +354,38 @@ function standardizeRows(rows, def) {
       rec.cnee = cneeOverrides[rec.mawb];
     }
 
+    // 套用 ③ 手動修改的 MAWB#（最後才換：CNEE 補值／對照都以原 MAWB 對應）
+    // sourceMawb 供「勾選清單（以原 MAWB 為 key）」比對，過濾後會移除。
+    if (fieldOv && fieldOv.mawb) {
+      const m = normalizeMawb(fieldOv.mawb);
+      if (m && m !== rec.mawb) {
+        rec.sourceMawb = rec.mawb;
+        rec.mawb = m;
+      }
+    }
+
     if (!rec.mawb) continue; // 無 MAWB 視為非資料列
     records.push(rec);
   }
 
   return records;
+}
+
+/**
+ * 只保留「③ 標準化預覽」中被勾選的 MAWB。
+ * ③ 可雙擊修改 MAWB#，但勾選清單仍以「原 MAWB」為 key → 原值與修改值都比對；
+ * sourceMawb 僅供比對，回傳前一律移除（避免帶進 Report／SLI／PDF）。
+ * @param {Array<{mawb?:string, sourceMawb?:string}>} recs
+ * @param {string[]} selectedMawbs
+ */
+function filterSelectedRecords(recs, selectedMawbs) {
+  let out = recs || [];
+  if (Array.isArray(selectedMawbs)) {
+    const sel = new Set(selectedMawbs.map((m) => normalizeMawb(m)));
+    out = out.filter((r) => r.mawb && (sel.has(r.sourceMawb || r.mawb) || sel.has(r.mawb)));
+  }
+  out.forEach((r) => { if (r.sourceMawb) delete r.sourceMawb; });
+  return out;
 }
 
 /**
@@ -528,12 +569,11 @@ async function runWorkflow(opts) {
       fieldMap: def.fieldMap,
       cneeLookup: def.cneeLookup,
       cneeOverrides: def.cneeOverrides,
+      fieldOverrides: def.fieldOverrides,
     });
     // 只處理「標準化預覽」中被勾選的 MAWB（有 TICK 的才會執行操作）
-    if (Array.isArray(def.selectedMawbs)) {
-      const sel = new Set(def.selectedMawbs.map((m) => normalizeMawb(m)));
-      recs = recs.filter((r) => r.mawb && sel.has(r.mawb));
-    }
+    // ③ 可能手動改過 MAWB# → 勾選清單仍以「原 MAWB」為 key（比對兩種，回傳前移除 sourceMawb）
+    recs = filterSelectedRecords(recs, def.selectedMawbs);
 
     // 從 CNEE 內容抽取電話
     recs.forEach((r) => {
@@ -849,6 +889,7 @@ module.exports = {
   // 歷史 API（保持 require('../scripts/xls-workflow') 相容，含測試與路由）
   runWorkflow,
   standardizeRows,
+  filterSelectedRecords,
   findDuplicateMawbs,
   planDateGroups,
   extractCneeLookupArea,

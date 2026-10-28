@@ -165,13 +165,13 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `public/js/xls-booking-preview.js` | 前端：自動偵測欄位、預覽面板、欄位指派 |
 | `public/js/xls-booking-grid.js` | 前端：預覽表格編輯（雙擊/右鍵/復原重做） |
 | `public/js/xls-booking-assign.js` | 前端：拖曳指派欄位 |
-| `public/js/xls-booking-standard.js` | 前端：標準化結果預覽、勾選、CNEE 補值、**欄寬拖曳調整**（colgroup＋localStorage 記憶） |
+| `public/js/xls-booking-standard.js` | 前端：標準化結果預覽、勾選、CNEE 補值、**雙擊修改 MAWB#／DEST／航班號**（`fieldOverrides`，同步到 ④）、**欄寬拖曳調整**（colgroup＋localStorage 記憶） |
 | `public/js/xls-booking-workflow.js` | 前端：啟動 job、輪詢、中止、結果呈現 |
 | `public/css/xls-booking.css` | 前端樣式 |
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。

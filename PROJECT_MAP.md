@@ -39,6 +39,7 @@
 | `scripts/pdf-cjk-font.js` | SLI/ELI CJK 字型解析（fontkit 按需子集；`.ttc` 取單一字型、解析快取；`PDF_CJK`／`SLI_ELI_CJK_FONT`） |
 | `scripts/test-xls-preview-formula.js` | 公式／複合儲存格預覽測試（② 預覽與日期顯示，免伺服器） |
 | `scripts/test-xls-standard-cols.js` | ③ 標準化預覽欄寬測試（colgroup 預設值／拖曳／localStorage 記憶／寬度夾制／重設，vm stub DOM） |
+| `scripts/test-xls-standard-fields.js` | ③ 雙擊修改 MAWB#／DEST／航班號測試（後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器） |
 
 ### 後端 `routes/`
 
@@ -93,7 +94,7 @@
 | `js/xls-booking-preview.js` | XLS Booking：自動偵測欄位、預覽面板、欄位指派 |
 | `js/xls-booking-grid.js` | XLS Booking：預覽表格編輯（雙擊/右鍵/復原重做） |
 | `js/xls-booking-assign.js` | XLS Booking：拖曳指派欄位 |
-| `js/xls-booking-standard.js` | XLS Booking：標準化結果預覽、勾選、CNEE 補值、欄寬拖曳調整（colgroup＋localStorage） |
+| `js/xls-booking-standard.js` | XLS Booking：標準化結果預覽、勾選、CNEE 補值、雙擊修改 MAWB#／DEST／航班號（fieldOverrides）、欄寬拖曳調整（colgroup＋localStorage） |
 | `js/xls-booking-workflow.js` | XLS Booking：啟動 job、輪詢、中止、結果呈現（含 PDF 產生方式／退回筆數） |
 | `js/sli-eli-layout-state.js` | SLI/ELI 版面編輯器：state／幾何（移動縮放對齊吸附）／API／預覽排程 |
 | `js/sli-eli-layout-editor.js` | SLI/ELI 版面編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |

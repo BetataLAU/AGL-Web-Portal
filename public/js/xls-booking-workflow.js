@@ -43,7 +43,8 @@ async function runXlsWorkflow() {
   progressArea.style.display = 'block';
 
   try {
-    // 將每個檔案的勾選狀態（selectedMawbs）+ CNEE 手動補值（cneeOverrides）帶入 defs
+    // 將每個檔案的勾選狀態（selectedMawbs）+ CNEE 手動補值（cneeOverrides）
+    // + MAWB#／DEST／航班號 手動修改（fieldOverrides）帶入 defs
     const bodyDefs = xlsState.defs.map((d) => {
       const df = xlsState.files[d.fileIndex];
       return {
@@ -51,6 +52,7 @@ async function runXlsWorkflow() {
         selectedMawbs: xlsState.selections[d.fileIndex] ? Array.from(xlsState.selections[d.fileIndex].selected) : [],
         editedRows: df && df.previewEdited && df.lastPreview ? df.lastPreview.rows : undefined,
         cneeOverrides: xlsState.cneeOverrides[d.fileIndex] || {},
+        fieldOverrides: xlsState.fieldOverrides[d.fileIndex] || {},
       };
     });
     // 記錄本次執行了哪些檔案（供完成後「下一個檔案」判斷）

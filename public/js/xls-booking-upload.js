@@ -18,6 +18,7 @@ async function uploadFiles(files) {
     // 否則新檔案會沿用舊 MAWB 選取，導致 ③ 的全選 checkbox「按不到」
     xlsState.selections = {};
     xlsState.cneeOverrides = {};
+    xlsState.fieldOverrides = {};
     // 清空上一輪殘留的 ②③④ 面板內容，避免舊表格的 checkbox 殘留在畫面上誤導操作
     ['xls-preview-panel', 'xls-standardized-panel', 'xls-result-panel'].forEach((pid) => {
       const p = document.getElementById(pid);

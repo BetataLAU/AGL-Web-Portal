@@ -2,7 +2,7 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/28 下午12:03:32
+> 最後更新：2026/10/28 下午12:18:09
 
 ## 🔄 Git 變更狀態
 
@@ -17,20 +17,24 @@ M db/sessions.db
 M public/css/xls-booking.css
 M public/js/xls-booking-standard.js
 M public/js/xls-booking-state.js
-?? scripts/test-xls-standard-cols.js
+M public/js/xls-booking-upload.js
+M public/js/xls-booking-workflow.js
+M routes/xls-booking.js
+M scripts/xls-workflow.js
+?? scripts/test-xls-standard-fields.js
 ```
 
-## 📁 檔案清單（共 296 個檔案）
+## 📁 檔案清單（共 297 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（42.3 KB）
+- `CLAUDE.md`（42.5 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（16.7 KB）
-- `README.md`（22.7 KB）
-- `WORKSPACE_STATE.md`（31.7 KB）
+- `PROJECT_MAP.md`（17.0 KB）
+- `README.md`（23.0 KB）
+- `WORKSPACE_STATE.md`（33.2 KB）
 - `package.json`（750 B）
 - `server.js`（7.2 KB）
 
@@ -59,7 +63,7 @@ M public/js/xls-booking-state.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（626.5 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（627.1 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -67,7 +71,7 @@ M public/js/xls-booking-state.js
 
 ### data/test-a4-integration
 
-- `data/test-a4-integration/report-copy.xlsx`（614.6 KB）
+- `data/test-a4-integration/report-copy.xlsx`（646.0 KB）
 - `data/test-a4-integration/synthetic.xlsx`（6.6 KB）
 
 ### data/test-blank-build
@@ -237,7 +241,7 @@ M public/js/xls-booking-state.js
 - `public/css/uld-packing-modal.css`（4.3 KB）
 - `public/css/uld-packing-solve.css`（2.1 KB）
 - `public/css/uld-packing.css`（9.6 KB）
-- `public/css/xls-booking.css`（20.3 KB）
+- `public/css/xls-booking.css`（20.8 KB）
 
 ### public/css/utils
 
@@ -264,10 +268,10 @@ M public/js/xls-booking-state.js
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
-- `public/js/xls-booking-standard.js`（19.7 KB）
-- `public/js/xls-booking-state.js`（7.4 KB）
+- `public/js/xls-booking-standard.js`（25.1 KB）
+- `public/js/xls-booking-state.js`（7.5 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
-- `public/js/xls-booking-workflow.js`（13.3 KB）
+- `public/js/xls-booking-workflow.js`（13.4 KB）
 
 ### public/js/orders
 
@@ -346,7 +350,7 @@ M public/js/xls-booking-state.js
 - `routes/skills.js`（377 B）
 - `routes/xls-booking-helpers.js`（5.6 KB）
 - `routes/xls-booking-layout.js`（23.8 KB）
-- `routes/xls-booking.js`（14.9 KB）
+- `routes/xls-booking.js`（15.1 KB）
 
 ### routes/auth
 
@@ -411,6 +415,7 @@ M public/js/xls-booking-state.js
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
+- `scripts/test-xls-standard-fields.js`（13.0 KB）
 - `scripts/test-xls-workflow.js`（4.6 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
 - `scripts/verify-dummy-orders.js`（3.8 KB）
@@ -420,7 +425,7 @@ M public/js/xls-booking-state.js
 - `scripts/xls-report.js`（8.9 KB）
 - `scripts/xls-sli-eli.js`（11.9 KB）
 - `scripts/xls-utils.js`（9.2 KB）
-- `scripts/xls-workflow.js`（37.2 KB）
+- `scripts/xls-workflow.js`（39.2 KB）
 
 ### utils
 

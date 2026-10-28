@@ -555,6 +555,30 @@ body.xls-col-resizing * {
   resize: vertical;
 }
 
+/* ③ 標準化預覽：雙擊可修改欄位（MAWB#／DEST／航班號） */
+.xls-std-editable {
+  cursor: text;
+}
+.xls-std-editable:hover {
+  background: rgba(37, 99, 235, 0.08);
+}
+.xls-std-editing {
+  padding: 2px 4px;
+}
+.xls-std-input {
+  width: 100%;
+  min-width: 60px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 2px 4px;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  outline: none;
+  background: #fff;
+  color: inherit;
+}
+
 /* ② 預覽：空格「按一下即編輯」提示 */
 .xls-preview-table td.xls-cell-empty {
   background: rgba(100, 116, 139, 0.06);

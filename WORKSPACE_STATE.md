@@ -8,7 +8,7 @@
 - **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
 - **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理 ＋ 側欄主/子層級 ＋ ③ 欄寬）**：
-  - **(I) ③ 標準化預覽欄寬可調整（本次）**：修改 `public/js/xls-booking-standard.js`（colgroup／拖曳把手／欄寬記憶與重設）、`public/js/xls-booking-state.js`（`stdColWidths`）、`public/css/xls-booking.css`（把手樣式、移除固定欄寬）；新增 `scripts/test-xls-standard-cols.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`README.md`／`WORKSPACE_STATE.md`
+  - **(I) ③ 標準化預覽：欄寬可調整 ＋ 雙擊修改 MAWB#／DEST／航班號（本次）**：修改 `public/js/xls-booking-standard.js`（colgroup／拖曳把手／欄寬記憶與重設／雙擊編輯）、`public/js/xls-booking-state.js`（`stdColWidths`／`fieldOverrides`）、`public/js/xls-booking-upload.js`（上傳時清空 fieldOverrides）、`public/js/xls-booking-workflow.js`（bodyDefs 帶 fieldOverrides）、`public/css/xls-booking.css`（把手／雙擊編輯樣式、移除固定欄寬）、`scripts/xls-workflow.js`（`fieldOverrides`＋`filterSelectedRecords`）、`routes/xls-booking.js`（cnee-preview 帶 fieldOverrides／回傳 sourceMawb）；新增 `scripts/test-xls-standard-cols.js`、`scripts/test-xls-standard-fields.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`README.md`／`WORKSPACE_STATE.md`
   - **(H) 側欄主/子功能層級（本次）**：修改 `public/index.html`（主項 `.nav-parent`／子項 `.nav-child`＋「子功能」標籤，子項移到主項之後）、`public/css/layout.css`（層級樣式：縮排／樹狀連接線／標籤／省略號保護）、`public/sli-eli-layout.html`＋`public/css/sli-eli-layout.css`（子功能頁側欄與頁首標示）、`scripts/fix-nav-order.js`（`DEFAULT_ORDER`＋`CHILD_AFTER_PARENT`）、`scripts/test-nav-order-frontend.js`（stub 順序）；新增 `scripts/test-nav-hierarchy.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`WORKSPACE_STATE.md`
   - **(G) 字元處理（第 0/1/2 層）**：新增 `scripts/pdf-charset.js`、`scripts/pdf-cjk-font.js`、`scripts/test-sli-eli-charset.js`；修改 `scripts/sli-eli-overlay.js`（淨化／WinAnsi 放寬／CJK 子集混排／`check().reason`）、`scripts/xls-workflow.js`（`fallbackReasons.reason`＋`engine.cjkFont`）、`scripts/sli-eli-blank-widen-fonts.js`＋`scripts/build-sli-eli-blank.py`（27 個 WinAnsi 特殊字）、`routes/xls-booking-layout.js`＋`public/js/xls-booking-workflow.js`＋`public/js/sli-eli-layout-main.js`（文案）、`Dockerfile`（`fonts-droid-fallback`）、`package.json`（`@pdf-lib/fontkit`）
   - **(F) ZIP 檔名修正**：`scripts/xls-utils.js`（`sanitizeFileLabel()`）、`scripts/xls-workflow.js`（`zipBaseName()`＋Step 5 改用它）、新增 `scripts/test-zip-naming.js`
@@ -20,12 +20,14 @@
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **③ 標準化結果預覽：欄寬可拖曳調整（本次，尚未提交）**：使用者要求「③ 標準化結果預覽的欄位可以調整欄寬」。
+0. **③ 標準化結果預覽：欄寬可拖曳調整 ＋ 雙擊修改 MAWB#／DEST／航班號（本次，尚未提交）**：使用者要求「③ 的欄位可以調整欄寬」、「MAWB／DEST／航班號 雙擊都可以修改內容」。
    - **做法**：③ 表格改為 `<colgroup>` 明確欄寬（預設 check 44／MAWB# 150／CNEE 220／其他 120px），表頭右緣加 `.xls-col-resizer` 把手；`pointerdown` 時先把每欄實際寬度定格成 px（`col.style.width`），之後只改被拖曳的那一欄，其他欄不會被壓縮、表格總寬＝各欄相加（必要時出現橫向捲軸，與 Excel 行為一致）。
    - **記憶**：欄寬以「欄位 key」（`check`／`mawb`／`cnee`／各欄位類型）寫入 `localStorage['xls-std-col-widths']`（`xlsState.stdColWidths` 為快取），重繪（勾選／CNEE 補值）或重新載入頁面後自動沿用；寬度夾制 56–900px（勾選欄最小 44px，載入時也夾制，內容毀損則回預設）。
    - **重設**：雙擊表頭邊界只恢復該欄；面板上「↔ 重設全部欄寬」按鈕清空全部記憶。
    - **CSS**（`public/css/xls-booking.css`）：移除 CNEE 固定 `width:220px`／`min-width` 與表格 `max-width:260px` 限制（改由 colgroup 控制），新增 `.xls-col-resizer`（含 hover 指示線）與 `body.xls-col-resizing`（拖曳中游標／禁止選取）；把手加 `touch-action:none`，觸控拖曳不會被頁面捲動搶走。
    - **驗證**：新增 `scripts/test-xls-standard-cols.js`（vm stub DOM 直接載入 `xls-booking-state.js` + `xls-booking-standard.js`）**29 項全 PASS**：預設欄寬／把手數量／拖曳只動單欄／總寬計算／監聽與游標清理／localStorage 記憶／上下限夾制／毀損資料回預設／單欄與全部重設。
+   - **雙擊修改（同批需求）**：③ 的 MAWB#／DEST／航班號 雙擊→格內 input（Enter 儲存、Esc 取消），值存 `xlsState.fieldOverrides[fileIndex][原 MAWB]`；後端 `standardizeRows` 新增 `fieldOverrides`（**DEST／航班號在 CNEE 對照前**套用、MAWB 最後才換並保留 `sourceMawb`），勾選過濾改用新的 `filterSelectedRecords()`（勾選清單仍以「原 MAWB」命中、`sourceMawb` 不外流到 Report／SLI／PDF）；`/cnee-preview` 同步帶 `fieldOverrides` 並回傳 `sourceMawb`，③ 用它把 CNEE 對回原 MAWB；DEST 改動會自動重新向後端取 CNEE 比對結果。改回原值／清空即移除覆寫，MAWB 非法值不改（避免整列在 ④ 被略過）。
+   - **驗證（雙擊）**：新增 `scripts/test-xls-standard-fields.js` **33 項全 PASS**（後端覆寫／DEST 改動後 CNEE 重比／CNEE 補值仍對原 MAWB／勾選過濾／前端套用與渲染／Enter・Esc／重複啟動保護）；回歸 `test-a4-integration.js`（A4 3 份 123.4 KB、字型 −76.8%）**PASS**。
 1. **側邊欄「主 / 子功能層級」（本次，尚未提交）**：使用者反映 `Shipper Role Project`（主功能）與 `SLI/ELI 版面編輯器`（子功能）在側邊欄「看起來一樣大」，看不出隸屬關係（實際兩者是主／子功能）。
    - **做法（方案 A：純視覺，不動 DOM 結構／JS）**：`index.html` 主項加 `.nav-parent`、子項加 `.nav-child` ＋ `<span class="nav-badge">子功能</span>` ＋ `data-nav-parent`／`title`；子項 DOM 由「HOME 之後第一位」移到主項的**下一個**。
    - **樣式**（`public/css/layout.css`）：主項加粗＋左緣 primary 漸層強調條（用 `::after`，因 `.nav-item::before` 已被光掃動畫佔用）；子項縮排 14px ＋字級 0.85rem ＋淡化＋ L 型樹狀連接線（子項需 `overflow:visible` 才能跨過 10px 間距 → 連帶關閉子項光掃）＋「子功能」膠囊標籤；導航名稱溢出改省略號（`text-overflow:ellipsis`），確保右側鎖頭／拖曳把手不被擠出。

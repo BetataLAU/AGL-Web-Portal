@@ -1,6 +1,9 @@
 // ===== Shipper Role Project - XLS Booking 前端（標準化結果預覽） =====
 // 從 xls-booking.js 拆出（.clinerule.md：檔案大小控制）
-// 職責：標準化資料載入/快取、勾選列、CNEE 手動補值。
+// 職責：標準化資料載入/快取、勾選列、CNEE 手動補值、MAWB#／DEST／航班號 雙擊修改、欄寬調整。
+
+// ③ 可「雙擊修改」的欄位（存成 fieldOverrides，會同步到 ④ 執行）
+const XLS_STD_EDITABLE_FIELDS = ['mawb', 'dest', 'flight'];
 
 
 // ===== 標準化預覽（前端簡易標準化，供使用者核對 + 勾選要執行的列） =====
@@ -39,6 +42,7 @@ async function xlsEnsureStandardized(fileIndex) {
     ...def,
     editedRows: f.previewEdited && f.lastPreview ? f.lastPreview.rows : undefined,
     cneeOverrides: xlsState.cneeOverrides[fileIndex] || {},
+    fieldOverrides: xlsState.fieldOverrides[fileIndex] || {},
   };
   let cneeRes = null;
   let cneeError = '';
@@ -55,7 +59,9 @@ async function xlsEnsureStandardized(fileIndex) {
   const cneeMap = {};
   if (cneeInfo) {
     (cneeInfo.entries || []).forEach((e) => {
-      if (e.mawb) cneeMap[xlsNormMawb(e.mawb)] = e.cnee || '';
+      // ③ 改過 MAWB# 時，後端回傳 sourceMawb（原 MAWB）→ 用原值對回勾選 key
+      const key = e.sourceMawb || e.mawb;
+      if (key) cneeMap[xlsNormMawb(key)] = e.cnee || '';
     });
     f._cneeBlocks = cneeInfo.blocks || [];
   } else {
@@ -74,6 +80,7 @@ async function xlsEnsureStandardized(fileIndex) {
   const assignedTypes = XLS_FIELD_TYPES.filter((t) => t.value !== 'ignore' && Object.values(def.fieldMap).includes(t.value));
 
   // 標準化列（僅包含有 MAWB 的列）
+  const fieldOverrides = xlsState.fieldOverrides[fileIndex] || {};
   const standardized = [];
   rows.slice(firstDataRow - 1).forEach((row) => {
     const mawb = extract(row, 'mawb');
@@ -82,6 +89,18 @@ async function xlsEnsureStandardized(fileIndex) {
     assignedTypes.forEach((t) => {
       rec[t.value] = xlsCellDisplay(extract(row, t.value));
     });
+    // ③ 可雙擊修改的欄位：記住原值（判斷是否已改回原值）並套用手動修改
+    rec._orig = {
+      mawb: rec.mawb || '',
+      dest: rec.dest || '',
+      flight: rec.flight || '',
+    };
+    const fieldOver = fieldOverrides[rec.mawbKey];
+    if (fieldOver) {
+      XLS_STD_EDITABLE_FIELDS.forEach((k) => {
+        if (fieldOver[k]) rec[k] = fieldOver[k];
+      });
+    }
     // CNEE 顯示順序：1) 後端比對結果（含逐列 CNEE_NAME 直取） 2) 已指派「CNEE 名稱」欄的該列值（後端比對暫時失敗時仍正確）
     // 3) 前端手動補值（③ 點擊填入，最高優先，與 ④ 執行一致）
     const hasDirectCnee = assignedTypes.some((t) => t.value === 'cnee_name');
@@ -281,11 +300,16 @@ function xlsRenderStandardized(fileIndex) {
   const colWidths = cols.map((c) => xlsStdColWidth(c.key));
   const tableWidth = colWidths.reduce((sum, w) => sum + w, 0);
   const missingCnee = standardized.filter((r) => !r.cnee).length;
+  // 可雙擊修改的欄位標籤（MAWB# 一定有；DEST／航班號 有指派才列出）
+  const editableLabels = ['MAWB#'].concat(
+    assignedTypes.filter((t) => t.value === 'dest' || t.value === 'flight').map((t) => t.label)
+  );
   const cneeHint = (f._cneeBlocks && f._cneeBlocks.length) ? '（CNEE 自動由下方對照區比對，點擊 CNEE 格可手動補值）' : '（點擊 CNEE 格可手動補值）';
   panel.innerHTML = `
     <h4>標準化結果預覽（${xlsEscapeHtml(f.originalName)}）</h4>
     <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）${missingCnee ? ` &nbsp;🔴 <b>${missingCnee}</b> 筆缺 CNEE <button type="button" class="pill xls-jump-cnee" onclick="xlsJumpFirstMissingCnee(${fileIndex})">📍 跳至第一筆</button>` : ''}</p>
     <p class="xls-preview-note">${cneeHint}</p>
+    <p class="xls-preview-note">✏️ 雙擊 <b>${xlsEscapeHtml(editableLabels.join('／'))}</b> 可修改內容（Enter 儲存／Esc 取消；會同步到 ④ 執行，不需重新上傳）</p>
     <p class="xls-preview-note">↔ 拖曳表頭右緣可調整欄寬（雙擊該邊界只恢復該欄；欄寬會記住）
       <button type="button" class="pill xls-reset-col-widths" onclick="xlsResetStdColWidths(${fileIndex})">重設全部欄寬</button>
     </p>
@@ -324,11 +348,17 @@ function xlsRenderStandardized(fileIndex) {
                   <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${isSel ? 'checked' : ''} onchange="xlsToggleRow(${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
                 </label>
               </td>
-              <td${mawbMissing ? ' class="xls-required-missing" title="🔴 缺少 MAWB#（此列已勾選，執行時將被略過）"' : ''}>${xlsEscapeHtml(r.mawb || '')}</td>
+              <td class="xls-std-editable${mawbMissing ? ' xls-required-missing' : ''}" title="${mawbMissing ? '🔴 缺少 MAWB#（此列已勾選，執行時將被略過）；' : ''}雙擊編輯 MAWB#" ondblclick="xlsEditStandardField(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}', 'mawb')">${xlsEscapeHtml(r.mawb || '')}</td>
               <td class="xls-cnee-cell${cneeMissing ? ' xls-cnee-missing' : ''}${isSel && cneeMissing ? ' xls-missing-pulse' : ''}" title="${r.cnee ? '點擊編輯 CNEE' : '🔴 無 CNEE — 點擊填入'}" onclick="xlsEditCnee(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
                 ${r.cnee ? xlsEscapeHtml(r.cnee.length > 30 ? r.cnee.slice(0, 30) + '…' : r.cnee) : '🔴 無 CNEE（點擊填入）'}
               </td>
-              ${otherTypes.map((t) => `<td${cellMissing(t) ? ` class="xls-required-missing" title="🔴 缺少 ${t.label}（此列已勾選，執行時此欄會留空）"` : ''}>${xlsEscapeHtml(r[t.value] || '')}</td>`).join('')}
+              ${otherTypes.map((t) => {
+                const canEdit = XLS_STD_EDITABLE_FIELDS.indexOf(t.value) >= 0;
+                const miss = cellMissing(t);
+                const cls = [miss ? 'xls-required-missing' : '', canEdit ? 'xls-std-editable' : ''].filter(Boolean).join(' ');
+                const tip = `${miss ? `🔴 缺少 ${t.label}（此列已勾選，執行時此欄會留空）；` : ''}${canEdit ? `雙擊編輯 ${t.label}` : ''}`;
+                return `<td${cls ? ` class="${cls}"` : ''}${tip ? ` title="${tip}"` : ''}${canEdit ? ` ondblclick="xlsEditStandardField(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}', '${t.value}')"` : ''}>${xlsEscapeHtml(r[t.value] || '')}</td>`;
+              }).join('')}
             </tr>
           `;
           }).join('')}
@@ -430,5 +460,83 @@ function xlsEditCnee(ev, fileIndex, mawbKey) {
   });
   ta.addEventListener('blur', commit);
   ta.addEventListener('click', (e) => e.stopPropagation());
+}
+
+
+// ===== ③ 標準化預覽：雙擊修改 MAWB#／DEST／航班號（會同步到 ④ 執行） =====
+// 修改值存在 xlsState.fieldOverrides[fileIndex][原 mawbKey]，後端 standardizeRows 以「原 MAWB」
+// 識別同一列套用，因此勾選清單、CNEE 補值仍以原 MAWB 為 key，不會因改 MAWB 而對不上。
+function xlsStdFieldPlaceholder(field) {
+  if (field === 'mawb') return '例如 157-12345678';
+  if (field === 'dest') return '例如 HKG';
+  if (field === 'flight') return '例如 CX0450';
+  return '';
+}
+
+// 雙擊 → 直接在格子裡換成 input（值用 property 指派，避免特殊字元破壞 HTML）
+function xlsEditStandardField(ev, fileIndex, mawbKey, field) {
+  if (XLS_STD_EDITABLE_FIELDS.indexOf(field) < 0) return;
+  const f = xlsState.files[fileIndex];
+  if (!f || !f._stdCache) return;
+  const cell = ev && ev.currentTarget;
+  if (!cell || (cell.querySelector && cell.querySelector('input'))) return;
+  const rec = f._stdCache.standardized.find((r) => r.mawbKey === mawbKey);
+  if (!rec) return;
+
+  cell.classList.add('xls-std-editing');
+  cell.innerHTML = '<input type="text" class="xls-std-input" />';
+  const input = cell.querySelector('input');
+  if (!input) return;
+  input.value = rec[field] || '';
+  input.placeholder = xlsStdFieldPlaceholder(field);
+  input.spellcheck = false;
+  input.focus();
+  input.select();
+
+  let done = false;
+  const finish = (commit) => {
+    if (done) return;
+    done = true;
+    let changed = false;
+    if (commit) changed = xlsApplyStandardFieldEdit(fileIndex, rec, field, input.value);
+    // DEST 會影響 CNEE 對照區比對 → 重新向後端取一次（③ 顯示與 ④ 執行一致）
+    if (changed && field === 'dest') {
+      f._stdCache = null;
+      renderStandardizedPreview(fileIndex);
+      return;
+    }
+    xlsRenderStandardized(fileIndex); // 同步重繪（取消＝還原原值，不留 input 在格內）
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('click', (e) => e.stopPropagation());
+}
+
+// 套用單一欄位的修改：空白／改回原值 → 移除覆寫；回傳「顯示值是否改變」
+function xlsApplyStandardFieldEdit(fileIndex, rec, field, raw) {
+  if (!rec || XLS_STD_EDITABLE_FIELDS.indexOf(field) < 0) return false;
+  const prev = rec[field] || '';
+  let value = String(raw == null ? '' : raw).trim();
+  if (field === 'mawb') {
+    value = xlsNormMawb(value);
+    if (!value) return false; // 空白或無法辨識 → 不改（避免整列在 ④ 被略過）
+  } else {
+    value = value.toUpperCase();
+  }
+
+  const orig = (rec._orig && rec._orig[field]) || '';
+  const origCmp = field === 'mawb' ? xlsNormMawb(orig) : String(orig).trim().toUpperCase();
+  if (!xlsState.fieldOverrides[fileIndex]) xlsState.fieldOverrides[fileIndex] = {};
+  const bag = xlsState.fieldOverrides[fileIndex][rec.mawbKey] || {};
+  if (!value || value === origCmp) delete bag[field];
+  else bag[field] = value;
+  if (Object.keys(bag).length) xlsState.fieldOverrides[fileIndex][rec.mawbKey] = bag;
+  else delete xlsState.fieldOverrides[fileIndex][rec.mawbKey];
+
+  rec[field] = value || orig; // 立即反映在 ③（不必等重新載入）
+  return (rec[field] || '') !== prev;
 }
 

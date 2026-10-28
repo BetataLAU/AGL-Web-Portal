@@ -156,6 +156,7 @@ router.post('/cnee-preview', async (req, res) => {
         fieldMap: def.fieldMap,
         cneeLookup: def.cneeLookup,
         cneeOverrides: def.cneeOverrides,
+        fieldOverrides: def.fieldOverrides, // ③ 雙擊修改 MAWB#／DEST／航班號
       });
       const blocks = extractCneeLookupArea(rows).filter((b) => b.cnee);
       results.push({
@@ -164,6 +165,7 @@ router.post('/cnee-preview', async (req, res) => {
         blocks: blocks.map((b) => ({ key: b.key, cnee: b.cnee })),
         entries: recs.map((r) => ({
           mawb: r.mawb,
+          sourceMawb: r.sourceMawb || '', // ③ 改過 MAWB# 時的原 MAWB（前端用它對回勾選 key）
           dest: r.dest || '',
           remark: r.remark || '',
           cnee: r.cnee || '',

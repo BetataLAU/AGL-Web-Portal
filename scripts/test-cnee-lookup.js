@@ -1,7 +1,7 @@
 // ===== Shipper Role Project - CNEE 對照區測試 =====
 // 1) 單元測試：直接讀 b2719b93a5db.xlsx，驗證自動抽取 + DEST/REMARK 比對、手動覆寫、缺 CNEE 路徑
 // 2) 端對端：登入 → 上傳 → /cnee-preview 驗證 6 筆 MAWB → /process（含一筆 override）→ 檢查 warnings / payload
-// 啟動方式：先 node server.js，再跑本腳本（沿用 test-xls-workflow.js 的登入/輪詢模式）
+// 啟動方式：先 node server.js，再跑本腳本（使用與 test-auth.js 相同的登入／Cookie 輪詢模式）
 const fs = require('fs');
 const path = require('path');
 

@@ -7,7 +7,8 @@
 
 - **最後 commit**：`dd6c0ba` feat(sli-eli): 輸出改 A4、PDF 字型瘦身 -77%、疊字背景與欄位座標 (P1/P2)
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
-- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理 ＋ 側欄主/子層級 ＋ ③ 欄寬）**：
+- **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理 ＋ 側欄主/子層級 ＋ ③ 欄寬 ＋ ③ 雙擊修改 ＋ 測試程式碼清理）**：
+  - **(J) 測試程式碼清理（本次）**：刪除無用的測試／一次性資料腳本 `scripts/test-xls-workflow.js`、`scripts/test-openpyxl-bridge.py`、`scripts/cleanup-test-data.js`、`scripts/generate-dummy-orders.js`、`scripts/verify-dummy-orders.js`、`scripts/verify-import.js`；刪除本機暫存 `data/test-a4-integration`、`data/test-charset`、`data/test-p3-overlay`、`data/test-p4-engine-{cjk,mixed,nobackground}`、`data/test-blank-build`、`data/test-commit-check-head-report.xlsx`、`scripts/__pycache__`；`scripts/test-cnee-lookup.js`（註解移除已刪檔引用）；`FILE_INVENTORY.md`（`npm run sync`）
   - **(I) ③ 標準化預覽：欄寬可調整 ＋ 雙擊修改 MAWB#／DEST／航班號（本次）**：修改 `public/js/xls-booking-standard.js`（colgroup／拖曳把手／欄寬記憶與重設／雙擊編輯）、`public/js/xls-booking-state.js`（`stdColWidths`／`fieldOverrides`）、`public/js/xls-booking-upload.js`（上傳時清空 fieldOverrides）、`public/js/xls-booking-workflow.js`（bodyDefs 帶 fieldOverrides）、`public/css/xls-booking.css`（把手／雙擊編輯樣式、移除固定欄寬）、`scripts/xls-workflow.js`（`fieldOverrides`＋`filterSelectedRecords`）、`routes/xls-booking.js`（cnee-preview 帶 fieldOverrides／回傳 sourceMawb）；新增 `scripts/test-xls-standard-cols.js`、`scripts/test-xls-standard-fields.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`README.md`／`WORKSPACE_STATE.md`
   - **(H) 側欄主/子功能層級（本次）**：修改 `public/index.html`（主項 `.nav-parent`／子項 `.nav-child`＋「子功能」標籤，子項移到主項之後）、`public/css/layout.css`（層級樣式：縮排／樹狀連接線／標籤／省略號保護）、`public/sli-eli-layout.html`＋`public/css/sli-eli-layout.css`（子功能頁側欄與頁首標示）、`scripts/fix-nav-order.js`（`DEFAULT_ORDER`＋`CHILD_AFTER_PARENT`）、`scripts/test-nav-order-frontend.js`（stub 順序）；新增 `scripts/test-nav-hierarchy.js`；`CLAUDE.md`／`PROJECT_MAP.md`／`WORKSPACE_STATE.md`
   - **(G) 字元處理（第 0/1/2 層）**：新增 `scripts/pdf-charset.js`、`scripts/pdf-cjk-font.js`、`scripts/test-sli-eli-charset.js`；修改 `scripts/sli-eli-overlay.js`（淨化／WinAnsi 放寬／CJK 子集混排／`check().reason`）、`scripts/xls-workflow.js`（`fallbackReasons.reason`＋`engine.cjkFont`）、`scripts/sli-eli-blank-widen-fonts.js`＋`scripts/build-sli-eli-blank.py`（27 個 WinAnsi 特殊字）、`routes/xls-booking-layout.js`＋`public/js/xls-booking-workflow.js`＋`public/js/sli-eli-layout-main.js`（文案）、`Dockerfile`（`fonts-droid-fallback`）、`package.json`（`@pdf-lib/fontkit`）
@@ -20,7 +21,13 @@
 
 ## ✅ 近期里程碑（由新到舊；細節見 `git log`）
 
-0. **③ 標準化結果預覽：欄寬可拖曳調整 ＋ 雙擊修改 MAWB#／DEST／航班號（本次，尚未提交）**：使用者要求「③ 的欄位可以調整欄寬」、「MAWB／DEST／航班號 雙擊都可以修改內容」。
+0. **測試程式碼清理（本次，尚未提交）**：盤點全 repo 的測試程式碼，先確認「未被網站正式流程引用」（`routes/`、`server.js`、`public/` 均無 `require`／呼叫）再刪除。
+   - **刪除（版控）**：`scripts/test-xls-workflow.js`（硬編碼 `../../source xls files` 外部路徑、已被 `test-a4-integration`＋`test-cnee-lookup` 取代）、`scripts/test-openpyxl-bridge.py`（測已無人呼叫的 `fill-sli-eli.py` 舊橋接、需 Windows Excel COM）、`scripts/cleanup-test-data.js`（一次性清 TSTC1/TSTC2/cust1/cust2；目前 DB 已無這些資料）、`scripts/generate-dummy-orders.js`＋`scripts/verify-dummy-orders.js`（一次性 DUMMY 訂單產生／驗證，且會直接寫正式 DB）、`scripts/verify-import.js`（一次性 db:import 檢查）。
+   - **刪除（本機暫存，皆在 `.gitignore`）**：`data/test-a4-integration`、`data/test-charset`、`data/test-p3-overlay`、`data/test-p4-engine-{cjk,mixed,nobackground}`、`data/test-blank-build`、`data/test-commit-check-head-report.xlsx`、`scripts/__pycache__`（測試／建置會自動重建，共約 10 MB）。
+   - **保留（現役驗收／回歸測試，文件有列）**：`test-auth`／`test-customer-isolation`／`test-login-lockout`／`test-bp3d`／`test-galms`／`test-packing-*`／`test-q7-api`／`test-nav-*`／`test-xls-preview-formula`／`test-xls-standard-cols`／`test-xls-standard-fields`／`test-cnee-lookup`／`test-a4-integration`／`test-pdf-a4`／`test-p4-engine`／`test-sli-eli-*`／`test-zip-naming`／`test-sli-generate.py`；另保留 `data/test-p2`、`data/test-p3` 的校準量測腳本（`docs/design/xls-sli-eli-overlay-prd.md` 仍引用，且 `verify-build.py` 驗的是 `data/templates/sli-eli-blank.pdf` 本身）。
+   - **不影響網站**：`routes/xls-booking`、`scripts/xls-workflow`、`scripts/sli-eli-overlay`、`scripts/xls-report` 皆可正常 `require`；伺服器可正常啟動並回應首頁；`node --check` 全部剩餘測試腳本 0 失敗。
+   - **驗證**：回歸 `test-xls-standard-cols`（29）、`test-xls-standard-fields`（33）、`test-xls-preview-formula`（26）、`test-nav-hierarchy` 全 **PASS**；`npm run sync` 檔案清單 **297 → 255**。
+1. **③ 標準化結果預覽：欄寬可拖曳調整 ＋ 雙擊修改 MAWB#／DEST／航班號（本次，尚未提交）**：使用者要求「③ 的欄位可以調整欄寬」、「MAWB／DEST／航班號 雙擊都可以修改內容」。
    - **做法**：③ 表格改為 `<colgroup>` 明確欄寬（預設 check 44／MAWB# 150／CNEE 220／其他 120px），表頭右緣加 `.xls-col-resizer` 把手；`pointerdown` 時先把每欄實際寬度定格成 px（`col.style.width`），之後只改被拖曳的那一欄，其他欄不會被壓縮、表格總寬＝各欄相加（必要時出現橫向捲軸，與 Excel 行為一致）。
    - **記憶**：欄寬以「欄位 key」（`check`／`mawb`／`cnee`／各欄位類型）寫入 `localStorage['xls-std-col-widths']`（`xlsState.stdColWidths` 為快取），重繪（勾選／CNEE 補值）或重新載入頁面後自動沿用；寬度夾制 56–900px（勾選欄最小 44px，載入時也夾制，內容毀損則回預設）。
    - **重設**：雙擊表頭邊界只恢復該欄；面板上「↔ 重設全部欄寬」按鈕清空全部記憶。

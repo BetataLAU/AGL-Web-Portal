@@ -2,29 +2,26 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/28 下午12:18:09
+> 最後更新：2026/10/28 下午12:30:20
 
 ## 🔄 Git 變更狀態
 
 ```
-M CLAUDE.md
-M PROJECT_MAP.md
-M README.md
+M FILE_INVENTORY.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
-M public/css/xls-booking.css
-M public/js/xls-booking-standard.js
-M public/js/xls-booking-state.js
-M public/js/xls-booking-upload.js
-M public/js/xls-booking-workflow.js
-M routes/xls-booking.js
-M scripts/xls-workflow.js
-?? scripts/test-xls-standard-fields.js
+D  scripts/cleanup-test-data.js
+D  scripts/generate-dummy-orders.js
+M scripts/test-cnee-lookup.js
+D  scripts/test-openpyxl-bridge.py
+D  scripts/test-xls-workflow.js
+D  scripts/verify-dummy-orders.js
+D  scripts/verify-import.js
 ```
 
-## 📁 檔案清單（共 297 個檔案）
+## 📁 檔案清單（共 255 個檔案）
 
 ### (根目錄)
 
@@ -34,7 +31,7 @@ M scripts/xls-workflow.js
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（17.0 KB）
 - `README.md`（23.0 KB）
-- `WORKSPACE_STATE.md`（33.2 KB）
+- `WORKSPACE_STATE.md`（36.1 KB）
 - `package.json`（750 B）
 - `server.js`（7.2 KB）
 
@@ -55,50 +52,15 @@ M scripts/xls-workflow.js
 - `bp3d/ga-lns/init.js`（2.1 KB）
 - `bp3d/ga-lns/search.js`（3.5 KB）
 
-### data
-
-- `data/test-commit-check-head-report.xlsx`（738.1 KB）
-
 ### data/templates
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（627.1 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（629.0 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
 - `data/templates/sli-eli-fieldmap.json`（13.7 KB）
-
-### data/test-a4-integration
-
-- `data/test-a4-integration/report-copy.xlsx`（646.0 KB）
-- `data/test-a4-integration/synthetic.xlsx`（6.6 KB）
-
-### data/test-blank-build
-
-- `data/test-blank-build/baseline-probe.pdf`（123.8 KB）
-- `data/test-blank-build/blank-2p.pdf`（529.4 KB）
-- `data/test-blank-build/blank-ELI_LETTER.pdf`（194.5 KB）
-- `data/test-blank-build/blank-a4.pdf`（530.2 KB）
-- `data/test-blank-build/blank-air.pdf`（353.1 KB）
-- `data/test-blank-build/blank-widened.pdf`（762.1 KB）
-- `data/test-blank-build/charset-ELI_LETTER.pdf`（236.9 KB）
-- `data/test-blank-build/charset-air.pdf`（398.3 KB）
-- `data/test-blank-build/geometry.json`（9.0 KB）
-- `data/test-blank-build/marker-long-2p.pdf`（530.8 KB）
-- `data/test-blank-build/marker-long-a4.pdf`（531.6 KB）
-- `data/test-blank-build/marker-short-2p.pdf`（530.2 KB）
-- `data/test-blank-build/marker-short-a4.pdf`（531.0 KB）
-- `data/test-blank-build/markerA-ELI_LETTER.pdf`（195.2 KB）
-- `data/test-blank-build/markerA-air.pdf`（353.3 KB）
-- `data/test-blank-build/markerB-ELI_LETTER.pdf`（195.2 KB）
-- `data/test-blank-build/markerB-air.pdf`（354.2 KB）
-- `data/test-blank-build/template-copy-32528.xlsx`（93.7 KB）
-
-### data/test-charset/mine
-
-- `data/test-charset/mine/160-15102743.pdf`（123.7 KB）
-- `data/test-charset/mine/752-30231530.pdf`（116.5 KB）
 
 ### data/test-p2
 
@@ -160,37 +122,6 @@ M scripts/xls-workflow.js
 - `data/test-p3/ref-065-49876374.pdf`（542.9 KB）
 - `data/test-p3/ref-065-49876385.pdf`（536.5 KB）
 - `data/test-p3/try-customname.js`（1.6 KB）
-
-### data/test-p3-overlay
-
-- `data/test-p3-overlay/jobs.json`（730 B）
-
-### data/test-p3-overlay/mine
-
-- `data/test-p3-overlay/mine/160-15102742.pdf`（116.0 KB）
-- `data/test-p3-overlay/mine/160-15102743.pdf`（123.7 KB）
-- `data/test-p3-overlay/mine/160-15102744.pdf`（115.9 KB）
-
-### data/test-p3-overlay/ref
-
-- `data/test-p3-overlay/ref/160-15102742.pdf`（123.4 KB）
-- `data/test-p3-overlay/ref/160-15102743.pdf`（131.3 KB）
-- `data/test-p3-overlay/ref/160-15102744.pdf`（123.2 KB）
-
-### data/test-p4-engine-cjk
-
-- `data/test-p4-engine-cjk/report-copy.xlsx`（614.6 KB）
-- `data/test-p4-engine-cjk/synthetic-mixed.xlsx`（6.7 KB）
-
-### data/test-p4-engine-mixed
-
-- `data/test-p4-engine-mixed/report-copy.xlsx`（614.6 KB）
-- `data/test-p4-engine-mixed/synthetic-mixed.xlsx`（6.7 KB）
-
-### data/test-p4-engine-nobackground
-
-- `data/test-p4-engine-nobackground/report-copy.xlsx`（614.6 KB）
-- `data/test-p4-engine-nobackground/synthetic-mixed.xlsx`（6.7 KB）
 
 ### db
 
@@ -371,7 +302,6 @@ M scripts/xls-workflow.js
 
 - `scripts/analyze-xls.py`（1.7 KB）
 - `scripts/build-sli-eli-blank.py`（41.5 KB）
-- `scripts/cleanup-test-data.js`（1.1 KB）
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
 - `scripts/excel-to-pdf.py`（1.8 KB）
@@ -379,7 +309,6 @@ M scripts/xls-workflow.js
 - `scripts/fetch-github-repos.py`（1.6 KB）
 - `scripts/fill-sli-eli.py`（1.6 KB）
 - `scripts/fix-nav-order.js`（5.8 KB）
-- `scripts/generate-dummy-orders.js`（14.3 KB）
 - `scripts/install-hooks.js`（2.9 KB）
 - `scripts/merge-pdf.py`（1.5 KB）
 - `scripts/pdf-charset.js`（5.9 KB）
@@ -402,7 +331,6 @@ M scripts/xls-workflow.js
 - `scripts/test-nav-hierarchy.js`（7.5 KB）
 - `scripts/test-nav-order-frontend.js`（6.7 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
-- `scripts/test-openpyxl-bridge.py`（1.3 KB）
 - `scripts/test-p4-engine.js`（9.5 KB）
 - `scripts/test-packing-api.js`（5.7 KB）
 - `scripts/test-packing-projects.js`（7.1 KB）
@@ -416,10 +344,7 @@ M scripts/xls-workflow.js
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
-- `scripts/test-xls-workflow.js`（4.6 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
-- `scripts/verify-dummy-orders.js`（3.8 KB）
-- `scripts/verify-import.js`（1.3 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）

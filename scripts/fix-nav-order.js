@@ -1,7 +1,7 @@
 // ===== 修復側邊欄導航排序資料（users.sidebar_nav_order）=====
 // 背景：舊版 PUT /api/auth/me/nav-order 的白名單只允許 `#section-*` 與 `users.html`，
-//       頁面連結型目錄（uld-packing.html / packing.html）會被過濾掉，
-//       前端套用排序時這兩個項目會浮回最上方（使用者感覺「位置記不住」）。
+//       頁面連結型目錄（sli-eli-layout.html）會被過濾掉，前端套用排序時該項目會浮回最上方
+//       （使用者感覺「位置記不住」）。
 // 本腳本會針對已有自訂排序的使用者：
 //   1. 移除非法 / 重複的 key（驗證規則與 routes/auth/auth-router.js 一致）
 //   2. 補回缺少但合法的目錄項目，位置依 index.html 的預設順序就近插入
@@ -25,8 +25,6 @@ const DEFAULT_ORDER = [
   '#section-xls-booking',
   'sli-eli-layout.html',
   '#section-palletization',
-  'uld-packing.html',
-  'packing.html',
   '#section-dbviewer',
   'users.html'
 ];

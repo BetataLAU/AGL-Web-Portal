@@ -2,7 +2,7 @@
 // 以最小 DOM stub 實際載入 public/js/main.js，驗證 setupSidebarReorder() 的行為：
 //   A. 伺服器回傳「不完整排序」時，未被列到的項目要排到最後（不再浮到最上方）
 //   B. setupSidebarReorder 重複呼叫時，拖曳事件只綁定一次（避免同一次拖放被處理多次）
-//   C. 拖放後立即送出 PUT，且內容包含頁面連結（uld-packing.html / packing.html）
+//   C. 拖放後立即送出 PUT，且內容包含頁面連結（sli-eli-layout.html / users.html）
 // 用法：node scripts/test-nav-order-frontend.js
 const fs = require('fs');
 const path = require('path');
@@ -11,10 +11,10 @@ const vm = require('vm');
 const NAV_ITEM_HREFS = [
   '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
   '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization',
-  'uld-packing.html', 'packing.html', '#section-dbviewer', 'users.html'
+  '#section-dbviewer', 'users.html'
 ];
 
-// 舊版伺服器實際存下的不完整排序（缺 uld-packing.html / packing.html）
+// 舊版伺服器實際存下的不完整排序（缺 sli-eli-layout.html）
 const LEGACY_PARTIAL = [
   '#section-xls-booking', '#section-contour', '#section-chat', '#section-skills',
   '#section-orders', '#section-palletization', '#section-dbviewer', 'users.html'
@@ -120,8 +120,8 @@ function check(name, ok, detail = '') {
   console.log(`A. DOM 順序：${JSON.stringify(orderA)}`);
   check('A1 HOME 仍是最上方', orderA[0] === '#section-home');
   check('A2 未被列到的項目排在最後',
-    JSON.stringify(orderA.slice(-2).slice().sort()) === JSON.stringify(['packing.html', 'uld-packing.html']),
-    `→ 尾兩項 ${JSON.stringify(orderA.slice(-2))}`);
+    orderA[orderA.length - 1] === 'sli-eli-layout.html',
+    `→ 最後一項 ${orderA[orderA.length - 1]}`);
   check('A3 已列出的項目維持伺服器順序',
     JSON.stringify(orderA.slice(1, 9)) === JSON.stringify(LEGACY_PARTIAL));
 
@@ -134,7 +134,7 @@ function check(name, ok, detail = '') {
   // --- C. 拖放後立即寫入的排序要包含頁面連結 ---
   const itemByHref = href => nav.items.find(i => i.href === href);
   nav.handlers.dragstart[0]({
-    target: itemByHref('packing.html'), preventDefault() {}, dataTransfer: { setData() {}, effectAllowed: null }
+    target: itemByHref('sli-eli-layout.html'), preventDefault() {}, dataTransfer: { setData() {}, effectAllowed: null }
   });
   nav.handlers.drop[0]({
     target: itemByHref('#section-chat'), clientY: 5, preventDefault() {}
@@ -145,13 +145,13 @@ function check(name, ok, detail = '') {
   const putBody = putCall ? JSON.parse(putCall.body).order : [];
   console.log(`C. PUT 內容：${JSON.stringify(putBody)}`);
   check('C1 已立即送出 PUT 到 /api/auth/me/nav-order', !!putCall && putCall.url === '/api/auth/me/nav-order');
-  check('C2 PUT 包含 packing.html', putBody.includes('packing.html'));
-  check('C3 PUT 包含 uld-packing.html', putBody.includes('uld-packing.html'));
-  check('C4 PUT 包含全部 11 個目錄項目（不含 HOME）', putBody.length === 11, `(實際 ${putBody.length} 項)`);
-  const dragIdx = putBody.indexOf('packing.html');
+  check('C2 PUT 包含 sli-eli-layout.html', putBody.includes('sli-eli-layout.html'));
+  check('C3 PUT 包含 users.html', putBody.includes('users.html'));
+  check('C4 PUT 包含全部 9 個目錄項目（不含 HOME）', putBody.length === 9, `(實際 ${putBody.length} 項)`);
+  const dragIdx = putBody.indexOf('sli-eli-layout.html');
   check('C5 拖到 #section-chat 上方後順序正確',
     dragIdx !== -1 && putBody[dragIdx + 1] === '#section-chat',
-    `(packing.html 位置 ${dragIdx}，其後為 ${putBody[dragIdx + 1]})`);
+    `(sli-eli-layout.html 位置 ${dragIdx}，其後為 ${putBody[dragIdx + 1]})`);
   check('C6 拖放後 localStorage 已同步',
     JSON.parse(store['sidebar-nav-order'] || '[]').join() === putBody.join());
   check('C7 一次拖放只送出 1 次 PUT', calls.filter(c => c.method === 'PUT').length === 1,

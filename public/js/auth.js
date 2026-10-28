@@ -446,14 +446,6 @@ async function setupAuthUI() {
     const layoutLock = document.getElementById('nav-sli-eli-layout-lock');
     if (layoutLock) layoutLock.style.display = 'none';
 
-    // 解鎖 ULD 智能裝箱（登入即可用）
-    const uldProjectsLock = document.getElementById('nav-uld-projects-lock');
-    if (uldProjectsLock) uldProjectsLock.style.display = 'none';
-
-    // 解鎖 3D ULD 裝箱（登入即可用）
-    const packingLock = document.getElementById('nav-packing-lock');
-    if (packingLock) packingLock.style.display = 'none';
-
     // 打板計劃：僅限 admin / staff 解鎖；否則顯示鎖頭並攔截
     const palletLock = document.getElementById('nav-palletization-lock');
     const navPallet = document.getElementById('nav-palletization');
@@ -517,9 +509,9 @@ async function setupAuthUI() {
     if (loginBtn) loginBtn.style.display = 'flex';
     if (loggedInBox) loggedInBox.style.display = 'none';
 
-    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃 / 3D ULD 裝箱：
+    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃：
     // 顯示鎖頭，點擊導向登入頁（登入後跳回原本想看的區塊或頁面）
-    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization', 'nav-packing'].forEach(id => {
+    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');

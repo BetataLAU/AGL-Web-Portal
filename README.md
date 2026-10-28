@@ -10,8 +10,6 @@
 | 📦 訂單系統 | Sidebar「訂單系統」 | 收貨/送貨落 ORDER、公司/地點資料庫、電力分類、趕機、電郵總結 |
 | ✈️ Shipper Role Project | Sidebar「Shipper Role Project」 | 上傳 XLS 配對表 → 產生 Report + SLI/ELI PDF + ZIP |
 | 📥 打板計劃 | Sidebar「打板計劃」 | 板位 booking、SPL 代碼、計劃卡（可從訂單同步）、拖曳排序（需 admin/staff） |
-| 🧊 ULD 智能裝箱 | `uld-packing.html` | 多 ULD 專案配載：貨物清單、3D 互動拖拽、GA-LNS 自動求解、方案管理與 PDF 匯出 |
-| 🧊 3D ULD 裝箱 | `packing.html` | 單 ULD 求解：ULD 選擇、貨物編輯、Three.js 逐步裝載動畫 |
 | 🗄️ 資料庫檢視器 | Sidebar「資料庫」 | 白名單保護的資料表瀏覽 / 編輯 / 刪除（需 `db_view` 權限） |
 | 其他 | HOME / AI Playground / Capabilities / Contour | 首頁、聊天示範、技能展示、ULD 斷面圖資 |
 
@@ -50,8 +48,6 @@ npm start        # 或 node server.js
 AGL-Web-Portal/
 ├── server.js                # Express 入口：靜態服務、session、掛載全部 API 路由
 ├── database.db              # SQLite 資料庫（自動建立；用 npm run db:export / db:import 同步）
-├── bp3d/                    # 3D ULD 裝箱引擎（幾何、ULD 規格、約束、EP 演算法、solver）
-│   └── ga-lns/              # GA-LNS 啟發式（chromosome / fitness / evolve / search）
 ├── db/
 │   ├── database.js          # 建表 + 相容欄位補齊 + seed
 │   └── db-dump.sql          # 資料庫匯出（版本控管用）
@@ -60,17 +56,14 @@ AGL-Web-Portal/
 │   ├── auth/                # 登入、使用者管理、權限 middleware
 │   ├── orders/              # 訂單 CRUD、公司/地點、備註範本、工具
 │   ├── pallet.js            # 打板計劃 API
-│   ├── packing*.js          # 裝箱求解 / 專案 / 方案 / PDF
 │   └── xls-booking*.js      # Shipper Role 單據工具
 ├── public/
 │   ├── index.html           # 主站單頁 + Sidebar
 │   ├── login.html           # 登入頁
 │   ├── users.html           # 使用者管理（admin）
-│   ├── packing.html         # 單 ULD 3D 裝箱
-│   ├── uld-packing.html     # ULD 智能裝箱（多 ULD 專案）
 │   ├── css/                 # base / layout / components / animations / orders / dbviewer …
 │   │   └── utils/           # modal / cbm-calculator / time-picker / autocomplete
-│   └── js/                  # 主站邏輯 + utils/ + packing/ + pallet/ + uld-packing/
+│   └── js/                  # 主站邏輯 + utils/ + pallet/
 ├── scripts/                 # XLS 流程、DB 匯出/匯入、測試與維運腳本
 └── data/templates/          # Shipper Role 模板（SLI/ELI 母版、年度 Report 工作檔）
 ```
@@ -84,7 +77,7 @@ AGL-Web-Portal/
 | 角色 | 權限 |
 |------|------|
 | `admin` | 全部，含使用者管理（`users.html`）與資料庫 |
-| `staff` | 內部員工：訂單、Shipper Role、打板計劃、裝箱、資料庫 |
+| `staff` | 內部員工：訂單、Shipper Role、打板計劃、資料庫 |
 | `customer` | 客戶：只能看自己公司（`customer_company_id`）的訂單 |
 
 - 相關腳本：`node scripts/test-auth.js`、`node scripts/test-login-lockout.js`、`node scripts/test-customer-isolation.js`、`node scripts/seed-admin.js`
@@ -206,36 +199,6 @@ GET  /api/xls-booking/report-template                          # 下載 Report �
 POST /api/xls-booking/cleanup                                  # 清理過期產出（admin/staff）
 ```
 
-## 🧊 3D ULD 裝箱系統
-
-### 引擎（`bp3d/`）
-
-| 檔案 | 說明 |
-|------|------|
-| `geometries.js` | 半空間幾何：矩形 / 斜切（Extruded Profile）/ 輪廓 ULD 統一以平面不等式建模；`boxFits` 8 頂點驗證 |
-| `uld-definitions.js` | ULD 規格庫：PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/PMC-Q7/PAG-Q7 輪廓 |
-| `constraints.js` | 約束：支撐率 ≥70%、堆疊承重、總重量、地面壓力、CoG ±10% |
-| `extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
-| `solver.js` | 主求解器：4 種排序策略、數量展開、回傳 `sequence`（逐步動畫用） |
-| `ga-lns/` | GA-LNS 啟發式（染色體 / 適應度 / 演化 / 搜尋） |
-
-### 頁面
-
-- `uld-packing.html`（ULD 智能裝箱）：多 ULD 專案、貨物清單、3D 互動拖拽、自動求解、方案比較、PDF 匯出
-- `packing.html`（3D ULD 裝箱）：單 ULD 求解示範 + Three.js 逐步裝載動畫
-
-### 空運特殊約束
-
-- 斜切幾何：AKE/LD3 以 Y-Z 剖面多邊形擠出 + 8 頂點平面不等式驗證
-- 支撐率預設 70%、CoG ±10%、Net Clearance 預設 30mm（皆可用 API options 調整）
-- 總重 ≤ ULD payload、地面壓力 ≤ 限值
-
-### 測試
-
-- `node scripts/test-bp3d.js` — 引擎單元測試（幾何/斜切/方向/支撐/求解/重量）
-- `node scripts/test-packing-api.js [port]` — API 整合測試（登入 + ULD + 求解 + 錯誤處理）
-- `node scripts/test-packing-projects.js`、`node scripts/test-q7-api.js`、`node scripts/test-galms.js`
-
 ## 📥 打板計劃（`/api/pallet`，admin/staff）
 
 - 板位 booking（`/bookings`）與目的地清單、SPL 代碼維護、備註範本
@@ -253,7 +216,7 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - Node.js + Express 4 + SQLite3（callback 風格，非 async/await）
 - express-session + bcryptjs（登入與角色）
 - exceljs / xlsx（Excel 讀寫）、pdf-lib（PDF 合併後備）、archiver（ZIP）
-- multer（上傳）、Three.js（3D，前端 CDN）
+- multer（上傳）
 - Python：`scripts/sli-eli-generate.py`（Excel COM / openpyxl 填表）、`merge-pdf.py`（pypdf 合併）
 - 前端：Vanilla JavaScript、HTML、CSS（無框架、無 build step）
 
@@ -268,7 +231,6 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 | `/api/orders` | 訂單 CRUD、重複檢查、公司/地點、備註範本 | 登入（customer 僅自己公司） |
 | `/api/pallet` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders | admin / staff |
 | `/api/xls-booking` | Shipper Role：upload / preview / cnee-preview / process / status / cancel / download / cleanup | 登入 |
-| `/api/packing` | 裝箱：health / ulds / pack-uld / demo / projects / solutions / solve / export-pdf | 登入 |
 | `/api/db` | 資料庫檢視器 | `db_view` |
 
 <details>
@@ -310,8 +272,6 @@ npm run hooks:install     # 安裝 git hooks
 | 打板計劃 | `routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css` |
 | Shipper Role 後端 | `routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-*.js` |
 | Shipper Role 前端 | `public/js/xls-booking-*.js`、`public/css/xls-booking.css` |
-| 3D ULD 引擎 | `bp3d/*`（求解邏輯）、`public/js/uld-packing/*`（前端） |
-| 裝箱 API | `routes/packing*.js` |
 | 資料庫結構 | `db/database.js`（新增表要同步 `server.js` 掛載路由） |
 | 通用前端工具 | `public/js/utils/*`（api / datetime / mawb / hawb / modal / cbm / time-picker / autocomplete / clipboard） |
 
@@ -326,7 +286,6 @@ npm run hooks:install     # 安裝 git hooks
 | `FILE_INVENTORY.md` | 自動產生的檔案清單（`npm run sync`） |
 | `docs/README.md` | 文件索引與分類規則 |
 | `docs/design/` | 現役設計文件（訂單系統設計、PDF 並行 PRD） |
-| `docs/archive/` | 歷史規格（DeepSeek ULD PRD / prompt） |
 | `docs/research/` | 研究抓取產物 |
 
 ## 🛠️ 常見問題
@@ -354,7 +313,6 @@ npm run hooks:install     # 安裝 git hooks
 
 - 把後端 service 層抽出、Session store 換成 SQLite/Redis 以支援多 process
 - 訂單系統批次列印 / PDF 匯出、日期範圍統計報表
-- ULD 裝箱：多 ULD 自動分配（跨箱最佳化）、即時重量平衡提示
 
 
 

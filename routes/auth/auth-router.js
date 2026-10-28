@@ -152,7 +152,7 @@ router.get('/me', (req, res) => {
 // ===== 側邊欄導航排序：合法 key 驗證 =====
 // 目錄項目有兩種形式：
 //   1) 站內錨點：#section-xxx（例：#section-orders）
-//   2) 獨立頁面連結：xxx.html（例：uld-packing.html / packing.html / users.html）
+//   2) 獨立頁面連結：xxx.html（例：sli-eli-layout.html / users.html）
 // 注意：頁面連結必須一併允許，否則存入時會被過濾掉，
 //       前端套用排序時該項目會浮回最上方（使用者會覺得「位置沒被記住」）。
 const NAV_KEY_MAX_LEN = 100;

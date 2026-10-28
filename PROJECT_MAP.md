@@ -12,14 +12,12 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `server.js` | Express 入口：靜態服務、JSON body、session、掛載 9 組 API 前綴（auth / skills / contours / orders / pallet / xls-booking / packing / db）；Port 被佔用自動 +1 |
-| `bp3d/` | **3D ULD 裝箱引擎**（`geometries.js` 半空間幾何、`uld-definitions.js` ULD 規格庫、`constraints.js` 約束、`extreme-points.js` EP 演算法、`solver.js` 主求解器、`ga-lns/` GA-LNS 啟發式） |
+| `server.js` | Express 入口：靜態服務、JSON body、session、掛載 8 組 API 前綴（auth / skills / contours / orders / pallet / xls-booking / db）；Port 被佔用自動 +1 |
 | `package.json` | 名稱 gemini-intro-site；依賴 express / sqlite3 / express-session / bcryptjs / connect-sqlite3 / multer / exceljs / xlsx / pdf-lib / archiver |
 | `database.db` | SQLite 資料庫（自動建立，勿手動編輯） |
 | `docs/design/order-system-design.md` | 訂單系統設計紀錄（原根目錄 `ORDER_SYSTEM_PLAN.md`）：欄位規格、電力分類、訂單類型邏輯、電郵總結格式（已實作，含「與現況差異」對照） |
 | `docs/design/xls-pdf-parallel-prd.md` | Shipper Role「SLI/ELI PDF 多工並行」PRD（已實作，含實作結果摘要） |
-| `docs/archive/` | 歷史文件：`uld-packing-spec-deepseek.md`、`uld-packing-prd-v2.txt`（DeepSeek 時期規格，附實作對照） |
-| `docs/research/` | 研究抓取產物（`*-latest.txt` 由 `scripts/fetch-*.py` 產生，不進版控） |
+| `docs/research/` | 研究抓取產物（`*-latest.txt`，不進版控） |
 | `docs/README.md` | 文件索引與分類規則 |
 | `README.md` | 專案說明、API 清單、常見問題 |
 | `CLAUDE.md` | AI 專案記憶檔（新對話自動載入，含自動開機流程） |
@@ -56,11 +54,6 @@
 | `orders/note-templates.js` | 訂單備註文字範本（GET / POST） |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
 | `pallet.js` | **打板計劃 API**：bookings / plans / spl-codes / remark-templates / sync-orders（見 §3.6） |
-| `packing.js` | **3D 裝箱求解 API**（health / ulds / demo / pack-uld） |
-| `packing-projects.js` | 裝箱專案 / ULD / 客戶 / 貨物項目 CRUD |
-| `packing-solutions.js` | 求解方案 CRUD（`/projects/:id/solutions`） |
-| `packing-solve.js` | 非同步求解 job（start / status / cancel） |
-| `packing-pdf.js` | `POST /projects/:id/export-pdf` |
 | `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
@@ -114,13 +107,6 @@
 | `js/utils/time-picker.js` | 自訂時間選擇器（`setupTimePicker`） |
 | `js/utils/autocomplete.js` | 輸入即篩選自動補全（`setupAutocomplete`） |
 | `js/auth.js` | 登入狀態、Sidebar 鎖頭與「我的帳號」、導航排序 UI |
-| `packing.html` | **3D ULD 裝箱頁面**（ULD 選擇、貨物編輯、3D 視圖、逐步動畫控制） |
-| `css/packing.css` | 裝箱系統樣式（含深色主題） |
-| `js/packing/packing-viewer.js` | Three.js 渲染器（ULD 線框、貨物 Box、逐步飛入動畫、點擊資訊） |
-| `js/packing/packing-main.js` | 頁面邏輯（ULD 載入、貨物 CRUD、API 求解、結果顯示、動畫控制） |
-| `uld-packing.html` | **ULD 智能裝箱頁面**（多 ULD 專案、拖拽、求解方案） |
-| `css/uld-packing.css`、`uld-packing-3d.css`、`uld-packing-modal.css`、`uld-packing-solve.css` | ULD 智能裝箱樣式 |
-| `js/uld-packing/` | state / ui / viewer / viewer-controller / calc / dragger / solve-ui / project / main |
 | `js/pallet.js` | 打板計劃進入點 |
 | `js/pallet/` | api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters |
 | `css/pallet.css` | 打板計劃樣式 |
@@ -183,7 +169,7 @@ created_at, updated_at
 | POST | `/api/orders/note-templates` | 新增/更新備註文字範本 |
 
 > 訂單端點皆在 `/api/orders`（`requireAuth`）之下；customer 角色僅能存取自己公司資料。
-> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/packing`（裝箱，登入）、`/api/auth`、`/api/db`（`db_view`）、
+> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/auth`、`/api/db`（`db_view`）、
 > `/api/xls-booking`（Shipper Role 空運單據，登入；`POST /process` 接受 `engine=overlay|com`）、
 > `/api/xls-booking/layout`（SLI/ELI 版面編輯器：`GET /`、`PUT /`、`POST /reset`、`POST /preview`、`GET /backups`、`GET /background/:page`；**寫入需 admin/staff**）。
 
@@ -199,38 +185,6 @@ created_at, updated_at
 ### dbviewer.js（資料庫檢視器）
 - `isAllowedTable(name)`：白名單檢查，防止存取非預期表格
 - 支援欄位列出、編輯欄位、刪除（`doDelete`）
-
----
-
-## 3.5 3D ULD 裝箱系統（bp3d）
-
-### 引擎模組 `bp3d/`
-| 檔案 | 說明 |
-|------|------|
-| `geometries.js` | 半空間幾何引擎：矩形/斜切（Extruded Profile）/輪廓 ULD 統一以平面不等式建模；`boxFits`（8 頂點驗證） |
-| `uld-definitions.js` | ULD 規格庫：PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/PMC-Q7/PAG-Q7 輪廓 |
-| `constraints.js` | 約束：支撐率 ≥70%、堆疊承重、總重量、地面壓力、CoG ±10% |
-| `extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
-| `solver.js` | 主求解器：4 種排序策略（density/large/weight/footprint）、數量展開、回傳 sequence |
-
-### API
-| Method | Path | 說明 |
-|--------|------|------|
-| GET | `/api/packing/health` | 健康檢查（需登入） |
-| GET | `/api/packing/ulds` | ULD 清單（含渲染資訊） |
-| GET | `/api/packing/demo` | 內建示範求解（PMC 托盤） |
-| POST | `/api/packing/pack-uld` | 主求解 API（ULD spec + 貨物清單 + 選項） |
-
-### 測試
-- `scripts/test-bp3d.js` — 引擎單元測試（16 項：幾何/斜切/方向/支撐/求解/重量）
-- `scripts/test-packing-api.js [port]` — API 整合測試（登入 + ULD + 求解 + 錯誤處理，16 項）
-
-### 空運特殊約束
-- **斜切幾何**：AKE/LD3 以 Y-Z 剖面多邊形擠出 + 8 頂點平面不等式驗證
-- **支撐率**：預設 70%（API options.min_support_ratio 可調）
-- **CoG**：X/Y 偏移需在幾何中心 ±10% 內（options.cog_tolerance_ratio 可調）
-- **Net Clearance**：預設 30mm（ULD 內部空間向內縮）
-- **逐步動畫**：solver 回傳 `sequence[]`，前端 Three.js 依序播放
 
 ---
 

@@ -33,14 +33,12 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `uld-packing-spec-deepseek.md` | 3D ULD 裝箱規格 prompt（2026-08-20，附實作對照） |
-| `uld-packing-prd-v2.txt` | ULD 智能裝載系統 PRD v2.0（2026-08-21，附實作對照） |
+| （目前無歸檔文件） | 空目錄，保留分類位置 |
 
 ### research/
 
 | 檔案 | 說明 |
 |------|------|
-| `bpp-research-2026-08-20.txt` | BPP/裝箱文獻抓取快照（由 `scripts/fetch-bpp-research.py` 產生） |
-| `github-repos-2026-08-20.txt` | GitHub 開源專案搜尋快照（由 `scripts/fetch-github-repos.py` 產生） |
+| （目前無研究快照） | 空目錄，保留分類位置 |
 
-> 兩支 fetch 腳本的新輸出改寫入 `docs/research/*-latest.txt`（不進版控）。
+> 研究類抓取腳本的新輸出可寫入 `docs/research/*-latest.txt`（不進版控）。

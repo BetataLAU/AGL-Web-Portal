@@ -1,8 +1,8 @@
 // ===== 側邊欄導航排序 API 測試腳本 =====
 // 驗證重點：
 //   1. 未登入 → 401
-//   2. 頁面連結型目錄（uld-packing.html / packing.html）能被寫入並取回
-//      （舊版白名單只允許 #section-* 與 users.html，這兩個會被過濾掉 → 前端位置記不住）
+//   2. 頁面連結型目錄（sli-eli-layout.html / users.html）能被寫入並取回
+//      （舊版白名單只允許 #section-* 與 users.html，其他頁面連結會被過濾掉 → 前端位置記不住）
 //   3. 非法 key（evil.js）會被過濾、重複項目會去重
 //   4. 非陣列格式 → 400
 // 用法：node scripts/test-nav-order.js [port]（預設 3001）
@@ -60,12 +60,12 @@ function log(name, ok, extra = '') {
   console.log(`   目前排序（${originalOrder.length} 項）：${JSON.stringify(originalOrder)}`);
 
   // 4. 寫入完整排序（含頁面連結 + 非法 key + 重複項目）
-  const payload = ['packing.html', ...originalOrder, 'uld-packing.html', 'evil.js', 'packing.html'];
+  const payload = ['sli-eli-layout.html', ...originalOrder, 'users.html', 'evil.js', 'sli-eli-layout.html'];
   const put = await request('/api/auth/me/nav-order', { method: 'PUT', body: { order: payload } });
   const savedOrder = Array.isArray(put.data && put.data.order) ? put.data.order : [];
   log('PUT 含頁面連結的排序 → 200', put.status === 200, `(HTTP ${put.status})`);
-  log('  packing.html 已存入', savedOrder.includes('packing.html'));
-  log('  uld-packing.html 已存入', savedOrder.includes('uld-packing.html'));
+  log('  sli-eli-layout.html 已存入', savedOrder.includes('sli-eli-layout.html'));
+  log('  users.html 已存入', savedOrder.includes('users.html'));
   log('  非法 key (evil.js) 已被過濾', !savedOrder.includes('evil.js'));
   log('  重複項目已去重', savedOrder.length === new Set(savedOrder).size);
   console.log(`   寫入結果（${savedOrder.length} 項）：${JSON.stringify(savedOrder)}`);

@@ -2,55 +2,91 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/28 下午12:30:20
+> 最後更新：2026/10/28 下午12:57:08
 
 ## 🔄 Git 變更狀態
 
 ```
+M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
+M README.md
 M WORKSPACE_STATE.md
+D bp3d/constraints.js
+D bp3d/extreme-points.js
+D bp3d/ga-lns.js
+D bp3d/ga-lns/chromosome.js
+D bp3d/ga-lns/evolve.js
+D bp3d/ga-lns/fitness.js
+D bp3d/ga-lns/init.js
+D bp3d/ga-lns/search.js
+D bp3d/geometries.js
+D bp3d/solver.js
+D bp3d/uld-definitions.js
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
+M db/database.js
+M db/db-dump.sql
 M db/sessions.db
-D  scripts/cleanup-test-data.js
-D  scripts/generate-dummy-orders.js
-M scripts/test-cnee-lookup.js
-D  scripts/test-openpyxl-bridge.py
-D  scripts/test-xls-workflow.js
-D  scripts/verify-dummy-orders.js
-D  scripts/verify-import.js
+M docs/README.md
+D docs/archive/uld-packing-prd-v2.txt
+D docs/archive/uld-packing-spec-deepseek.md
+D docs/research/bpp-research-2026-08-20.txt
+D docs/research/github-repos-2026-08-20.txt
+D public/css/packing.css
+D public/css/uld-packing-3d.css
+D public/css/uld-packing-modal.css
+D public/css/uld-packing-solve.css
+D public/css/uld-packing.css
+M public/index.html
+M public/js/auth.js
+D public/js/packing/packing-main.js
+D public/js/packing/packing-viewer.js
+D public/js/uld-packing/calc.js
+D public/js/uld-packing/dragger.js
+D public/js/uld-packing/main.js
+D public/js/uld-packing/project.js
+D public/js/uld-packing/solve-ui.js
+D public/js/uld-packing/state.js
+D public/js/uld-packing/ui.js
+D public/js/uld-packing/viewer-controller.js
+D public/js/uld-packing/viewer.js
+D public/packing.html
+D public/uld-packing.html
+M routes/auth/auth-router.js
+D routes/packing-pdf.js
+D routes/packing-projects.js
+D routes/packing-solutions.js
+D routes/packing-solve.js
+D routes/packing.js
+D scripts/fetch-bpp-research.py
+D scripts/fetch-github-repos.py
+M scripts/fix-nav-order.js
+D scripts/solve-worker.js
+D scripts/test-bp3d.js
+D scripts/test-galms.js
+M scripts/test-nav-order-frontend.js
+M scripts/test-nav-order.js
+D scripts/test-packing-api.js
+D scripts/test-packing-projects.js
+D scripts/test-q7-api.js
+M server.js
+D utils/color-assigner.js
 ```
 
-## 📁 檔案清單（共 255 個檔案）
+## 📁 檔案清單（共 208 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（42.5 KB）
+- `CLAUDE.md`（39.7 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（17.0 KB）
-- `README.md`（23.0 KB）
-- `WORKSPACE_STATE.md`（36.1 KB）
+- `PROJECT_MAP.md`（13.7 KB）
+- `README.md`（20.3 KB）
+- `WORKSPACE_STATE.md`（37.4 KB）
 - `package.json`（750 B）
-- `server.js`（7.2 KB）
-
-### bp3d
-
-- `bp3d/constraints.js`（8.2 KB）
-- `bp3d/extreme-points.js`（9.5 KB）
-- `bp3d/ga-lns.js`（5.2 KB）
-- `bp3d/geometries.js`（8.3 KB）
-- `bp3d/solver.js`（12.6 KB）
-- `bp3d/uld-definitions.js`（11.0 KB）
-
-### bp3d/ga-lns
-
-- `bp3d/ga-lns/chromosome.js`（3.9 KB）
-- `bp3d/ga-lns/evolve.js`（2.4 KB）
-- `bp3d/ga-lns/fitness.js`（6.7 KB）
-- `bp3d/ga-lns/init.js`（2.1 KB）
-- `bp3d/ga-lns/search.js`（3.5 KB）
+- `server.js`（6.3 KB）
 
 ### data/templates
 
@@ -125,17 +161,12 @@ D  scripts/verify-import.js
 
 ### db
 
-- `db/database.js`（15.0 KB）
-- `db/db-dump.sql`（150.8 KB）
+- `db/database.js`（13.1 KB）
+- `db/db-dump.sql`（140.5 KB）
 
 ### docs
 
-- `docs/README.md`（2.5 KB）
-
-### docs/archive
-
-- `docs/archive/uld-packing-prd-v2.txt`（19.3 KB）
-- `docs/archive/uld-packing-spec-deepseek.md`（4.8 KB）
+- `docs/README.md`（2.2 KB）
 
 ### docs/design
 
@@ -143,18 +174,11 @@ D  scripts/verify-import.js
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
-### docs/research
-
-- `docs/research/bpp-research-2026-08-20.txt`（12.3 KB）
-- `docs/research/github-repos-2026-08-20.txt`（5.7 KB）
-
 ### public
 
-- `public/index.html`（23.1 KB）
+- `public/index.html`（22.6 KB）
 - `public/login.html`（8.5 KB）
-- `public/packing.html`（7.2 KB）
 - `public/sli-eli-layout.html`（6.2 KB）
-- `public/uld-packing.html`（14.8 KB）
 - `public/users.html`（31.5 KB）
 
 ### public/css
@@ -165,13 +189,8 @@ D  scripts/verify-import.js
 - `public/css/dbviewer.css`（15.6 KB）
 - `public/css/layout.css`（18.6 KB）
 - `public/css/orders.css`（33.7 KB）
-- `public/css/packing.css`（7.8 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/uld-packing-3d.css`（1.6 KB）
-- `public/css/uld-packing-modal.css`（4.3 KB）
-- `public/css/uld-packing-solve.css`（2.1 KB）
-- `public/css/uld-packing.css`（9.6 KB）
 - `public/css/xls-booking.css`（20.8 KB）
 
 ### public/css/utils
@@ -184,7 +203,7 @@ D  scripts/verify-import.js
 ### public/js
 
 - `public/js/animations.js`（10.1 KB）
-- `public/js/auth.js`（26.0 KB）
+- `public/js/auth.js`（25.6 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（18.7 KB）
 - `public/js/dbviewer.js`（42.8 KB）
@@ -224,11 +243,6 @@ D  scripts/verify-import.js
 - `public/js/orders/components/noteTemplates.js`（10.3 KB）
 - `public/js/orders/components/powerItemsEditor.js`（4.5 KB）
 
-### public/js/packing
-
-- `public/js/packing/packing-main.js`（17.4 KB）
-- `public/js/packing/packing-viewer.js`（14.0 KB）
-
 ### public/js/pallet
 
 - `public/js/pallet/api.js`（5.2 KB）
@@ -243,18 +257,6 @@ D  scripts/verify-import.js
 - `public/js/pallet/planSorting.js`（2.1 KB）
 - `public/js/pallet/plansController.js`（3.7 KB）
 - `public/js/pallet/state.js`（4.7 KB）
-
-### public/js/uld-packing
-
-- `public/js/uld-packing/calc.js`（2.7 KB）
-- `public/js/uld-packing/dragger.js`（12.3 KB）
-- `public/js/uld-packing/main.js`（19.5 KB）
-- `public/js/uld-packing/project.js`（2.8 KB）
-- `public/js/uld-packing/solve-ui.js`（7.6 KB）
-- `public/js/uld-packing/state.js`（1.5 KB）
-- `public/js/uld-packing/ui.js`（11.2 KB）
-- `public/js/uld-packing/viewer-controller.js`（5.5 KB）
-- `public/js/uld-packing/viewer.js`（17.8 KB）
 
 ### public/js/utils
 
@@ -272,11 +274,6 @@ D  scripts/verify-import.js
 
 - `routes/contours.js`（3.4 KB）
 - `routes/dbviewer.js`（11.4 KB）
-- `routes/packing-pdf.js`（8.9 KB）
-- `routes/packing-projects.js`（17.7 KB）
-- `routes/packing-solutions.js`（3.7 KB）
-- `routes/packing-solve.js`（6.5 KB）
-- `routes/packing.js`（3.5 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/xls-booking-helpers.js`（5.6 KB）
@@ -305,8 +302,6 @@ D  scripts/verify-import.js
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
 - `scripts/excel-to-pdf.py`（1.8 KB）
-- `scripts/fetch-bpp-research.py`（5.5 KB）
-- `scripts/fetch-github-repos.py`（1.6 KB）
 - `scripts/fill-sli-eli.py`（1.6 KB）
 - `scripts/fix-nav-order.js`（5.8 KB）
 - `scripts/install-hooks.js`（2.9 KB）
@@ -319,23 +314,17 @@ D  scripts/verify-import.js
 - `scripts/sli-eli-font-optimize.py`（18.8 KB）
 - `scripts/sli-eli-generate.py`（15.2 KB）
 - `scripts/sli-eli-overlay.js`（41.5 KB）
-- `scripts/solve-worker.js`（1.1 KB）
 - `scripts/sync-project-state.js`（6.3 KB）
 - `scripts/test-a4-integration.js`（4.5 KB）
 - `scripts/test-auth.js`（3.1 KB）
-- `scripts/test-bp3d.js`（14.3 KB）
 - `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
-- `scripts/test-galms.js`（8.0 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
 - `scripts/test-nav-hierarchy.js`（7.5 KB）
-- `scripts/test-nav-order-frontend.js`（6.7 KB）
+- `scripts/test-nav-order-frontend.js`（6.6 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-p4-engine.js`（9.5 KB）
-- `scripts/test-packing-api.js`（5.7 KB）
-- `scripts/test-packing-projects.js`（7.1 KB）
 - `scripts/test-pdf-a4.js`（2.7 KB）
-- `scripts/test-q7-api.js`（2.6 KB）
 - `scripts/test-sli-eli-charset.js`（17.1 KB）
 - `scripts/test-sli-eli-layout-frontend.js`（9.7 KB）
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
@@ -351,8 +340,4 @@ D  scripts/verify-import.js
 - `scripts/xls-sli-eli.js`（11.9 KB）
 - `scripts/xls-utils.js`（9.2 KB）
 - `scripts/xls-workflow.js`（39.2 KB）
-
-### utils
-
-- `utils/color-assigner.js`（3.5 KB）
 

@@ -64,18 +64,15 @@
 |------|------|
 | `server.js` | Express 入口，掛載全部 API 路由 |
 | `db/database.js` | SQLite 建表（含 orders 相容欄位自動補齊）、skills seed |
-| `bp3d/` | 3D ULD 裝箱引擎（geometries / uld-definitions / constraints / extreme-points / solver）＋ `bp3d/ga-lns/`（GA-LNS 啟發式） |
 | `routes/` | 後端 API 模組（見下方分節） |
 | `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
-| `public/packing.html`、`public/uld-packing.html` | 3D ULD 裝箱（單 ULD）、ULD 智能裝箱（多 ULD 專案） |
-| `public/css/` | base / layout / components / animations / orders / dbviewer / packing / pallet / uld-packing* / xls-booking |
+| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **packing/** / **pallet/** / **uld-packing/** / xls-booking-* |
+| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / xls-booking-* |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
 | `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md` |
-| `docs/archive/` | 歷史規格：`uld-packing-spec-deepseek.md`、`uld-packing-prd-v2.txt` |
 | `docs/research/` | 研究抓取產物（`*-latest.txt` 不進版控） |
 | `README.md` | 專案說明與 API 概覽 |
 | `PROJECT_MAP.md` | 詳細專案地圖（資料模型、API 總表） |
@@ -93,11 +90,6 @@
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
 | `/api/pallet` | `routes/pallet.js` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders（admin+staff） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
-| `/api/packing` | `routes/packing.js` | 單 ULD 求解：health / ulds / pack-uld / demo（需登入） |
-| `/api/packing` | `routes/packing-projects.js` | 裝箱專案 / ULD / 客戶 / 貨物項目 |
-| `/api/packing` | `routes/packing-solutions.js` | 求解方案 CRUD |
-| `/api/packing` | `routes/packing-solve.js` | 非同步求解 job（solve / 查詢 / 取消） |
-| `/api/packing` | `routes/packing-pdf.js` | 方案 PDF 匯出 |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
 ## 登入系統（routes/auth/）
@@ -120,7 +112,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端**：`login.html`（獨立登入頁）、`users.html`（使用者管理，admin only）、`js/auth.js`（Sidebar 登入狀態與鎖頭控制）、`js/utils/api.js`（401 自動跳轉登入頁）、`main.js`（受保護區塊僅登入後初始化）。
 
-**側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `sli-eli-layout.html` / `uld-packing.html` / `packing.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。新增頁面時也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`（既有使用者才不會被排到最後）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
+**側邊欄排序（拖曳調整目錄順序）**：`js/main.js` 的 `setupSidebarReorder()` 寫入 localStorage（立即生效）＋ `PUT /api/auth/me/nav-order`（依使用者持久化，`users.sidebar_nav_order`）。合法 key 為 `#section-*` 與 `*.html`（頁面連結如 `sli-eli-layout.html` / `users.html` **不可漏**，否則存入時被過濾 → 該項目會浮回最上方，看起來像「位置沒記住」）。新增頁面時也要把 key 加進 `scripts/fix-nav-order.js` 的 `DEFAULT_ORDER`（既有使用者才不會被排到最後）。前端套用排序時，未被列到的項目一律補到最後（不浮到最上方）。修復既有資料：`node scripts/fix-nav-order.js`；API 測試：`node scripts/test-nav-order.js [port]`；前端邏輯測試（stub DOM 載入 main.js）：`node scripts/test-nav-order-frontend.js`。
 
 **側邊欄「主 / 子功能」層級**：主功能加 `.nav-parent`、子功能加 `.nav-child`（樣式在 `public/css/layout.css`：主項加粗＋左緣漸層強調條；子項縮排 14px＋縮小字級＋L 型樹狀連接線＋「子功能」`nav-badge` 標籤）。**子項必須排在主項的下一個**（`index.html` DOM 順序與 `fix-nav-order.js` 的 `DEFAULT_ORDER` 要一致），否則縮排層級看起來會相反；`fix-nav-order.js` 的 `CHILD_AFTER_PARENT` ＋ `moveChildrenAfterParents()` 會在修復時把子項搬回主項之後。靜態驗證：`node scripts/test-nav-hierarchy.js`（HTML 標記／DOM 順序／CSS 規則／修復腳本／測試 stub 一致性）。
 
@@ -329,27 +321,6 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **注意**：這些是全域函式（無模組/namespace 包裝），引入順序必須在 `orders.js` 等使用方之前（`index.html` 已排好）
 
-## 3D ULD 裝箱（bp3d/ + routes/packing*.js）
-
-| 路徑 | 職責 |
-|------|------|
-| `bp3d/geometries.js` | 半空間幾何：矩形/斜切/輪廓 ULD 一律以平面不等式建模；`boxFits` 8 頂點驗證 |
-| `bp3d/uld-definitions.js` | ULD 規格庫（PMC/PAG/PAP/P1P/P6P 矩形、AKE/AKH/ALF/AMA 斜切、PMC-Q6/Q7、PAG-Q7 輪廓） |
-| `bp3d/constraints.js` | 支撐率（預設 70%）、堆疊承重、總重、地面壓力、CoG ±10% |
-| `bp3d/extreme-points.js` | EP 演算法：旋轉方向控制、候選點產生、貼齊與支撐收斂 |
-| `bp3d/solver.js` | 主求解器：4 種排序策略、數量展開、回傳 `sequence`（前端逐步動畫用） |
-| `bp3d/ga-lns/` | GA-LNS 啟發式（chromosome / fitness / init / evolve / search） |
-| `scripts/solve-worker.js` | 求解 worker（子程序） |
-| `public/js/packing/` | 單 ULD 裝箱前端（`packing-main.js` 頁面邏輯、`packing-viewer.js` Three.js 渲染） |
-| `public/js/uld-packing/` | 多 ULD 專案前端（state / ui / viewer / viewer-controller / calc / dragger / solve-ui / project / main） |
-| `routes/packing.js` | `GET /health`、`GET /ulds`、`GET /demo`、`POST /pack-uld` |
-| `routes/packing-projects.js` | 專案 / ULD / 客戶 / 貨物項目 CRUD |
-| `routes/packing-solutions.js` | 求解方案 CRUD（`/projects/:id/solutions`） |
-| `routes/packing-solve.js` | 非同步求解 job（`POST /solve`、查詢、取消） |
-| `routes/packing-pdf.js` | `POST /projects/:id/export-pdf` |
-
-**測試**：`node scripts/test-bp3d.js`、`node scripts/test-packing-api.js [port]`、`node scripts/test-packing-projects.js`、`node scripts/test-q7-api.js`、`node scripts/test-galms.js`
-
 ## 打板計劃（routes/pallet.js）
 
 - API（admin/staff）：`/bookings`（+ `/bookings/destinations`）、`/plans`（+ `reorder` / `duplicate` / `items`）、`/spl-codes`、`/remark-templates`、`POST /sync-orders`
@@ -369,15 +340,13 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `templates` | 訂單範本（**已停用**：UI/API 已移除，僅保留供 dbviewer 與公司刪除保護） |
 | `pallet_plans` / `pallet_plan_items` | 打板計劃卡與項目 |
 | `spl_codes` / `remark_templates` | 打板 SPL 代碼與備註範本 |
-| `projects` / `ulds` / `customers` / `items` / `solutions` | ULD 智能裝箱：專案 / 專案 ULD / 客戶色卡 / 貨物項目 / 求解方案 |
 
-> 共 17 張表（`db/database.js` 建表）。REMARK：舊 `messages`（GuestBook/Forum）表已從建表移除，但舊資料庫仍留有該表，待日後 `DROP TABLE` 與 dbviewer 引用清理。
+> 共 12 張表（`db/database.js` 建表）。REMARK：舊 `messages`（GuestBook/Forum）表已從建表移除，但舊資料庫仍留有該表，待日後 `DROP TABLE` 與 dbviewer 引用清理。
 
 ## 常見任務指引
 
 - **改訂單功能**：後端改 `routes/orders/`，前端改 `public/js/orders.js` + `public/css/orders.css`
 - **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
-- **改裝箱功能**：引擎改 `bp3d/*`，後端改 `routes/packing*.js`，前端改 `public/js/uld-packing/*` 或 `public/js/packing/*`
 - **改網站內容**：`public/index.html`
 - **改主題**：`public/css/base.css`（主題變數）+ `public/js/theme.js`
 - **新增資料表**：`db/database.js` 加 `CREATE TABLE`，並在 `routes/` 建對應路由模組，`server.js` 掛載

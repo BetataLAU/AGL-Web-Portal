@@ -359,5 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupContourSection();
   setupContourModal();
 
+  // 模擬裝板系統（純前端模擬，免登入；載入後即可用）
+  if (typeof window.setupLoadsimSection === 'function') {
+    window.setupLoadsimSection();
+  }
+
   // 受保護區塊（訂單/資料庫）由 auth.js 視登入狀態延後初始化
 });

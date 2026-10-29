@@ -2,7 +2,7 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/10/28 下午12:57:08
+> 最後更新：2026/10/29 下午6:28:21
 
 ## 🔄 Git 變更狀態
 
@@ -12,80 +12,35 @@ M FILE_INVENTORY.md
 M PROJECT_MAP.md
 M README.md
 M WORKSPACE_STATE.md
-D bp3d/constraints.js
-D bp3d/extreme-points.js
-D bp3d/ga-lns.js
-D bp3d/ga-lns/chromosome.js
-D bp3d/ga-lns/evolve.js
-D bp3d/ga-lns/fitness.js
-D bp3d/ga-lns/init.js
-D bp3d/ga-lns/search.js
-D bp3d/geometries.js
-D bp3d/solver.js
-D bp3d/uld-definitions.js
-M data/templates/shipper-role-summary-2026.xlsx
 M database.db
-M db/database.js
 M db/db-dump.sql
 M db/sessions.db
-M docs/README.md
-D docs/archive/uld-packing-prd-v2.txt
-D docs/archive/uld-packing-spec-deepseek.md
-D docs/research/bpp-research-2026-08-20.txt
-D docs/research/github-repos-2026-08-20.txt
-D public/css/packing.css
-D public/css/uld-packing-3d.css
-D public/css/uld-packing-modal.css
-D public/css/uld-packing-solve.css
-D public/css/uld-packing.css
+M package.json
+M public/css/animations.css
 M public/index.html
-M public/js/auth.js
-D public/js/packing/packing-main.js
-D public/js/packing/packing-viewer.js
-D public/js/uld-packing/calc.js
-D public/js/uld-packing/dragger.js
-D public/js/uld-packing/main.js
-D public/js/uld-packing/project.js
-D public/js/uld-packing/solve-ui.js
-D public/js/uld-packing/state.js
-D public/js/uld-packing/ui.js
-D public/js/uld-packing/viewer-controller.js
-D public/js/uld-packing/viewer.js
-D public/packing.html
-D public/uld-packing.html
-M routes/auth/auth-router.js
-D routes/packing-pdf.js
-D routes/packing-projects.js
-D routes/packing-solutions.js
-D routes/packing-solve.js
-D routes/packing.js
-D scripts/fetch-bpp-research.py
-D scripts/fetch-github-repos.py
+M public/js/animations.js
+M public/js/main.js
 M scripts/fix-nav-order.js
-D scripts/solve-worker.js
-D scripts/test-bp3d.js
-D scripts/test-galms.js
 M scripts/test-nav-order-frontend.js
-M scripts/test-nav-order.js
-D scripts/test-packing-api.js
-D scripts/test-packing-projects.js
-D scripts/test-q7-api.js
-M server.js
-D utils/color-assigner.js
+?? public/css/loadsim.css
+?? public/js/loadsim.js
+?? public/js/loadsim/
+?? scripts/test-loadsim-frontend.js
+?? scripts/test-loadsim-geometry.js
 ```
 
-## 📁 檔案清單（共 208 個檔案）
+## 📁 檔案清單（共 223 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（39.7 KB）
+- `CLAUDE.md`（56.3 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（13.7 KB）
-- `README.md`（20.3 KB）
-- `WORKSPACE_STATE.md`（37.4 KB）
-- `package.json`（750 B）
+- `PROJECT_MAP.md`（20.2 KB）
+- `README.md`（21.6 KB）
+- `WORKSPACE_STATE.md`（61.9 KB）
+- `package.json`（853 B）
 - `server.js`（6.3 KB）
 
 ### data/templates
@@ -176,18 +131,19 @@ D utils/color-assigner.js
 
 ### public
 
-- `public/index.html`（22.6 KB）
+- `public/index.html`（30.8 KB）
 - `public/login.html`（8.5 KB）
 - `public/sli-eli-layout.html`（6.2 KB）
 - `public/users.html`（31.5 KB）
 
 ### public/css
 
-- `public/css/animations.css`（4.9 KB）
+- `public/css/animations.css`（5.2 KB）
 - `public/css/base.css`（3.8 KB）
 - `public/css/components.css`（7.4 KB）
 - `public/css/dbviewer.css`（15.6 KB）
 - `public/css/layout.css`（18.6 KB）
+- `public/css/loadsim.css`（21.8 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
@@ -202,12 +158,13 @@ D utils/color-assigner.js
 
 ### public/js
 
-- `public/js/animations.js`（10.1 KB）
+- `public/js/animations.js`（12.2 KB）
 - `public/js/auth.js`（25.6 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（18.7 KB）
 - `public/js/dbviewer.js`（42.8 KB）
-- `public/js/main.js`（13.9 KB）
+- `public/js/loadsim.js`（58.5 KB）
+- `public/js/main.js`（14.1 KB）
 - `public/js/orders.js`（418 B）
 - `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
@@ -222,6 +179,20 @@ D utils/color-assigner.js
 - `public/js/xls-booking-state.js`（7.5 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.4 KB）
+
+### public/js/loadsim
+
+- `public/js/loadsim/autoplace.js`（2.3 KB）
+- `public/js/loadsim/colors.js`（2.0 KB）
+- `public/js/loadsim/drag.js`（23.0 KB）
+- `public/js/loadsim/geometry.js`（17.5 KB）
+- `public/js/loadsim/render.js`（28.6 KB）
+- `public/js/loadsim/render3d.js`（40.0 KB）
+- `public/js/loadsim/settle.js`（2.7 KB）
+- `public/js/loadsim/state.js`（13.0 KB）
+- `public/js/loadsim/uld-specs.js`（14.9 KB）
+- `public/js/loadsim/units.js`（2.9 KB）
+- `public/js/loadsim/weight.js`（3.5 KB）
 
 ### public/js/orders
 
@@ -319,9 +290,11 @@ D utils/color-assigner.js
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
+- `scripts/test-loadsim-frontend.js`（63.1 KB）
+- `scripts/test-loadsim-geometry.js`（18.6 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
 - `scripts/test-nav-hierarchy.js`（7.5 KB）
-- `scripts/test-nav-order-frontend.js`（6.6 KB）
+- `scripts/test-nav-order-frontend.js`（6.8 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-p4-engine.js`（9.5 KB）
 - `scripts/test-pdf-a4.js`（2.7 KB）

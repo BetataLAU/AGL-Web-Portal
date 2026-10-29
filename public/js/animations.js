@@ -16,6 +16,32 @@ function fxMarkScrubbing() {
 function fxIsScrubbing() {
   return !!(document.body && document.body.classList.contains('fx-scrubbing'));
 }
+
+// ===== 效能：互動進行中暫停背景繪圖（模擬裝板拖曳等畫布互動）=====
+// 背景成因：全螢幕粒子畫布（O(n²) 連線）與游標拖尾（每點 shadowBlur）
+// 在拖曳期間仍每幀重繪，會和 Canvas 主視圖搶主執行緒幀預算 → 拖曳頓挫。
+// 用法：fxBeginBusy('loadsim') / fxEndBusy('loadsim')；可多來源同時持有，
+// 期間粒子 / 拖尾 / 卡片光暈追蹤全部暫停，全部釋放後自動恢復。
+const fxBusyKeys = new Set();
+function fxSyncBusyClass() {
+  if (!document.body) return;
+  if (fxBusyKeys.size > 0) document.body.classList.add('fx-busy');
+  else document.body.classList.remove('fx-busy');
+}
+function fxBeginBusy(key) {
+  fxBusyKeys.add(String(key || 'default'));
+  fxSyncBusyClass();
+}
+function fxEndBusy(key) {
+  fxBusyKeys.delete(String(key || 'default'));
+  fxSyncBusyClass();
+}
+function fxIsBusy() { return fxBusyKeys.size > 0; }
+function fxPaused() { return fxIsScrubbing() || fxIsBusy(); }
+window.fxBeginBusy = fxBeginBusy;
+window.fxEndBusy = fxEndBusy;
+window.fxIsBusy = fxIsBusy;
+
 document.addEventListener('scroll', fxMarkScrubbing, { capture: true, passive: true });
 document.addEventListener('wheel', fxMarkScrubbing, { capture: true, passive: true });
 document.addEventListener('touchmove', fxMarkScrubbing, { capture: true, passive: true });
@@ -39,17 +65,39 @@ function setupTypewriter() {
 }
 
 // ===== 動效 #5: 游標追蹤光暈 =====
+// 效能：原本每次 mousemove 都對所有卡片「讀 rect → 寫 CSS 變數」交錯執行，
+// 等於每次移動觸發 N 次強制 reflow（`card::after` 還帶徑向漸層重繪）。
+// 這裡改成：① rAF 節流（每幀最多一次）② 先批次讀完所有 rect 再批次寫入
+// ③ 拖曳等長時互動（fx-busy）期間完全跳過。
 function setupCardGlowTracking() {
-  document.addEventListener('mousemove', (e) => {
-    if (fxIsScrubbing()) return; // 捲動期間不做 getBoundingClientRect / 變數更新
+  let scheduled = false;
+  let pendingEvent = null;
+
+  function update() {
+    scheduled = false;
+    const e = pendingEvent;
+    pendingEvent = null;
+    if (!e || fxPaused()) return;
     const cards = document.querySelectorAll('.card, .hero-header');
-    cards.forEach(card => {
-      const rect = card.getBoundingClientRect();
+    if (!cards.length) return;
+    const rects = [];
+    cards.forEach(card => rects.push(card.getBoundingClientRect()));
+    for (let i = 0; i < cards.length; i++) {
+      const rect = rects[i];
+      if (!rect.width || !rect.height) continue;
       const x = ((e.clientX - rect.left) / rect.width) * 100;
       const y = ((e.clientY - rect.top) / rect.height) * 100;
-      card.style.setProperty('--mouse-x', `${x}%`);
-      card.style.setProperty('--mouse-y', `${y}%`);
-    });
+      cards[i].style.setProperty('--mouse-x', `${x}%`);
+      cards[i].style.setProperty('--mouse-y', `${y}%`);
+    }
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (fxPaused()) return;
+    pendingEvent = e;
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(update);
   });
 }
 
@@ -79,8 +127,8 @@ function setupCursorTrail() {
   }
 
   function animate() {
-    if (fxIsScrubbing()) {
-      // 捲動期間暫停繪製（保留已繪出的拖尾畫面），下幀再回來
+    if (fxPaused()) {
+      // 捲動 / 拖曳等互動期間暫停繪製（保留已繪出的拖尾畫面），下幀再回來
       if (trails.length > 0) rafId = requestAnimationFrame(animate);
       return;
     }
@@ -106,7 +154,9 @@ function setupCursorTrail() {
   }
 
   document.addEventListener('mousemove', (e) => {
-    if (fxIsScrubbing()) return; // 捲動期間不新增拖尾
+    if (fxPaused()) return; // 捲動 / 拖曳期間不新增拖尾
+    // 模擬裝板畫布上不需要拖尾：全螢幕 shadowBlur 重繪會吃掉畫布拖曳的幀預算
+    if (e.target && typeof e.target.closest === 'function' && e.target.closest('.loadsim-stage')) return;
     addTrail(e.clientX, e.clientY);
     if (!rafId) rafId = requestAnimationFrame(animate);
   });
@@ -158,7 +208,7 @@ function setupBackgroundParticles() {
   }
 
   function animate() {
-    if (!fxIsScrubbing()) {
+    if (!fxPaused()) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       particles.forEach(p => {
         p.x += p.vx;

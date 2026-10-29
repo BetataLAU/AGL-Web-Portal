@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "sync": "node scripts/sync-project-state.js",
+    "test:loadsim": "node scripts/test-loadsim-geometry.js && node scripts/test-loadsim-frontend.js",
     "db:export": "node scripts/db-export.js",
     "db:import": "node scripts/db-import.js",
     "hooks:install": "node scripts/install-hooks.js"

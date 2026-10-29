@@ -67,9 +67,9 @@
 | `routes/` | 後端 API 模組（見下方分節） |
 | `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
-| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / xls-booking |
+| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / **loadsim** / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / xls-booking-* |
+| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / xls-booking-* |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
 | `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md` |
@@ -326,6 +326,48 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - API（admin/staff）：`/bookings`（+ `/bookings/destinations`）、`/plans`（+ `reorder` / `duplicate` / `items`）、`/spl-codes`、`/remark-templates`、`POST /sync-orders`
 - 前端：`public/index.html` 的 `#section-palletization` 區塊 + `public/js/pallet/`（api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters）+ `public/css/pallet.css`
 
+## 模擬裝板系統（public/js/loadsim/，純前端）
+
+- **入口**：`public/index.html` 的 `#section-loadsim`＋`public/js/loadsim.js`（`type="module"`，`window.setupLoadsimSection` 由 `main.js` 的 `DOMContentLoaded` 呼叫，**免登入**）
+- **模組**：`loadsim/units.js`（cm↔inch，內部一律 cm；**cm 顯示取整數、inch 1 位小數**）、`geometry.js`（6 方向／AABB 重疊／輪廓半平面／支撐／自動疊放高度）、`uld-specs.js`（13 個 **HACTL** 板型規格＋覆寫）、`state.js`（貨物清單／localStorage／Undo）、`weight.js`（重量與利用率）、`autoplace.js`（自動放置）、`colors.js`（主題色／rgba／明暗）、`render3d.js`（**3D 主視圖**：自行透視投影＋背面剔除＋由遠到近）、`render.js`（2D 剖面視圖＋視圖分派 facade）、`drag.js`（Pointer Events／視角旋轉／縮放）
+- **視圖**：預設 **3D**（`render3d.js`，Canvas 2D 自行投影、無 Three.js）；可切「2D 剖面」＝俯視圖（寬 Z × 長 X）＋前視圖（寬 Z × 高 Y）
+- **3D 互動**：拖曳貨物＝水平面移動並**自動疊在下方最高的合格支撐面**；拖到板後方的**暫存區**＝暫時移出板外（`staged`，不計重量、不做輪廓／重疊判定）；空白處／右鍵拖曳＝轉視角（yaw/pitch）；滾輪＝縮放 0.55–3×；雙擊或 `R`＝6 方向旋轉；`Del`＝移出；`Ctrl+Z`＝復原
+- **上貨支撐面積（2026-10，預設 ≥ 50%）**：上層貨物底面必須有 **≥ `supportMinPct`%**（畫面「上貨需壓在下方貨物 ▢% 面積」可調 0–100，存 localStorage）落在下層貨物頂面，才算「有支撐」。`geometry.loadsimSupportRatio()` 用「邊界切格」算多個支撐物的**聯集**面積（重疊的支撐物不會重複計算）；`loadsimEvaluatePlacement` 回傳 `supportRatio/supportMin`，不足時的訊息是「下方支撐面積只有 xx%（需 ≥ yy%）」。`loadsimSupportHeight(ext, others, minRatio)` 也只在**合格的那一層**停下（不合格就落地面），避免「疊上去又被彈回」。
+- **超出輪廓閃爍**：`renderSummary()` 統計出界件數 → `setOverflowPulse()` 開一個 60ms 的 `setInterval` 只做 `scheduleRender()`（沒出界就停、拖曳中與非本區塊不跑）；`overflowPhase` 傳給 `loadsimDraw`，3D 的紅色出界體積（`drawOverflowSlabs`）與 2D 的紅色斜線（`drawTopOverflow`／`drawProfileOverflow`）透明度在 40%~100% 之間呼吸。
+- **出界提示（2026-10 修正：一定要畫在貨物之後）**：3D 貨物填色 `fillAlpha 0.94`、2D 約 0.4，出界區塊若「先畫」會被自己的貨物整塊蓋掉（症狀：看不到紅色區塊、也看不到 `+xx cm`）→ `render3d.js` 改成 box → 編號 → `drawOverflowSlabs`，`render.js` 改成 `drawItemTop/drawItemFront` → `drawTopOverflow/drawProfileOverflow`（preview 一樣）。因為改成疊在貨物上，3D 端面要做**背面剔除**（`faceTowardCamera()`），否則會看到一片不該出現的紅色斷面；紅色半透明填色疊在有色貨物上幾乎看不出來，所以端面再加 **45° 紅色斜線網底**（`hatchPolygon()`，alpha 隨 phase 0.43~0.7 呼吸）。`+xx cm` 標籤（`drawTag`）只在非 LOD 時畫。摘要警示會列出「哪一件、哪一側、出界多少」（`overflowDetailText()`，最多列 3 件、其餘「等 N 件」），明細列另有「出界」欄（`is-overflow`＋紅字 `+xx cm`）。
+- **收角斜面（2026-10）**：`render3d.drawEnvelope()` 把 `profileZ`（沿 X 擠出）與 `profileX`（沿 Z 擠出）的**斜邊**畫成半透明面，收角／外擴看得到「面」而不只是線；另一方向的剖面是矩形時才補端面填色（`isRectProfile()` 判斷），避免外擴板型畫出不存在的高牆。
+- **貨物明細列**：`#loadsim-item-lines`（畫布下方，每件一行：`#id`／名稱／MAWB／尺寸／重量／出界量／狀態）。點一行 → `highlightItem()` 讓該件在畫布上**閃爍 1.8 秒**（琥珀色外框，`highlightId`＋`highlightPhase` 傳給 `loadsimDraw`）；待裝的貨物只閃那一行並提示。
+- **① 新增/修改貨物（2026-10）**：標題「① 新增/修改貨物」。`#loadsim-dim-rows` 可放多個 `.loadsim-dim-row`（每列＝長/寬/高/重量/件數），列尾「＋ 新增」＝`addDimRow()`（複製第一列、清掉 `id` 與數值）、「✕」＝`removeDimRow()`（至少留一列）。`readFormRows()` 讀完所有列 → `state.loadsimCreateItemsBatch(rows, { name, mawb })`（**只寫一筆復原紀錄**）；名稱下方是 `#loadsim-item-mawb`（MAWB）。`setUnit()`／`applyUnitLabels()` 會走訪**每一列**換算與更新 step/min。
+- **點明細列 → 載入表單修改（2026-10）**：`loadCargoGroupIntoForm(id)` 會把該筆（有 MAWB 就是**整個 MAWB 的所有尺寸**）載入 ①（`loadCargoIntoForm()`：依貨物數補足尺寸列、填入值與名稱／MAWB），`editing.ids` 記錄正在修改的貨物，按鈕變「✔ 儲存修改」、跑出「取消修改」與 `#loadsim-edit-hint`。送出時走 `state.loadsimUpdateCargo()`：依列序更新既有貨物（多出的列＝新增、沒有對應列的舊貨物＝刪除），完成後 `loadsimSettleBoard()` 讓上方貨物重新落下；`exitEditMode(true)` 清空表單回到新增模式。`syncEditingState()`（`refreshUi()` 內）會在貨物被刪掉時自動離開修改模式。
+- **選項開關（2026-10）**：`.loadsim-options` 改成 `flex-direction: column`（每項各一行：嚴格模式 → 不可懸空 → 上貨需壓 X% 面積 → 單件重量上限）。新增 `#loadsim-support-area-enabled`（`state.supportAreaEnabled`）：取消勾選＝**只要有支撐就不看面積比例**（`geometry.loadsimSupportMinRatio()` 回 0，但仍要求 `supportRatio > 0`，所以「不可懸空」照樣生效）；`#loadsim-item-max-enabled`（`state.itemMaxEnabled`）：取消勾選＝`weight.js` 不再列 `heavy`。取消勾選時對應的數字框會 `disabled`（`syncOptionInputs()`）。
+- **明細列表頭排序圖示**：改用 FontAwesome（`fa-sort`／`fa-sort-up`／`fa-sort-down`＋`.loadsim-sort-icon`），比文字箭頭好懂。
+- **明細列：MAWB 群組／排序／刪除（2026-10）**：`lineGroups()` 以 `item.mawb` 分組（同一個 MAWB 的多種尺寸排在一起），第一列 `is-parent`（顯示 MAWB、有 🗑 刪除整個 MAWB），其餘 `is-child`（名稱前加 `↳`）。表頭每個欄位都有 `[data-sort]` 小圖示（`lineSort`，再點同一欄切換升降冪；排序時群組不會被拆開）。列尾 `✕`＝刪除該筆尺寸、`🗑`＝`loadsimDeleteItems()` 刪除整個 MAWB。
+- **刪除後重力落下（2026-10）**：`loadsim/settle.js` 的 `loadsimFallHeight()` 只考慮「目前底面以下（含）」的支撐面（不會往上跳），`loadsimSettleBoard()` 由低到高逐件重算 y；明細列刪除後呼叫 `settleAfterRemoval()`，上方貨物會掉到下方貨物的頂面或地面。
+- **方向鍵微調（2026-10）**：`drag.js` 的 `handleKeyDown()` 支援 ↑↓←→＝把**選取中**的貨物在俯視圖方向移動 1 個顯示單位（`unit === 'in' ? 2.54 : 1` cm）。可移動範圍與滑鼠拖曳**共用** `geometry.loadsimClampToMoveArea()`（板面 ±40cm → 可以騎出板邊／輪廓；滑鼠另外用 `extraMaxX` 再放寬到暫存區），所以鍵盤與滑鼠的限制一致；之後用 `loadsimSupportHeight()` 落到下方最高合格支撐面，再以 `loadsimEvaluatePlacement()` 判合法性（重疊或嚴格模式下的出界都只提示不動）。
+- **摘要位置與 ① 表單（2026-10）**：`renderSummary()` 把件數／重量 chip（`loadsim-summary-row`）與超重・出界警示（`loadsim-banner`）寫進 `#loadsim-summary-top`（`index.html` 的 `.loadsim-view` 內、`#loadsim-canvas` 與 `#loadsim-item-lines` 之間），板型說明與單位註記留在卡片底部 `#loadsim-summary`；HTML 沒有 `#loadsim-summary-top` 時會全部退回底部（舊頁面不會壞）。① 新增貨物 是單列精簡表單：`.loadsim-form` 用 `flex`＋`flex-wrap`、標籤與輸入框同一行、輸入框預設 62px（**長/寬/高 `.loadsim-dim-l/-w/-h` 只有 54px**：剛好放得下 3 位數＋Chrome 數字微調箭頭，實測 50px 會裁字；重量 `25.5` 需要 62px），名稱欄 `.loadsim-form-name` 吃掉剩餘寬度、按鈕 `.loadsim-form-add` 靠右；名稱／MAWB 的標籤文字包在 `<span class="loadsim-form-label">`（`min-width: 3.4em`）裡，兩個輸入框左邊才會對齊；不要在窄螢幕把 grid 三欄加回來（會讓區塊長回原本的高度）。
+- **暫存區**：`geometry.loadsimStageRect(spec)`＝板後方（x = baseL + 30cm 起、深 130cm、寬同板寬）；`loadsimInStage()` 用「貨物中心」判斷要不要轉暫存、`loadsimClampToStage()` 夾在區內貼地。3D/2D 都會畫出虛線暫存區；取景（3D `framePoints`、2D `layout.sceneL`）一併納入，拖出去才看得到落點。
+- **拖曳 1:1（2026-10 修正）**：`drag.js` 用「**命中點高度**」當移動平面（`loadsimHitTest3D()` 回傳命中點），抓取偏移在第一次移動時才用「按下時的像素」換算，套用公式是 `item = world + offset`（**加號**）。用底面平面或減號都會讓貨物「只拉一點點就噴很遠」；位移 <3px 視為「點一下選取」，不移動也不寫復原紀錄。
+- **輪廓判定**：`profileZ`（寬×高）＋`profileX`（長×高）兩個凸多邊形，內側＝`dot(p,n) >= c`；超出量＝`c - dot(p,n)` 最大值（cm 整數，<1cm 顯示「<1」）；3D 以「剖面矩形 ∩ 該邊外側 → 沿第三軸擠出」畫紅色半透明體積＋`+xx cm` 標籤
+- **板型資料**：**只採用** `public/image/HACTL_contour_spec` 圖上的英吋標註（1"=2.54cm），code 沿用 HACTL 的 contour code（`Q7-00`／`Q3-00`／`Q9-01`…）。`CX_Contour` 的圖**暫不採用**（尺寸／收角與 HACTL 標註有出入，尤其有 OVERHANG 的輪廓）。重量為業界常用值，UI 可改（`specOverrides` 存 localStorage）。**改長/寬/高後輪廓會退回矩形**（原廠斜切不再可信）
+- **貼地（板面）vs 輪廓上限（2026-10 修正）**：`baseL/baseW` 是**輪廓上限**；下艙 H2/H3/H4/W2 系列的輪廓是「底部向外斜擴」型（圖上 125" 是**貼地**長度，往上 12"/18"/22"/30" 的這段兩端各往外擴同樣的距離 → 輪廓 149"/161"/140"/185"）。因此 `loadsimNormalizeSpec()` 會由 `profileX`／`profileZ` 在 **y = 0 的底邊**推導出 `floorX0/floorX1/floorZ0/floorZ1`＋`floorL/floorW`＋`flared`：地板與格線（`render3d.drawFloor/drawGrid`）、2D 俯視圖板面框（實線＝板面、虛線＝輪廓）、拖曳夾制與吸附（`drag.js`）、自動放置（`autoplace.js`）、`loadsimClampToBase()`／拖曳與方向鍵共用的 `loadsimClampToMoveArea()`（板面再外 40cm，讓貨物可以騎出板邊）全部改用板面；下拉選單與摘要顯示「板面 125×96×64（輪廓 161×96）」。**貼地以外的外擴區必須疊高才能使用**（由輪廓半平面判定）。
+- **相機不入場景（2026-10 修正）**：`buildView()` 會用「板子＋貨物所有角點在視線方向的最大投影」算出 `minDistance`，`distance/zoom` 不得小於它。否則放大到 3× 再轉視角時相機會跑到板子裡面，近平面把整個貨物判定成「在相機背後」→ 貨物整塊消失（縮放一下才回來）。另外 `loadsimGetPreview()` 在非貨物 session（轉視角）回傳 `null`，`render3d.js` 也對 `preview.item` 做防呆——原本轉視角時 `preview.item.id` 會丟錯，畫布清空後貨物全部不畫。
+- **出界標籤連到「界的那一條邊」（2026-10）**：`geometry.loadsimOverflowBoundary(ext, entry)` 算出「貨物剖面（axis z → z-y；axis x → x-y）∩ 超出平面」的線段；3D `drawOverflowSlabs()` 取**面向鏡頭那一側**把界線畫成紅色實線，`+xx cm` 標籤移到界線外側 26px 並用虛線引線＋小圓點連回界線中點（界線投影 <6px 時不外推，避免方向亂跳）；2D `drawTopOverflow()` 把板面邊線標紅＋引線，`drawProfileOverflow()` 用同一支 helper 畫輪廓剖面邊＋引線。三處都畫在紅色斜線之後、標籤之前。
+- **Hover 邊長（2026-10）**：3D `render3d.drawEdgeDims()` 只標「至少一個相鄰面朝向鏡頭」的邊（12 條中最典型 9 條），標籤畫在邊中點往外 13px（深色 pill＋白字 10px）；投影 <18px 的邊與「同數字 26px 內重複」會略過避免疊字，只在 `hoverId` 且 `!lod` 時畫。2D `drawRectEdgeDims()` 標四條邊（俯視：水平＝寬 Z、垂直＝長 X；前視：水平＝寬 Z、垂直＝高 Y），框太小（w<46 / h<26 等）就不標。
+- **Hover tooltip 帶 CTN#（2026-10）**：`updateTooltip()` 的名稱後面加 `<span class="loadsim-tooltip-id">| #id</span>`（跟明細列的 `#id` 對照），並用 `.loadsim-tooltip-head` 讓名稱與編號同列基線對齊。
+- **明細列 CBM 欄（2026-10）**：`weight.loadsimItemCbm(item)`＝目前方向 長×寬×高（cm³）÷10⁶；明細列在「尺寸」右側新增 `CBM` 欄（`toFixed(3)`，表頭可排序 `data-sort="cbm"`），`.loadsim-line` 的 `grid-template-columns` 多一欄 58px。
+- **預設行為**：重疊＝禁止；懸空＝禁止（可關）；超出輪廓＝允許但標紅（嚴格模式可禁止）；超重＝只警示
+- **效能（拖曳流暢度）**：`loadsim.js` 的畫布拖曳容易受下列事情拖累，改動時請維持這些設定
+  - `public/css/loadsim.css` 開頭關閉 `.loadsim-card` 的 `backdrop-filter:blur(18px)` 與 hover 光暈（比照 `.xls-card`），並給 `.loadsim-stage` `contain:layout paint`；**不要為了美觀把 backdrop-filter 加回去**（Canvas 每幀重繪 → 整張卡反覆重做 backdrop 模糊，拖曳會頓）
+  - 拖曳期間 `drag.js` 會呼叫 `window.fxBeginBusy('loadsim')`／`fxEndBusy('loadsim')`（`public/js/animations.js`），暫停全螢幕粒子、游標拖尾與卡片光暈追蹤；`body.fx-busy` 也會暫停背景光暈漂移（`public/css/animations.css`）
+  - `render3d.js` 的 `sceneKeyOf()/analyzeScene()` 以「貨物座標＋板型＋模式開關」簽章快取重疊／超出／取景角點，轉視角與縮放不再重算 O(n²)；命中測試沿用快取的 `extents`
+  - **取景穩定化（2026-10 追加，最關鍵）**：`buildView()` 不再每幀重算最小可視距離。原本每幀重算會讓整張板子在拖曳／轉視角時**來回縮放**（實測取景距離在 464↔577 之間跳），且拖曳中的預覽也算進取景 → 鏡頭縮放又改變「指標→世界座標」→ 回饋抖動。現在：`frameKey`（板型＋畫布尺寸）變更才 snap 重算；搬貨物時 `freezeFrame` 只允許拉遠不拉近；**轉視角時 `snapFrame`（每幀重算含平移）**，否則平移量停在舊角度會把板子與貨物推出畫布外；閒置時以 28%/幀平滑收合，`loadsimIsFrameSettling()` 為 true 時 `loadsim.js` 會再排一次 rAF。取景第二階段會把「板子＋貨物」整組**置中＋必要時拉遠**（舊版只拉遠不平移 → 疊高／超出板邊的貨物被畫布邊緣切掉）。**拖曳預覽不列入取景**
+  - **互動 LOD**：`lod:true`（拖曳／轉視角時）只省略「貨物編號、超出量標籤、板邊尺寸標註」等文字類繪製（文字是 Canvas 2D 最貴的操作；格線／輪廓／方塊描邊保留，避免拖曳時視覺元素突然消失），並把 DPR 上限降到 1.25；放開後補畫完整細節
+  - **pointermove 合併**：`drag.js` 以 rAF 合併指標事件（每幀最多處理一次），放開前 `flushMove()` 套用最後位置，避免高刷新率裝置重複做吸附／合法性判定
+  - **診斷 HUD**：網址加 `?loadsim-debug=1`（或 `localStorage.setItem('loadsim-debug','1')`）會在畫布右下角顯示「FPS／繪製毫秒／件數」，用來分辨是「FPS 低」還是「畫面在抖」
+  - 畫布尺寸由 `ResizeObserver` 快取（不再每幀 `getBoundingClientRect()`）、tooltip 走 rAF 節流且內容沒變不重建 DOM
+- **測試**：`node scripts/test-loadsim-geometry.js`（幾何/重量/單位 59 項）、`node scripts/test-loadsim-frontend.js`（DOM stub 45 項，含 3D 投影／命中／視角／縮放）。Node 會出現 `MODULE_TYPELESS_PACKAGE_JSON` 警告屬正常（專案 package.json 非 ESM）
+- **注意**：`loadsim.js` 的模組層有 `window.setupLoadsimSection` 與 `MutationObserver`，Node 測試需先 stub `window`/`document`/`canvas`（見 `scripts/test-loadsim-frontend.js`）
+
 ## 資料表（db/database.js）
 
 | 表 | 用途 |
@@ -347,6 +389,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 - **改訂單功能**：後端改 `routes/orders/`，前端改 `public/js/orders.js` + `public/css/orders.css`
 - **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
+- **改模擬裝板**：前端改 `public/js/loadsim/*` + `public/css/loadsim.css`；板型尺寸/收角改 `loadsim/uld-specs.js`（無後端、無資料表）
 - **改網站內容**：`public/index.html`
 - **改主題**：`public/css/base.css`（主題變數）+ `public/js/theme.js`
 - **新增資料表**：`db/database.js` 加 `CREATE TABLE`，並在 `routes/` 建對應路由模組，`server.js` 掛載

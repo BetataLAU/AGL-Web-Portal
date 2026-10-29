@@ -1,0 +1,1049 @@
+/* ===== 模擬裝板系統（loadsim） ===== */
+.loadsim-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ===== 效能：3D 畫布拖曳流暢度（比照 css/xls-booking.css 的 .xls-card 解法）=====
+   背景成因：.card 共用樣式帶 backdrop-filter:blur(18px)，而卡片後方永遠有
+   body 的模糊光暈漂移動畫＋全螢幕粒子畫布；模擬裝板主視圖是 Canvas，
+   拖曳／轉視角時每一幀都會重繪，瀏覽器被迫對「整張大卡片」反覆做
+   backdrop 取樣／模糊 → 拖曳明顯頓挫。
+   解法：
+   1) 資料密集的 .loadsim-card 改為「半透明但不模糊」的玻璃卡，並關閉
+      hover 浮起與滑鼠追蹤光暈（拖曳時會讓整張卡片重新合成）。
+   2) 畫布容器 contain:layout paint，把重繪範圍限制在畫布內。
+   ※ 背景粒子／游標拖尾／光暈追蹤在拖曳期間由 js/animations.js 的
+     fxBeginBusy('loadsim') 暫停，互動結束後自動恢復。 */
+.loadsim-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.loadsim-card:hover {
+  transform: none;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow);
+}
+
+.loadsim-card::before,
+.loadsim-card::after {
+  display: none;
+}
+
+.loadsim-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.loadsim-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.loadsim-select-wrap select {
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  max-width: 260px;
+}
+
+.loadsim-unit {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+
+.loadsim-unit-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.loadsim-unit-btn + .loadsim-unit-btn {
+  border-left: 1px solid var(--border-color);
+}
+
+.loadsim-unit-btn.active {
+  background: var(--primary-gradient);
+  color: #ffffff;
+}
+
+/* 視圖切換（3D / 2D 剖面） */
+.loadsim-viewtoggle {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+
+.loadsim-view-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.loadsim-view-btn + .loadsim-view-btn {
+  border-left: 1px solid var(--border-color);
+}
+
+.loadsim-view-btn.active {
+  background: var(--primary-gradient);
+  color: #ffffff;
+}
+
+/* ===== 主體：左輸入 / 右畫布 ===== */
+.loadsim-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+/* 畫布 + 明細列（畫布放到最大） */
+.loadsim-view {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ① 新增貨物 / ② 待裝：在畫布下方並排 */
+.loadsim-bottom {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.loadsim-side {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.loadsim-side-pending .loadsim-pending {
+  max-height: 168px;
+}
+
+.loadsim-step {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.loadsim-step small {
+  font-weight: 500;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ① 新增貨物：精簡表單（尺寸列可按「＋ 新增」再加一列，同一 MAWB 多種尺寸） */
+.loadsim-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.loadsim-dims {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loadsim-dim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.loadsim-form label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.loadsim-form input {
+  width: 62px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.loadsim-form input:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 0;
+  border-color: var(--primary);
+}
+
+/* 長／寬／高：只會顯示 3 位數 → 輸入框比重量／件數（62px）窄一點 */
+.loadsim-form .loadsim-dim-l,
+.loadsim-form .loadsim-dim-w,
+.loadsim-form .loadsim-dim-h {
+  width: 54px;
+}
+
+.loadsim-form label em {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* 尺寸列尾端：再加一列 / 移除這一列 */
+.loadsim-dim-add,
+.loadsim-dim-del {
+  border: 1px dashed var(--border-color);
+  background: transparent;
+  color: var(--primary);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.loadsim-dim-add:hover {
+  border-color: var(--primary);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.loadsim-dim-del {
+  border-style: solid;
+  color: #dc2626;
+  padding: 3px 8px;
+}
+
+.loadsim-dim-del:hover {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+[data-theme="dark"] .loadsim-dim-del,
+[data-theme="ocean"] .loadsim-dim-del {
+  color: #fca5a5;
+}
+
+/* 名稱 / MAWB 各佔一列（MAWB 在名稱下面，同一個 MAWB 可包含多種尺寸） */
+.loadsim-form-name,
+.loadsim-form-mawb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 標籤文字固定寬度（名稱／MAWB 字數不同）→ 兩個輸入框左邊對齊 */
+.loadsim-form-label {
+  flex: 0 0 auto;
+  min-width: 3.4em;
+}
+
+.loadsim-form-name input,
+.loadsim-form-mawb input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.loadsim-form .loadsim-form-add {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+/* 產生貨物 / 取消修改 */
+.loadsim-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.loadsim-form-cancel {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+}
+
+/* 「正在修改 #12（MAWB …）」提示 */
+.loadsim-edit-hint {
+  font-size: 0.72rem;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.loadsim-unit-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.loadsim-unit-hint b {
+  color: var(--primary);
+}
+
+.loadsim-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.loadsim-check {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.loadsim-check input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+.loadsim-check-inline input[type="number"] {
+  width: 74px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.78rem;
+}
+
+/* 對應的 checkbox 取消勾選時，數值輸入框變灰不可改 */
+.loadsim-check input[type="number"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ===== 待裝貨物清單 ===== */
+.loadsim-pending {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.loadsim-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 待裝貨物卡片（注意：與外層 .loadsim-card 區塊容器區隔，勿同名） */
+.loadsim-item-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 9px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--loadsim-color, var(--primary));
+  border-radius: 11px;
+  background: var(--card-bg);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.loadsim-item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.1);
+}
+
+.loadsim-item-card:active {
+  cursor: grabbing;
+}
+
+.loadsim-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--loadsim-color, var(--primary));
+  flex: 0 0 auto;
+}
+
+.loadsim-card-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.loadsim-card-main strong {
+  font-size: 0.8rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loadsim-card-main small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.loadsim-icon-btn {
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.loadsim-icon-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.loadsim-empty {
+  padding: 14px 10px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ===== 畫布區 ===== */
+.loadsim-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 520px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.07);
+  overflow: hidden;
+  /* 效能：把畫布每幀重繪的 paint 範圍鎖在容器內，避免整張卡片重新合成 */
+  contain: layout paint;
+}
+
+.loadsim-stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ===== 貨物明細列（畫布下方；點一下 → 畫布上閃爍）===== */
+.loadsim-item-lines {
+  flex: 0 0 auto;
+  max-height: 152px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.06);
+  padding: 6px 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.74rem;
+}
+
+.loadsim-line-empty {
+  padding: 6px 4px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+.loadsim-line-head,
+.loadsim-line {
+  display: grid;
+  grid-template-columns: 10px 40px minmax(56px, 1fr) 96px minmax(88px, 1fr) 58px 66px 68px 50px 46px;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.loadsim-line-head {
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  padding: 1px 6px 3px;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2px;
+}
+
+.loadsim-line {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 3px 6px;
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.loadsim-line:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.28);
+}
+
+.loadsim-line.is-selected {
+  border-color: rgba(37, 99, 235, 0.55);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.loadsim-line-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--loadsim-color, var(--primary));
+}
+
+.loadsim-line-id {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.loadsim-line-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* MAWB 欄：同一個 MAWB 有多種尺寸時，第一列是 parent（顯示 MAWB），其餘是 child */
+.loadsim-line-mawb {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loadsim-line.is-parent .loadsim-line-mawb {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.loadsim-line.is-child .loadsim-line-name {
+  padding-left: 12px;
+  color: var(--text-muted);
+}
+
+.loadsim-line.is-child .loadsim-line-dot {
+  opacity: 0.55;
+}
+
+/* 表頭排序（點欄位名稱右方的小圖示切換升降冪） */
+.loadsim-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.loadsim-sort:hover {
+  color: var(--primary);
+}
+
+.loadsim-sort-icon {
+  font-size: 0.62rem;
+  line-height: 1;
+  width: 0.9em;
+  text-align: center;
+  opacity: 0.45;
+}
+
+.loadsim-sort.is-active {
+  color: var(--primary);
+}
+
+.loadsim-sort.is-active .loadsim-sort-icon {
+  opacity: 1;
+}
+
+/* 每列右端的刪除（單筆尺寸 / 整個 MAWB） */
+.loadsim-line-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+}
+
+.loadsim-line-del {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  padding: 0;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.loadsim-line-del:hover {
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+[data-theme="dark"] .loadsim-line-del:hover,
+[data-theme="ocean"] .loadsim-line-del:hover {
+  color: #fca5a5;
+}
+
+.loadsim-line-dims,
+.loadsim-line-cbm,
+.loadsim-line-kg {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 出界量（畫布紅色區塊同步「弱弱地閃爍」；這裡標出超出多少） */
+.loadsim-line-over {
+  color: #dc2626;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.loadsim-line-head .loadsim-line-over {
+  color: var(--text-muted);
+  font-weight: inherit;
+}
+
+[data-theme="dark"] .loadsim-line-over,
+[data-theme="ocean"] .loadsim-line-over {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .loadsim-line-head .loadsim-line-over,
+[data-theme="ocean"] .loadsim-line-head .loadsim-line-over {
+  color: var(--text-muted);
+}
+
+.loadsim-line-state {
+  text-align: center;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.67rem;
+  white-space: nowrap;
+}
+
+.loadsim-line.is-board .loadsim-line-state {
+  background: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+}
+
+.loadsim-line.is-staged {
+  opacity: 0.85;
+}
+
+.loadsim-line.is-staged .loadsim-line-state {
+  background: rgba(100, 116, 139, 0.18);
+  color: #475569;
+}
+
+.loadsim-line.is-pending .loadsim-line-state {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+@keyframes loadsim-line-flash {
+  0%, 100% { background: transparent; }
+  30% { background: rgba(250, 204, 21, 0.35); }
+  60% { background: rgba(250, 204, 21, 0.12); }
+}
+
+.loadsim-line.is-flash {
+  animation: loadsim-line-flash 1.2s ease 2;
+}
+
+.loadsim-chip-staged {
+  border-color: rgba(100, 116, 139, 0.4);
+}
+
+/* 操作提示（畫在畫布左上角，不影響滑鼠事件） */
+.loadsim-hint {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 8px;
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.loadsim-hint .loadsim-hint-3d,
+.loadsim-hint .loadsim-hint-2d {
+  display: none;
+}
+
+.loadsim-hint[data-mode="3d"] .loadsim-hint-3d,
+.loadsim-hint[data-mode="2d"] .loadsim-hint-2d {
+  display: inline;
+}
+
+
+/* ===== 工具提示 / Toast ===== */
+.loadsim-tooltip {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 250px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  pointer-events: none;
+  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
+}
+
+.loadsim-tooltip strong {
+  font-size: 0.8rem;
+}
+
+/* 名稱後面接「| #CTN」（與明細列的 #id 對照） */
+.loadsim-tooltip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.loadsim-tooltip-id {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* hidden 屬性要能真正隱藏（否則 display:flex 會覆蓋瀏覽器預設的 [hidden]{display:none}） */
+.loadsim-tooltip[hidden] {
+  display: none;
+}
+
+/* ===== 效能診斷 HUD（?loadsim-debug=1）===== */
+.loadsim-debug {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 8;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #e2e8f0;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.loadsim-tooltip-warn {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.loadsim-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translate(-50%, 12px);
+  max-width: min(88%, 520px);
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 7;
+}
+
+.loadsim-toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.loadsim-toast.ok {
+  background: rgba(22, 163, 74, 0.95);
+}
+
+/* ===== 摘要列 ===== */
+.loadsim-summary {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 上半段摘要（已裝／待裝／重量／超重・出界警示）：夾在畫布與貨物明細列之間，
+   貼著畫布所以不留上緣空白，chip／警示也縮小一級，避免壓縮畫布高度。 */
+.loadsim-summary-top {
+  margin-top: 0;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.loadsim-summary-top .loadsim-chip {
+  font-size: 0.74rem;
+  padding: 4px 9px;
+}
+
+.loadsim-summary-top .loadsim-banner {
+  padding: 6px 10px;
+  font-size: 0.76rem;
+}
+
+.loadsim-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.loadsim-chip {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.14);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.loadsim-chip strong {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.loadsim-chip-weight.ok strong { color: #16a34a; }
+.loadsim-chip-weight.warn { background: rgba(245, 158, 11, 0.18); }
+.loadsim-chip-weight.warn strong { color: #b45309; }
+.loadsim-chip-weight.over { background: rgba(220, 38, 38, 0.16); }
+.loadsim-chip-weight.over strong { color: #dc2626; }
+
+.loadsim-progress {
+  flex: 1 1 120px;
+  min-width: 100px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+  overflow: hidden;
+}
+
+.loadsim-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-gradient);
+  transition: width 0.25s ease;
+}
+
+.loadsim-progress.warn span { background: linear-gradient(90deg, #f59e0b, #f97316); }
+.loadsim-progress.over span { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+
+.loadsim-banner {
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: 11px;
+  font-weight: 600;
+}
+
+.loadsim-banner.warn {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.loadsim-banner.over {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+[data-theme="dark"] .loadsim-banner.warn,
+[data-theme="ocean"] .loadsim-banner.warn {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .loadsim-banner.over,
+[data-theme="ocean"] .loadsim-banner.over {
+  color: #fca5a5;
+}
+
+.loadsim-summary-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.loadsim-disclaimer {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+/* ===== Modal：Contour 圖 / 板型設定 ===== */
+.loadsim-modal {
+  max-width: min(760px, 94vw);
+}
+
+.loadsim-modal-image {
+  text-align: center;
+}
+
+.loadsim-modal-image img {
+  max-width: 100%;
+  max-height: 56vh;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+}
+
+.loadsim-modal-note {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.loadsim-spec-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loadsim-spec-form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.loadsim-spec-form input {
+  flex: 1 1 auto;
+  max-width: 140px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.86rem;
+}
+
+/* ===== 響應式 ===== */
+@media (max-width: 1100px) {
+  .loadsim-bottom {
+    flex-direction: column;
+  }
+
+  .loadsim-side {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .loadsim-pending {
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+  }
+
+  .loadsim-pending .loadsim-item-card {
+    flex: 1 1 200px;
+  }
+
+  .loadsim-stage {
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 640px) {
+  .loadsim-dim-row input {
+    width: 52px;
+  }
+
+  .loadsim-form-name input,
+  .loadsim-form-mawb input {
+    max-width: none;
+  }
+
+  .loadsim-form .loadsim-form-add {
+    align-self: stretch;
+  }
+
+  .loadsim-options {
+    flex-direction: column;
+  }
+
+  .loadsim-stage {
+    min-height: 360px;
+  }
+
+  .loadsim-select-wrap select {
+    max-width: 180px;
+  }
+}
+

@@ -197,3 +197,11 @@ body.fx-scrubbing::before,
 body.fx-scrubbing::after {
   animation-play-state: paused;
 }
+
+/* ===== 效能：畫布互動（模擬裝板拖曳）進行中暫停背景光暈漂移 =====
+   animations.js 的 fxBeginBusy()/fxEndBusy('loadsim') 會替 body 加上 fx-busy；
+   拖曳期間 Canvas 每幀重繪，光暈若同時漂移會讓下方區域反覆重新合成。 */
+body.fx-busy::before,
+body.fx-busy::after {
+  animation-play-state: paused;
+}

@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/utils/autocomplete.css">
   <link rel="stylesheet" href="css/orders.css">
   <link rel="stylesheet" href="css/pallet.css">
+  <link rel="stylesheet" href="css/loadsim.css">
   <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="css/xls-booking.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -97,6 +98,9 @@
               <a href="#section-palletization" class="nav-item" id="nav-palletization">
                 <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-palletization-lock" title="需要員工權限"></i>
+              </a>
+              <a href="#section-loadsim" class="nav-item" id="nav-loadsim">
+                <i class="fa-solid fa-cubes-stacked"></i> <span>模擬裝板系統</span>
               </a>
               <a href="#section-dbviewer" class="nav-item" id="nav-dbviewer">
                 <i class="fa-solid fa-database"></i> <span>資料庫</span>
@@ -348,6 +352,114 @@
         </div>
       </section>
 
+      <!-- 模擬裝板系統頁面 -->
+      <section id="section-loadsim" class="content-section">
+        <div class="card loadsim-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-cubes-stacked"></i> 模擬裝板系統</h2>
+              <p class="card-desc">輸入貨物尺寸 → 拖進板型（Contour）→ 3D 即時顯示擺位、剩餘空間、超重與超出輪廓。</p>
+            </div>
+            <div class="loadsim-toolbar">
+              <label class="loadsim-select-wrap">
+                <span>板型</span>
+                <select id="loadsim-uld-select" aria-label="選擇板型（Contour）"></select>
+              </label>
+              <button type="button" class="pill" id="loadsim-btn-image" title="顯示這個板型的 Contour 原圖">
+                <i class="fa-regular fa-image"></i> 輪廓圖
+              </button>
+              <button type="button" class="pill" id="loadsim-btn-spec" title="修改板型尺寸與重量上限">
+                <i class="fa-solid fa-sliders"></i> 板型設定
+              </button>
+              <div class="loadsim-viewtoggle" role="group" aria-label="視圖切換">
+                <button type="button" class="loadsim-view-btn active" data-view="3d" title="3D 立體視圖（預設）">3D</button>
+                <button type="button" class="loadsim-view-btn" data-view="2d" title="2D 剖面：俯視＋前視（精確核對收角）">2D 剖面</button>
+              </div>
+              <button type="button" class="pill" id="loadsim-btn-reset-view" title="重設 3D 視角">
+                <i class="fa-solid fa-compass"></i> 視角
+              </button>
+              <div class="loadsim-unit" role="group" aria-label="長度單位切換">
+                <button type="button" class="loadsim-unit-btn active" data-unit="cm">cm</button>
+                <button type="button" class="loadsim-unit-btn" data-unit="in">inch</button>
+              </div>
+              <button type="button" class="pill" id="loadsim-btn-clear" title="清空所有貨物">
+                <i class="fa-solid fa-broom"></i> 清空
+              </button>
+            </div>
+          </div>
+
+          <div class="loadsim-body">
+            <div class="loadsim-view">
+              <div class="loadsim-stage">
+                <canvas id="loadsim-canvas" aria-label="裝板模擬 3D 圖（可切換 2D 剖面）"></canvas>
+                <p class="loadsim-hint" id="loadsim-hint" data-mode="3d">
+                  <span class="loadsim-hint-3d">拖曳＝移動（會自動疊在下方貨物上）｜選取後 ↑↓←→＝移動 1 單位｜拖到板後「暫存區」＝暫時移出板外｜雙擊／R＝旋轉｜空白處或右鍵拖曳＝轉視角｜滾輪＝縮放</span>
+                  <span class="loadsim-hint-2d">俯視圖：拖曳＝前後左右（可拖到暫存區）｜前視圖：上下拖曳＝調高度｜雙擊／R＝旋轉</span>
+                </p>
+                <div id="loadsim-tooltip" class="loadsim-tooltip" hidden></div>
+                <div id="loadsim-toast" class="loadsim-toast" aria-live="polite"></div>
+              </div>
+              <!-- 摘要（已裝／待裝件數、重量、超重與出界警示）：夾在畫布與明細列之間 -->
+              <div id="loadsim-summary-top" class="loadsim-summary loadsim-summary-top"></div>
+              <!-- 每件貨物一行明細（點一下 → 畫布上閃爍標示） -->
+              <div id="loadsim-item-lines" class="loadsim-item-lines" aria-label="貨物明細"></div>
+            </div>
+
+            <!-- ① 新增/修改貨物 / ② 待裝：移到畫布下方，讓畫布可以放到最大 -->
+            <div class="loadsim-bottom">
+              <aside class="loadsim-side loadsim-side-form">
+                <h3 class="loadsim-step">① 新增/修改貨物</h3>
+                <form id="loadsim-item-form" class="loadsim-form">
+                  <!-- 尺寸列：按「＋ 新增」可再加一列（同一個 MAWB 可以有多種尺寸） -->
+                  <div id="loadsim-dim-rows" class="loadsim-dims">
+                    <div class="loadsim-dim-row">
+                      <label>長 <input class="loadsim-dim-l" id="loadsim-len" type="number" min="1" step="1" value="60" required /></label>
+                      <label>寬 <input class="loadsim-dim-w" id="loadsim-wid" type="number" min="1" step="1" value="40" required /></label>
+                      <label>高 <input class="loadsim-dim-h" id="loadsim-hgt" type="number" min="1" step="1" value="50" required /></label>
+                      <label>重量 <input class="loadsim-dim-kg" id="loadsim-weight" type="number" min="0" step="0.1" value="25" required /><em>kg</em></label>
+                      <label>件數 <input class="loadsim-dim-qty" id="loadsim-qty" type="number" min="1" step="1" value="1" /></label>
+                      <button type="button" class="loadsim-dim-add" data-action="add-dim" title="再加一列尺寸">＋ 新增</button>
+                      <button type="button" class="loadsim-dim-del" data-action="remove-dim" title="移除這一列尺寸" hidden>✕</button>
+                    </div>
+                  </div>
+                  <span class="loadsim-unit-hint">尺寸單位：<b data-loadsim-unit>cm</b>（重量固定 kg）</span>
+                  <!-- 標籤文字用固定寬度的 span：名稱／MAWB 兩個輸入框左邊才會對齊 -->
+                  <label class="loadsim-form-name"><span class="loadsim-form-label">名稱</span> <input id="loadsim-item-name" type="text" placeholder="可留空，例如 Carton A" maxlength="30" /></label>
+                  <label class="loadsim-form-mawb"><span class="loadsim-form-label">MAWB</span> <input id="loadsim-item-mawb" type="text" placeholder="例如 297-12345678" maxlength="20" /></label>
+                  <span class="loadsim-edit-hint" id="loadsim-edit-hint" hidden></span>
+                  <div class="loadsim-form-actions">
+                    <button type="button" class="pill loadsim-form-cancel" id="loadsim-btn-cancel-edit" hidden>取消修改</button>
+                    <button type="submit" class="pill btn-primary loadsim-form-add" id="loadsim-btn-add">＋ 產生貨物</button>
+                  </div>
+                </form>
+
+                <div class="loadsim-options">
+                  <label class="loadsim-check"><input type="checkbox" id="loadsim-strict-overhang" /> 嚴格模式：超出輪廓就不能放</label>
+                  <label class="loadsim-check"><input type="checkbox" id="loadsim-require-support" checked /> 不可懸空（下方要有支撐）</label>
+                  <label class="loadsim-check loadsim-check-inline">
+                    <input type="checkbox" id="loadsim-support-area-enabled" checked /> 上貨需壓在下方貨物
+                    <input type="number" id="loadsim-support-min" min="0" max="100" step="5" value="50" /> % 面積
+                  </label>
+                  <label class="loadsim-check loadsim-check-inline">
+                    <input type="checkbox" id="loadsim-item-max-enabled" checked /> 單件重量上限
+                    <input type="number" id="loadsim-item-max" min="0" step="1" value="1000" /> kg
+                  </label>
+                </div>
+              </aside>
+
+              <aside class="loadsim-side loadsim-side-pending">
+                <h3 class="loadsim-step">② 拖進板內 <small>（或點一下自動放）</small></h3>
+                <div id="loadsim-pending" class="loadsim-pending"></div>
+              </aside>
+            </div>
+          </div>
+
+          <!-- 板型資訊與單位註記（件數／重量／警示已移到畫布下方的 #loadsim-summary-top） -->
+          <div id="loadsim-summary" class="loadsim-summary"></div>
+          <p class="loadsim-disclaimer">※ 本工具只模擬體積與重量，未計算重心、地板承壓與綁固；實際裝板請依航空公司規範。</p>
+        </div>
+      </section>
+
       <!-- 資料庫檢視器頁面 -->
       <section id="section-dbviewer" class="content-section">
         <div class="card dbviewer-card">
@@ -408,6 +520,7 @@
   <script src="./js/chat.js"></script>
   <script type="module" src="./js/orders.js"></script>
   <script type="module" src="./js/pallet.js"></script>
+  <script type="module" src="./js/loadsim.js"></script>
   <script src="./js/dbviewer.js"></script>
   <script src="./js/xls-booking-state.js"></script>
   <script src="./js/xls-booking-upload.js"></script>

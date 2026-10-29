@@ -110,6 +110,9 @@
 | `js/pallet.js` | 打板計劃進入點 |
 | `js/pallet/` | api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters |
 | `css/pallet.css` | 打板計劃樣式 |
+| `js/loadsim.js` | **模擬裝板系統**進入點（工具列／貨物表單／待裝清單／摘要／板型設定） |
+| `js/loadsim/` | units（cm↔inch，cm 整數顯示）/ geometry（6 方向・重疊・輪廓・支撐・自動疊放・可移動範圍 ±40cm・出界界線）/ uld-specs（板型規格庫）/ state（localStorage＋Undo）/ weight（重量／CBM）/ autoplace / colors / **render3d（3D 主視圖・出界引線・hover 邊長）** / render（2D 剖面＋視圖分派）/ drag（Pointer Events・視角・縮放・方向鍵微調） |
+| `css/loadsim.css` | 模擬裝板樣式 |
 
 ---
 
@@ -207,6 +210,33 @@ created_at, updated_at
 - 權限：`requireRole('admin', 'staff')`
 - 資料表：`pallet_plans`、`pallet_plan_items`、`spl_codes`、`remark_templates`
 - 前端：`public/index.html` 的 `#section-palletization` + `public/js/pallet/*`
+
+---
+
+## 3.7 模擬裝板系統（純前端，無 API、無資料表）
+
+**用途**：裝板前先模擬「貨物擺進某個板型（Contour / ULD）」是否裝得下、是否超出輪廓、是否超重。
+
+| 項目 | 說明 |
+|------|------|
+| 入口 | `public/index.html` 的 `#section-loadsim`（側欄「模擬裝板系統」，**免登入**） |
+| 前端 | `public/js/loadsim.js` + `public/js/loadsim/*` + `public/css/loadsim.css` |
+| 視圖 | 預設 **3D**（自行透視投影＋背面剔除＋由遠到近，無 Three.js）；可切「2D 剖面」＝俯視圖（寬 Z × 長 X）＋前視圖（寬 Z × 高 Y） |
+| 單位 | 內部一律 cm 浮點；畫面 **cm 取整數**、inch 1 位小數；重量固定 kg（1 位小數） |
+| 板型 | `js/loadsim/uld-specs.js` 內建 13 個，**全部依 HACTL 規格圖**（Q7-00 / Q7-02 / Q7-04 / Q3-00 / Q9-01 / Q6-00 / A4-00 / A2-00 / H2-00 / H3-00 / H4-00 / W2-00 / W2-03），尺寸取自 `public/image/HACTL_contour_spec` 圖上的英吋標註（1" = 2.54cm）；`CX_Contour` 的圖暫不採用 |
+| 板面 vs 輪廓 | `baseL/baseW` = 輪廓上限；貼地（板面）由剖面 y=0 的底邊自動推導（`floorX0/floorX1/floorZ0/floorZ1`、`floorL/floorW`、`flared`）。H2/H3/H4/W2 系列是「底部向外斜擴」型：貼地 125"×96"，外擴 12"/18"/7.5"/30"（W2-03 為 186" 輪廓、板底 125" 置中），地板／格線／夾制／自動放置都用板面 |
+| 輪廓 | 兩個剖面多邊形（`profileZ` 寬×高、`profileX` 長×高）以「凸多邊形半平面」判定；超出量＝點到該邊的距離 |
+| 規則 | 不可重疊、不可懸空（可關）、3D 拖曳自動疊在下方最高支撐面；超出輪廓預設「允許但標紅＋標示超出量＋**紅色區域閃爍**」，可切嚴格模式禁止；超重只警示不阻擋 |
+| 出界提示 | 出界區塊（3D 紅色半透明體積＋45° 紅色斜線網底／2D 紅色斜線）**畫在貨物本體之後**（先畫會被 0.94 不透明的貨物蓋掉），3D 端面做背面剔除，透明度隨 `overflowPhase` 弱弱地呼吸；每塊出界區都有 `+xx cm` 標籤，**標籤再用虛線引線連到「界的那一條邊」**（`geometry.loadsimOverflowBoundary()` 算出「貨物剖面 ∩ 超出平面」的線段；3D 取面向鏡頭那一面畫紅線＋圓點，2D 俯視標紅板面邊線、前視標紅輪廓剖面邊），摘要警示列出「#id 方位 +xx cm」，明細列另有「出界」欄 |
+| Hover 邊長 | 滑鼠移到貨物上時，**看得見的每一條邊都標長度**：3D `render3d.drawEdgeDims()`（12 條邊中「至少一個相鄰面朝向鏡頭」者，太短 <18px 或同數字 26px 內重複會略過）；2D 俯視／前視各標四條邊（水平＝寬 Z，垂直＝長 X／高 Y，框太小就不標）。浮動 tooltip 的名稱後面帶對應的 **`| #CTN`** |
+| 上貨支撐面積 | 上層貨物底面需有 ≥ **50%**（畫面可勾選／調整 0–100，`supportMinPct`，存 localStorage）落在下層頂面；**取消勾選「上貨需壓在下方貨物 X% 面積」＝只要有支撐就不看比例**（仍不可懸空）；多個支撐物以聯集計算，不足時提示「下方支撐面積只有 xx%」；自動疊高也只在合格的那一層停 |
+| 單件重量上限 | 可勾選啟用（`itemMaxKg`，預設 1000kg）；取消勾選＝不檢查單件重量（摘要不再列「超過單件上限」） |
+| 版面 | 畫布在上方**全寬**（`.loadsim-view`），畫布下方依序是摘要（`#loadsim-summary-top`：件數／重量 chip＋超重・出界警示）與貨物明細列；① **新增/修改貨物**（`#loadsim-dim-rows` 可「＋ 新增」多列尺寸，名稱下方是 MAWB 欄；長/寬/高輸入框只有 54px＝剛好 3 位數，重量／件數 62px；名稱／MAWB 的標籤是固定寬度的 `<span class="loadsim-form-label">`，兩個輸入框左邊對齊；點明細列會載入表單修改）與 ② 待裝在更下方並排（`.loadsim-bottom`）；選項區每項各一行（嚴格模式 → 不可懸空 → 上貨需壓 X% 面積 → 單件重量上限，後兩者可勾選啟用）；板型與單位註記留在卡片底部 `#loadsim-summary` |
+| 暫存區 | 板後方（`baseL` + 30cm 起、深 130cm、寬同板寬）的虛線空地：貨物拖進去＝`staged`（不算在板上、不計重量、不做輪廓／重疊／支撐判定，3D/2D 都用虛線灰框畫） |
+| 貨物明細 | 畫布下方的 `#loadsim-item-lines`：每件一行（`#id`／名稱／**MAWB**／尺寸／**CBM**／重量／**出界量**／狀態）。CBM＝單件 長×寬×高（`weight.loadsimItemCbm()`，cm³÷10⁶，顯示 3 位小數、可排序）。同一個 MAWB 有多種尺寸時，第一列是 **parent**（顯示 MAWB，右端有 🗑 刪除整個 MAWB），其餘是 **child**（名稱前 `↳` 縮排）；表頭每欄都有 FontAwesome 排序圖示（`fa-sort`／`fa-sort-up`／`fa-sort-down`，升降冪切換、同一個 MAWB 不會被拆開）；列尾 `✕` 刪除單筆尺寸。**點一行 → 該筆（或整個 MAWB）載入 ① 表單修改**，也在畫布上閃爍 1.8 秒 |
+| 暫存 | `localStorage['loadsim-state-v1']`（單位／板型／貨物／板型覆寫），免登入、無 DB |
+| 刪除／微調 | 明細列刪除後，上方貨物會「物理地」落下（`loadsim/settle.js`，只往下掉、由低到高重算）；選取貨物後方向鍵 ↑↓←→ 在俯視圖方向移動 **1 個顯示單位**（cm 1cm／inch 2.54cm），可移動範圍與滑鼠拖曳相同（`geometry.loadsimClampToMoveArea()`：板面 ±40cm，可以騎出板邊／輪廓），重疊或嚴格模式出界會提示不動 |
+| 測試 | `node scripts/test-loadsim-geometry.js`（83 項）、`node scripts/test-loadsim-frontend.js`（122 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊）、表單修改與選項開關） |
 
 ---
 

@@ -205,6 +205,18 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - 計劃卡（`/plans`）：新增 / 修改 / 刪除 / 複製、項目排序（拖曳）、可 `POST /plans/sync-orders` 由訂單同步資料
 - 前端：`public/index.html` 的「打板計劃」區塊、`public/js/pallet/`、`public/css/pallet.css`
 
+## 📦 模擬裝板系統（`#section-loadsim`，免登入）
+
+裝板前先在瀏覽器模擬「貨物放進哪個板型（Contour / ULD）」，確認裝得下、沒有超出輪廓、沒有超重。
+
+- 板型：內建 19 個（PMC / PAG / Q7-00 / Q7 / Q7D / Q6 / AKE / ALF / AMF / AMA / AMP / AAP / A2 / H2 / H3 / PGA / PRA / PLA / W2），來源為站內 Contour 圖上的英吋標註；可「板型設定」即時改尺寸與重量上限
+- 輸入長 / 寬 / 高 / 重量（kg）/ 件數 → 產生貨物 → 拖進板內（或點一下自動放置）
+- 預設 **3D 立體視圖**：拖曳移動（自動疊在下方貨物上）、空白處或右鍵拖曳轉視角、滾輪縮放；可切「2D 剖面」精確核對 Contour 收角
+- 每件貨物可 6 個方向 90° 旋轉（`R` 或雙擊）、不可重疊、不可懸空；hover 顯示當前方向的長闊高；長度 cm 以整數顯示、inch 1 位小數
+- 超出輪廓以紅色半透明體積標示並顯示超出量（cm 整數）；總重（貨重＋板重）超過上限會即時警示
+- 純前端：狀態存 `localStorage`，換頁 / 重新整理後仍保留
+- 檔案：`public/js/loadsim.js` + `public/js/loadsim/*`、`public/css/loadsim.css`
+
 ## 🗄️ 資料庫檢視器（`/api/db`）
 
 - 以白名單（`isAllowedTable`）限制可存取的資料表，避免誤改系統表
@@ -270,6 +282,7 @@ npm run hooks:install     # 安裝 git hooks
 | 訂單系統後端 | `routes/orders/*` |
 | 訂單系統前端 | `public/js/orders.js`、`public/css/orders.css` |
 | 打板計劃 | `routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css` |
+| 模擬裝板系統 | `public/js/loadsim/*`、`public/css/loadsim.css`（純前端；板型規格在 `js/loadsim/uld-specs.js`） |
 | Shipper Role 後端 | `routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-*.js` |
 | Shipper Role 前端 | `public/js/xls-booking-*.js`、`public/css/xls-booking.css` |
 | 資料庫結構 | `db/database.js`（新增表要同步 `server.js` 掛載路由） |

@@ -10,7 +10,7 @@ const vm = require('vm');
 
 const NAV_ITEM_HREFS = [
   '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
-  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization',
+  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization', '#section-loadsim',
   '#section-dbviewer', 'users.html'
 ];
 
@@ -120,8 +120,8 @@ function check(name, ok, detail = '') {
   console.log(`A. DOM 順序：${JSON.stringify(orderA)}`);
   check('A1 HOME 仍是最上方', orderA[0] === '#section-home');
   check('A2 未被列到的項目排在最後',
-    orderA[orderA.length - 1] === 'sli-eli-layout.html',
-    `→ 最後一項 ${orderA[orderA.length - 1]}`);
+    orderA.slice(-2).join() === 'sli-eli-layout.html,#section-loadsim',
+    `→ 最後兩項 ${orderA.slice(-2).join(' , ')}`);
   check('A3 已列出的項目維持伺服器順序',
     JSON.stringify(orderA.slice(1, 9)) === JSON.stringify(LEGACY_PARTIAL));
 
@@ -147,7 +147,8 @@ function check(name, ok, detail = '') {
   check('C1 已立即送出 PUT 到 /api/auth/me/nav-order', !!putCall && putCall.url === '/api/auth/me/nav-order');
   check('C2 PUT 包含 sli-eli-layout.html', putBody.includes('sli-eli-layout.html'));
   check('C3 PUT 包含 users.html', putBody.includes('users.html'));
-  check('C4 PUT 包含全部 9 個目錄項目（不含 HOME）', putBody.length === 9, `(實際 ${putBody.length} 項)`);
+  const expectedNavCount = NAV_ITEM_HREFS.length - 1;
+  check(`C4 PUT 包含全部 ${expectedNavCount} 個目錄項目（不含 HOME）`, putBody.length === expectedNavCount, `(實際 ${putBody.length} 項)`);
   const dragIdx = putBody.indexOf('sli-eli-layout.html');
   check('C5 拖到 #section-chat 上方後順序正確',
     dragIdx !== -1 && putBody[dragIdx + 1] === '#section-chat',

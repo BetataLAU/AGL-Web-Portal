@@ -2,8 +2,8 @@
 // 座標系與 2D 版本相同：X = 板長 0→baseL、Z = 板寬 ±baseW/2、Y = 高度
 // 相機：以板子中心為注視點的球座標（yaw / pitch / zoom），透視投影 + 背面剔除 + 由遠到近繪製。
 import {
-  loadsimExtents, loadsimEvaluatePlacement, loadsimClipRectOutside, loadsimStageRect,
-  loadsimOverflowBoundary
+  loadsimExtents, loadsimEvaluatePlacement, loadsimClipRectOutside, loadsimStageRects,
+  loadsimRingHitRects, loadsimOverflowBoundary
 } from './geometry.js';
 import {
   loadsimFormatAmount, loadsimFormatNumber, loadsimTickStepCm, loadsimFormatTick, loadsimUnitLabel
@@ -484,27 +484,35 @@ function isRectProfile(poly) {
     (near(u, u0) || near(u, u1)) && (near(v, v0) || near(v, v1)));
 }
 
-// ===== 暫存區（板後方的空地）=====
-function drawStage(ctx, view, spec, colors) {
-  const stage = loadsimStageRect(spec);
-  const corners = [
+// ===== 暫存區（① 板後方、② 板前方 的空地）=====
+function stageCorners(stage) {
+  return [
     { x: stage.x0, y: 0, z: stage.z0 },
     { x: stage.x0, y: 0, z: stage.z1 },
     { x: stage.x1, y: 0, z: stage.z1 },
     { x: stage.x1, y: 0, z: stage.z0 }
-  ].map(p => project(view, p));
-  if (corners.some(p => !p)) return;
-  fillPolygon(ctx, corners, rgba(colors.muted, 0.05), rgba(colors.muted, 0.45), 1.2, [7, 5]);
+  ];
+}
 
-  const mid = project(view, { x: (stage.x0 + stage.x1) / 2, y: 0, z: 0 });
-  if (!mid) return;
-  ctx.save();
-  ctx.font = '600 11px Inter, "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = rgba(colors.muted, 0.85);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('暫存區（拖出板外暫放）', mid.x, mid.y);
-  ctx.restore();
+function drawStage(ctx, view, spec, colors, lod) {
+  loadsimStageRects(spec).forEach(stage => {
+    const corners = stageCorners(stage).map(p => project(view, p));
+    if (corners.some(p => !p)) return;
+    fillPolygon(ctx, corners, rgba(colors.muted, 0.05), rgba(colors.muted, 0.45), 1.2, [7, 5]);
+
+    if (lod) return;
+    const mid = project(view, {
+      x: (stage.x0 + stage.x1) / 2, y: 0, z: (stage.z0 + stage.z1) / 2
+    });
+    if (!mid) return;
+    ctx.save();
+    ctx.font = '600 11px Inter, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = rgba(colors.muted, 0.85);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${stage.label}（拖出板外暫放）`, mid.x, mid.y);
+    ctx.restore();
+  });
 }
 
 // ===== 閃爍高亮（點下方貨物明細時用）=====
@@ -546,6 +554,58 @@ function overflowPrism(ext, entry) {
     capA: poly.map(p => toPoint(p, false)),
     capB: poly.map(p => toPoint(p, true))
   };
+}
+
+// ===== 第一層壓到板底 ring track 的提示（與超出輪廓同一套：紅色斜線＋標示壓到多少）=====
+function drawRingSlabs(ctx, view, spec, ext, unit, options = {}) {
+  const rects = loadsimRingHitRects(ext, spec);
+  if (!rects.length) return;
+  const k = overflowPulse(options);
+  const fill = `rgba(220,38,38,${(0.4 * k).toFixed(3)})`;
+  const edge = `rgba(220,38,38,${(0.85 * k + 0.12).toFixed(3)})`;
+  const hatchAlpha = 0.3 + 0.45 * k;
+  let worst = null;
+  rects.forEach(rect => {
+    const pts = [
+      { x: rect.x0, y: 0, z: rect.z0 },
+      { x: rect.x0, y: 0, z: rect.z1 },
+      { x: rect.x1, y: 0, z: rect.z1 },
+      { x: rect.x1, y: 0, z: rect.z0 }
+    ].map(p => project(view, p));
+    if (pts.some(p => !p)) return;
+    fillPolygon(ctx, pts, fill, edge, 1.9, [4, 3]);
+    if (!options.lod) hatchPolygon(ctx, pts, hatchAlpha);
+    const w = rect.x1 - rect.x0;
+    const d = rect.z1 - rect.z0;
+    if (!worst || Math.max(w, d) > worst.size) worst = { rect, size: Math.max(w, d) };
+  });
+  if (options.lod || !worst) return;
+  const mid = project(view, {
+    x: (worst.rect.x0 + worst.rect.x1) / 2,
+    y: 0,
+    z: (worst.rect.z0 + worst.rect.z1) / 2
+  });
+  if (!mid) return;
+  // 標籤往「遠離板面中心」的方向推 18px，避免和板面尺寸／ring track 文字疊在一起
+  const x0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
+  const x1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
+  const z0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
+  const z1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+  const centerPx = project(view, { x: (x0 + x1) / 2, y: 0, z: (z0 + z1) / 2 });
+  let dx = centerPx ? mid.x - centerPx.x : 0;
+  let dy = centerPx ? mid.y - centerPx.y : 1;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1e-6) { dx = 0; dy = 1; } else { dx /= dist; dy /= dist; }
+  const tagX = clamp(mid.x + dx * 20, 26, Math.max(26, (view.width || 0) - 40));
+  const tagY = clamp(mid.y + dy * 20, 14, Math.max(14, (view.height || 0) - 14));
+  const amount = options.ringOverlap || 0;
+  drawTag(ctx, tagX, tagY, `ring +${loadsimFormatAmount(amount, unit)} ${loadsimUnitLabel(unit)}`, {
+    bg: 'rgba(220,38,38,0.92)',
+    color: '#ffffff',
+    font: '700 10px Inter, "Segoe UI", Arial, sans-serif',
+    padX: 7,
+    height: 15
+  });
 }
 
 // 超出輪廓的閃爍係數：phase 0→1 來回呼吸（0.4～1），讓出界區塊「弱弱地閃」
@@ -732,6 +792,143 @@ function drawEdgeDims(ctx, view, ext, unit) {
   });
 }
 
+// ===== 板底 ring track（四邊加強框）=====
+// 第一層貨物不能壓在 ring 上：把「板面 − ring 內框」這 4 條帶狀區畫成琥珀色帶，
+// 內框再用虛線標出並寫上第一層可用尺寸（第二層以上不受限制）。
+function drawRingTrack(ctx, view, spec, unit, lod) {
+  const ring = spec.ringRect;
+  if (!ring || ring.disabled) return;
+  const x0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
+  const x1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
+  const z0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
+  const z1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+
+  // 4 條帶狀區（前 / 後 / 左 / 右）
+  const strips = [
+    { x0, x1, z0, z1: ring.z0 },
+    { x0, x1, z0: ring.z1, z1 },
+    { x0, x1: ring.x0, z0: ring.z0, z1: ring.z1 },
+    { x0: ring.x1, x1, z0: ring.z0, z1: ring.z1 }
+  ];
+  const fill = rgba('#f59e0b', 0.16);
+  const edge = rgba('#f59e0b', 0.5);
+  strips.forEach(strip => {
+    if (strip.x1 - strip.x0 < 0.01 || strip.z1 - strip.z0 < 0.01) return;
+    const pts = [
+      { x: strip.x0, y: 0, z: strip.z0 },
+      { x: strip.x0, y: 0, z: strip.z1 },
+      { x: strip.x1, y: 0, z: strip.z1 },
+      { x: strip.x1, y: 0, z: strip.z0 }
+    ].map(p => project(view, p));
+    if (pts.some(p => !p)) return;
+    fillPolygon(ctx, pts, fill, edge, 1);
+  });
+
+  // 內框（第一層可裝貨的界線）
+  const inner = [
+    { x: ring.x0, y: 0, z: ring.z0 },
+    { x: ring.x0, y: 0, z: ring.z1 },
+    { x: ring.x1, y: 0, z: ring.z1 },
+    { x: ring.x1, y: 0, z: ring.z0 }
+  ].map(p => project(view, p));
+  if (!inner.some(p => !p)) fillPolygon(ctx, inner, null, rgba('#d97706', 0.85), 1.5, [6, 4]);
+  if (lod) return;
+
+  // 標籤：靠近鏡頭那一條 ring 帶
+  const ringPx = project(view, { x: (x0 + x1) / 2, y: 0, z: (ring.z1 + z1) / 2 });
+  if (ringPx) {
+    ctx.save();
+    ctx.font = '600 10px Inter, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = rgba('#b45309', 0.95);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`ring track（${spec.plateLabel || ''}）：第一層不可壓`, ringPx.x, ringPx.y);
+    ctx.restore();
+  }
+  const innerPx = project(view, {
+    x: (ring.x0 + ring.x1) / 2,
+    y: 0,
+    z: (ring.z0 + ring.z1) / 2
+  });
+  if (innerPx) {
+    ctx.save();
+    ctx.font = '700 10px Inter, "Segoe UI", Arial, sans-serif';
+    ctx.fillStyle = rgba('#b45309', 0.9);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`第一層可裝 ${loadsimFormatNumber(ring.widthCm, unit, 0)} × ${loadsimFormatNumber(ring.depthCm, unit, 0)} ${loadsimUnitLabel(unit)}`,
+      innerPx.x, innerPx.y);
+    ctx.restore();
+  }
+}
+
+// ===== 輪廓（Contour）每一條邊的長度 =====
+// 把 envelope 真正畫出來的邊（兩個端面的多邊形邊＋擠出方向的邊）都標上長度；
+// 投影太短、或標籤會疊在一起的重複數字都略過。
+function envelopeEdges(spec) {
+  const edges = [];
+  const seen = new Set();
+  const key = p => `${Math.round(p.x * 10)},${Math.round(p.y * 10)},${Math.round(p.z * 10)}`;
+  const push = (a, b) => {
+    const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+    if (len < 0.5) return;
+    const k = [key(a), key(b)].sort().join('|');
+    if (seen.has(k)) return;
+    seen.add(k);
+    edges.push({ a, b, len });
+  };
+  const sectionAt = (section, along, t) => section.map(([u, v]) => (
+    along === 'x' ? { x: t, y: v, z: u } : { x: u, y: v, z: t }
+  ));
+  const addSection = (section, along, from, to) => {
+    const A = sectionAt(section, along, from);
+    const B = sectionAt(section, along, to);
+    for (let i = 0; i < section.length; i++) {
+      const j = (i + 1) % section.length;
+      push(A[i], A[j]);
+      push(B[i], B[j]);
+      push(A[i], B[i]);
+    }
+  };
+  const zRect = isRectProfile(spec.profileZ);
+  const xRect = isRectProfile(spec.profileX);
+  if (!zRect || xRect) addSection(spec.profileZ, 'x', 0, spec.baseL);
+  if (!xRect) addSection(spec.profileX, 'z', -spec.baseW / 2, spec.baseW / 2);
+  return edges;
+}
+
+function drawEnvelopeDims(ctx, view, spec, unit, colors) {
+  const edges = envelopeEdges(spec);
+  if (!edges.length) return;
+  const centerPx = project(view, { x: spec.baseL / 2, y: spec.heightCm * 0.35, z: 0 });
+  const drawn = [];
+  edges.forEach(edge => {
+    const pa = project(view, edge.a);
+    const pb = project(view, edge.b);
+    if (!pa || !pb) return;
+    if (Math.hypot(pb.x - pa.x, pb.y - pa.y) < 16) return;
+    const mx = (pa.x + pb.x) / 2;
+    const my = (pa.y + pb.y) / 2;
+    let dx = centerPx ? mx - centerPx.x : 0;
+    let dy = centerPx ? my - centerPx.y : -1;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1e-6) { dx = 0; dy = -1; } else { dx /= dist; dy /= dist; }
+    const tx = mx + dx * 11;
+    const ty = my + dy * 11;
+    const text = loadsimFormatNumber(edge.len, unit);
+    if (drawn.some(d => d.text === text && Math.hypot(d.x - tx, d.y - ty) < 24)) return;
+    if (drawn.some(d => Math.hypot(d.x - tx, d.y - ty) < 18)) return;
+    drawn.push({ x: tx, y: ty, text });
+    drawTag(ctx, tx, ty, text, {
+      bg: 'rgba(255,255,255,0.9)',
+      color: rgba(colors.primary, 0.95),
+      font: '700 10px Inter, "Segoe UI", Arial, sans-serif',
+      padX: 5,
+      height: 14
+    });
+  });
+}
+
 // ===== 板型尺寸標註（畫在板面邊緣）=====
 function drawBoardLabels(ctx, view, spec, unit, colors) {
   const label = loadsimFormatNumber;
@@ -777,6 +974,7 @@ let sceneCache = { key: '', entries: null, reports: null, extraPoints: null };
 function sceneKeyOf(spec, placed, options) {
   const parts = [
     spec.code, spec.baseL, spec.baseW, spec.heightCm,
+    spec.plateType || 'thin',
     options.allowOverhang ? 1 : 0,
     options.requireSupport === false ? 0 : 1,
     options.supportMinPct === undefined ? 50 : Number(options.supportMinPct),
@@ -849,22 +1047,20 @@ export function loadsimDraw3D(options) {
     Math.round(width), Math.round(height), spec.code,
     spec.baseL, spec.baseW, spec.heightCm
   ].join('|');
-  // 取景要一併納入「暫存區」，否則把貨物拖到板外時看不到落點
-  const stage = loadsimStageRect(spec);
-  const stagePoints = [
-    { x: stage.x0, y: 0, z: stage.z0 },
-    { x: stage.x0, y: 0, z: stage.z1 },
-    { x: stage.x1, y: 0, z: stage.z1 },
-    { x: stage.x1, y: 0, z: stage.z0 }
-  ];
+  // 取景要一併納入「暫存區」（① 板後方、② 板前方、③ 兩區延伸的角落），否則把貨物拖到板外時看不到落點
+  const stagePoints = [];
+  loadsimStageRects(spec).forEach(stage => stageCorners(stage).forEach(p => stagePoints.push(p)));
   const framePoints = analysis.extraPoints.concat(stagePoints);
   const view = buildView(spec, width, height, framePoints, { frameKey, freezeFrame, snapFrame });
 
   ctx.clearRect(0, 0, width, height);
   drawFloor(ctx, view, spec, colors);
   drawGrid(ctx, view, spec, unit, colors);
-  drawStage(ctx, view, spec, colors);
+  drawRingTrack(ctx, view, spec, unit, lod);
+  drawStage(ctx, view, spec, colors, lod);
   drawEnvelope(ctx, view, spec, colors);
+  // 輪廓（Contour）每一條邊都標長度（拖曳／轉視角的 LOD 期間省略）
+  if (!lod) drawEnvelopeDims(ctx, view, spec, unit, colors);
 
   const hideId = preview ? preview.item.id : null;
   const ordered = analysis.entries
@@ -891,6 +1087,12 @@ export function loadsimDraw3D(options) {
     if (report && report.overflows.length) {
       drawOverflowSlabs(ctx, view, ext, report.overflows, unit, { lod, overflowPhase: options.overflowPhase });
     }
+    // 第一層壓到板底 ring track：同樣用紅色斜線＋「ring +xx cm」標示（嚴格模式才會擋下）
+    if (report && report.onRing) {
+      drawRingSlabs(ctx, view, spec, ext, unit, {
+        lod, overflowPhase: options.overflowPhase, ringOverlap: report.ringOverlap
+      });
+    }
     if (item.id === options.highlightId) drawHighlight(ctx, view, ext, options.highlightPhase);
     // 滑過貨物：把「看得見的每一條邊」的長度標出來（拖曳／轉視角的 LOD 期間省略）
     if (hovered && !lod) drawEdgeDims(ctx, view, ext, unit);
@@ -908,6 +1110,11 @@ export function loadsimDraw3D(options) {
     // 同上：預覽的出界區塊也要畫在預覽貨物之後
     if (preview.overflows && preview.overflows.length) {
       drawOverflowSlabs(ctx, view, ext, preview.overflows, unit, { lod, overflowPhase: options.overflowPhase });
+    }
+    if (preview.onRing) {
+      drawRingSlabs(ctx, view, spec, ext, unit, {
+        lod, overflowPhase: options.overflowPhase, ringOverlap: preview.ringOverlap
+      });
     }
   }
 

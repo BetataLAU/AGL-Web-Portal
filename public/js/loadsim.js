@@ -53,6 +53,54 @@ function invalidateStageSize() {
   stageSize.dirty = true;
 }
 
+// ===== 畫布高度：吃掉視窗剩下的空間 =====
+// CSS 的 clamp() 只是後備值；這裡把「工具列實際佔用高度」算進去（工具列換行時會多一列），
+// 目標＝一進入頁面就看到最大畫布、摘要列剛好貼在視窗底部（明細列與 ①／② 表單在下方）。
+const STAGE_MIN_HEIGHT = 360;
+const STAGE_MAX_HEIGHT = 1600;
+const STAGE_BOTTOM_GAP = 18;
+
+// 找出「真正在捲動的容器」：本專案是 .app-layout（height:100vh; overflow-y:auto），
+// 沒有可捲動的祖先時（外層讓整頁捲動）回傳 null，改用 window 的捲動量。
+function scrollContainerOf(el) {
+  let node = el && el.parentElement;
+  while (node && node !== document.body && node !== document.documentElement) {
+    const style = typeof getComputedStyle === 'function' ? getComputedStyle(node) : null;
+    const overflowY = style ? style.overflowY : '';
+    const scrollable = (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
+      node.scrollHeight > node.clientHeight + 1;
+    if (scrollable) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+function syncStageHeight() {
+  const stage = els.canvas && els.canvas.parentElement;
+  if (!stage || !els.root || !els.root.classList.contains('active')) return;
+  const rect = stage.getBoundingClientRect();
+  if (!(rect.height > 0)) return;
+
+  const scroller = scrollContainerOf(stage);
+  const viewH = (scroller && scroller.clientHeight) || window.innerHeight || 0;
+  if (!(viewH > 0)) return;
+
+  // ★ 用「內容座標」算畫布上緣（＝目前位置 + 捲動量），與使用者捲到哪裡無關。
+  //   原本用 rect.bottom（視窗座標）：只要頁面捲動過（例：往下按 ① 表單的「產生貨物」），
+  //   「畫布下緣到視窗底部」就會被算成還有一大段空間 → 畫布高度暴增到上限（1600px）。
+  const scrollerRect = scroller && typeof scroller.getBoundingClientRect === 'function'
+    ? scroller.getBoundingClientRect()
+    : { top: 0 };
+  const scrollTop = scroller
+    ? (scroller.scrollTop || 0)
+    : (window.pageYOffset || window.scrollY || 0);
+  const stageTop = rect.top - (scrollerRect.top || 0) + scrollTop;
+  const summaryH = els.summaryTop ? els.summaryTop.getBoundingClientRect().height : 0;
+  const height = Math.max(STAGE_MIN_HEIGHT, Math.min(STAGE_MAX_HEIGHT,
+    Math.round(viewH - stageTop - summaryH - STAGE_BOTTOM_GAP)));
+  if (Math.abs(rect.height - height) > 2) stage.style.height = `${height}px`;
+}
+
 // 畫布 rect 快取（效能）：tooltip 定位只需要「相對畫布左上角」的座標，
 // 因此快取一次即可；捲動 / 縮放 / 尺寸變化時失效。
 let canvasRectCache = null;
@@ -78,9 +126,13 @@ function fmtLen(cm) {
   return loadsimFormatLength(cm, loadsimState.unit);
 }
 
-// 目前生效的板型（含使用者覆寫）
+// 目前生效的板型（含使用者覆寫與板底 ring 類型）
+function specOf(code) {
+  return loadsimGetSpec(code, loadsimState.specOverrides, { plateType: loadsimState.plateType });
+}
+
 function currentSpec() {
-  return loadsimGetSpec(loadsimState.uldCode, loadsimState.specOverrides);
+  return specOf(loadsimState.uldCode);
 }
 
 export function setupLoadsimSection() {
@@ -91,7 +143,7 @@ export function setupLoadsimSection() {
 
   els = {
     root,
-    select: document.getElementById('loadsim-uld-select'),
+    uldInput: document.getElementById('loadsim-uld-select'),
     unitButtons: root.querySelectorAll('.loadsim-unit-btn'),
     form: document.getElementById('loadsim-item-form'),
     dimRows: document.getElementById('loadsim-dim-rows'),
@@ -122,6 +174,7 @@ export function setupLoadsimSection() {
     itemMaxKg: document.getElementById('loadsim-item-max'),
     toggleItemMax: document.getElementById('loadsim-item-max-enabled'),
     viewButtons: root.querySelectorAll('.loadsim-view-btn'),
+    plateButtons: root.querySelectorAll('.loadsim-plate-btn'),
     btnResetView: document.getElementById('loadsim-btn-reset-view'),
     itemLines: document.getElementById('loadsim-item-lines'),
     hint: document.getElementById('loadsim-hint')
@@ -160,9 +213,16 @@ export function setupLoadsimSection() {
     resizeObserver = new ResizeObserver(() => {
       invalidateStageSize();
       invalidateCanvasRect();
+      // 畫布容器尺寸變了（視窗縮放 / 工具列換行）→ 重新對齊「吃掉視窗剩下的高度」
+      syncStageHeight();
       scheduleRender();
     });
     resizeObserver.observe(els.canvas.parentElement || els.canvas);
+    // 標題列（工具列換行會改變畫布上緣）與摘要列（警示增加行數）不是畫布的大小變化，
+    // 但都會影響「畫布還剩多少高度」→ 一起觀察，換行/折行後高度才會自動校正。
+    const header = els.root.querySelector('.card-header-flex');
+    if (header) resizeObserver.observe(header);
+    if (els.summaryTop) resizeObserver.observe(els.summaryTop);
   } else {
     window.addEventListener('resize', () => {
       invalidateStageSize();
@@ -176,15 +236,32 @@ export function setupLoadsimSection() {
   if (navLink) {
     navLink.addEventListener('click', () => {
       invalidateStageSize();
-      setTimeout(scheduleRender, 80);
+      syncStageHeight();
+      setTimeout(() => { syncStageHeight(); scheduleRender(); }, 80);
+      // 卡片有 0.6s 進場動畫（transform: translateY）→ 動畫結束後再校正一次
+      setTimeout(() => { syncStageHeight(); scheduleRender(); }, 700);
     });
+  }
+  // 字型／圖示載入後工具列可能換行 → 畫布上緣改變，重新校正高度
+  if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+    document.fonts.ready.then(() => {
+      syncStageHeight();
+      scheduleRender();
+    }).catch(() => { /* 字型載入失敗不影響 */ });
   }
   if (typeof MutationObserver === 'function') {
     new MutationObserver(() => {
       if (root.classList.contains('active')) {
         invalidateStageSize();
         // 切回本區塊時重算一次（順便讓「出界閃爍」計時器重新啟動）
+        syncStageHeight();
         refreshUi();
+        syncStageHeight();
+        // 進場動畫（translateY 20px → 0）期間量到的上緣會偏低 → 結束後再校正
+        [180, 700].forEach(ms => setTimeout(() => {
+          syncStageHeight();
+          scheduleRender();
+        }, ms));
         scheduleRender();
       }
     }).observe(root, { attributes: true, attributeFilter: ['class'] });
@@ -196,37 +273,123 @@ export function setupLoadsimSection() {
     hideTooltip();
   }, { capture: true, passive: true });
   window.addEventListener('resize', invalidateCanvasRect);
+  // 視窗尺寸變化 → 重新計算畫布高度（工具列換行與否也會跟著變）
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      syncStageHeight();
+      invalidateStageSize();
+      scheduleRender();
+    }, 120);
+  });
 }
 
-// ===== 板型下拉 =====
-function buildUldSelect() {
-  if (!els.select) return;
+// ===== 板型（Contour）動態搜尋 =====
+// 原本是 <select> 下拉；板型增加到 26 種之後改成「輸入即篩選」：
+// 打字 → 清單即時過濾（共用 public/js/utils/autocomplete.js）→ 點選／Enter 套用。
+// 欄位內容顯示「代碼　板面尺寸」，離開欄位時若無法辨識代碼就還原成目前板型。
+function uldLabel(base, spec) {
   const unit = loadsimState.unit;
   const label = loadsimUnitLabel(unit);
-  els.select.innerHTML = LOADSIM_ULD_SPECS.map(base => {
-    const spec = loadsimGetSpec(base.code, loadsimState.specOverrides);
-    // 顯示「貼地（板面）」尺寸＝現場實際的板子尺寸；外擴型板型另外標輪廓上限
-    const dims = `${loadsimFormatNumber(spec.floorL, unit, 0)}×${loadsimFormatNumber(spec.floorW, unit, 0)}×${loadsimFormatNumber(spec.heightCm, unit, 0)} ${label}`;
-    const outline = spec.flared
-      ? `（輪廓 ${loadsimFormatNumber(spec.baseL, unit, 0)}×${loadsimFormatNumber(spec.baseW, unit, 0)}）`
-      : '';
-    return `<option value="${esc(base.code)}">${esc(base.code)}　${dims}${outline}</option>`;
-  }).join('');
-  els.select.value = loadsimState.uldCode;
+  // 顯示「貼地（板面）」尺寸＝現場實際的板子尺寸；外擴型板型另外標輪廓上限
+  const dims = `${loadsimFormatNumber(spec.floorL, unit, 0)}×${loadsimFormatNumber(spec.floorW, unit, 0)}×${loadsimFormatNumber(spec.heightCm, unit, 0)} ${label}`;
+  const outline = spec.flared
+    ? `（輪廓 ${loadsimFormatNumber(spec.baseL, unit, 0)}×${loadsimFormatNumber(spec.baseW, unit, 0)}）`
+    : '';
+  return `${base.code}　${dims}${outline}`;
 }
 
+// 動態搜尋的候選清單（每次呼叫都重算：單位切換／板型設定覆寫後自動更新）
+function uldOptionLabels() {
+  return LOADSIM_ULD_SPECS.map(base => uldLabel(base, specOf(base.code)));
+}
+
+function uldLabelOf(code) {
+  const base = LOADSIM_ULD_SPECS.find(spec => spec.code === code);
+  return base ? uldLabel(base, specOf(base.code)) : '';
+}
+
+// 輸入內容 → 板型代碼：完全符合 → 唯一前綴 → 唯一包含；無法辨識回傳 ''
+function uldCodeFromText(text) {
+  const raw = String(text == null ? '' : text).trim();
+  if (!raw) return '';
+  const token = raw.split(/[\s\u3000]+/)[0].toUpperCase();
+  const codes = LOADSIM_ULD_SPECS.map(spec => spec.code);
+  const exact = codes.find(code => code.toUpperCase() === token);
+  if (exact) return exact;
+  const prefix = codes.filter(code => code.toUpperCase().startsWith(token));
+  if (prefix.length === 1) return prefix[0];
+  const contains = codes.filter(code => code.toUpperCase().includes(token));
+  if (contains.length === 1) return contains[0];
+  return '';
+}
+
+// 把搜尋框同步成「目前板型」的代碼＋尺寸（單位切換、板型設定變更後都要重畫）
+function buildUldSelect() {
+  if (!els.uldInput) return;
+  const text = uldLabelOf(loadsimState.uldCode) || loadsimState.uldCode;
+  els.uldInput.value = text;
+  if (typeof els.uldInput.setAttribute === 'function') els.uldInput.setAttribute('title', text);
+}
+
+// 套用板型（代碼不存在 → 還原成目前板型並回傳 false）
+function applyUldCode(code) {
+  const target = LOADSIM_ULD_SPECS.some(spec => spec.code === code) ? code : '';
+  if (!target) {
+    buildUldSelect();
+    return false;
+  }
+  if (target !== loadsimState.uldCode) {
+    loadsimState.uldCode = target;
+    loadsimSave();
+    refreshUi();
+    scheduleRender();
+  }
+  buildUldSelect();
+  return true;
+}
+
+function applyUldText(text) {
+  return applyUldCode(uldCodeFromText(text));
+}
+
+function wireUldSearch() {
+  const input = els.uldInput;
+  if (!input) return;
+
+  // 共用 autocomplete：輸入即時篩選、↑↓ 選、Enter／Tab 套用、Esc 關閉
+  if (typeof window !== 'undefined' && typeof window.setupAutocomplete === 'function') {
+    window.setupAutocomplete({
+      input,
+      suggestions: uldOptionLabels,
+      onSelect: label => applyUldText(label),
+      emptyMessage: '沒有相符的板型，請改輸入代碼（例如 Q7、A3、ZJ）。'
+    });
+  }
+
+  // Enter：沒有用滑鼠點選時，直接套用輸入內容（完全符合／唯一前綴／唯一包含）
+  input.addEventListener('keydown', event => {
+    if (!event || event.key !== 'Enter') return;
+    event.preventDefault();
+    applyUldText(input.value);
+  });
+
+  // 離開欄位（Tab／點別處）：能辨識就套用，否則還原成目前板型
+  input.addEventListener('change', () => {
+    applyUldText(input.value);
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (typeof document !== 'undefined' && document.activeElement === input) return;
+      applyUldText(input.value);
+    }, 200);
+  });
+}
 
 // ===== 工具列 =====
 function wireToolbar() {
-  if (els.select) {
-    els.select.addEventListener('change', () => {
-      loadsimState.uldCode = els.select.value;
-      loadsimSave();
-      buildUldSelect();
-      refreshUi();
-      scheduleRender();
-    });
-  }
+  wireUldSearch();
 
   els.unitButtons.forEach(btn => {
     btn.addEventListener('click', () => setUnit(btn.dataset.unit));
@@ -321,6 +484,11 @@ function wireToolbar() {
     btn.addEventListener('click', () => setViewMode(btn.dataset.view));
   });
 
+  // 板底 ring track：薄板 / 厚板（第一層貨物可裝的範圍不同）
+  els.plateButtons.forEach(btn => {
+    btn.addEventListener('click', () => setPlateType(btn.dataset.plate));
+  });
+
   if (els.btnResetView) {
     els.btnResetView.addEventListener('click', () => {
       loadsimResetView();
@@ -340,6 +508,33 @@ function setViewMode(mode, options = {}) {
     hideTooltip();
     scheduleRender();
   }
+}
+
+// 板底 ring track 切換：薄板（內側 120"×90"）／厚板（內側 118"×88"）
+// 第一層貨物只能放在 ring 內側；第二層以上不受限制。
+function setPlateType(plate) {
+  const next = plate === 'thick' ? 'thick' : 'thin';
+  if (next === loadsimState.plateType) {
+    syncPlateButtons();
+    return;
+  }
+  loadsimState.plateType = next;
+  loadsimSave();
+  syncPlateButtons();
+  refreshUi();
+  scheduleRender();
+  const spec = currentSpec();
+  const ring = spec.ringRect || {};
+  const usable = ring.widthCm && ring.depthCm
+    ? `第一層可用 ${loadsimFormatNumber(ring.widthCm, loadsimState.unit, 0)} × ${loadsimFormatNumber(ring.depthCm, loadsimState.unit, 0)} ${loadsimUnitLabel(loadsimState.unit)}`
+    : '第一層可用範圍＝整個板面';
+  showToast(`板底改為${next === 'thick' ? '厚板' : '薄板'}：${usable}`, 'ok');
+}
+
+function syncPlateButtons() {
+  els.plateButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.plate === loadsimState.plateType);
+  });
 }
 
 // ===== 單位切換（輸入框數值同步換算，實際尺寸不變）=====
@@ -1006,15 +1201,26 @@ function setOverflowPulse(on) {
 }
 
 // 單件的出界資訊（明細列顯示＋排序用）：沒有出界回傳 { worst: null, text: '' }
+// 第一層壓到板底 ring track 也會標在這裡（`ring +x cm`，與出界共用同一欄）
 function lineOverflowOf(item) {
   if (!item.placed || item.staged) return { worst: null, text: '' };
   const info = loadsimPlacementInfo(item);
-  if (!info || !info.overflows || !info.overflows.length) return { worst: null, text: '' };
-  const worst = info.overflows.reduce((a, b) => (b.amount > a.amount ? b : a), info.overflows[0]);
-  return {
-    worst,
-    text: `+${loadsimFormatAmount(worst.amount, loadsimState.unit)} ${loadsimUnitLabel(loadsimState.unit)}`
-  };
+  if (!info) return { worst: null, text: '' };
+  if (info.overflows && info.overflows.length) {
+    const worst = info.overflows.reduce((a, b) => (b.amount > a.amount ? b : a), info.overflows[0]);
+    return {
+      worst,
+      text: `+${loadsimFormatAmount(worst.amount, loadsimState.unit)} ${loadsimUnitLabel(loadsimState.unit)}`
+    };
+  }
+  if (info.onRing) {
+    return {
+      worst: null,
+      ring: true,
+      text: `ring +${loadsimFormatAmount(info.ringOverlap || 0, loadsimState.unit)} ${loadsimUnitLabel(loadsimState.unit)}`
+    };
+  }
+  return { worst: null, text: '' };
 }
 
 function lineStateRank(item) {
@@ -1100,7 +1306,7 @@ function renderItemLines() {
       const classes = [
         'loadsim-line',
         `is-${state}`,
-        over.worst ? 'is-overflow' : '',
+        over.text ? 'is-overflow' : '',
         isParent ? 'is-parent' : '',
         isChild ? 'is-child' : '',
         item.id === loadsimState.selectedId ? 'is-selected' : ''
@@ -1162,12 +1368,15 @@ function refreshUi() {
   renderSummary();
   syncEditingState();
   syncOptionInputs();
-  if (els.select) els.select.value = loadsimState.uldCode;
+  syncPlateButtons();
+  if (els.uldInput) buildUldSelect();
   if (els.toggleOverhang) els.toggleOverhang.checked = !loadsimState.allowOverhang;
   if (els.toggleSupport) els.toggleSupport.checked = !!loadsimState.requireSupport;
   if (els.supportMin) {
     els.supportMin.value = String(loadsimState.supportMinPct === undefined ? 50 : loadsimState.supportMinPct);
   }
+  // 摘要列高度可能因警示而變 → 畫布高度跟著重算（差 2px 以內不動，避免抖動）
+  syncStageHeight();
 }
 
 function renderPendingList() {
@@ -1206,6 +1415,14 @@ function overflowDetailText(overItems, unit) {
   return sorted.length > 3 ? `${parts.join('、')} 等 ${sorted.length} 件` : parts.join('、');
 }
 
+// ring track 摘要文字：「#3 +5 cm、#7 +2 cm」
+function ringDetailText(rows, unit) {
+  const unitLabel = loadsimUnitLabel(unit);
+  const sorted = rows.slice().sort((a, b) => b.amount - a.amount);
+  const parts = sorted.slice(0, 3).map(row => `#${row.id} +${loadsimFormatAmount(row.amount, unit)} ${unitLabel}`);
+  return sorted.length > 3 ? `${parts.join('、')} 等 ${sorted.length} 件` : parts.join('、');
+}
+
 function renderSummary() {
   const topBox = els.summaryTop;
   const noteBox = els.summary;
@@ -1228,8 +1445,16 @@ function renderSummary() {
     overItems.push({ id: item.id, label: worst.label, amount: worst.amount });
   });
   const overCount = overItems.length;
-  // 有出界就開始「弱弱地閃爍」，沒有就停掉
-  setOverflowPulse(overCount > 0);
+  // 第一層壓到板底 ring track（與出界同一套：標紅＋標示壓到多少＋警示；嚴格模式才會擋下）
+  const ringItems = [];
+  placed.forEach(item => {
+    const info = loadsimPlacementInfo(item);
+    if (!info || !info.onRing) return;
+    ringItems.push({ id: item.id, amount: info.ringOverlap || 0 });
+  });
+  const ringCount = ringItems.length;
+  // 有出界（或壓到 ring）就開始「弱弱地閃爍」，沒有就停掉
+  setOverflowPulse(overCount > 0 || ringCount > 0);
 
   const bannerClass = level === 'over' ? 'over' : (level === 'warn' || overCount ? 'warn' : '');
   const bannerText = level === 'over'
@@ -1239,6 +1464,13 @@ function renderSummary() {
       : (summary.heavy.length
         ? `⚠ ${summary.heavy.length} 件超過單件上限 ${fmtKg(summary.maxKgLimit)}`
         : ''));
+  // ring track 另起一行警示（第一層可裝範圍寫清楚，並說明嚴格模式會擋下）
+  const ringUsable = spec.ringRect && spec.ringRect.widthCm && spec.ringRect.depthCm
+    ? `（${spec.plateLabel || '薄板'}第一層可裝 ${fmtLen(spec.ringRect.widthCm)} × ${fmtLen(spec.ringRect.depthCm)}）`
+    : '';
+  const ringBannerHtml = ringCount
+    ? `<div class="loadsim-banner warn">⚠ ${ringCount} 件第一層壓在板底 ring track 上：${esc(ringDetailText(ringItems, unit))}${esc(ringUsable)}（紅色區域會閃爍；嚴格模式會擋下）</div>`
+    : '';
 
   const rowHtml = `
     <div class="loadsim-summary-row">
@@ -1264,15 +1496,18 @@ function renderSummary() {
     </div>
     ${spec.flared
       ? `<div class="loadsim-summary-note">板面（貼地）：${fmtLen(spec.floorL)} × ${fmtLen(spec.floorW)}｜輪廓上限：${fmtLen(spec.baseL)} × ${fmtLen(spec.baseW)}（貼地以外的外擴區需疊高才能使用）</div>`
+      : ''}
+    ${spec.ringRect && spec.ringRect.widthCm && spec.ringRect.depthCm
+      ? `<div class="loadsim-summary-note">板底：${esc(spec.plateLabel || '薄板')}｜ring track 內側（第一層可裝）：${fmtLen(spec.ringRect.widthCm)} × ${fmtLen(spec.ringRect.depthCm)}（第二層以上不受 ring track 限制）</div>`
       : ''}`;
 
   // 件數／重量／警示放在「畫布」與「貨物明細列」之間（看明細時就看得到），
   // 板型說明與單位註記留在底部摘要區；舊版 HTML 沒有 #loadsim-summary-top 時全部退回底部。
   if (topBox) {
-    topBox.innerHTML = rowHtml + bannerHtml;
+    topBox.innerHTML = rowHtml + bannerHtml + ringBannerHtml;
     if (noteBox) noteBox.innerHTML = noteHtml;
   } else if (noteBox) {
-    noteBox.innerHTML = rowHtml + bannerHtml + noteHtml;
+    noteBox.innerHTML = rowHtml + bannerHtml + ringBannerHtml + noteHtml;
   }
 }
 

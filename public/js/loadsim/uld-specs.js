@@ -10,7 +10,10 @@ import {
   loadsimBuildPlanes,
   loadsimEnsureCcw,
   loadsimPolyArea,
-  loadsimPolyBounds
+  loadsimPolyBounds,
+  loadsimPlateType,
+  loadsimPlateInfo,
+  loadsimRingRect
 } from './geometry.js';
 
 const IN = 2.54;
@@ -63,7 +66,7 @@ function chamferTopBothSidesZ(widthCm, wallCm, heightCm, topWidthCm) {
   ];
 }
 
-// 長 × 高剖面：前後兩端「上方」收角（Q9-01 / A4-00）
+// 長 × 高剖面：前後兩端「上方」收角（Q9-01 / A4-00 / ZA / ZB）
 // runCm = 水平收角、riseCm = 垂直收角（垂直壁 = height - rise）
 function chamferTopBothEndsX(lengthCm, heightCm, runCm, riseCm) {
   const wall = heightCm - riseCm;
@@ -74,6 +77,34 @@ function chamferTopBothEndsX(lengthCm, heightCm, runCm, riseCm) {
     [lengthCm - runCm, heightCm],
     [runCm, heightCm],
     [0, wall]
+  ];
+}
+
+// 長 × 高剖面：只有「後端（+X）」上方收角（ZC：一端貼艙壁）
+// runCm = 水平收角、riseCm = 垂直收角；前端維持全高（頂面 0 → length - run）
+function chamferTopOneEndX(lengthCm, heightCm, runCm, riseCm) {
+  const wall = heightCm - riseCm;
+  return [
+    [0, 0],
+    [lengthCm, 0],
+    [lengthCm, wall],
+    [lengthCm - runCm, heightCm],
+    [0, heightCm]
+  ];
+}
+
+// 長 × 高剖面：一端全高、另一端降為較低的「階梯」（A1-00：全高 94.5"、末端 63"）
+// 收角是斜的；階梯是「垂直落差 + 水平平台」，兩者在載貨判定上差很多，所以分開描述。
+//   lengthCm = 貼地全長、heightCm = 全高、lowCm = 末端高度、ledgeCm = 末端平台長
+function stepDownOneEndX(lengthCm, heightCm, lowCm, ledgeCm) {
+  const stepAt = lengthCm - ledgeCm;
+  return [
+    [0, 0],
+    [lengthCm, 0],
+    [lengthCm, lowCm],
+    [stepAt, lowCm],
+    [stepAt, heightCm],
+    [0, heightCm]
   ];
 }
 
@@ -267,6 +298,187 @@ export const LOADSIM_ULD_SPECS = [
     ],
     maxGrossKg: null, tareKg: 170,
     note: 'HACTL W2-03：輪廓總長 186"、板底 125"、高 64"；右端底部收角 30"(水平) × 33"(垂直)，左端對稱（水平 30.5"）→ 上部為 OVERHANG'
+  },
+
+  // ===== ZA / ZB / ZC：B747-400 主艙「前後端收角」型（2026-10 新增）=====
+  // 這三型的收角在「長 × 高」剖面（profileX）：圖上貼地全長 125"，前端／後端
+  // 各有 run(水平) + rise(垂直) 的斜切，寬 × 高剖面（profileZ）維持 88"/96" 矩形。
+  // HACTL 圖只標一端；另一端與頂面長度用 CX_Contour 同型圖交叉驗證
+  // （ZA 48"+29"+48"、ZB 15.5"+94"+15.5"、ZC 113"+12" 都剛好等於 125"）。
+  {
+    code: 'ZA',
+    name: 'ZA 主艙輪廓貨板（前後端各 48"×35" 收角）',
+    aircraft: 'B747-400 主艙板（125" × 96"）',
+    image: 'ZA-00 - B747-400, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；前後兩端垂直壁 61"，各收角 48"(水平) × 35"(垂直) → 頂長 29"
+    profileX: chamferTopBothEndsX(inch(125), inch(96), inch(48), inch(35)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZA-00／ZA-01（B747-400 N6，兩張為鏡像視圖、尺寸相同）：貼地 125" × 96"、總高 96"；前後兩端垂直壁 61"，各收角 48"(水平) × 35"(垂直) → 頂長 29"。同系列 ZA-02（高 96"、壁 51"、收角 28"×45"、頂 69"）、ZA-03（高 86"、壁 61"、收角 35"×25"、頂 55"）可在「板型設定」自行調整'
+  },
+  {
+    code: 'ZB',
+    name: 'ZB 主艙輪廓貨板（前後端各 15.5"×29" 收角）',
+    aircraft: 'B747-400 主艙板（125" × 96"）',
+    image: 'ZB-00 - B747-400, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；前後兩端垂直壁 67"，各收角 15.5"(水平) × 29"(垂直) → 頂長 94"
+    profileX: chamferTopBothEndsX(inch(125), inch(96), inch(15.5), inch(29)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZB-00／ZB-01（B747-400 N6）：貼地 125" × 96"、總高 96"；前後兩端垂直壁 67"，各收角 15.5"(水平) × 29"(垂直) → 頂長 94"'
+  },
+  {
+    code: 'ZC',
+    name: 'ZC 主艙輪廓貨板（後端 12"×12" 收角）',
+    aircraft: 'B747-400 主艙板（125" × 96"）',
+    image: 'ZC-00.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；只有一端收角：垂直壁 84"、收角 12"(水平) × 12"(垂直) → 頂長 113"
+    profileX: chamferTopOneEndX(inch(125), inch(96), inch(12), inch(12)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZC-00／ZC-01：貼地 125" × 96"、總高 96"；後端垂直壁 84"，收角 12"(水平) × 12"(垂直) → 頂長 113"（另一端維持全高 96"）'
+  },
+
+  // ===== A1 / A3 / XJ / ZJ / ZQ / ZR / Z2–Z5（2026-11 新增）=====
+  // 尺寸同樣只採 HACTL 規格圖上的英吋標註；每張圖的標註都能自我驗證：
+  //   垂直：總高 = 側壁 + 收角(垂直)；水平：板寬/板長 = 頂寬/頂長 + 收角(水平)。
+  // A1 是「階梯型」而不是收角型（垂直落差 + 末端平台），剖面用多邊形直接描述。
+  {
+    code: 'A1',
+    name: 'A1 主艙輪廓貨板（後端階梯 63"，平台 20"）',
+    aircraft: 'B747F，1st Pos（N6）',
+    image: 'A1-00 - B747F, 1ST Pos, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(94.5),
+    // 貼地 125"×96"、前端（-X）全高 94.5"；後端（+X）降為 63"，
+    // 垂直落差 31.5"（A1-01 標 31.5"）、末端平台長 20"
+    profileX: stepDownOneEndX(inch(125), inch(94.5), inch(63), inch(20)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL A1-00（B747F 1st Pos，N6）：貼地 125" × 96"、前端全高 94.5"、後端 63"（落差 31.5"）；後端先保留 20" 平台才降為 63" → 長 × 高剖面為階梯（垂直面 + 平台，非收角）。A1-01 為同一尺寸（只是把 31.5" 也標出來）'
+  },
+  {
+    code: 'A3',
+    name: 'A3 主艙輪廓貨板（前後端各 29"×36" 收角）',
+    aircraft: 'B757-200F，Pos 1-12（N6）',
+    image: 'A3-00 - B757-200F, Pos 1-12, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(81),
+    // 貼地 125"×96"、總高 81"；前後兩端垂直壁 45"，各收角 29"(水平) × 36"(垂直) → 頂長 67"
+    profileX: chamferTopBothEndsX(inch(125), inch(81), inch(29), inch(36)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL A3-00（B757-200F，Pos 1-12，N6）：貼地 125" × 96"、總高 81"；前後兩端垂直壁 45"，各收角 29"(水平) × 36"(垂直) → 頂長 67"（45"+36"=81"、29"+67"+29"=125"）'
+  },
+  {
+    code: 'XJ',
+    name: 'XJ 主艙輪廓貨板（前後端各 20"×12" 收角）',
+    aircraft: '主艙板（125" × 88"/96"，N6／N1）',
+    image: 'XJ-00 - N6, N1.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；前後兩端垂直壁 84"，各收角 20"(水平) × 12"(垂直) → 頂長 85"
+    profileX: chamferTopBothEndsX(inch(125), inch(96), inch(20), inch(12)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL XJ-00（N6／N1）：貼地 125" × 88"/96"、總高 96"；前後兩端垂直壁 84"，各收角 20"(水平) × 12"(垂直) → 頂長 85"（84"+12"=96"、20"+85"+20"=125"）'
+  },
+  {
+    code: 'ZJ',
+    name: 'ZJ 主艙輪廓貨板（左右各 14"×14" 收角）',
+    aircraft: 'B747-400SF，Pos A（N1／N6）',
+    image: 'ZJ-00 - B747-400SF, Pos A, N1, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(86),
+    // 貼地 125"×96"、總高 86"；左右兩側垂直壁各 72"，各收角 14"(水平) × 14"(垂直) → 頂寬 68"
+    profileZ: chamferTopBothSidesZ(inch(96), inch(72), inch(86), inch(68)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZJ-00（B747-400SF，Pos A）：貼地 125" × 96"、總高 86"；左右兩側垂直壁各 72"，各收角 14"(水平) × 14"(垂直) → 頂寬 68"（圖上只標單側 14"×14"，另一側依對稱推定）'
+  },
+  {
+    code: 'ZQ',
+    name: 'ZQ 主艙輪廓貨板（一側 48"×43" 收角）',
+    aircraft: 'B777，Pos B–M（N6）',
+    image: 'ZQ-00 - B777 Pos B to M, N6.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(118),
+    // 貼地 125"×96"、總高 118"；一側垂直壁 75"，收角 48"(水平) × 43"(垂直) → 頂寬 48"
+    profileZ: chamferTopOneSideZ(inch(96), inch(75), inch(118), inch(48)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZQ-00（B777，Pos B–M，N6）：貼地 125" × 96"、總高 118"；一側垂直壁 75"，收角 48"(水平) × 43"(垂直) → 頂寬 48"（75"+43"=118"、48"+48"=96"）'
+  },
+  {
+    code: 'ZR',
+    name: 'ZR 主艙輪廓貨板（一側 55"×65" 收角）',
+    aircraft: '主艙板（125" × 96"）',
+    image: 'ZR-00.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(116),
+    // 貼地 125"×96"、總高 116"；一側垂直壁 51"，收角 55"(水平) × 65"(垂直) → 頂寬 41"
+    profileZ: chamferTopOneSideZ(inch(96), inch(51), inch(116), inch(41)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL ZR-00：貼地 125" × 96"、總高 116"；一側垂直壁 51"，收角 55"(水平) × 65"(垂直) → 頂寬 41"（51"+65"=116"、41"+55"=96"）'
+  },
+  {
+    code: 'Z2',
+    name: 'Z2 主艙輪廓貨板（一側 48"×44" 收角）',
+    aircraft: 'B777（SV）',
+    image: 'Z2-00 - SV, B777.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(116),
+    // 貼地 125"×96"、總高 116"；一側垂直壁 72"，收角 48"(水平) × 44"(垂直) → 頂寬 48"
+    profileZ: chamferTopOneSideZ(inch(96), inch(72), inch(116), inch(48)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL Z2-00（SV，B777）：貼地 125" × 96"、總高 116"；一側垂直壁 72"，收角 48"(水平) × 44"(垂直) → 頂寬 48"（72"+44"=116"、48"+48"=96"）'
+  },
+  {
+    code: 'Z3',
+    name: 'Z3 主艙輪廓貨板（一側 16"×20" 收角）',
+    aircraft: 'B777（SV）',
+    image: 'Z3-00 - SV, B777.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；一側垂直壁 76"，收角 16"(水平) × 20"(垂直) → 頂寬 80"
+    profileZ: chamferTopOneSideZ(inch(96), inch(76), inch(96), inch(80)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL Z3-00（SV，B777）：貼地 125" × 96"、總高 96"；一側垂直壁 76"，收角 16"(水平) × 20"(垂直) → 頂寬 80"（76"+20"=96"、80"+16"=96"）'
+  },
+  {
+    code: 'Z4',
+    name: 'Z4 主艙輪廓貨板（一側 55"×63" 收角）',
+    aircraft: 'B777（SV）',
+    image: 'Z4-00 - SV, B777.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(114),
+    // 貼地 125"×96"、總高 114"；一側垂直壁 51"，收角 55"(水平) × 63"(垂直) → 頂寬 41"
+    profileZ: chamferTopOneSideZ(inch(96), inch(51), inch(114), inch(41)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL Z4-00（SV，B777）：貼地 125" × 96"、總高 114"；一側垂直壁 51"，收角 55"(水平) × 63"(垂直) → 頂寬 41"（51"+63"=114"、41"+55"=96"）'
+  },
+  {
+    code: 'Z5',
+    name: 'Z5 主艙輪廓貨板（一側 30"×43.5" 收角）',
+    aircraft: 'B777（SV）',
+    image: 'Z5-00 - SV, B777.jpeg',
+    imageSource: 'HACTL',
+    baseL: inch(125), baseW: inch(96), heightCm: inch(96),
+    // 貼地 125"×96"、總高 96"；一側垂直壁 52.5"，收角 30"(水平) × 43.5"(垂直) → 頂寬 66"
+    profileZ: chamferTopOneSideZ(inch(96), inch(52.5), inch(96), inch(66)),
+    maxGrossKg: 6804, tareKg: 120,
+    weightNote: '最大總重為業界常用值，請依航空公司規格確認',
+    note: 'HACTL Z5-00（SV，B777）：貼地 125" × 96"、總高 96"；一側垂直壁 52.5"，收角 30"(水平) × 43.5"(垂直) → 頂寬 66"（52.5"+43.5"=96"、66"+30"=96"）'
   }
 ];
 
@@ -282,7 +494,8 @@ export function loadsimBaseSpec(code) {
 
 // 套用使用者在畫面上的修改（override 只存差異；undefined = 不變、'' = 清除）
 // 若長/寬/高被改動 → 原廠斜切幾何不再可信，改用矩形剖面重建
-export function loadsimNormalizeSpec(base, override) {
+// options.plateType：板底 ring track 類型（'thin' 薄板 / 'thick' 厚板，預設薄板）
+export function loadsimNormalizeSpec(base, override, options = {}) {
   const ov = override || {};
   const spec = { ...base };
   const hasNum = v => v !== undefined && v !== null && v !== '' && isFinite(Number(v)) && Number(v) > 0;
@@ -332,6 +545,12 @@ export function loadsimNormalizeSpec(base, override) {
   // 輪廓是否比板面大（外擴型）→ UI 要另外標示
   spec.flared = spec.floorL < spec.baseL - 0.01 || spec.floorW < spec.baseW - 0.01;
 
+  // ===== 板底 ring track（厚板 / 薄板）=====
+  // 第一層貨物只能放在 ring 內側（厚板 118"×88"、薄板 120"×90"）；第二層以上不受限。
+  spec.plateType = loadsimPlateType(options.plateType);
+  spec.plateLabel = loadsimPlateInfo(spec.plateType).label;
+  spec.ringRect = loadsimRingRect(spec, spec.plateType);
+
   spec.planesZ = loadsimBuildPlanes(spec.profileZ, 'z');
   spec.planesX = loadsimBuildPlanes(spec.profileX, 'x');
 
@@ -344,10 +563,10 @@ export function loadsimNormalizeSpec(base, override) {
 }
 
 // 取得目前生效的板型（含使用者覆寫）
-export function loadsimGetSpec(code, overrides) {
+export function loadsimGetSpec(code, overrides, options = {}) {
   const base = loadsimBaseSpec(code);
   const ov = overrides ? overrides[base.code] : null;
-  return loadsimNormalizeSpec(base, ov);
+  return loadsimNormalizeSpec(base, ov, options);
 }
 
 // 板型圖片的 API 路徑（沿用 routes/contours.js 的舊路徑；HACTL 目錄優先）

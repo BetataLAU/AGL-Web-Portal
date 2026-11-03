@@ -13,6 +13,8 @@ function createDefaultState() {
   return {
     unit: 'cm',
     uldCode: 'Q7-00',
+    // 板底 ring track 類型：'thin' 薄板（預設）／'thick' 厚板
+    plateType: 'thin',
     items: [],
     selectedId: null,
     // 預設「允許超出輪廓」但會標紅並提示（需求：要看得到超出多少）；
@@ -82,6 +84,7 @@ export function loadsimSave() {
       const payload = {
         unit: loadsimState.unit,
         uldCode: loadsimState.uldCode,
+        plateType: loadsimState.plateType,
         items: loadsimState.items,
         allowOverhang: loadsimState.allowOverhang,
         requireSupport: loadsimState.requireSupport,
@@ -136,6 +139,7 @@ export function loadsimLoadStored() {
   if (!data || typeof data !== 'object') return false;
 
   if (data.unit === 'in' || data.unit === 'cm') loadsimState.unit = data.unit;
+  if (data.plateType === 'thin' || data.plateType === 'thick') loadsimState.plateType = data.plateType;
   if (typeof data.uldCode === 'string' && data.uldCode) loadsimState.uldCode = data.uldCode;
   if (typeof data.allowOverhang === 'boolean') loadsimState.allowOverhang = data.allowOverhang;
   if (typeof data.requireSupport === 'boolean') loadsimState.requireSupport = data.requireSupport;

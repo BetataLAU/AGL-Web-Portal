@@ -3,8 +3,8 @@
 // 前視圖：橫軸 = 板寬 Z、縱軸 = 高度 Y（下 0 → 上 H）
 // 兩張圖共用同一個比例尺，數值一致、可互相對照。
 import {
-  loadsimExtents, loadsimDimsOf, loadsimEvaluatePlacement, LOADSIM_EPS, loadsimStageRect,
-  loadsimOverflowBoundary
+  loadsimExtents, loadsimDimsOf, loadsimEvaluatePlacement, LOADSIM_EPS, loadsimStageRects,
+  loadsimRingHitRects, loadsimOverflowBoundary
 } from './geometry.js';
 import {
   loadsimFormatNumber, loadsimFormatAmount, loadsimFormatTick, loadsimTickStepCm, loadsimUnitLabel
@@ -71,11 +71,14 @@ export function loadsimComputeLayout(width, height, spec) {
   const pTop = plotOf(top);
   const pFront = plotOf(front);
 
-  // 俯視圖要含「暫存區」（板後方的空地），否則拖出板外時看不到落點
-  const stage = loadsimStageRect(spec);
-  const sceneL = Math.max(spec.baseL, stage.x1);
+  // 俯視圖要含「暫存區」（① 板後方、② 板前方），否則拖出板外時看不到落點
+  const stages = loadsimStageRects(spec);
+  const sceneL = Math.max(spec.baseL, ...stages.map(rect => rect.x1));
+  const sceneZ0 = Math.min(-spec.baseW / 2, ...stages.map(rect => rect.z0));
+  const sceneZ1 = Math.max(spec.baseW / 2, ...stages.map(rect => rect.z1));
+  const sceneW = Math.max(1, sceneZ1 - sceneZ0);
 
-  const scaleTop = Math.min(pTop.w / spec.baseW, pTop.h / sceneL);
+  const scaleTop = Math.min(pTop.w / sceneW, pTop.h / sceneL);
   const scaleFront = Math.min(pFront.w / spec.baseW, pFront.h / spec.heightCm);
   const scale = Math.max(0.03, Math.min(scaleTop, scaleFront));
 
@@ -87,20 +90,28 @@ export function loadsimComputeLayout(width, height, spec) {
   });
 
   top.plot = pTop;
-  top.rect = centerRect(pTop, spec.baseW, sceneL);
+  // 俯視圖的 Z 起點＝場景左緣（含暫存區 ②）；前視圖仍以板寬 ±W/2 對稱
+  top.z0 = sceneZ0;
+  top.rect = centerRect(pTop, sceneW, sceneL);
   front.plot = pFront;
+  front.z0 = -spec.baseW / 2;
   front.rect = centerRect(pFront, spec.baseW, spec.heightCm);
 
-  return { width, height, scale, top, front, sceneL, splitX: PAD + panelW + GAP / 2 };
+  return {
+    width, height, scale, top, front, sceneL, sceneZ0, sceneZ1, sceneW,
+    splitX: PAD + panelW + GAP / 2
+  };
 }
 
-// 公分 → 畫布像素（兩張視圖共用：u 軸為板寬 Z）
+// 公分 → 畫布像素（u 軸為板寬 Z；各面板的 Z 起點不同 → 用 panel.z0）
 function zToPx(layout, panel, z) {
-  return panel.rect.x + (z + layout.baseW / 2) * layout.scale;
+  const z0 = panel && panel.z0 !== undefined ? panel.z0 : -layout.baseW / 2;
+  return panel.rect.x + (z - z0) * layout.scale;
 }
 
 function pxToZ(layout, panel, px) {
-  return (px - panel.rect.x) / layout.scale - layout.baseW / 2;
+  const z0 = panel && panel.z0 !== undefined ? panel.z0 : -layout.baseW / 2;
+  return (px - panel.rect.x) / layout.scale + z0;
 }
 
 // 俯視圖：X 由下往上
@@ -180,9 +191,10 @@ function drawAxes(ctx, layout, panel, options, colors) {
   ctx.font = '10px Inter, "Segoe UI", Arial, sans-serif';
   ctx.fillStyle = rgba(colors.muted, 0.95);
 
-  // 橫軸（Z）
-  const zStart = -baseW / 2;
-  const zEnd = baseW / 2;
+  // 橫軸（Z）：俯視圖要含暫存區 ②（板前方），所以用場景左右緣；前視圖仍以板寬為準
+  const useScene = axis === 'x' && layout.sceneZ0 !== undefined && layout.sceneZ1 !== undefined;
+  const zStart = useScene ? layout.sceneZ0 : -baseW / 2;
+  const zEnd = useScene ? layout.sceneZ1 : baseW / 2;
   const first = Math.ceil(zStart / stepCm) * stepCm;
   for (let z = first; z <= zEnd + 1e-6; z += stepCm) {
     const px = zToPx(layout, panel, z);
@@ -495,6 +507,41 @@ function drawProfileOverflow(ctx, layout, panel, item, overflowEntries, unit, co
   });
 }
 
+// 俯視圖：第一層壓到板底 ring track 的紅色斜線區塊（與出界同一套提示）
+function drawTopRingOverlap(ctx, layout, panel, item, unit, colors, pulse, ringOverlap, spec) {
+  const rects = loadsimRingHitRects(loadsimExtents(item), spec);
+  if (!rects.length) return;
+  const blink = pulse === undefined ? 1 : pulse;
+  rects.forEach(rect => {
+    const px = zToPx(layout, panel, rect.z0);
+    const py = xToPy(layout, panel, rect.x1);
+    const w = (rect.z1 - rect.z0) * layout.scale;
+    const h = (rect.x1 - rect.x0) * layout.scale;
+    if (w <= 0.5 || h <= 0.5) return;
+    ctx.save();
+    ctx.fillStyle = hatchPattern(ctx) || 'rgba(220,38,38,0.25)';
+    ctx.globalAlpha = 0.14 + 0.36 * blink;
+    ctx.fillRect(px, py, w, h);
+    ctx.globalAlpha = 0.3 + 0.4 * blink;
+    ctx.strokeStyle = 'rgba(220,38,38,0.9)';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(px, py, w, h);
+    ctx.restore();
+  });
+  // 壓到多少：標在最寬的那一條帶
+  const worst = rects.reduce((a, b) => (
+    Math.max(b.x1 - b.x0, b.z1 - b.z0) > Math.max(a.x1 - a.x0, a.z1 - a.z0) ? b : a
+  ), rects[0]);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, 0.55 + 0.45 * blink);
+  drawTag(ctx,
+    zToPx(layout, panel, (worst.z0 + worst.z1) / 2),
+    xToPy(layout, panel, (worst.x0 + worst.x1) / 2),
+    `ring +${loadsimFormatAmount(ringOverlap || 0, unit)} ${loadsimUnitLabel(unit)}`,
+    colors, { bold: true });
+  ctx.restore();
+}
+
 // ===== 2D 雙視圖：主繪圖入口 =====
 // options: { ctx, width, height, spec, unit, items, preview, hoverId, selectedId, allowOverhang, requireSupport }
 function loadsimDraw2D(options) {
@@ -573,28 +620,72 @@ function loadsimDraw2D(options) {
     ctx.setLineDash([]);
   }
 
-  // 暫存區（板後方空地）：拖出輪廓的貨物可以暫放在這裡
-  const stage = loadsimStageRect(spec);
-  const stageX = zToPx(layout, top, stage.z0);
-  const stageY = xToPy(layout, top, stage.x1);
-  const stageW = (stage.z1 - stage.z0) * layout.scale;
-  const stageH = (stage.x1 - stage.x0) * layout.scale;
-  ctx.save();
-  ctx.fillStyle = rgba(colors.muted, 0.05);
-  ctx.fillRect(stageX, stageY, stageW, stageH);
-  ctx.setLineDash([6, 4]);
-  ctx.strokeStyle = rgba(colors.muted, 0.55);
-  ctx.lineWidth = 1.1;
-  ctx.strokeRect(stageX, stageY, stageW, stageH);
-  ctx.setLineDash([]);
-  if (stageW > 46 && stageH > 14) {
-    ctx.fillStyle = rgba(colors.muted, 0.8);
-    ctx.font = '600 10px Inter, "Segoe UI", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('暫存區', stageX + stageW / 2, stageY + stageH / 2);
+  // 板底 ring track（厚板／薄板）：板面四邊的帶狀區，第一層貨物不可壓上去
+  const ring = spec.ringRect;
+  if (ring && !ring.disabled) {
+    const floorX0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
+    const floorZ1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+    const strips = [
+      { x0: floorX0, x1: floorX1, z0: floorZ0, z1: ring.z0 },
+      { x0: floorX0, x1: floorX1, z0: ring.z1, z1: floorZ1 },
+      { x0: floorX0, x1: ring.x0, z0: ring.z0, z1: ring.z1 },
+      { x0: ring.x1, x1: floorX1, z0: ring.z0, z1: ring.z1 }
+    ];
+    ctx.save();
+    ctx.fillStyle = rgba('#f59e0b', 0.16);
+    strips.forEach(strip => {
+      if (strip.x1 - strip.x0 < 0.01 || strip.z1 - strip.z0 < 0.01) return;
+      const px = zToPx(layout, top, strip.z0);
+      const py = xToPy(layout, top, strip.x1);
+      ctx.fillRect(px, py, (strip.z1 - strip.z0) * layout.scale, (strip.x1 - strip.x0) * layout.scale);
+    });
+    ctx.setLineDash([5, 3]);
+    ctx.strokeStyle = rgba('#d97706', 0.85);
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(
+      zToPx(layout, top, ring.z0),
+      xToPy(layout, top, ring.x1),
+      (ring.z1 - ring.z0) * layout.scale,
+      (ring.x1 - ring.x0) * layout.scale
+    );
+    ctx.setLineDash([]);
+    const ringW = (ring.z1 - ring.z0) * layout.scale;
+    const ringH = (ring.x1 - ring.x0) * layout.scale;
+    if (ringW > 56 && ringH > 16) {
+      ctx.fillStyle = rgba('#b45309', 0.9);
+      ctx.font = '600 9px Inter, "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('ring track',
+        zToPx(layout, top, ring.z0) + ringW / 2,
+        xToPy(layout, top, ring.x1) + ringH / 2);
+    }
+    ctx.restore();
   }
-  ctx.restore();
+
+  // 暫存區（① 板後方、② 板前方）：拖出輪廓的貨物可以暫放在這裡
+  loadsimStageRects(spec).forEach(stage => {
+    const stageX = zToPx(layout, top, stage.z0);
+    const stageY = xToPy(layout, top, stage.x1);
+    const stageW = (stage.z1 - stage.z0) * layout.scale;
+    const stageH = (stage.x1 - stage.x0) * layout.scale;
+    ctx.save();
+    ctx.fillStyle = rgba(colors.muted, 0.05);
+    ctx.fillRect(stageX, stageY, stageW, stageH);
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = rgba(colors.muted, 0.55);
+    ctx.lineWidth = 1.1;
+    ctx.strokeRect(stageX, stageY, stageW, stageH);
+    ctx.setLineDash([]);
+    if (stageW > 46 && stageH > 14) {
+      ctx.fillStyle = rgba(colors.muted, 0.8);
+      ctx.font = '600 10px Inter, "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(stage.label || '暫存區', stageX + stageW / 2, stageY + stageH / 2);
+    }
+    ctx.restore();
+  });
 
   drawAxes(ctx, layout, top, { unit, axis: 'x' }, colors);
 
@@ -615,12 +706,19 @@ function loadsimDraw2D(options) {
     });
     // 出界紅色斜線要畫在貨物之後，否則會被貨物填色蓋住（也看不到 +xx cm）
     drawTopOverflow(ctx, layout, top, item, unit, colors, overflowBlink);
+    // 第一層壓到板底 ring track：同樣是紅色斜線＋「ring +xx cm」
+    if (report && report.onRing) {
+      drawTopRingOverlap(ctx, layout, top, item, unit, colors, overflowBlink, report.ringOverlap, spec);
+    }
   });
   if (preview) {
     drawItemTop(ctx, layout, top, preview.item, colors, {
       selected: false, hovered: false, invalid: !preview.valid, staged: !!preview.item.staged, unit
     });
     drawTopOverflow(ctx, layout, top, preview.item, unit, colors, overflowBlink);
+    if (preview.onRing) {
+      drawTopRingOverlap(ctx, layout, top, preview.item, unit, colors, overflowBlink, preview.ringOverlap, spec);
+    }
   }
   ctx.restore();
 
@@ -779,6 +877,12 @@ export function loadsimGetLayout() {
 
 export function loadsimOrbit(dxPx, dyPx) {
   view3d.loadsimOrbit3D(dxPx, dyPx);
+}
+
+// 3D 相機（yaw / pitch / zoom）：方向鍵要依目前視角把「螢幕方向」換算成板面方向。
+// 2D 剖面沒有相機 → 回 null（固定用俯視圖方向）。
+export function loadsimGetCamera() {
+  return viewMode === '3d' ? view3d.loadsimGetCamera3D() : null;
 }
 
 export function loadsimZoom(factor) {

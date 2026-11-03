@@ -87,13 +87,20 @@ export function loadsimPolyBounds(poly) {
   return bounds;
 }
 
+// 方位名稱門檻：表面與「水平面」或「垂直面」的夾角 ≤ 20°（法向量 |cos| ≥ 0.94）
+// 才叫「上方／底部」「前端／後端」「左側／右側」，更斜的一律算上／下斜角。
+// 舊門檻 0.8（≈37°）會讓 36° 左右的斜切（Q9-01 的 30"×22"、ZA 的 48"×35"）被標成
+// 「上方」，出界訊息就變成「上方超出 xx cm」（其實是撞斜切）；61° 的 ZB 斜切
+// （15.5"×29"）則被標成「前端／後端」。
+const LOADSIM_FLAT_NORMAL_COS = 0.94;
+
 // 由外向法向量決定人類可讀的方位名稱
 // axis：'z' → 左側/右側；'x' → 前端/後端
 function loadsimPlaneLabel(nx, ny, axis) {
   const ox = -nx; // 外向法向量
   const oy = -ny;
-  if (Math.abs(oy) > 0.8) return oy > 0 ? '上方' : '底部';
-  if (Math.abs(ox) > 0.8) {
+  if (Math.abs(oy) > LOADSIM_FLAT_NORMAL_COS) return oy > 0 ? '上方' : '底部';
+  if (Math.abs(ox) > LOADSIM_FLAT_NORMAL_COS) {
     if (axis === 'x') return ox > 0 ? '後端' : '前端';
     return ox > 0 ? '右側' : '左側';
   }
@@ -102,7 +109,54 @@ function loadsimPlaneLabel(nx, ny, axis) {
   return `${ox > 0 ? '右' : '左'}${vertical}斜角`;
 }
 
+// 多邊形是否為凸（逆時針）：只要有一個凹角就回傳 false
+// 用途：凹多邊形（例如 A1 的階梯剖面）不能只用「所有邊的半平面交集」判定，
+//       因為半平面交集等於凸包，會把凹角外側的空間誤判成可用。
+export function loadsimPolyIsConvex(poly) {
+  const pts = loadsimEnsureCcw(poly);
+  if (pts.length < 3) return false;
+  for (let i = 0; i < pts.length; i++) {
+    const [u1, v1] = pts[i];
+    const [u2, v2] = pts[(i + 1) % pts.length];
+    const [u3, v3] = pts[(i + 2) % pts.length];
+    const cross = (u2 - u1) * (v3 - v2) - (v2 - v1) * (u3 - u2);
+    if (cross < -1e-9) return false;
+  }
+  return true;
+}
+
+// 點是否在多邊形內（射線法；落在邊上／頂點上視為「在內」）
+export function loadsimPointInPolygon(u, v, poly) {
+  const pts = Array.isArray(poly) ? poly : [];
+  if (pts.length < 3) return false;
+
+  // 先判邊界（含端點）：凹多邊形的轉角處常剛好落在線上
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [ui, vi] = pts[i];
+    const [uj, vj] = pts[j];
+    const ex = ui - uj;
+    const ey = vi - vj;
+    const len = Math.hypot(ex, ey);
+    if (len < LOADSIM_EPS) continue;
+    const dist = Math.abs(ex * (v - vj) - ey * (u - uj)) / len;
+    const t = ((u - uj) * ex + (v - vj) * ey) / (len * len);
+    if (dist <= LOADSIM_EPS && t >= -1e-9 && t <= 1 + 1e-9) return true;
+  }
+
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [ui, vi] = pts[i];
+    const [uj, vj] = pts[j];
+    if ((vi > v) !== (vj > v) && u < ((uj - ui) * (v - vi)) / (vj - vi) + ui) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 // 建立半平面（逆時針多邊形：內側在行進方向左側 → 內側滿足 dot(p, n) >= c）
+// 回傳的陣列另外掛上 .poly（原始逆時針多邊形），讓 loadsimTestRectInPolygon
+// 能判斷凹角（凹多邊形需要「真正的點在多邊形內」而不是只有半平面）。
 export function loadsimBuildPlanes(poly, axis) {
   const ccw = loadsimEnsureCcw(poly);
   const planes = [];
@@ -123,22 +177,29 @@ export function loadsimBuildPlanes(poly, axis) {
       axis
     });
   }
+  planes.poly = ccw;
   return planes;
 }
 
 // 矩形（u0,v0)-(u1,v1) 是否完全落在多邊形內；並回報每個方位超出多少
 export function loadsimTestRectInPolygon(u0, v0, u1, v1, planes) {
   const corners = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+  // 凹多邊形（A1 的階梯）：半平面交集＝凸包，凹角外側的半平面會把「合法位置」判成出界，
+  // 因此只有「真的落在多邊形外的角」才算超出。
+  const poly = planes && Array.isArray(planes.poly) ? planes.poly : null;
+  const concave = poly ? !loadsimPolyIsConvex(poly) : false;
   const overflows = [];
   let fit = true;
   let worst = 0;
   for (const plane of planes) {
     let maxPen = -Infinity;
+    let genuine = false;
     for (const [u, v] of corners) {
       const pen = plane.c - (u * plane.nx + v * plane.ny);
       if (pen > maxPen) maxPen = pen;
+      if (pen > LOADSIM_EPS && (!concave || !loadsimPointInPolygon(u, v, poly))) genuine = true;
     }
-    if (maxPen > LOADSIM_EPS) {
+    if (maxPen > LOADSIM_EPS && genuine) {
       fit = false;
       overflows.push({ label: plane.label, amount: maxPen, plane });
       if (maxPen > worst) worst = maxPen;
@@ -310,8 +371,99 @@ export function loadsimSupportRatio(ext, others) {
   return Math.min(1, covered / baseArea);
 }
 
+// ===== 板底 ring track（四邊的加強框）=====
+// 最底層（貼地）的貨物不能壓在 ring track 上；第二層以上不受限制。
+// 兩種板：厚板＝四邊內縮 3.5"(長向)／4"(寬向) → 內側可用 118" × 88"
+//         薄板＝四邊內縮 2.5"(長向)／3"(寬向) → 內側可用 120" × 90"
+export const LOADSIM_INCH_CM = 2.54;
+
+export const LOADSIM_PLATE_TYPES = {
+  thin: { key: 'thin', label: '薄板', innerLIn: 120, innerWIn: 90, insetXIn: 2.5, insetZIn: 3 },
+  thick: { key: 'thick', label: '厚板', innerLIn: 118, innerWIn: 88, insetXIn: 3.5, insetZIn: 4 }
+};
+
+export const LOADSIM_DEFAULT_PLATE = 'thin';
+
+export function loadsimPlateType(type) {
+  return LOADSIM_PLATE_TYPES[type] ? type : LOADSIM_DEFAULT_PLATE;
+}
+
+export function loadsimPlateInfo(type) {
+  return LOADSIM_PLATE_TYPES[loadsimPlateType(type)];
+}
+
+// ring track 內側（第一層可裝貨的範圍）：以「板面（貼地）」四邊往內縮
+export function loadsimRingRect(spec, plateType) {
+  const info = loadsimPlateInfo(plateType);
+  const floorX0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
+  const floorX1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
+  const floorZ0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
+  const floorZ1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+  const insetX = info.insetXIn * LOADSIM_INCH_CM;
+  const insetZ = info.insetZIn * LOADSIM_INCH_CM;
+  const x0 = floorX0 + insetX;
+  const x1 = floorX1 - insetX;
+  const z0 = floorZ0 + insetZ;
+  const z1 = floorZ1 - insetZ;
+  const base = { plateType: info.key, label: info.label, insetX, insetZ };
+  // 板面比 ring track 還窄（罕見的縮小板型）→ 退化成整個板面
+  if (x1 - x0 < 40 || z1 - z0 < 40) {
+    return {
+      ...base, x0: floorX0, x1: floorX1, z0: floorZ0, z1: floorZ1,
+      insetX: 0, insetZ: 0, widthCm: floorX1 - floorX0, depthCm: floorZ1 - floorZ0, disabled: true
+    };
+  }
+  return { ...base, x0, x1, z0, z1, widthCm: x1 - x0, depthCm: z1 - z0 };
+}
+
+// 貨物底面壓到多少 ring track（cm）：0 = 完全在內框裡（第一層才需要檢查）
+export function loadsimRingOverlap(ext, ring) {
+  if (!ring || ring.disabled) return 0;
+  const dx = Math.max(0, ring.x0 - ext.x0, ext.x1 - ring.x1);
+  const dz = Math.max(0, ring.z0 - ext.z0, ext.z1 - ring.z1);
+  return Math.max(dx, dz);
+}
+
+// 貨物底面「壓在 ring track 上」的區塊（最多 4 條，已裁在板面內）：
+// 3D／2D 都用它把被壓到的 ring 帶畫成紅色斜線（跟超出輪廓同一套提示）。
+export function loadsimRingHitRects(ext, spec) {
+  const ring = spec && spec.ringRect;
+  if (!ring || ring.disabled) return [];
+  const floorX0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
+  const floorX1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
+  const floorZ0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
+  const floorZ1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+  const clip = (a, b, lo, hi) => [Math.max(a, lo), Math.min(b, hi)];
+  const rects = [];
+  const push = (x0, x1, z0, z1) => {
+    if (x1 - x0 > LOADSIM_EPS && z1 - z0 > LOADSIM_EPS) rects.push({ x0, x1, z0, z1 });
+  };
+  // 前端 / 後端（x 方向）的 ring 帶
+  const [cz0, cz1] = clip(ext.z0, ext.z1, Math.max(ring.z0, floorZ0), Math.min(ring.z1, floorZ1));
+  push(Math.max(ext.x0, floorX0), Math.min(ext.x1, ring.x0), cz0, cz1);
+  push(Math.max(ext.x0, ring.x1), Math.min(ext.x1, floorX1), cz0, cz1);
+  // 左側 / 右側（z 方向）的 ring 帶
+  const [cx0, cx1] = clip(ext.x0, ext.x1, Math.max(ring.x0, floorX0), Math.min(ring.x1, floorX1));
+  push(cx0, cx1, Math.max(ext.z0, floorZ0), Math.min(ext.z1, ring.z0));
+  push(cx0, cx1, Math.max(ext.z0, ring.z1), Math.min(ext.z1, floorZ1));
+  return rects;
+}
+
+// 輪廓（剖面多邊形）的最大範圍：外擴型板型（H2/H3/H4/W2）的輪廓比板面大，
+// 拖曳範圍要以輪廓為基準，第二層以上的貨物才推得到 OVERHANG 區。
+export function loadsimContourBounds(spec) {
+  const spanOf = (poly, fallback0, fallback1) => {
+    if (!Array.isArray(poly) || !poly.length) return [fallback0, fallback1];
+    const us = poly.map(point => point[0]);
+    return [Math.min(...us), Math.max(...us)];
+  };
+  const [x0, x1] = spanOf(spec.profileX, 0, spec.baseL);
+  const [z0, z1] = spanOf(spec.profileZ, -spec.baseW / 2, spec.baseW / 2);
+  return { x0, x1, z0, z1 };
+}
+
 // ===== 單一貨物的完整合法性檢查 =====
-// 回傳 { ok, fits, overlaps, overflows, supported, supportRatio, overhangMax }
+// 回傳 { ok, fits, overlaps, overflows, supported, supportRatio, overhangMax, onRing }
 export function loadsimEvaluatePlacement(item, spec, others, options = {}) {
   const allowOverhang = !!options.allowOverhang;
   const requireSupport = options.requireSupport !== false;
@@ -329,6 +481,12 @@ export function loadsimEvaluatePlacement(item, spec, others, options = {}) {
     (supportMin > 0 ? supportRatio >= supportMin - 1e-9 : supportRatio > 1e-9);
   const fits = zy.fit && xy.fit;
   const overhangMax = overflows.reduce((max, o) => Math.max(max, o.amount), 0);
+  // 板底 ring track：只有「最底層（貼地）」會被檢查，第二層以上完全不限制。
+  // 與「超出輪廓」同一套處理：預設 **允許但標紅＋標示壓到多少**，
+  // 只有嚴格模式（allowOverhang === false）才真的擋下來。
+  const ringOverlap = ext.y0 <= LOADSIM_EPS ? loadsimRingOverlap(ext, spec.ringRect) : 0;
+  const onRing = ringOverlap > LOADSIM_EPS;
+  const ringBlocked = onRing && !allowOverhang;
 
   return {
     ext,
@@ -339,7 +497,11 @@ export function loadsimEvaluatePlacement(item, spec, others, options = {}) {
     supportRatio,
     supportMin,
     overhangMax,
-    ok: overlaps.length === 0 && supported && (fits || allowOverhang)
+    onRing,
+    ringBlocked,
+    ringOverlap,
+    ring: spec.ringRect || null,
+    ok: overlaps.length === 0 && supported && (fits || allowOverhang) && !ringBlocked
   };
 }
 
@@ -347,6 +509,13 @@ export function loadsimEvaluatePlacement(item, spec, others, options = {}) {
 export function loadsimPlacementReason(report, options = {}) {
   if (!report) return '';
   if (report.overlaps.length) return '與其他貨物重疊';
+  if (report.ringBlocked) {
+    const ring = report.ring;
+    const dims = ring && ring.widthCm && ring.depthCm
+      ? `（${ring.label || ''}第一層可用 ${ring.widthCm.toFixed(0)} × ${ring.depthCm.toFixed(0)} cm）`
+      : '';
+    return `第一層不可壓在板底 ring track 上${dims}：請往內移，或先鋪一層底板再疊上去`;
+  }
   if (!report.supported) {
     const need = Math.round((report.supportMin === undefined ? 0.5 : report.supportMin) * 100);
     if (need <= 0) return '下方沒有支撐（不可懸空）：請移到板上或疊在其他貨物上';
@@ -382,33 +551,47 @@ export function loadsimClampToBase(item, spec) {
 }
 
 // ===== 可移動範圍（滑鼠拖曳與方向鍵共用）=====
-// 板面（貼地範圍）再往外 MARGIN 公分：讓「超出輪廓」看得到、貨物也可以騎出板邊，
-// 但不會整件飛出畫面。滑鼠拖曳另外會把 X 再放寬到暫存區（extraMaxX）。
+// 基準＝「板面（貼地）」與「輪廓」兩者較大者，再往外 MARGIN 公分：
+// 外擴型板型（H2/H3/H4/W2）的輪廓比板面大 → 疊高後的貨物才推得到 OVERHANG 區；
+// 一般板型輪廓＝板面，行為與以前相同（可以騎出板邊 40cm）。
+// 滑鼠拖曳另外會把 X / Z 再放寬到暫存區（extraMaxX / extraMaxZ）。
 export const LOADSIM_MOVE_MARGIN_CM = 40;
 
-export function loadsimClampToMoveArea(item, spec, margin = LOADSIM_MOVE_MARGIN_CM, extraMaxX = null) {
+export function loadsimClampToMoveArea(item, spec, margin = LOADSIM_MOVE_MARGIN_CM, extraMaxX = null, extraMaxZ = null) {
   const d = loadsimDimsOf(item);
   const floorX0 = spec.floorX0 === undefined ? 0 : spec.floorX0;
   const floorX1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
   const floorZ0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
   const floorZ1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
-  const maxX = Math.max(floorX1 - d.x + margin, extraMaxX === null ? -Infinity : extraMaxX);
-  const maxZ = floorZ1 - d.z + margin;
-  item.x = Math.min(Math.max(item.x, floorX0 - margin), maxX);
-  item.z = Math.min(Math.max(item.z, floorZ0 - margin), maxZ);
+  const outer = loadsimContourBounds(spec);
+  const minX = Math.min(floorX0, outer.x0) - margin;
+  const minZ = Math.min(floorZ0, outer.z0) - margin;
+  const baseMaxX = Math.max(floorX1, outer.x1) - d.x + margin;
+  const baseMaxZ = Math.max(floorZ1, outer.z1) - d.z + margin;
+  const maxX = Math.max(baseMaxX, extraMaxX === null ? -Infinity : extraMaxX);
+  const maxZ = Math.max(baseMaxZ, extraMaxZ === null ? -Infinity : extraMaxZ);
+  item.x = Math.min(Math.max(item.x, minX), maxX);
+  item.z = Math.min(Math.max(item.z, minZ), maxZ);
   item.y = Math.min(Math.max(item.y, 0), Math.max(0, spec.heightCm - d.y + margin));
   return item;
 }
 
 // ===== 暫存區（把貨物暫時拖出 Contour 放著）=====
-// 位置：板子「後方（+X）」的一塊空地，寬度同板寬，貼地高度 0。
-// 貨物拖進這裡 → item.staged = true（不在板上：不計重量、不做輪廓／重疊判定）。
-export const LOADSIM_STAGE_GAP_CM = 30;     // 與板子（輪廓）之間的間隔
-export const LOADSIM_STAGE_DEPTH_CM = 130;  // 暫存區深度（沿 X）
+// 三個暫存區（都貼地 y = 0）：
+//   ① 板子「後方（+X）」：x = baseL + gap 起、深度 130cm、寬度同板寬
+//   ② 板子「前方（+Z，靠觀察者）」：z = baseW/2 + gap 起、深度 110cm、長度同板長
+//   ③ ① 與 ② 的延伸重疊角落（板後 × 板前的斜角空地）：x、z 各自從兩區起點開始
+// 貨物拖進任一個 → item.staged = true（不在板上：不計重量、不做輪廓／重疊／ring 判定）。
+export const LOADSIM_STAGE_GAP_CM = 30;     // ① 與板子（輪廓）之間的間隔
+export const LOADSIM_STAGE_DEPTH_CM = 130;  // ① 暫存區深度（沿 X）
+export const LOADSIM_STAGE2_GAP_CM = 30;    // ② 與板子（輪廓）之間的間隔
+export const LOADSIM_STAGE2_DEPTH_CM = 110; // ② 暫存區深度（沿 Z）
 
 export function loadsimStageRect(spec) {
   const x0 = spec.baseL + LOADSIM_STAGE_GAP_CM;
   return {
+    id: 'back',
+    label: '暫存區①',
     x0,
     x1: x0 + LOADSIM_STAGE_DEPTH_CM,
     z0: -spec.baseW / 2,
@@ -417,12 +600,64 @@ export function loadsimStageRect(spec) {
   };
 }
 
-// 貨物「中心」是否落在暫存區內（放開時用來決定算不算暫存）
+// 第二個暫存區：板子前方（+Z，靠近觀察者）；長度同板長、貼地
+export function loadsimStageRect2(spec) {
+  const z0 = spec.baseW / 2 + LOADSIM_STAGE2_GAP_CM;
+  return {
+    id: 'front',
+    label: '暫存區②',
+    x0: 0,
+    x1: spec.baseL,
+    z0,
+    z1: z0 + LOADSIM_STAGE2_DEPTH_CM,
+    y: 0
+  };
+}
+
+// 第三個暫存區：①（板後 +X）與 ②（板前 +Z）延伸出去的重疊角落
+export function loadsimStageRect3(spec) {
+  const back = loadsimStageRect(spec);
+  const front = loadsimStageRect2(spec);
+  return {
+    id: 'corner',
+    label: '暫存區③',
+    x0: back.x0,
+    x1: back.x1,
+    z0: front.z0,
+    z1: front.z1,
+    y: 0
+  };
+}
+
+// 三個暫存區（① 板後方、② 板前方、③ 兩區延伸的重疊角落）
+export function loadsimStageRects(spec) {
+  return [loadsimStageRect(spec), loadsimStageRect2(spec), loadsimStageRect3(spec)];
+}
+
+// 貨物「中心」落在暫存區內（放開時用來決定算不算暫存）
 export function loadsimInStage(ext, stage) {
   if (!stage) return false;
   const cx = (ext.x0 + ext.x1) / 2;
   const cz = (ext.z0 + ext.z1) / 2;
   return cx >= stage.x0 && cx <= stage.x1 && cz >= stage.z0 && cz <= stage.z1;
+}
+
+// 貨物中心落在哪一個暫存區（① 板後方 / ② 板前方）；都不在就回 null
+export function loadsimStageAt(ext, spec) {
+  const rects = loadsimStageRects(spec);
+  for (let i = 0; i < rects.length; i++) {
+    if (loadsimInStage(ext, rects[i])) return rects[i];
+  }
+  return null;
+}
+
+// 拖曳時允許的最大 X / Z：至少放寬到「可以整件放進暫存區」
+export function loadsimStageMaxExtent(spec, dims) {
+  const rects = loadsimStageRects(spec);
+  return rects.reduce((acc, rect) => ({
+    x: Math.max(acc.x, rect.x1 - dims.x),
+    z: Math.max(acc.z, rect.z1 - dims.z)
+  }), { x: -Infinity, z: -Infinity });
 }
 
 // 把貨物夾在暫存區內（貼地）

@@ -17,9 +17,14 @@ export function loadsimFindAutoPlacement(item, spec, allItems, options = {}) {
   const fX1 = spec.floorX1 === undefined ? spec.baseL : spec.floorX1;
   const fZ0 = spec.floorZ0 === undefined ? -spec.baseW / 2 : spec.floorZ0;
   const fZ1 = spec.floorZ1 === undefined ? spec.baseW / 2 : spec.floorZ1;
+  // 板底 ring track：最底層（y = 0）只能用 ring 內框
+  const ring = spec.ringRect && !spec.ringRect.disabled ? spec.ringRect : null;
+  const boundsFor = y => (y <= 0.01 && ring
+    ? { x0: ring.x0, x1: ring.x1, z0: ring.z0, z1: ring.z1 }
+    : { x0: fX0, x1: fX1, z0: fZ0, z1: fZ1 });
 
-  const xs = new Set([fX0]);
-  const zs = new Set([round2(fZ0)]);
+  const xs = new Set();
+  const zs = new Set();
   const ys = new Set([0]);
 
   others.forEach(other => {
@@ -31,21 +36,26 @@ export function loadsimFindAutoPlacement(item, spec, allItems, options = {}) {
     if (e.y1 <= spec.heightCm) ys.add(round2(e.y1));
   });
 
-  // 均勻網格（步長 10cm，避免邊緣候選全部失效時找不到位置）
-  for (let x = fX0; x <= fX1 - dims.x; x += 10) xs.add(round2(x));
-  for (let z = fZ0; z <= fZ1 - dims.z; z += 10) zs.add(round2(z));
-
-  const xsList = [...xs]
-    .filter(v => v >= fX0 - 0.01 && v <= fX1 - dims.x + 0.01)
-    .sort((a, b) => a - b);
-  const zsList = [...zs]
-    .filter(v => v >= fZ0 - 0.01 && v <= fZ1 - dims.z + 0.01)
-    .sort((a, b) => a - b);
   const ysList = [...ys]
     .filter(v => v >= 0 && v <= spec.heightCm - dims.y + 0.01)
     .sort((a, b) => a - b);
 
   for (const y of ysList) {
+    const bounds = boundsFor(y);
+    const xsList = [...new Set([
+      ...xs,
+      // 均勻網格（步長 10cm，避免邊緣候選全部失效時找不到位置）
+      ...gridOf(bounds.x0, bounds.x1 - dims.x, 10)
+    ])]
+      .filter(v => v >= bounds.x0 - 0.01 && v <= bounds.x1 - dims.x + 0.01)
+      .sort((a, b) => a - b);
+    const zsList = [...new Set([
+      ...zs,
+      ...gridOf(bounds.z0, bounds.z1 - dims.z, 10)
+    ])]
+      .filter(v => v >= bounds.z0 - 0.01 && v <= bounds.z1 - dims.z + 0.01)
+      .sort((a, b) => a - b);
+
     for (const x of xsList) {
       for (const z of zsList) {
         const candidate = { ...item, x, y, z };
@@ -57,4 +67,12 @@ export function loadsimFindAutoPlacement(item, spec, allItems, options = {}) {
     }
   }
   return null;
+}
+
+// 均勻網格座標（含起點，終點超出就不加）
+function gridOf(start, end, step) {
+  const list = [];
+  if (!(end >= start)) return list;
+  for (let v = start; v <= end + 1e-6; v += step) list.push(round2(v));
+  return list;
 }

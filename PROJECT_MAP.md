@@ -77,7 +77,7 @@
 | `js/theme.js` | 主題切換 + Ocean 自訂色盤 |
 | `js/animations.js` | 動畫效果 |
 | `js/skills.js` | 技能頁邏輯 |
-| `js/contours.js` | Contour 頁邏輯 |
+| `js/contours.js` | Contour 頁邏輯（`#contour-search-input` **動態搜尋**：打字 debounce 250ms 即查、序號丟棄慢回應、`aria-busy`；datalist 建議值即時收斂；圖片 Modal／下載／分享／ZIP 匯出） |
 | `js/chat.js` | AI Playground 邏輯 |
 | `js/orders.js` | 訂單系統邏輯（前端主軸） |
 | `js/dbviewer.js` | 資料庫檢視器邏輯 |
@@ -223,20 +223,22 @@ created_at, updated_at
 | 前端 | `public/js/loadsim.js` + `public/js/loadsim/*` + `public/css/loadsim.css` |
 | 視圖 | 預設 **3D**（自行透視投影＋背面剔除＋由遠到近，無 Three.js）；可切「2D 剖面」＝俯視圖（寬 Z × 長 X）＋前視圖（寬 Z × 高 Y） |
 | 單位 | 內部一律 cm 浮點；畫面 **cm 取整數**、inch 1 位小數；重量固定 kg（1 位小數） |
-| 板型 | `js/loadsim/uld-specs.js` 內建 13 個，**全部依 HACTL 規格圖**（Q7-00 / Q7-02 / Q7-04 / Q3-00 / Q9-01 / Q6-00 / A4-00 / A2-00 / H2-00 / H3-00 / H4-00 / W2-00 / W2-03），尺寸取自 `public/image/HACTL_contour_spec` 圖上的英吋標註（1" = 2.54cm）；`CX_Contour` 的圖暫不採用 |
+| 板型 | `js/loadsim/uld-specs.js` 內建 26 個，**全部依 HACTL 規格圖**（Q7-00 / Q7-02 / Q7-04 / Q3-00 / Q9-01 / Q6-00 / A4-00 / A2-00 / H2-00 / H3-00 / H4-00 / W2-00 / W2-03 / ZA / ZB / ZC / **A1 / A3 / XJ / ZJ / ZQ / ZR / Z2 / Z3 / Z4 / Z5**），尺寸取自 `public/image/HACTL_contour_spec` 圖上的英吋標註（1" = 2.54cm）；`CX_Contour` 的圖只當交叉驗證（ZA/ZB/ZC 的頂面長度）暫不採用 |
+| 板型欄位 | `#loadsim-uld-select` 是**動態搜尋輸入框**（原 `<select>`）：接 `utils/autocomplete.js`，輸入即時篩選（代碼或尺寸都可），Enter／Tab／點選套用，`change`／`blur` 無法辨識就還原成目前板型；顯示「代碼　板面尺寸（輪廓 …）」 |
 | 板面 vs 輪廓 | `baseL/baseW` = 輪廓上限；貼地（板面）由剖面 y=0 的底邊自動推導（`floorX0/floorX1/floorZ0/floorZ1`、`floorL/floorW`、`flared`）。H2/H3/H4/W2 系列是「底部向外斜擴」型：貼地 125"×96"，外擴 12"/18"/7.5"/30"（W2-03 為 186" 輪廓、板底 125" 置中），地板／格線／夾制／自動放置都用板面 |
-| 輪廓 | 兩個剖面多邊形（`profileZ` 寬×高、`profileX` 長×高）以「凸多邊形半平面」判定；超出量＝點到該邊的距離 |
-| 規則 | 不可重疊、不可懸空（可關）、3D 拖曳自動疊在下方最高支撐面；超出輪廓預設「允許但標紅＋標示超出量＋**紅色區域閃爍**」，可切嚴格模式禁止；超重只警示不阻擋 |
+| 輪廓 | 兩個剖面多邊形（`profileZ` 寬×高、`profileX` 長×高）以「半平面」判定；凸多邊形直接用所有邊，**凹多邊形（A1 階梯）改用 `loadsimPointInPolygon()` 只認「真的在多邊形外的角」**（`.poly` 掛在 `loadsimBuildPlanes()` 的回傳陣列上）；超出量＝點到該邊的距離 |
+| 規則 | 不可重疊、不可懸空（可關）、3D 拖曳自動疊在下方最高支撐面；**最底層（貼地）不可壓在板底 ring track 上（第二層以上不限）**；超出輪廓預設「允許但標紅＋標示超出量＋**紅色區域閃爍**」，可切嚴格模式禁止；超重只警示不阻擋。拖曳可移動範圍＝「板面 ∪ 輪廓」再外擴 40cm（外擴型板型的第二層才推得到 OVERHANG） |
 | 出界提示 | 出界區塊（3D 紅色半透明體積＋45° 紅色斜線網底／2D 紅色斜線）**畫在貨物本體之後**（先畫會被 0.94 不透明的貨物蓋掉），3D 端面做背面剔除，透明度隨 `overflowPhase` 弱弱地呼吸；每塊出界區都有 `+xx cm` 標籤，**標籤再用虛線引線連到「界的那一條邊」**（`geometry.loadsimOverflowBoundary()` 算出「貨物剖面 ∩ 超出平面」的線段；3D 取面向鏡頭那一面畫紅線＋圓點，2D 俯視標紅板面邊線、前視標紅輪廓剖面邊），摘要警示列出「#id 方位 +xx cm」，明細列另有「出界」欄 |
-| Hover 邊長 | 滑鼠移到貨物上時，**看得見的每一條邊都標長度**：3D `render3d.drawEdgeDims()`（12 條邊中「至少一個相鄰面朝向鏡頭」者，太短 <18px 或同數字 26px 內重複會略過）；2D 俯視／前視各標四條邊（水平＝寬 Z，垂直＝長 X／高 Y，框太小就不標）。浮動 tooltip 的名稱後面帶對應的 **`| #CTN`** |
+| Hover 邊長 | 滑鼠移到貨物上時，**看得見的每一條邊都標長度**：3D `render3d.drawEdgeDims()`（12 條邊中「至少一個相鄰面朝向鏡頭」者，太短 <18px 或同數字 26px 內重複會略過）；2D 俯視／前視各標四條邊（水平＝寬 Z，垂直＝長 X／高 Y，框太小就不標）。浮動 tooltip 的名稱後面帶對應的 **`| #CTN`**。**Contour 本身的邊也一律標長度**：3D `render3d.envelopeEdges()/drawEnvelopeDims()` 把兩個端面的多邊形邊＋擠出方向的邊（座標去重）逐條標在白底 pill 上 |
 | 上貨支撐面積 | 上層貨物底面需有 ≥ **50%**（畫面可勾選／調整 0–100，`supportMinPct`，存 localStorage）落在下層頂面；**取消勾選「上貨需壓在下方貨物 X% 面積」＝只要有支撐就不看比例**（仍不可懸空）；多個支撐物以聯集計算，不足時提示「下方支撐面積只有 xx%」；自動疊高也只在合格的那一層停 |
 | 單件重量上限 | 可勾選啟用（`itemMaxKg`，預設 1000kg）；取消勾選＝不檢查單件重量（摘要不再列「超過單件上限」） |
-| 版面 | 畫布在上方**全寬**（`.loadsim-view`），畫布下方依序是摘要（`#loadsim-summary-top`：件數／重量 chip＋超重・出界警示）與貨物明細列；① **新增/修改貨物**（`#loadsim-dim-rows` 可「＋ 新增」多列尺寸，名稱下方是 MAWB 欄；長/寬/高輸入框只有 54px＝剛好 3 位數，重量／件數 62px；名稱／MAWB 的標籤是固定寬度的 `<span class="loadsim-form-label">`，兩個輸入框左邊對齊；點明細列會載入表單修改）與 ② 待裝在更下方並排（`.loadsim-bottom`）；選項區每項各一行（嚴格模式 → 不可懸空 → 上貨需壓 X% 面積 → 單件重量上限，後兩者可勾選啟用）；板型與單位註記留在卡片底部 `#loadsim-summary` |
-| 暫存區 | 板後方（`baseL` + 30cm 起、深 130cm、寬同板寬）的虛線空地：貨物拖進去＝`staged`（不算在板上、不計重量、不做輪廓／重疊／支撐判定，3D/2D 都用虛線灰框畫） |
+| 版面 | 畫布在上方**全寬**（`.loadsim-view`），畫布下方依序是摘要（`#loadsim-summary-top`：件數／重量 chip＋超重・出界警示）與貨物明細列；① **新增/修改貨物**（`#loadsim-dim-rows` 可「＋ 新增」多列尺寸，名稱下方是 MAWB 欄；長/寬/高輸入框只有 54px＝剛好 3 位數，重量／件數 62px；名稱／MAWB 的標籤是固定寬度的 `<span class="loadsim-form-label">`，兩個輸入框左邊對齊；點明細列會載入表單修改）與 ② 待裝在更下方並排（`.loadsim-bottom`）；選項區每項各一行（嚴格模式 → 不可懸空 → 上貨需壓 X% 面積 → 單件重量上限，後兩者可勾選啟用）；板型與單位註記留在卡片底部 `#loadsim-summary`。標題列 `.loadsim-title-row` 把說明（`.loadsim-desc`，0.72rem）接在 `<h2>` 後面同一行；`.loadsim-stage` 用 `height: clamp(420px, calc(100vh - 220px), 1100px)` 當後備，再由 `loadsim.js` 的 `syncStageHeight()` 補正成「剛好填滿視窗、摘要列貼底」；算式用**捲動容器的內容座標**（`scrollContainerOf()` 找 `.app-layout`，`stageTop = rect.top − scrollerRect.top + scrollTop`），**與頁面捲到哪裡無關**（不會按「產生貨物」就暴增）→ 一進頁面就是最大畫布；工具列另有「板底 薄板／厚板」切換 |
+| 暫存區 | **三個**虛線空地（貼地）：**① 板後方**（`baseL` + 30cm 起、深 130cm、寬同板寬）、**② 板前方**（板寬/2 + 30cm 起、深 110cm、長同板長）、**③ ①×② 延伸的重疊角落**（x 同 ①、z 同 ②）。貨物中心落進去＝`staged`（不算在板上、不計重量、不做輪廓／重疊／支撐／ring 判定，3D/2D 都用虛線灰框畫並標「暫存區①②③」）；`geometry.loadsimStageRects()/loadsimStageAt()/loadsimStageMaxExtent()` 是唯一來源 |
+| 板底 ring track | 板底四邊的 ring track，**最底層（貼地）不可壓上去，第二層以上不受限**。**與「超出輪廓」同一套處理**：預設允許但標紅（紅色斜線＋`ring +xx cm` 標籤＋閃爍）＋摘要警示＋明細列「出界」欄 `ring +xx`，**嚴格模式才真的擋下**。**薄板**（預設）四邊內縮 2.5"／3" → 內側 120"×90"；**厚板** 3.5"／4" → 118"×88"；工具列「板底 薄板／厚板」切換（`state.plateType`）。`geometry.loadsimRingRect()` 算內框 → `spec.ringRect`、`loadsimRingHitRects()` 算被壓到的帶狀區，`loadsimEvaluatePlacement()` 回 `onRing/ringBlocked`；3D/2D 都畫出琥珀色帶＋內框虛線＋「第一層可裝」尺寸，摘要也列一行 |
 | 貨物明細 | 畫布下方的 `#loadsim-item-lines`：每件一行（`#id`／名稱／**MAWB**／尺寸／**CBM**／重量／**出界量**／狀態）。CBM＝單件 長×寬×高（`weight.loadsimItemCbm()`，cm³÷10⁶，顯示 3 位小數、可排序）。同一個 MAWB 有多種尺寸時，第一列是 **parent**（顯示 MAWB，右端有 🗑 刪除整個 MAWB），其餘是 **child**（名稱前 `↳` 縮排）；表頭每欄都有 FontAwesome 排序圖示（`fa-sort`／`fa-sort-up`／`fa-sort-down`，升降冪切換、同一個 MAWB 不會被拆開）；列尾 `✕` 刪除單筆尺寸。**點一行 → 該筆（或整個 MAWB）載入 ① 表單修改**，也在畫布上閃爍 1.8 秒 |
 | 暫存 | `localStorage['loadsim-state-v1']`（單位／板型／貨物／板型覆寫），免登入、無 DB |
-| 刪除／微調 | 明細列刪除後，上方貨物會「物理地」落下（`loadsim/settle.js`，只往下掉、由低到高重算）；選取貨物後方向鍵 ↑↓←→ 在俯視圖方向移動 **1 個顯示單位**（cm 1cm／inch 2.54cm），可移動範圍與滑鼠拖曳相同（`geometry.loadsimClampToMoveArea()`：板面 ±40cm，可以騎出板邊／輪廓），重疊或嚴格模式出界會提示不動 |
-| 測試 | `node scripts/test-loadsim-geometry.js`（83 項）、`node scripts/test-loadsim-frontend.js`（122 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊）、表單修改與選項開關） |
+| 刪除／微調 | 明細列刪除後，上方貨物會「物理地」落下（`loadsim/settle.js`，只往下掉、由低到高重算）；選取貨物後方向鍵 ↑↓←→ 移動 **1 個顯示單位**（cm 1cm／inch 2.54cm）：**2D 剖面**固定俯視圖方向（↑ +X／↓ −X／← −Z／→ +Z），**3D 依目前視角**把「螢幕上／右」投影到板面（轉過視角後 ↑ 仍是螢幕往上、→ 仍是螢幕往右），可移動範圍與滑鼠拖曳相同（`geometry.loadsimClampToMoveArea()`：板面 ∪ 輪廓 ±40cm，可以騎出板邊／輪廓），重疊或嚴格模式出界會提示不動 |
+| 測試 | `npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（136 項）＋`node scripts/test-loadsim-frontend.js`（153 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊、3D 螢幕方向）、表單修改與選項開關、畫布高度與捲動無關） |
 
 ---
 

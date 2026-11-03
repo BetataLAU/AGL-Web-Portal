@@ -5,7 +5,8 @@
 // 不合法（重疊、懸空、嚴格模式下超出輪廓）→ 放開時彈回並提示原因。
 import {
   loadsimDimsOf, loadsimExtents, loadsimEvaluatePlacement, loadsimPlacementReason, loadsimSupportHeight,
-  loadsimSupportMinRatio, loadsimStageRect, loadsimInStage, loadsimClampToStage, loadsimClampToMoveArea
+  loadsimSupportMinRatio, loadsimSupportRatio, loadsimStageAt, loadsimClampToStage, loadsimClampToMoveArea,
+  loadsimStageMaxExtent, LOADSIM_EPS
 } from './geometry.js';
 import {
   loadsimState, loadsimGetItem, loadsimPlaceItem, loadsimMoveItem, loadsimSelect,
@@ -13,7 +14,7 @@ import {
 } from './state.js';
 import {
   loadsimPointerToWorld, loadsimHitTest, loadsimGetLayout, loadsimGetViewMode,
-  loadsimOrbit, loadsimZoom
+  loadsimGetCamera, loadsimOrbit, loadsimZoom
 } from './render.js';
 
 const SNAP_CM = 2.5;    // 吸附距離（cm）
@@ -59,6 +60,8 @@ export function loadsimGetPreview() {
     item: session.temp,
     valid: session.valid,
     overflows: session.report ? session.report.overflows : [],
+    onRing: !!(session.report && session.report.onRing),
+    ringOverlap: session.report ? (session.report.ringOverlap || 0) : 0,
     reason: session.reason || ''
   };
 }
@@ -294,7 +297,11 @@ function handlePointerUp(ev) {
     loadsimMoveItem(finished.itemId, {
       x: finished.temp.x, y: finished.temp.y, z: finished.temp.z
     }, !!finished.temp.staged);
-    if (finished.temp.staged) deps.notify('已暫存到板外（不在板上、不計重量）');
+    if (finished.temp.staged) {
+      deps.notify('已暫存到板外（不在板上、不計重量）');
+    } else if (finished.report && finished.report.onRing) {
+      deps.notify('已放下，但第一層壓在板底 ring track 上（紅色區域；嚴格模式會擋下）');
+    }
   } else {
     deps.notify(finished.reason || '這裡放不進去，已彈回原位');
     loadsimEmit();
@@ -386,9 +393,12 @@ function handleSpawnUp() {
     loadsimPlaceItem(finished.itemId, {
       x: finished.temp.x, y: finished.temp.y, z: finished.temp.z
     }, !!finished.temp.staged);
+    const onRing = !!(finished.report && finished.report.onRing) && !finished.temp.staged;
     deps.notify(finished.temp.staged
       ? `已暫存 ${finished.temp.name}（板外暫存區）`
-      : `已放置 ${finished.temp.name}`, 'ok');
+      : (onRing
+        ? `已放置 ${finished.temp.name}：第一層壓在板底 ring track 上（紅色區域；嚴格模式會擋下）`
+        : `已放置 ${finished.temp.name}`), 'ok');
   } else {
     deps.notify(finished.reason || '放不進去：請拖到板面範圍內');
     loadsimEmit();
@@ -422,13 +432,14 @@ function updateTempFromPointer(world) {
     }
   }
 
-  // ===== 暫存區：拖到板外的空地 → staged（不做輪廓／重疊／支撐判定）=====
-  const stage = loadsimStageRect(spec);
+  // ===== 暫存區（① 板後方 / ② 板前方）：拖到板外的空地 → staged（不做輪廓／重疊／支撐判定）=====
+  const stageMax = loadsimStageMaxExtent(spec, dims);
   item.staged = false;
   if (is3d || world.panel === 'top') {
-    // 先放寬 X 的夾制範圍才拖得到暫存區（板面 → 板後的暫存區）
-    loadsimClampToMoveArea(item, spec, MARGIN_CM, stage.x1 - dims.x);
-    if (loadsimInStage(loadsimExtents(item), stage)) {
+    // 先放寬 X / Z 的夾制範圍才拖得到暫存區（板面 → 暫存區）
+    loadsimClampToMoveArea(item, spec, MARGIN_CM, stageMax.x, stageMax.z);
+    const stage = loadsimStageAt(loadsimExtents(item), spec);
+    if (stage) {
       item.staged = true;
       loadsimClampToStage(item, stage);
       session.report = { ok: true, fits: true, overlaps: [], overflows: [], supported: true, overhangMax: 0 };
@@ -443,17 +454,28 @@ function updateTempFromPointer(world) {
   item.z = snapAxis(item.z, snap.z, SNAP_CM);
   if (!is3d) item.y = snapAxis(item.y, snap.y, SNAP_CM);
 
-  // 夾制範圍＝「貼地（板面）±40cm」～「暫存區末端」，不是輪廓上限
-  // （外擴型板型的輪廓比板面大：貼地時不能擺在板面以外，但疊高後可以伸進外擴區 → 由輪廓判定負責）
+  // 夾制範圍＝「板面 ∪ 輪廓 ±40cm」～「暫存區末端」
+  // （外擴型板型的輪廓比板面大：貼地時以板面為準，但疊高後可以伸進外擴／OVERHANG 區 → 由輪廓判定負責）
   // 與方向鍵微調共用 loadsimClampToMoveArea()，兩者的可移動範圍才會一致（都能騎出板邊）
-  loadsimClampToMoveArea(item, spec, MARGIN_CM, stage.x1 - dims.x);
+  loadsimClampToMoveArea(item, spec, MARGIN_CM, stageMax.x, stageMax.z);
 
   // 3D：自動疊在下方最高的支撐面（地板 = 0），拖到哪一疊就疊上去
   //      只會停在「支撐面積合格」的層（比例由畫面選項決定，預設 50%）
+  //      ★ 例外：貨物本來就在高處、而且目前高度還有「部分接觸」時，維持高度不讓它掉到地面
+  //        → 判定會回報「下方支撐面積只有 xx%（需 ≥ yy%）」，而不是掉下去壓到下方貨物、
+  //          訊息變成「與其他貨物重疊」（第二層推不到 OVERHANG 又看不懂原因的主因）。
   if (is3d) {
-    item.y = clamp(
-      loadsimSupportHeight(loadsimExtents(item), others, loadsimSupportMinRatio(loadsimState)),
-      0, Math.max(0, spec.heightCm - dims.y + MARGIN_CM));
+    const ext = loadsimExtents(item);
+    const maxY = Math.max(0, spec.heightCm - dims.y + MARGIN_CM);
+    const qualified = loadsimSupportHeight(ext, others, loadsimSupportMinRatio(loadsimState));
+    const keepY = item.y > LOADSIM_EPS
+      ? loadsimSupportRatio({ ...ext, y0: item.y, y1: item.y + (ext.y1 - ext.y0) }, others)
+      : 0;
+    if (keepY > 0 && qualified <= 0) {
+      item.y = clamp(item.y, 0, maxY);
+    } else {
+      item.y = clamp(qualified, 0, maxY);
+    }
   }
 
   const report = loadsimEvaluatePlacement(item, spec, others, {
@@ -532,13 +554,30 @@ export function rotateItemSafely(itemId) {
 }
 
 // ===== 鍵盤方向鍵：把「選取中」的貨物在板面上微調 1 個單位（cm / inch）=====
-// 從俯視圖思考：↑＝+X（往板後）、↓＝-X、←＝-Z（左）、→＝+Z（右）
+// 2D 剖面（俯視圖）：↑＝+X（往板後）、↓＝-X、←＝-Z（左）、→＝+Z（右）
+// 3D：依目前相機的 yaw 把「螢幕往上／往右」投影到板面 → 轉過視角後，
+//     ↑ 仍然是使用者看到的「螢幕往上」、→ 仍然是「螢幕往右」（不會變成板子的固定方向）。
 const ARROW_MOVES = {
   ArrowUp: [1, 0],
   ArrowDown: [-1, 0],
   ArrowLeft: [0, -1],
   ArrowRight: [0, 1]
 };
+
+// 把 [螢幕上, 螢幕右] 換算成板面位移 [dx, dz]。
+// 相機位置 = target + (cos(pitch)sin(yaw), sin(pitch), cos(pitch)cos(yaw))，
+// 因此螢幕右方＝(cos yaw, 0, -sin yaw)、螢幕上方投影到板面＝(-sin yaw, 0, -cos yaw)。
+function screenRelativeMove(move) {
+  if (loadsimGetViewMode() !== '3d') return move;
+  const camera = loadsimGetCamera();
+  const yaw = ((camera && camera.yaw) || 0) * Math.PI / 180;
+  const sin = Math.sin(yaw);
+  const cos = Math.cos(yaw);
+  return [
+    move[0] * -sin + move[1] * cos,
+    move[0] * -cos + move[1] * -sin
+  ];
+}
 
 function nudgeSelectedItem(move) {
   const id = loadsimState.selectedId;
@@ -549,11 +588,12 @@ function nudgeSelectedItem(move) {
 
   // 1 個顯示單位（cm 為 1cm，inch 為 1 inch = 2.54cm）
   const step = loadsimState.unit === 'in' ? 2.54 : 1;
+  const direction = screenRelativeMove(move);
   const candidate = {
     ...item,
     dims: { ...item.dims },
-    x: item.x + move[0] * step,
-    z: item.z + move[1] * step
+    x: item.x + direction[0] * step,
+    z: item.z + direction[1] * step
   };
   // 可移動範圍與滑鼠拖曳一致（板面 ±40cm）→ 方向鍵也可以把貨物騎出板邊／輪廓
   loadsimClampToMoveArea(candidate, spec);
@@ -574,8 +614,14 @@ function nudgeSelectedItem(move) {
 
   // 先沿下方最高的合格支撐面落下（移出堆疊時會自然掉到較低的位置），
   // 再判斷合法性 → 才不會出現「移到新位置後才落到地面，結果和下方貨物重疊」。
+  // 與滑鼠拖曳相同：原本就在高處且還有部分接觸時維持高度，讓訊息指出「支撐面積不足」。
   const minRatio = loadsimState.requireSupport ? loadsimSupportMinRatio(loadsimState) : 0;
-  candidate.y = loadsimSupportHeight(loadsimExtents(candidate), others, minRatio);
+  const candidateExt = loadsimExtents(candidate);
+  const qualified = loadsimSupportHeight(candidateExt, others, minRatio);
+  const keepY = candidate.y > LOADSIM_EPS
+    ? loadsimSupportRatio({ ...candidateExt, y0: candidate.y, y1: candidate.y + (candidateExt.y1 - candidateExt.y0) }, others)
+    : 0;
+  candidate.y = (keepY > 0 && qualified <= 0) ? candidate.y : qualified;
 
   const report = loadsimEvaluatePlacement(candidate, spec, others, options);
   if (!report.ok) {
@@ -584,6 +630,9 @@ function nudgeSelectedItem(move) {
   }
 
   loadsimMoveItem(item.id, { x: candidate.x, y: candidate.y, z: candidate.z }, false);
+  if (report.onRing) {
+    deps.notify('第一層壓在板底 ring track 上（紅色區域；嚴格模式會擋下）');
+  }
   return true;
 }
 

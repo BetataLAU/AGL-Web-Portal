@@ -39,6 +39,28 @@
   gap: 8px;
 }
 
+/* ===== 標題列：說明文字縮小並接在標題後面（同一行）===== */
+.loadsim-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  min-width: 0;
+}
+
+.loadsim-title-row h2 {
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 說明文字：比一般 card-desc 小一號，直接跟在標題後面 */
+.loadsim-title-row .loadsim-desc {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  max-width: 100%;
+}
+
 .loadsim-select-wrap {
   display: flex;
   align-items: center;
@@ -47,7 +69,15 @@
   color: var(--text-muted);
 }
 
-.loadsim-select-wrap select {
+/* 板型改為「動態搜尋」輸入框（原 <select>）；下拉清單由 utils/autocomplete.js 掛在這層，
+   所以這一層要 position: relative 才會貼在輸入框下方。 */
+.loadsim-select-field {
+  position: relative;
+  display: inline-flex;
+}
+
+.loadsim-select-wrap select,
+.loadsim-select-wrap input {
   padding: 7px 10px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -57,12 +87,64 @@
   max-width: 260px;
 }
 
+.loadsim-select-wrap input {
+  width: 260px;
+}
+
+.loadsim-select-field .app-autocomplete-list {
+  width: 100%;
+  min-width: 260px;
+}
+
+.loadsim-select-field .app-autocomplete-item {
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+
 .loadsim-unit {
   display: inline-flex;
   border: 1px solid var(--border-color);
   border-radius: 999px;
   overflow: hidden;
   background: var(--input-bg);
+}
+
+/* 板底 ring track 類型（薄板／厚板）：樣式比照 cm／inch 切換 */
+.loadsim-plate-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.loadsim-plate {
+  display: inline-flex;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+
+.loadsim-plate-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.loadsim-plate-btn + .loadsim-plate-btn {
+  border-left: 1px solid var(--border-color);
+}
+
+.loadsim-plate-btn.active {
+  background: var(--primary-gradient);
+  color: #ffffff;
 }
 
 .loadsim-unit-btn {
@@ -455,11 +537,14 @@
 }
 
 /* ===== 畫布區 ===== */
+/* 畫布高度＝視窗可用高度（扣掉主內容 padding、卡片標題列與摘要列），
+   一進入這個頁面就看到「最大面積」的畫布，不用上下捲動（明細列與 ①／② 表單往下一點）。 */
 .loadsim-stage {
   position: relative;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 520px;
+  height: clamp(420px, calc(100vh - 220px), 1100px);
+  min-height: 420px;
   border: 1px solid var(--border-color);
   border-radius: 16px;
   background: rgba(148, 163, 184, 0.07);
@@ -1016,7 +1101,8 @@
   }
 
   .loadsim-stage {
-    min-height: 420px;
+    height: clamp(380px, calc(100vh - 210px), 900px);
+    min-height: 380px;
   }
 }
 
@@ -1039,11 +1125,21 @@
   }
 
   .loadsim-stage {
-    min-height: 360px;
+    height: clamp(320px, 62vh, 720px);
+    min-height: 320px;
   }
 
-  .loadsim-select-wrap select {
+  .loadsim-select-wrap select,
+  .loadsim-select-wrap input {
     max-width: 180px;
+  }
+
+  .loadsim-select-wrap input {
+    width: 180px;
+  }
+
+  .loadsim-select-field .app-autocomplete-list {
+    min-width: 180px;
   }
 }
 

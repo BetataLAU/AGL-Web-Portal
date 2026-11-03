@@ -118,8 +118,13 @@ function getEl(id, tag = 'div') {
   'loadsim-support-area-enabled', 'loadsim-item-max-enabled', 'loadsim-btn-cancel-edit', 'loadsim-edit-hint'
 ].forEach(id => getEl(id));
 
-getEl('loadsim-uld-select', 'select');
+getEl('loadsim-uld-select', 'input');
 getEl('loadsim-canvas', 'canvas');
+
+// 板型動態搜尋用共用 autocomplete（public/js/utils/autocomplete.js 是傳統 script，
+// 這裡用假實作捕捉設定，才能驗證「輸入即篩選」的候選清單與選取流程）
+let uldAutocomplete = null;
+globalThis.setupAutocomplete = config => { uldAutocomplete = config; };
 
 // 摘要拆成兩塊：上半段（件數／重量／警示，夾在畫布與明細列之間）＋底部（板型與單位註記）
 function allSummaryHtml() {
@@ -153,11 +158,18 @@ btn3d.dataset.view = '3d';
 const btn2d = new FakeEl('view-2d', 'button');
 btn2d.dataset.view = '2d';
 
+// 板底 ring track 切換按鈕（薄板 / 厚板）
+const btnThin = new FakeEl('plate-thin', 'button');
+btnThin.dataset.plate = 'thin';
+const btnThick = new FakeEl('plate-thick', 'button');
+btnThick.dataset.plate = 'thick';
+
 const root = getEl('section-loadsim');
 root.querySelectorAll = selector => {
   if (selector === '.loadsim-unit-btn') return [btnCm, btnIn];
   if (selector === '[data-loadsim-unit]') return [labelA, labelB];
   if (selector === '.loadsim-view-btn') return [btn3d, btn2d];
+  if (selector === '.loadsim-plate-btn') return [btnThin, btnThick];
   return [];
 };
 
@@ -187,7 +199,11 @@ globalThis.localStorage = {
   setItem: (key, value) => storage.set(key, String(value)),
   removeItem: key => storage.delete(key)
 };
-globalThis.getComputedStyle = () => ({ getPropertyValue: () => '' });
+globalThis.getComputedStyle = el => ({
+  // scrollContainerOf()（畫布高度計算）會讀 overflowY，其餘模組只讀 CSS 變數
+  overflowY: (el && el.overflowY) || 'visible',
+  getPropertyValue: () => ''
+});
 globalThis.confirm = () => true;
 globalThis.alert = () => {};
 globalThis.addEventListener = (type, fn) => {
@@ -242,9 +258,22 @@ function submitItemForm() {
   check('1.1 模組載入後提供 window.setupLoadsimSection', typeof globalThis.setupLoadsimSection === 'function');
   globalThis.setupLoadsimSection();
 
-  const select = getEl('loadsim-uld-select');
-  check('1.2 板型下拉已填入所有板型', (select.innerHTML.match(/<option/g) || []).length === specModule.LOADSIM_ULD_SPECS.length,
-    `${(select.innerHTML.match(/<option/g) || []).length} / ${specModule.LOADSIM_ULD_SPECS.length}`);
+  const uldInput = getEl('loadsim-uld-select');
+  check('1.2 板型欄位已改為動態搜尋（autocomplete 綁在同一個輸入框）',
+    !!uldAutocomplete && uldAutocomplete.input === uldInput,
+    uldAutocomplete ? '已綁定' : '未綁定');
+  const uldLabels = uldAutocomplete ? uldAutocomplete.suggestions() : [];
+  check('1.2b 動態搜尋候選 = 全部板型', uldLabels.length === specModule.LOADSIM_ULD_SPECS.length,
+    `${uldLabels.length} / ${specModule.LOADSIM_ULD_SPECS.length}`);
+  check('1.2c 欄位顯示目前板型（代碼＋板面尺寸）', String(uldInput.value).startsWith('Q7-00'), String(uldInput.value));
+  const zqLabel = uldLabels.find(label => label.startsWith('ZQ'));
+  if (uldAutocomplete && zqLabel) uldAutocomplete.onSelect(zqLabel);
+  check('1.2d 從動態搜尋清單選「ZQ」→ 直接套用該板型',
+    state.uldCode === 'ZQ' && String(uldInput.value).startsWith('ZQ'),
+    `${state.uldCode}｜${uldInput.value}`);
+  uldInput.value = 'Q7-00';
+  uldInput.fire('change', {});
+  check('1.2e 直接輸入代碼「Q7-00」→ 套用（完全符合比對）', state.uldCode === 'Q7-00');
   check('1.3 預設板型 = Q7-00', state.uldCode === 'Q7-00');
   check('1.4 單位標籤顯示 cm', labelA.textContent === 'cm' && labelB.textContent === 'cm');
 
@@ -310,8 +339,10 @@ function submitItemForm() {
   const spawnId = state.items[state.items.length - 1].id;
   const beforeSpawnCount = state.items.filter(item => item.placed).length;
 
+  // 放開在板面中央偏左（px 137 / py 433 → x≈100、z≈-42）：
+  // 板底 ring track 規則下，最底層只能放在 ring 內框，不要放在板面邊緣。
   dragModule.loadsimStartSpawnDrag(spawnId, { pointerId: 1 });
-  (globalListeners.get('pointermove') || []).forEach(fn => fn({ clientX: 100, clientY: 200 }));
+  (globalListeners.get('pointermove') || []).forEach(fn => fn({ clientX: 137, clientY: 433 }));
   (globalListeners.get('pointerup') || []).forEach(fn => fn({}));
   const spawned = state.items.find(item => item.id === spawnId);
   check('6.1 從清單拖進畫布 → 放置成功', !!spawned && spawned.placed === true);
@@ -320,9 +351,9 @@ function submitItemForm() {
 
   const beforeMove = { x: spawned.x, z: spawned.z };
   getEl('loadsim-canvas').fire('pointerdown', {
-    button: 0, pointerType: 'mouse', clientX: 100, clientY: 200, pointerId: 2, preventDefault() {}
+    button: 0, pointerType: 'mouse', clientX: 137, clientY: 433, pointerId: 2, preventDefault() {}
   });
-  getEl('loadsim-canvas').fire('pointermove', { clientX: 160, clientY: 200, pointerId: 2 });
+  getEl('loadsim-canvas').fire('pointermove', { clientX: 197, clientY: 433, pointerId: 2 });
   getEl('loadsim-canvas').fire('pointerup', { pointerId: 2 });
   const moved = state.items.find(item => item.id === spawnId);
   check('6.4 在俯視圖拖曳 → 左右位置改變（Z）', !!moved && Math.abs(moved.z - beforeMove.z) > 10,
@@ -348,9 +379,9 @@ function submitItemForm() {
   strict.fire('change', {});
   check('8.2 取消嚴格模式 → 允許超出（會標紅）', state.allowOverhang === true);
 
-  // ===== 板型切換 =====
-  select.value = 'Q7-04';
-  select.fire('change', {});
+  // ===== 板型切換（動態搜尋輸入框）=====
+  uldInput.value = 'Q7-04';
+  uldInput.fire('change', {});
   check('9.1 切換板型成功', state.uldCode === 'Q7-04');
   check('9.2 切換板型後重新繪製', drawCalls.length > 0);
 
@@ -428,7 +459,7 @@ function submitItemForm() {
     beforeOrbit && afterReset ? `x ${afterReset.x.toFixed(1)} vs ${beforeOrbit.x.toFixed(1)}` : '');
 
   // ===== 12. 3D 取景：各板型都應完整落在畫布內（避免「畫面空白」）=====
-  ['Q7-00', 'Q7-04', 'Q3-00', 'A2-00'].forEach(code => {
+  ['Q7-00', 'Q7-04', 'Q3-00', 'A2-00', 'ZA', 'ZC'].forEach(code => {
     const spec = specModule.loadsimGetSpec(code, null);
     renderModule.loadsimDraw({ ...drawOptions, spec, items: [] });
     const corners = [];
@@ -712,6 +743,62 @@ function submitItemForm() {
     check('19.2 拖到暫存區 → staged', false, '取不到命中點');
   }
 
+  // ===== 19.6 第二暫存區（② 板前方）：拖到板前空地同樣算暫存（不計重量）=====
+  const stage2Rect = geomModule.loadsimStageRect2(stageSpec);
+  check('19.6 第二暫存區在板前方（z 從板寬/2 + 30cm 起、長度同板長）',
+    Math.abs(stage2Rect.z0 - (stageSpec.baseW / 2 + 30)) < 0.01 &&
+    Math.abs(stage2Rect.x1 - stageSpec.baseL) < 0.01);
+  const stage2Item = {
+    id: 981, name: 'S2', dims: { l: 60, w: 60, h: 60 }, weight: 30,
+    color: '#f59e0b', orient: 0, placed: true, staged: false, x: 120, y: 0, z: -40
+  };
+  stateModule.loadsimState.items = [stage2Item];
+  stateModule.loadsimState.selectedId = null;
+  renderModule.loadsimResetView();
+  renderModule.loadsimDraw({ ...drawOptions, spec: stageSpec, items: stateModule.loadsimState.items });
+  const s2Ext = geomModule.loadsimExtents(stage2Item);
+  const s2Center = renderModule.loadsimProjectPoint({
+    x: (s2Ext.x0 + s2Ext.x1) / 2, y: (s2Ext.y0 + s2Ext.y1) / 2, z: (s2Ext.z0 + s2Ext.z1) / 2
+  });
+  const s2Hit = s2Center ? renderModule.loadsimHitTest(s2Center.x, s2Center.y) : null;
+  if (s2Hit && s2Hit.point) {
+    const stage2CenterPx = renderModule.loadsimProjectPoint({
+      x: (stage2Rect.x0 + stage2Rect.x1) / 2,
+      y: s2Hit.point.y,
+      z: (stage2Rect.z0 + stage2Rect.z1) / 2
+    });
+    getEl('loadsim-canvas').fire('pointerdown', {
+      button: 0, pointerType: 'mouse', clientX: s2Center.x, clientY: s2Center.y,
+      pointerId: 21, preventDefault() {}
+    });
+    getEl('loadsim-canvas').fire('pointermove', {
+      clientX: stage2CenterPx.x, clientY: stage2CenterPx.y, pointerId: 21
+    });
+    const staged2Preview = dragModule.loadsimGetPreview();
+    getEl('loadsim-canvas').fire('pointerup', { pointerId: 21 });
+    const moved2 = stateModule.loadsimState.items[0];
+    check('19.7 拖到前方暫存區② → staged 且位置落在第二區內',
+      moved2.staged === true &&
+      moved2.z >= stage2Rect.z0 - 1 && moved2.z <= stage2Rect.z1 &&
+      moved2.x >= stage2Rect.x0 - 1 && moved2.x <= stage2Rect.x1,
+      `x=${moved2.x.toFixed(1)} z=${moved2.z.toFixed(1)} staged=${moved2.staged}`);
+    check('19.8 前方暫存的預覽也判定為可放（不做輪廓／重疊檢查）',
+      !!staged2Preview && staged2Preview.valid === true && staged2Preview.overflows.length === 0);
+  } else {
+    check('19.7 拖到前方暫存區② → staged', false, '取不到命中點');
+  }
+
+  // 3D 會畫出三個暫存區標籤（① 板後方、② 板前方、③ 兩區延伸的重疊角落）
+  const stageLabelsFrom = drawCalls.length;
+  renderModule.loadsimDraw({ ...drawOptions, spec: stageSpec, items: [] });
+  const stageLabelTexts = drawCalls.slice(stageLabelsFrom)
+    .filter(c => c.name === 'fillText').map(c => String(c.args[0]));
+  check('19.9 3D 畫出「暫存區①」「暫存區②」「暫存區③」三個空地',
+    stageLabelTexts.some(t => t.includes('暫存區①')) &&
+    stageLabelTexts.some(t => t.includes('暫存區②')) &&
+    stageLabelTexts.some(t => t.includes('暫存區③')),
+    stageLabelTexts.filter(t => t.includes('暫存區')).join(' / '));
+
   // ===== 24. 「上貨需壓在下方貨物 ▢% 面積」選項 =====
   check('24.1 預設支撐面積門檻 = 50%', stateModule.loadsimState.supportMinPct === 50);
   const supportInput = getEl('loadsim-support-min');
@@ -930,8 +1017,11 @@ function submitItemForm() {
   const fallFloor = settleModule.loadsimFallHeight(asideItem, [lowItem, asideItem], { requireSupport: true, supportMinPct: 50 });
   check('27.6b 下方沒有貨物 → 掉到地面（0）', Math.abs(fallFloor) < 1e-6, `y=${fallFloor}`);
 
-  // 27.7 方向鍵：選取中的貨物 1cm / 1inch 微調（俯視圖方向）
+  // 27.7 方向鍵：選取中的貨物 1cm / 1inch 微調
+  // 2D 剖面＝固定俯視圖方向（↑ +X、↓ -X、← -Z、→ +Z）；
+  // 3D 依目前視角換算成「螢幕方向」→ 見 27.8。
   stateModule.loadsimState.unit = 'cm';
+  renderModule.loadsimSetViewMode('2d');
   stateModule.loadsimState.items = [
     { id: 61, mawb: '', name: 'Nudge', dims: { l: 50, w: 50, h: 50 }, weight: 10, color: '#2563eb', orient: 0, placed: true, staged: false, x: 50, y: 0, z: -50 }
   ];
@@ -950,28 +1040,115 @@ function submitItemForm() {
   check('27.7c 單位切成 inch → 一次移動 1 inch（2.54cm）', Math.abs(nudgedUp.x - 53.54) < 1e-6, `x=${nudgedUp.x}`);
   stateModule.loadsimState.unit = 'cm';
 
-  // 27.7d/27.7e 方向鍵的可移動範圍＝滑鼠拖曳（板面 ±40cm）→ 也騎得出板邊
+  // 27.7d/27.7e 第二層貨物「往 OVERHANG 方向推」：可移動範圍以輪廓為基準，
+  // 真正會擋住的是「下方支撐面積不足」（幾何層的拖曳上限見 test-loadsim-geometry 31.x）。
+  // 最底層另外受板底 ring track 限制（見 27.7f）。
   const nudgeSpec = specModule.loadsimGetSpec('Q7-00', null);
   stateModule.loadsimState.allowOverhang = true;
+  const supportBackup = stateModule.loadsimState.requireSupport;
+  const ringBackup = stateModule.loadsimState.supportMinPct;
+  stateModule.loadsimState.requireSupport = true;
+  stateModule.loadsimState.supportMinPct = 50;
+  // 下方墊一件大貨（底層，落在 ring 內框內），上層才有支撐可以往板面外推
+  const overhangBase = {
+    id: 62, mawb: '', name: 'Base', dims: { l: 120, w: 190, h: 100 },
+    weight: 100, color: '#16a34a', orient: 0, placed: true, staged: false,
+    x: 10, y: 0, z: nudgeSpec.ringRect.z1 - 190
+  };
   stateModule.loadsimState.items = [
-    { id: 63, mawb: '', name: 'Edge', dims: { l: 50, w: 50, h: 50 }, weight: 10, color: '#2563eb', orient: 0, placed: true, staged: false, x: 50, y: 0, z: nudgeSpec.floorZ1 - 50 }
+    overhangBase,
+    { id: 63, mawb: '', name: 'Overhang', dims: { l: 50, w: 50, h: 50 }, weight: 10, color: '#2563eb', orient: 0, placed: true, staged: false, x: 50, y: 100, z: 88.3 }
   ];
   stateModule.loadsimState.selectedId = 63;
   stateModule.loadsimEmit();
   keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
-  const edgeItem = stateModule.loadsimState.items[0];
-  check('27.7d 貨物貼在板面右緣 → → 鍵仍可往右（騎出板邊 1cm，與滑鼠拖曳一致）',
-    Math.abs(edgeItem.z - (nudgeSpec.floorZ1 - 49)) < 1e-6,
-    `z=${edgeItem.z}（板面右緣 z=${nudgeSpec.floorZ1}）`);
+  const edgeItem = stateModule.loadsimState.items.find(item => item.id === 63);
+  check('27.7d 第二層在支撐 52% 的位置 → → 鍵可再往右 1cm（推得到板面外的 OVERHANG 方向）',
+    Math.abs(edgeItem.z - 89.3) < 1e-6, `z=${edgeItem.z}`);
 
-  // 板面外 40cm 是方向鍵可移動範圍的上限
-  stateModule.loadsimState.items[0].z = nudgeSpec.floorZ1 - 50 + 40;
+  keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
+  const edgeItem2 = stateModule.loadsimState.items.find(item => item.id === 63);
+  check('27.7e 再往右會跌破 50% 支撐 → 停在原地並提示「支撐面積」',
+    Math.abs(edgeItem2.z - 89.3) < 1e-6 &&
+    String(getEl('loadsim-toast').textContent).includes('支撐面積'),
+    `z=${edgeItem2.z} toast=${getEl('loadsim-toast').textContent}`);
+
+  // 27.7f 最底層貨物壓到 ring track → 允許（與出界同一套：紅色＋警示），嚴格模式才擋下
+  stateModule.loadsimState.supportMinPct = ringBackup;
+  stateModule.loadsimState.requireSupport = supportBackup;
+  stateModule.loadsimState.allowOverhang = true;
+  stateModule.loadsimState.items = [
+    { id: 64, mawb: '', name: 'Ring', dims: { l: 50, w: 50, h: 50 }, weight: 10, color: '#2563eb', orient: 0, placed: true, staged: false, x: 50, y: 0, z: nudgeSpec.ringRect.z1 - 50 }
+  ];
+  stateModule.loadsimState.selectedId = 64;
   stateModule.loadsimEmit();
   keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
-  check('27.7e 到可移動範圍邊緣（板面外 40cm）→ 不再往右並提示沒有空間',
-    Math.abs(stateModule.loadsimState.items[0].z - (nudgeSpec.floorZ1 - 10)) < 1e-6 &&
-    String(getEl('loadsim-toast').textContent).includes('可移動範圍'),
+  const ringEdge = stateModule.loadsimState.items[0];
+  check('27.7f 最底層壓到 ring track → 仍然可放（提示 ring track＋嚴格模式會擋下）',
+    Math.abs(ringEdge.z - (nudgeSpec.ringRect.z1 - 49)) < 1e-6 &&
+    String(getEl('loadsim-toast').textContent).includes('ring track'),
+    `z=${ringEdge.z} toast=${getEl('loadsim-toast').textContent}`);
+
+  // 27.7g 嚴格模式（超出輪廓就不能放）→ ring track 也一起擋下
+  stateModule.loadsimState.allowOverhang = false;
+  stateModule.loadsimState.selectedId = 64;
+  stateModule.loadsimEmit();
+  const ringBefore = stateModule.loadsimState.items[0].z;
+  keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
+  check('27.7g 嚴格模式 → 壓到 ring track 會被擋下並提示（不會移動）',
+    Math.abs(stateModule.loadsimState.items[0].z - ringBefore) < 1e-6 &&
+    String(getEl('loadsim-toast').textContent).includes('ring track'),
     `z=${stateModule.loadsimState.items[0].z} toast=${getEl('loadsim-toast').textContent}`);
+  stateModule.loadsimState.allowOverhang = true;
+  stateModule.loadsimState.requireSupport = supportBackup;
+  stateModule.loadsimState.supportMinPct = ringBackup;
+
+  // 27.8 3D：方向鍵＝「螢幕方向」——轉過視角後，↑ 還是使用者看到的「螢幕往上」
+  renderModule.loadsimSetViewMode('3d');
+  renderModule.loadsimResetView(); // 預設 yaw 40°、pitch 26°
+  stateModule.loadsimState.unit = 'cm';
+  stateModule.loadsimState.items = [
+    { id: 66, mawb: '', name: 'Screen', dims: { l: 50, w: 50, h: 50 }, weight: 10, color: '#2563eb', orient: 0, placed: true, staged: false, x: 150, y: 0, z: 0 }
+  ];
+  stateModule.loadsimState.selectedId = 66;
+  stateModule.loadsimEmit();
+
+  const yaw40 = 40 * Math.PI / 180;
+  keydown({ key: 'ArrowUp', target: { tagName: 'DIV' }, preventDefault() {} });
+  let screenItem = stateModule.loadsimState.items[0];
+  check('27.8 3D（yaw 40°）↑＝螢幕往上 → x 減 sin40、z 減 cos40',
+    Math.abs(screenItem.x - (150 - Math.sin(yaw40))) < 1e-6 &&
+    Math.abs(screenItem.z - (0 - Math.cos(yaw40))) < 1e-6,
+    `x=${screenItem.x} z=${screenItem.z}`);
+
+  // 把視角轉回 yaw 0° → ↑ 應該是純 -Z、→ 是純 +X
+  renderModule.loadsimOrbit(40 / 0.45, 0);
+  const beforeYaw0 = { x: screenItem.x, z: screenItem.z };
+  keydown({ key: 'ArrowUp', target: { tagName: 'DIV' }, preventDefault() {} });
+  screenItem = stateModule.loadsimState.items[0];
+  check('27.8b 轉到 yaw 0° → ↑＝純 -Z（螢幕往上）',
+    Math.abs(screenItem.x - beforeYaw0.x) < 1e-6 &&
+    Math.abs(screenItem.z - (beforeYaw0.z - 1)) < 1e-6,
+    `x=${screenItem.x} z=${screenItem.z}`);
+  const beforeRight = { x: screenItem.x, z: screenItem.z };
+  keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
+  screenItem = stateModule.loadsimState.items[0];
+  check('27.8c yaw 0° → →＝純 +X（螢幕往右）',
+    Math.abs(screenItem.x - (beforeRight.x + 1)) < 1e-6 &&
+    Math.abs(screenItem.z - beforeRight.z) < 1e-6,
+    `x=${screenItem.x} z=${screenItem.z}`);
+
+  // 再轉 90°：→ 變成 -Z（方向鍵跟著螢幕上的方向轉）
+  renderModule.loadsimOrbit(-(90 / 0.45), 0);
+  const beforeYaw90 = { x: screenItem.x, z: screenItem.z };
+  keydown({ key: 'ArrowRight', target: { tagName: 'DIV' }, preventDefault() {} });
+  screenItem = stateModule.loadsimState.items[0];
+  check('27.8d 轉到 yaw 90° → →＝-Z（方向鍵跟著螢幕轉）',
+    Math.abs(screenItem.x - beforeYaw90.x) < 1e-6 &&
+    Math.abs(screenItem.z - (beforeYaw90.z - 1)) < 1e-6,
+    `x=${screenItem.x}/${beforeYaw90.x} z=${screenItem.z}/${beforeYaw90.z}`);
+
+  renderModule.loadsimResetView();
   root.classList.remove('active');
 
   // ===== 28. ① 表單編輯／選項開關／排序圖示 =====
@@ -1172,6 +1349,155 @@ function submitItemForm() {
   check('29.5b 點表頭「CBM」→ 由小到大排序（#99 0.125 → #98 0.200）',
     cbmSortedHtml.indexOf('data-id="99"') < cbmSortedHtml.indexOf('data-id="98"'),
     `99@${cbmSortedHtml.indexOf('data-id="99"')} 98@${cbmSortedHtml.indexOf('data-id="98"')}`);
+
+  // ===== 30. 板底 ring track（薄板／厚板切換）＋ 輪廓邊長標註 =====
+  stateModule.loadsimState.unit = 'cm';
+  stateModule.loadsimState.uldCode = 'Q7-00';
+  stateModule.loadsimState.items = [];
+  stateModule.loadsimEmit();
+  const plateCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'loadsim.css'), 'utf8');
+  check('30.1 工具列有「板底 薄板／厚板」切換（預設薄板、按鈕在 index.html 與 CSS 都有）',
+    indexHtml.includes('class="loadsim-plate-btn active" data-plate="thin"') &&
+    indexHtml.includes('data-plate="thick"') &&
+    /\.loadsim-plate-btn\.active\s*\{/.test(plateCss) &&
+    stateModule.loadsimState.plateType === 'thin');
+  check('30.1b 薄板 ring 內側＝120"×90"、厚板＝118"×88"',
+    Math.abs(specModule.loadsimGetSpec('Q7-00', null, { plateType: 'thin' }).ringRect.widthCm - 304.8) < 0.05 &&
+    Math.abs(specModule.loadsimGetSpec('Q7-00', null, { plateType: 'thin' }).ringRect.depthCm - 228.6) < 0.05 &&
+    Math.abs(specModule.loadsimGetSpec('Q7-00', null, { plateType: 'thick' }).ringRect.widthCm - 299.72) < 0.05);
+
+  btnThick.fire('click', {});
+  check('30.2 點「厚板」→ 狀態與按鈕同步（並寫入 localStorage）',
+    stateModule.loadsimState.plateType === 'thick' && btnThick.classSet.has('active') &&
+    !btnThin.classSet.has('active'),
+    `plateType=${stateModule.loadsimState.plateType}`);
+  const thickSpecNow = specModule.loadsimGetSpec('Q7-00', null, { plateType: stateModule.loadsimState.plateType });
+  check('30.2b 厚板時，貼近板面邊緣的最底層貨物會被標記 onRing（預設允許、嚴格模式才擋）',
+    (() => {
+      const item = {
+        id: 971, mawb: '', name: 'Ring', dims: { l: 100, w: 100, h: 50 }, weight: 10,
+        color: '#2563eb', orient: 0, placed: true, staged: false,
+        x: 50, y: 0, z: thickSpecNow.ringRect.z1 - 100 + 2
+      };
+      const relaxed = geomModule.loadsimEvaluatePlacement(item, thickSpecNow, [], { allowOverhang: true });
+      const strict = geomModule.loadsimEvaluatePlacement(item, thickSpecNow, [], { allowOverhang: false });
+      return relaxed.onRing === true && relaxed.ok === true && strict.ok === false && strict.ringBlocked === true;
+    })());
+  const summaryAfterThick = String(getEl('loadsim-summary').innerHTML);
+  check('30.3 摘要註明板底類型與第一層可裝範圍（含「ring track」字樣）',
+    summaryAfterThick.includes('ring track') && summaryAfterThick.includes('厚板'),
+    (summaryAfterThick.match(/板底：[^<]*/) || [''])[0].slice(0, 60));
+
+  // 3D 會畫出 ring track 帶狀區與「第一層可裝」尺寸
+  renderModule.loadsimSetViewMode('3d');
+  renderModule.loadsimResetView();
+  const ringDrawFrom = drawCalls.length;
+  renderModule.loadsimDraw({ ...drawOptions, spec: thickSpecNow, items: [] });
+  const ringTexts = drawCalls.slice(ringDrawFrom)
+    .filter(c => c.name === 'fillText').map(c => String(c.args[0]));
+  check('30.4 3D 畫出 ring track 帶狀區與「第一層可裝」尺寸標註',
+    ringTexts.some(t => t.includes('ring track')) && ringTexts.some(t => t.includes('第一層可裝')),
+    ringTexts.filter(t => t.includes('ring') || t.includes('第一層')).join(' / '));
+
+  // 輪廓每一條邊都標長度（Q7-00：板長 318、板寬 244、總高 300）
+  const contourTexts = drawCalls.slice(ringDrawFrom)
+    .filter(c => c.name === 'fillText').map(c => String(c.args[0]));
+  check('30.5 3D 的 Contour 邊長全部標出來（318／244／300 都出現）',
+    ['318', '244', '300'].every(text => contourTexts.includes(text)),
+    ['318', '244', '300'].map(t => `${t}:${contourTexts.filter(x => x === t).length}`).join(' '));
+
+  btnThin.fire('click', {});
+  check('30.6 切回薄板 → 狀態回到 thin（預設值）',
+    stateModule.loadsimState.plateType === 'thin' && btnThin.classSet.has('active'));
+
+  // ===== 31. 壓到 ring track 的「提示流程」＝與超出輪廓同一套（摘要／明細列／3D・2D 紅色斜線）=====
+  stateModule.loadsimState.plateType = 'thick';
+  stateModule.loadsimState.allowOverhang = true;
+  const ringSpec = specModule.loadsimGetSpec('Q7-00', null, { plateType: 'thick' });
+  const ringItem = {
+    id: 985, mawb: '', name: 'OnRing', dims: { l: 100, w: 100, h: 50 }, weight: 20,
+    color: '#2563eb', orient: 0, placed: true, staged: false,
+    x: 50, y: 0, z: ringSpec.ringRect.z1 - 98
+  };
+  stateModule.loadsimState.items = [ringItem];
+  stateModule.loadsimState.selectedId = null;
+  stateModule.loadsimEmit();
+  const ringBannerHtml = String(getEl('loadsim-summary-top').innerHTML);
+  check('31.1 壓到 ring track → 摘要出現警示（含第一層可裝範圍與「嚴格模式會擋下」）',
+    ringBannerHtml.includes('ring track') && ringBannerHtml.includes('嚴格模式') &&
+    ringBannerHtml.includes('第一層可裝'),
+    (ringBannerHtml.match(/⚠[^<]*ring track[^<]*/) || [''])[0].slice(0, 80));
+  const ringLinesHtml = String(getEl('loadsim-item-lines').innerHTML);
+  check('31.2 明細列共用「出界」欄並標出 ring +x', ringLinesHtml.includes('ring +'),
+    (ringLinesHtml.match(/ring \+\d[^<]*/) || [''])[0]);
+
+  renderModule.loadsimSetViewMode('3d');
+  renderModule.loadsimResetView();
+  const ring3dFrom = drawCalls.length;
+  renderModule.loadsimDraw({ ...drawOptions, spec: ringSpec, items: [ringItem], overflowPhase: 0.25 });
+  const ring3dTexts = drawCalls.slice(ring3dFrom).filter(c => c.name === 'fillText').map(c => String(c.args[0]));
+  check('31.3 3D 在壓到的 ring 帶畫紅色區塊並標「ring +x」',
+    ring3dTexts.some(t => t.startsWith('ring +')), ring3dTexts.filter(t => t.startsWith('ring')).join(' / '));
+
+  renderModule.loadsimSetViewMode('2d');
+  const ring2dFrom = drawCalls.length;
+  renderModule.loadsimDraw({ ...drawOptions, spec: ringSpec, items: [ringItem], overflowPhase: 0.25 });
+  const ring2dTexts = drawCalls.slice(ring2dFrom).filter(c => c.name === 'fillText').map(c => String(c.args[0]));
+  check('31.4 2D 俯視圖同樣畫紅色斜線區塊並標「ring +x」',
+    ring2dTexts.some(t => t.startsWith('ring +')), ring2dTexts.filter(t => t.startsWith('ring')).join(' / '));
+
+  renderModule.loadsimSetViewMode('3d');
+  stateModule.loadsimState.allowOverhang = true;
+  stateModule.loadsimState.plateType = 'thin';
+  stateModule.loadsimState.items = [];
+  stateModule.loadsimEmit();
+
+  // ===== 32. 畫布高度：與頁面捲動位置無關（新增貨物不會突然長高）=====
+  // 舊版用 rect.bottom（視窗座標）算「畫布下緣到視窗底部」→ 使用者只要捲動過頁面，
+  // 再新增貨物（refreshUi → syncStageHeight）畫布就會暴增到上限 1600px。
+  const scroller = new FakeEl('app-layout');
+  const contentWrap = new FakeEl('loadsim-content');
+  stage.parentElement = contentWrap;
+  contentWrap.parentElement = scroller;
+  scroller.overflowY = 'auto';
+  scroller.clientHeight = 900;
+  scroller.scrollHeight = 5000;
+  scroller.scrollTop = 0;
+  scroller.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1200, height: 900, right: 1200, bottom: 900 });
+  // 畫布在「內容座標」的上緣固定 100px；捲動後視窗座標 top 會跟著變小
+  let contentScroll = 0;
+  stage.getBoundingClientRect = () => {
+    const top = 100 - contentScroll;
+    return { left: 0, top, width: 900, height: 600, right: 900, bottom: top + 600 };
+  };
+  getEl('loadsim-summary-top').getBoundingClientRect = () =>
+    ({ left: 0, top: 700, width: 900, height: 60, right: 900, bottom: 760 });
+
+  root.classList.add('active');
+  stateModule.loadsimEmit(); // refreshUi → syncStageHeight
+  check('32.1 畫布高度＝捲動容器高 - 畫布上緣 - 摘要列 - 間距（900-100-60-18=722px）',
+    stage.style.height === '722px', `height=${stage.style.height}`);
+
+  // 捲動 300px 後再新增貨物（refreshUi 會重算高度）→ 高度必須不變
+  contentScroll = 300;
+  scroller.scrollTop = 300;
+  stateModule.loadsimEmit();
+  check('32.2 頁面捲動後再新增貨物 → 畫布高度不變（舊版會暴增）',
+    stage.style.height === '722px', `height=${stage.style.height}`);
+
+  contentScroll = 0;
+  scroller.scrollTop = 0;
+  stateModule.loadsimEmit();
+  check('32.3 捲回頂端 → 高度仍為 722px（穩定、不抖動）',
+    stage.style.height === '722px', `height=${stage.style.height}`);
+
+  // 還原 DOM stub，避免影響其他測試
+  getEl('loadsim-summary-top').getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: 900, height: 600, right: 900, bottom: 600 });
+  stage.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: 900, height: 600, right: 900, bottom: 600 });
+  stage.parentElement = null;
+  root.classList.remove('active');
 
   console.log(`\n===== 完成：PASS ${passCount} / FAIL ${failCount} =====`);
   if (failCount > 0) process.exitCode = 1;

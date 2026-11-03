@@ -1,6 +1,11 @@
-// ===== Contour 頁：搜尋 + 渲染 + 圖片 Modal + ZIP 匯出 =====
+// ===== Contour 頁：動態搜尋（輸入即查）＋ 渲染 + 圖片 Modal + ZIP 匯出 =====
 let currentContourData = [];
 let selectedContourImages = new Set();
+
+// 動態搜尋：打字就查（debounce），不用等按下 Search
+const CONTOUR_SEARCH_DEBOUNCE_MS = 250;
+let contourSearchTimer = null;
+let contourSearchSeq = 0; // 只採用「最後一次」查詢的回應（慢的回應不能蓋掉新的）
 
 function setupContourSection() {
   const searchForm = document.getElementById('contour-search-form');
@@ -14,38 +19,61 @@ function setupContourSection() {
     return;
   }
 
-  searchForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    await fetchContourImages(searchInput.value);
+  // 立刻查（Enter／按 Search／按 Show All／清除時用，會取消尚未執行的 debounce）
+  const runSearch = (value) => {
+    clearContourSearchTimer();
+    return fetchContourImages(value);
+  };
+
+  searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    runSearch(searchInput.value);
   });
 
   searchInput.addEventListener('input', () => {
-    const list = document.getElementById('contour-suggestions');
-    if (!list) return;
-    const query = searchInput.value.trim().toLowerCase();
-    const suggestions = currentContourData
-      .filter(item => item.title.toLowerCase().includes(query) || item.code.toLowerCase().includes(query))
-      .slice(0, 10)
-      .map(item => item.code);
-    list.innerHTML = Array.from(new Set(suggestions)).map(value => `<option value="${escapeHtml(value)}"></option>`).join('');
+    // 先用「目前已有的結果」即時收斂 datalist：API 回應還沒回來時也有提示
+    updateContourSuggestionList(searchInput.value);
+    clearContourSearchTimer();
+    contourSearchTimer = setTimeout(() => {
+      contourSearchTimer = null;
+      fetchContourImages(searchInput.value);
+    }, CONTOUR_SEARCH_DEBOUNCE_MS);
   });
 
-  showAllBtn.addEventListener('click', async () => {
+  // type="search" 的原生清除鈕（或按 Esc）會觸發 search 事件 → 立刻回到全部
+  searchInput.addEventListener('search', () => runSearch(searchInput.value));
+
+  showAllBtn.addEventListener('click', () => {
     searchInput.value = '';
-    await fetchContourImages('');
+    runSearch('');
   });
 
   if (zipBtn) zipBtn.addEventListener('click', exportSelectedContourZip);
   if (copyLinksBtn) copyLinksBtn.addEventListener('click', copyContourLinks);
 
-  // Load all contour images by default when the section is initialized.
+  // 先載入完整清單，之後就是「輸入即時查」
   fetchContourImages('');
 }
 
+function clearContourSearchTimer() {
+  if (contourSearchTimer) {
+    clearTimeout(contourSearchTimer);
+    contourSearchTimer = null;
+  }
+}
+
 async function fetchContourImages(query = '') {
-  const encoded = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
+  const keyword = String(query == null ? '' : query).trim();
+  const token = ++contourSearchSeq;
+  const searchInput = document.getElementById('contour-search-input');
+  if (searchInput && typeof searchInput.setAttribute === 'function') {
+    searchInput.setAttribute('aria-busy', 'true');
+  }
+
+  const encoded = keyword ? `?q=${encodeURIComponent(keyword)}` : '';
   try {
     const res = await fetch(`/api/contours${encoded}`);
+    if (token !== contourSearchSeq) return; // 已經有更新的查詢 → 丟棄這個（較慢的）回應
     if (!res.ok) {
       console.error('Contour fetch failed', res.statusText);
       showContourError('Unable to fetch contour images.');
@@ -53,12 +81,17 @@ async function fetchContourImages(query = '') {
     }
 
     const result = await res.json();
+    if (token !== contourSearchSeq) return;
     currentContourData = result.data || [];
-    updateContourSuggestions(currentContourData);
-    renderContourResults(currentContourData, query.trim());
+    updateContourSuggestionList(keyword);
+    renderContourResults(currentContourData, keyword);
   } catch (err) {
     console.error('Contour fetch error', err);
-    showContourError('Unable to fetch contour images.');
+    if (token === contourSearchSeq) showContourError('Unable to fetch contour images.');
+  } finally {
+    if (token === contourSearchSeq && searchInput && typeof searchInput.removeAttribute === 'function') {
+      searchInput.removeAttribute('aria-busy');
+    }
   }
 }
 
@@ -153,13 +186,17 @@ function showContourError(message) {
   if (grid) grid.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
 }
 
-function updateContourSuggestions(images) {
+// datalist 建議值：依查詢字串從「目前的結果」收斂出代碼（動態搜尋打字時即時更新）
+function updateContourSuggestionList(query) {
   const list = document.getElementById('contour-suggestions');
   if (!list) return;
-  list.innerHTML = images
-    .slice(0, 50)
+  const q = String(query == null ? '' : query).trim().toLowerCase();
+  const codes = currentContourData
+    .filter(item => !q || item.title.toLowerCase().includes(q) || item.code.toLowerCase().includes(q))
     .map(item => item.code)
-    .filter((value, index, self) => value && self.indexOf(value) === index)
+    .slice(0, 50);
+  list.innerHTML = Array.from(new Set(codes))
+    .filter(Boolean)
     .map(value => `<option value="${escapeHtml(value)}"></option>`)
     .join('');
 }

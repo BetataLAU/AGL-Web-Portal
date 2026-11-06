@@ -26,6 +26,7 @@ const DEFAULT_ORDER = [
   'sli-eli-layout.html',
   '#section-palletization',
   '#section-loadsim',
+  '#section-uld-weight',
   '#section-dbviewer',
   'users.html'
 ];

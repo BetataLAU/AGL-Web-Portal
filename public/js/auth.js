@@ -461,6 +461,18 @@ async function setupAuthUI() {
       }
     }
 
+    // ULD 夾重系統：同樣僅限 admin / staff（與打板計劃一致）
+    const uldWeightLock = document.getElementById('nav-uld-weight-lock');
+    const navUldWeight = document.getElementById('nav-uld-weight');
+    if (uldWeightLock) uldWeightLock.style.display = canPallet ? 'none' : '';
+    if (navUldWeight && !canPallet) {
+      navUldWeight.classList.add('nav-item-locked');
+      navUldWeight.addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('ULD 夾重系統僅限內部員工使用');
+      });
+    }
+
     // 資料庫：僅具備 db_view 權限解鎖；否則顯示鎖頭並攔截
     const dbLock = document.getElementById('nav-dbviewer-lock');
     const navDb = document.getElementById('nav-dbviewer');
@@ -509,9 +521,9 @@ async function setupAuthUI() {
     if (loginBtn) loginBtn.style.display = 'flex';
     if (loggedInBox) loggedInBox.style.display = 'none';
 
-    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃：
+    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃 / ULD 夾重系統：
     // 顯示鎖頭，點擊導向登入頁（登入後跳回原本想看的區塊或頁面）
-    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization'].forEach(id => {
+    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization', 'nav-uld-weight'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');

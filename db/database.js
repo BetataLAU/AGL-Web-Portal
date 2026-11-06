@@ -12,6 +12,11 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
   else console.log(`已成功連接 SQLite 數據庫（${DB_PATH}）`);
 });
 
+// 初始化完成訊號（R4）：schema 與相容性欄位都補好後才 resolve。
+// server.js 用它決定「什麼時候可以跑 seed-admin」——全新 DB 若在 ALTER TABLE 完成前就 seed，
+// 會因為 companies.company_code 不存在而失敗（→ 沒有 admin 帳號）。
+const initTasks = [];
+
 // 建表與預設數據初始化
 db.serialize(() => {
   db.run(`
@@ -34,7 +39,10 @@ db.serialize(() => {
       phone TEXT,
       email TEXT,
       notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      -- 登入用的公司短碼（R4：全新 DB 必須直接有這個欄位，否則 server.js 的 seed-admin
+      -- 會比下面的 ALTER TABLE 更早讀取 companies → no such column: company_code → 沒有 admin）
+      company_code TEXT
     )
   `);
 
@@ -162,22 +170,25 @@ db.serialize(() => {
   });
 
   // companies 表相容性：補上 company_code 欄位（登入用的公司短碼）
-  db.all("PRAGMA table_info(companies)", [], (err, companyCols) => {
-    if (err) {
-      console.error('PRAGMA table_info(companies) failed:', err.message);
-      return;
-    }
-    const columns = companyCols.map(c => c.name);
-    if (!columns.includes('company_code')) {
+  // R4：包成 promise 併進 initTasks，等 ALTER TABLE 真的完成才讓 seed 有機會跑
+  initTasks.push(new Promise((resolve) => {
+    db.all("PRAGMA table_info(companies)", [], (err, companyCols) => {
+      if (err) {
+        console.error('PRAGMA table_info(companies) failed:', err.message);
+        return resolve();
+      }
+      const columns = companyCols.map(c => c.name);
+      if (columns.includes('company_code')) return resolve();
       db.run("ALTER TABLE companies ADD COLUMN company_code TEXT", (alterErr) => {
         if (alterErr) {
           console.error('Failed to add company_code column:', alterErr.message);
         } else {
           console.log('Added company_code column to companies table');
         }
+        resolve();
       });
-    }
-  });
+    });
+  }));
 
   // orders 表相容性：確保新資料庫（少了欄位）補上
   db.all("PRAGMA table_info(orders)", [], (err, ordersCols) => {
@@ -317,6 +328,131 @@ db.serialize(() => {
     )
   `);
 
+  // ===== ULD 夾重系統：夾重表（一張單＝一次夾重作業）=====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS uld_weight_sheets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_no TEXT UNIQUE,
+      sheet_date TEXT,
+      terminal TEXT DEFAULT 'CPSL',
+      flight_no TEXT,
+      flight_date TEXT,
+      round_px REAL DEFAULT 1,
+      round_b REAL DEFAULT 1,
+      tail_mode TEXT DEFAULT 'adjust_largest',
+      diff_warn_pct REAL DEFAULT 2,
+      diff_warn_kg REAL DEFAULT 100,
+      -- R2：多票夾重比例的上下限（%，0 = 不限）；寫入時由 calc.js 依此 clamp 比例
+      clamp_min_pct REAL DEFAULT 0,
+      clamp_max_pct REAL DEFAULT 0,
+      handler TEXT,
+      remark TEXT,
+      status TEXT DEFAULT 'draft',
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ===== ULD 夾重系統：收貨單位（P/X = 1 個 ULD；B = 1 批散貨）=====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS uld_weight_ulds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_id INTEGER NOT NULL,
+      seq INTEGER DEFAULT 0,
+      kind TEXT DEFAULT 'ULD',
+      uld_number TEXT,
+      bulk_ref TEXT,
+      rcl_no TEXT,
+      contour_code TEXT,
+      port TEXT,
+      pcs INTEGER DEFAULT 0,
+      tare_weight REAL DEFAULT 0,
+      rcl_gross_weight REAL DEFAULT 0,
+      material_weight REAL DEFAULT 0,
+      lih_type TEXT DEFAULT 'N',
+      predecl_type TEXT DEFAULT 'P',
+      squeeze_mode TEXT DEFAULT 'weight',
+      net_weight REAL DEFAULT 0,
+      diff_weight REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ===== ULD 夾重系統：明細（每板 × 每 MAWB，重量分攤的關鍵）=====
+  db.run(`
+    CREATE TABLE IF NOT EXISTS uld_weight_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uld_id INTEGER NOT NULL,
+      seq INTEGER DEFAULT 0,
+      mawb TEXT,
+      mawb_record_id INTEGER,
+      port TEXT,
+      pcs INTEGER DEFAULT 0,
+      declared_weight REAL DEFAULT 0,
+      final_weight REAL DEFAULT 0,
+      is_squeeze INTEGER DEFAULT 0,
+      squeeze_ratio REAL,
+      lih_type TEXT DEFAULT 'N',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_uld_weight_ulds_sheet ON uld_weight_ulds(sheet_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_uld_weight_items_uld ON uld_weight_items(uld_id)');
+
+  // ===== ULD 夾重系統：歷史版本（V3）=====
+  // 每次「新增／儲存／鎖定／解鎖／套用／補建 Booking」都留一份 snapshot（JSON，只存輸入值），
+  // 供版本清單與異動比對用。每張表只保留最近 N 版（見 routes/uld-weight.js 的 VERSION_KEEP）。
+  db.run(`
+    CREATE TABLE IF NOT EXISTS uld_weight_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_id INTEGER NOT NULL,
+      version_no INTEGER DEFAULT 1,
+      action TEXT,
+      status TEXT,
+      note TEXT,
+      snapshot TEXT,
+      summary TEXT,
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run(
+    'CREATE INDEX IF NOT EXISTS idx_uld_weight_versions_sheet ON uld_weight_versions(sheet_id, version_no)'
+  );
+
+  // uld_weight_sheets 表相容性：補上「磅差警示門檻」（W5）與「比例上下限」（R2）；
+  // 既有 DB 用 ALTER TABLE 補，新 DB 由上面 CREATE TABLE 就有
+  initTasks.push(new Promise((resolve) => {
+    db.all("PRAGMA table_info(uld_weight_sheets)", [], (err, sheetCols) => {
+      if (err) {
+        console.error('PRAGMA table_info(uld_weight_sheets) failed:', err.message);
+        return resolve();
+      }
+      const sheetColumns = sheetCols.map(c => c.name);
+      const missing = [
+        { name: 'diff_warn_pct', def: 'REAL DEFAULT 2' },
+        { name: 'diff_warn_kg', def: 'REAL DEFAULT 100' },
+        { name: 'clamp_min_pct', def: 'REAL DEFAULT 0' },
+        { name: 'clamp_max_pct', def: 'REAL DEFAULT 0' }
+      ].filter(col => !sheetColumns.includes(col.name));
+      if (!missing.length) return resolve();
+      let pending = missing.length;
+      missing.forEach(col => {
+        db.run(`ALTER TABLE uld_weight_sheets ADD COLUMN ${col.name} ${col.def}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`Failed to add ${col.name} column to uld_weight_sheets:`, alterErr.message);
+          } else {
+            console.log(`Added ${col.name} column to uld_weight_sheets`);
+          }
+          pending -= 1;
+          if (pending === 0) resolve();
+        });
+      });
+    });
+  }));
+
   // 插入初始技能資料（若表格為空）
   db.get("SELECT COUNT(*) AS count FROM skills", (err, row) => {
     if (row && row.count === 0) {
@@ -380,4 +516,9 @@ db.serialize(() => {
   });
 });
 
+// 初始化完成訊號：schema 與相容性欄位（例：companies.company_code）都補好後才 resolve，
+// server.js 會等它才跑 scripts/seed-admin.js（避免全新 DB 的 seed 競態）
+const ready = Promise.all(initTasks).then(() => db);
+
 module.exports = db;
+module.exports.ready = ready;

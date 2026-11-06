@@ -28,6 +28,9 @@
 | `order-system-design.md` | 收/送貨訂單系統原始設計（2026-01，已實作；含「與現況差異」對照表） |
 | `xls-pdf-parallel-prd.md` | Shipper Role「SLI/ELI PDF 多工並行」PRD（2026-09 已完成，含實作結果摘要） |
 | `xls-sli-eli-overlay-prd.md` | Shipper Role「A4 修正 ＋ PDF 字型瘦身 ＋ 疊字背景/版面編輯器」PRD 與**交接文件**（2026-10-13；P1/P2 已完成並驗證，P3～P5 待做，含驗證指令、陷阱、新對話提示詞） |
+| `uld-weight-system.md` | **ULD 夾重系統**設計文件（2026-11；規則、算法驗算、資料模型、API、UI；Phase 1 已實作） |
+| `uld-weight-phase2-handoff.md` | **ULD 夾重系統 Phase 2 交接文件**（W1～W5 已完成；含陷阱 §4、驗證指令 §5、手動驗收、新對話提示詞） |
+| `uld-weight-remaining-work.md` | **ULD 夾重系統「未完成工作」交接文件**（2026-11-06；R1～R4＋V1／V2／V3 已完成、**V4 已量測結案（不做節流）**、待決 D3／D5／D6、新陷阱、既定規則、驗證指令、新對話提示詞）——**下一輪從這裡開始** |
 
 ### archive/
 

@@ -1,0 +1,263 @@
+# ULD 夾重系統（ULD Weight Reconciliation）設計文件
+
+> 狀態：**Phase 1 已實作**（DB + API + 前端 + 測試）；**Phase 2 的 W1（MAWB 帶入）／W2（回寫 Booking Record）／W3（RCL 磅單匯入）／W4（列印）／W5（磅差門檻）已完成**；**Phase 3 的 R1（server 端 PDF）／R2（比例上下限）／R3（明細 diff 更新）／R4（seed 競態）也已完成（2026-11-05）**。未完成事項見 `uld-weight-remaining-work.md`。
+> 相關程式：`public/js/uldweight/{calc,state,render,api}.js`、`public/js/uld-weight.js`、`routes/uld-weight.js`、`public/css/uld-weight.css`、`db/database.js`（3 張表）。
+
+---
+
+## 1. 背景與目的
+
+倉庫把貨裝上板（ULD）交給貨站（HACTL / AAT / CPSL）後，貨站會重新磅重並出 **RCL**（收貨單）。
+RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量與 RCL 之間通常有差額（裝板物料、磅重誤差）。
+「夾重」＝把這個差額**回填到指定的 MAWB**（可多票按比例），讓每票 MAWB 的最終重量加總後與 RCL 對得起來。
+
+系統只做一件事：**輸入 RCL 磅重 → 選夾重票 → 算出每票 MAWB 的最終重量**，並留下可追溯的紀錄。
+
+---
+
+## 2. 名詞與規則
+
+| 名詞 | 定義 |
+|---|---|
+| 貨站（terminal） | **HACTL / AAT / CPSL** 三個（CPSL 為 CX 貨站，勿稱「CX 貨站」） |
+| RCL Gross | 貨站磅重後的總重，**最終決定** |
+| Tare weight | 板底重量（散貨 B 類無板底，視為 0） |
+| Net weight | 目標淨重 = `RCL Gross − Tare`；也＝該單位內所有 MAWB 貨物重量合計 |
+| 磅差（diff） | `目標淨重 − Σ 各票申報重量`（正＝RCL 比申報重；含裝板物料） |
+| 夾重 | 把磅差分配給「夾重票」；**未勾選夾重的票重量不變** |
+| Pre-decl Type | `P` = Prepack（1 板 1 MAWB）／`X` = MIX（1 板 MAWB 數 ≥ 1，混裝）／`B` = Bulk（交散貨，不裝板，1 MAWB） |
+| Port | **不檢核**：ULD 的 Port 可與各票不同，同一板內各票 Port 也可不同（MIX 混裝） |
+| LIH | 鋰電池資訊：`N` / `UN3481` / `UN3091` |
+
+**取整（rounding）**
+
+| 類別 | 取整單位 | 說明 |
+|---|---|---|
+| P / X（交板） | 固定 **1.0 → 正整數** | 極少數航司要 0.5 的特例不做 |
+| B（交散貨） | **0.5 或 1.0**（夾重表表頭可選，預設 1.0） | |
+| 單位 | 一律 KG | |
+
+**尾差處理**：各票取整後與目標淨重的差（±1～2kg），預設由「申報重量最大的夾重票」吸收，
+保證 `Σ 各票最終重量 = 取整後目標淨重`。另可選「平均分攤」或「不調整（只標示差額）」。
+
+---
+
+## 3. 演算法（`public/js/uldweight/calc.js`）
+
+```text
+對每個收貨單位 u：
+  T = Tare（B 類 = 0）        G = RCL Gross
+  R = G − T                    目標淨重
+  D = R − Σ w_i                磅差（w_i = 該單位第 i 票申報重量）
+  夾重票集合 S（可多票）；比例 p_i：
+      weight（預設）w_i / Σ_S w_j ｜ pcs 件數 ｜ equal 平均 ｜ manual 手動%
+  比例上下限（選用，0＝不限）：把 p_i 限制在 [clamp_min_pct, clamp_max_pct]
+      超出界線的票固定在界線，其餘依原比例重分配（water-filling，見 uldApplyRatioClamp）
+      上下限互相矛盾（例：3 票各最少 50%）→ 忽略上下限 ＋ CLAMP_INFEASIBLE（warn）
+  精確值 x_i = w_i + (i∈S ? D × p_i : 0)
+  取整：非夾重票維持 w_i；夾重票以 tick（0.5 或 1.0 為單位）向上取整
+  尾差：把 (取整後目標淨重 − 非夾重票合計) 與 Σ 取整值 的差
+        依規則從最大票（或最小票／不調整）加減 tick，直到合計對齊
+  守衛：目標淨重 < 非夾重票合計 → TARGET_TOO_SMALL；任何最終重量 < 0 → NEGATIVE_WEIGHT
+```
+
+**規格書 CASE 驗算**（`scripts/test-uld-weight-calc.js` 逐項斷言）
+
+| CASE | 輸入 | 結果 |
+|---|---|---|
+| 1 | 1 ULD 1 MAWB：RCL 2568／Tare 115／申報 2438 | 夾重後 **2453**（= 2568 − 115） |
+| 2 | 1 ULD 2 MAWB：RCL 2568／Tare 115／a 2138（夾重）／b 300 | a **2153**、b **300**（不變） |
+| 3 | 2 ULD 1 MAWB：2300(T115) / 2000(T112)，原 4050 | **2185 + 1888 = 4073** |
+| 4 | 板a 540(T115)：a 300、b 125（夾 b）；板b 1000(T112)：b 888 | a **300**、b **1013**（125 + 888） |
+
+**多票按比例**（新規則）：RCL 2568／T115 → 淨重 2453、a 2138 / b 300 兩票都夾重
+→ D = 15、比例 87.68% / 12.32% → 精確 2151.15 / 301.85 → 取整 2152 / 302 = 2454 → 尾差 −1 由 a 吸收 → **2151 / 302（合計 2453）**。
+
+---
+
+## 4. 檢核（不擋存檔者只列警示；`error` 會擋下儲存）
+
+| 代碼 | 內容 | 級別 |
+|---|---|---|
+| `NEGATIVE_WEIGHT` | 夾重後重量 < 0 | error |
+| `NO_SQUEEZE` | 有磅差但沒勾任何夾重票 | error |
+| `TARGET_TOO_SMALL` | 非夾重票合計 > RCL 淨重 | error |
+| `PIECES_MISMATCH` | 單位件數 ≠ Σ 各票件數 | warn |
+| `LIH_UNIT_MISSING` | 票有 UN3481/UN3091 但收貨單位標 N | warn |
+| `LIH_UNIT_ONLY` | 收貨單位標 UN 但沒有任何票標示 | warn |
+| `LIH_UN_CODE_MISMATCH` | 收貨單位與票的 UN 編號不一致（例：UN3481 vs UN3091） | warn |
+| `DIFF_TOO_BIG` | 磅差 > `diff_warn_kg` **且** > `diff_warn_pct`（表頭可調，預設 100kg / 2%；0 或空白＝用預設） | warn |
+| `MAWB_SPLIT_MISSING` | 同一 MAWB 跨多單位但部分單位未填重量 | warn |
+| `DUPLICATE_ULD` / `DUPLICATE_MAWB_IN_ULD` | ULD 號重複／同單位重複同一票 | warn |
+| `SQUEEZE_ZERO_WEIGHT` | 夾重票申報重量都是 0，比例改用件數 | warn |
+| `CLAMP_INFEASIBLE` | 比例上下限互相矛盾（例：3 票各最少 50%、2 票各最多 30%）→ 已忽略上下限 | warn |
+
+
+> **Port 不檢核**（可混裝）；**Pre-decl Type 完全手動**（1 板 1 MAWB 也可能是 X，不做自動判定）。
+
+---
+
+## 5. 資料模型（`db/database.js`）
+
+```sql
+uld_weight_sheets            -- 夾重表（一張單＝一次夾重作業）
+  id, sheet_no(WGT-YYYYMMDD-XX, UNIQUE), sheet_date,
+  terminal(HACTL|AAT|CPSL), flight_no, flight_date,
+  round_px REAL DEFAULT 1,      -- 交板（P/X）取整單位：固定 1
+  round_b  REAL DEFAULT 1,      -- 散貨（B）取整單位：0.5 / 1
+  tail_mode TEXT DEFAULT 'adjust_largest',   -- adjust_largest | equal | none
+  diff_warn_pct REAL DEFAULT 2,  -- 磅差警示門檻（%，與 kg 需「同時」超過）
+  diff_warn_kg  REAL DEFAULT 100,
+  clamp_min_pct REAL DEFAULT 0,  -- 多票夾重比例下限（%，0＝不限）
+  clamp_max_pct REAL DEFAULT 0,  -- 多票夾重比例上限（%，0＝不限）
+  handler, remark, status(draft|locked), created_by, created_at, updated_at
+
+uld_weight_ulds              -- 收貨單位（P/X = 1 個 ULD；B = 1 批散貨）
+  id, sheet_id, seq, kind('ULD'|'BULK'),
+  uld_number, bulk_ref, rcl_no, contour_code, port, pcs,
+  tare_weight, rcl_gross_weight, material_weight,
+  lih_type(N|UN3481|UN3091), predecl_type(P|X|B), squeeze_mode(weight|pcs|equal|manual),
+  net_weight, diff_weight        -- 儲存時由後端重算寫入（歷史可追溯）
+
+uld_weight_items             -- 每板 × 每 MAWB（重量分攤的關鍵）
+  id, uld_id, seq, mawb, mawb_record_id(可選), port, pcs,
+  declared_weight, final_weight, is_squeeze(0/1), squeeze_ratio(手動%), lih_type
+
+uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照）
+  id, sheet_id, version_no, action(create|save|lock|unlock|apply|sync_bookings|duplicate),
+  status, note, snapshot(JSON：只存輸入值), summary(JSON：單位數／票數／淨重／磅差),
+  created_by, created_at
+```
+
+**設計要點**
+
+1. **重量必須存在「ULD × MAWB」層**：同一票 MAWB 可跨多板（CASE 3/4），每板各有一份重量。
+2. `final_weight` / `net_weight` / `diff_weight` 一律由後端重算後寫入，前端只送原始輸入 → 畫面與 DB 不會不一致。
+3. 算法只寫一份 `public/js/uldweight/calc.js`（純函式 ESM），後端以動態 `import()` 載入同一支重算。
+4. `squeeze_ratio` 只存「手動模式」使用者輸入；自動模式的比例是算出來的，不落庫。
+5. 明細採 **diff 更新**（R3）：前端 payload 帶 `id`（新列 `null`）→ 後端 UPDATE 既有列、INSERT 新列、DELETE 缺的列；
+   沒帶 id 的舊 payload 會退回「整批重建」（相容）。
+
+---
+
+## 6. API（`/api/uld-weight`，`requireRole('admin','staff')`）
+
+| Method | Path | 說明 |
+|---|---|---|
+| GET | `/bookings?search=&dest=&limit=` | **打板計劃 Booking Record 候選清單**（W1：夾重表「新增 MAWB」輸入即篩選；只讀 `mawb_records`） |
+| POST | `/sheets/:id/apply` | **回寫 Booking Record（W2）**：僅 `locked` 可套用；同票跨板加總後覆寫 `mawb_records.gross_weight`；原重量寫 `audit_log`；不動 `orders`；冪等 |
+| POST | `/sheets/:id/sync-bookings` | **補建 Booking Record（V1）**：對「沒有 `mawb_record_id`」的票，打板計劃已有同號 MAWB（正規化比對）就**只連結**、沒有才**建立**（`gross_weight` = 夾重後重量、`pcs`、`dest` = 該票 Port、`remark` 註明來源表）；**預設 `dry_run`（只回預覽、不寫 DB）**，要寫入須傳 `{ "dry_run": false }`；不動 `orders`、不動夾重表重量；有 `error` 的夾重表 → 422 |
+| GET | `/sheets/:id/versions?limit=` | **歷史版本清單（V3）**：新到舊，含 `version_no`／`action`／`status`／`note`／`summary`（單位數／票數／淨重／磅差）／`created_by`／`created_at` |
+| GET | `/sheets/:id/versions/:versionId` | 單一版本（含完整 `snapshot`） |
+| GET | `/sheets/:id/versions/diff?from=&to=` | **異動比對（V3）**：`from` 必填（沒帶 → 400）；`to` 省略＝與**目前內容**比較；回 `{ data: diff, from, to }`，diff 由 `public/js/uldweight/version-diff.js` 產生（欄位級：表頭／單位／明細） |
+| POST | `/sheets/:id/import-rcl` | **RCL 磅單匯入（W3）**：上傳 `.xlsx`／`.xlsm`／`.csv`（10MB、multer 記憶體）；只解析不寫 DB，回傳欄位對應＋可建立的單位清單（`sheet`／`col_*` 可覆寫）；鎖定 → 409 |
+| GET | `/sheets/:id/report.pdf` | **server 端 PDF（R1）**：`application/pdf`＋`Content-Disposition: attachment; filename="<sheet_no>.pdf"`；草稿／鎖定都能下載；由 `scripts/uld-weight-report-pdf.js` 排版（資料來自 `loadSheetDetail()`） |
+| GET | `/sheets/batch-pdf?ids=1,2,3`（或 `status=`／`search=`） | **批次 PDF（V2）**：多張夾重表打包成一個 `application/zip`（檔名 `uld-weight-batch-YYYYMMDD-HHmm.zip`）；ZIP 內含每張 `<sheet_no>.pdf` ＋ `manifest.txt`（UTF-8 BOM，列出表號／狀態／RCL／淨重／磅差與失敗清單）；`ids` 省略時依 `status`／`search` 篩選；**上限 50 張**（超過 400、沒有符合 404）；單張失敗不影響整批，成功／失敗張數放在 `X-Uld-Weight-Pdf-Count`／`X-Uld-Weight-Pdf-Failed` |
+| GET | `/sheets?status=&search=` | 清單（含板數／散貨數／RCL 總重／淨重／磅差） |
+| POST | `/sheets` | 新增空表（自動編號 WGT-YYYYMMDD-XX，預設貨站 CPSL） |
+| GET | `/sheets/:id` | 明細（表頭 + 收貨單位 + 明細 + **即時重算結果** + 檢核） |
+| PUT | `/sheets/:id` | 整份儲存（先重算，有 `error` 回 422；鎖定回 409） |
+| DELETE | `/sheets/:id` | 刪除（鎖定不可刪） |
+| POST | `/sheets/:id/duplicate` | 複製（新編號、草稿） |
+| POST | `/sheets/:id/lock` · `/unlock` | 鎖定／解鎖 |
+
+寫入操作都會寫 `audit_log`（action 前綴 `uld_weight.*`）。
+
+---
+
+## 7. UI
+
+- 側欄：`模擬裝板系統` 之後 → **ULD 夾重系統**（`#section-uld-weight`，admin/staff，鎖頭樣式同打板計劃）
+- 右側版面：**清單**（夾重表列表）↔ **編輯**
+  - 表頭：日期／貨站／航班／航班日期／經手人／B 取整／尾差／磅差警示 %／磅差警示 kg／比例下限 %／比例上限 %／備註
+  - ① 收貨單位卡：`RCL − Tare → 淨重`、磅差 chip（≤1% 綠、≤3% 黃、>3% 紅）、夾重方式、明細表（勾選夾重、MAWB、Port、件數、申報重量、比例、最終重量、LIH）
+  - ② MAWB 彙總（原重／夾重後／差額／Port，跨板自動加總）
+  - ③ 檢核清單（error 紅、warn 黃）
+  - 底部：全表合計（單位數／MAWB／件數／RCL 總重／Tare／淨重／磅差）
+- 操作：新增／儲存／鎖定／複製／刪除／匯出 Excel（`xlsx.full.min.js`，3 個工作表）／複製文字摘要（`utils/clipboard-utils.js`）
+- 輸入體驗：文字／數字輸入 → 只做局部重算（`refreshComputed()`），不會失去焦點；下拉／勾選才整份重畫
+- 「新增 MAWB」列：MAWB 欄是**輸入即篩選**（打板計劃 Booking Record，`public/js/uldweight/booking-search.js`），
+  選到後自動帶入 Port（`dest`）／件數／重量並記住 `mawb_record_id`；**手動輸入仍可用**（做法：`renderEditor()` 尾端 `wireBookingPickers(root)`）
+- 明細列 `⇄`：用該票的總重量依件數拆到所有相關單位（`uldSplitByPcs`，尾差給件數最多的一筆）
+- **「套用到 Booking」**（W2，僅鎖定後可按）：把每票最終重量回寫 `mawb_records.gross_weight`（`uldBookingTotals` 彙總；
+  未連結 Booking／資料衝突的票不回寫），完成後跳出 applied／skipped／conflicts 明細
+- **「⇪ 匯入 RCL」**（W3）：上傳貨站磅單 → 面板顯示「自動偵測的表頭列＋4 個欄位對應（可改）＋可勾選的單位表（含略過原因）」
+  → 「加入選取的單位」并入草稿（Pre-decl 預設 P）→ 再按「儲存」；只重畫面板，不整份重畫
+- **「🖨 列印」**（W4）：編輯畫面工具列按鈕（`data-action="print"` → `printCurrent()` → `window.print()`），**草稿與鎖定都可印**。
+  紙本版面只靠 `public/css/uld-weight.css` 的 `@media print`：A4 直式（`@page size: A4 portrait`）、單欄、
+  只留「表頭（表號／狀態／日期／貨站／航班／航班日期／經手人／備註）＋每板 `RCL − Tare = 淨重`＋每票最終重量＋磅差＋全表合計」；
+  隱藏側欄、頁面上的匯入／匯出按鈕、`.uldw-editor-actions`、`.uldw-rcl`、勾選欄與列操作欄、`.uldw-item-add`；
+  輸入框／下拉去框線只留值（`-webkit-text-fill-color: #000` 讓鎖定灰字也能印）、每張單位卡 `break-inside: avoid`、
+  數字 `tabular-nums`、`.uldw-table-wrap` 改 `overflow: visible`；`@media print` 內用 `html, html[data-theme]` 強制黑字白底。
+  正式 PDF 檔：**另見 R1「⤓ PDF」**（server 端 `GET /sheets/:id/report.pdf`，與列印並存，版面互不影響）。
+- **「⤓ PDF」**（R1）：下載 server 端固定排版的 A4 PDF（`scripts/uld-weight-report-pdf.js`）；
+  前端 `api.js` 的 `fetchReportPdfBlob()`（**不可用 `apiFetch`**，它固定解析 JSON）→ Blob 下載；
+  草稿／鎖定都能下載；有未儲存的修改時會先確認（PDF 用的是已存檔內容）。
+- **「比例下限 %／上限 %」**（R2）：多票夾重時單票分攤比例的限制（0＝不限）；被限制的比例後面會多一個 `*`
+  （滑鼠移上去有說明）；無解時檢核會出現「夾重比例上下限無解」。
+- **「⤓ 批次 PDF」（V2，清單頁）**：每列多一個勾選框（表頭有全選），工具列右側顯示「已選 N 張」與「⤓ 批次 PDF」按鈕
+  → `api.js` 的 `fetchBatchPdfBlob({ ids })` → 下載 ZIP（`manifest.txt` ＋ 每張 `<sheet_no>.pdf`）。
+  勾選狀態存在 `state.batchSelected`；**只更新計數／按鈕／列底色／全選框，不整份重畫**（焦點與捲動位置不變）；
+  清單重新載入時會剔除已不存在的 id。單張 PDF 仍是「⤓ PDF」（R1）。
+- **「⇧ 補建 Booking」（V1，編輯畫面）**：把還沒連結 Booking 的票反推回打板計劃 →
+  `api.js` 的 `syncSheetBookings(id, { dryRun })`。流程固定是**預覽 → confirm → 才寫入**：
+  先 `dryRun: true` 拿 `created`／`linked`／`skipped`，在 confirm 裡列出「將建立 N 筆／將連結 M 筆／略過 K 票」，
+  使用者確定後才 `dryRun: false`；完成後用回應的 `sheet` 覆蓋狀態並重畫。
+  草稿與已鎖定都能按（建立 Booking 不算改重量）；有未儲存的修改會先提醒（用的是已存檔內容）。
+- **「🕘 版本」（V3，編輯畫面）**：開啟版本面板（`#uldw-versions`，只重畫面板不整份重畫）→
+  `fetchSheetVersions()` 列出 v1…vN（時間／動作／狀態／單位·明細／淨重／磅差／建立者）→
+  每列「與前一版比」／「對目前」呼叫 `fetchVersionDiff()`，下方列出表頭／單位／明細的欄位級差異
+  （新增綠 `uldw-diff-add`、刪除紅 `uldw-diff-del`、修改黃 `uldw-diff-chg`）；列印時整個面板不印。
+
+---
+
+## 8. 檔案清單
+
+| 檔案 | 說明 |
+|---|---|
+| `public/js/uldweight/calc.js` | **計算核心**（前後端共用，純函式；含 `uldBookingTotals()`：W2 回寫 Booking Record 的彙總、`uldApplyRatioClamp()`：R2 比例上下限） |
+| `public/js/uldweight/state.js` | 前端狀態、API↔編輯狀態轉換、拆分、payload 帶 DB `id`（R3） |
+| `public/js/uldweight/render.js` | 清單／編輯畫面渲染 + 局部更新 |
+| `public/js/uldweight/booking-search.js` | **W1**：打板計劃 Booking Record 的輸入即篩選／自動帶入（`wireBookingPickers`） |
+| `public/js/uldweight/rcl-parse.js` | **W3**：RCL 磅單解析純函式（**前後端共用**：表頭偵測、欄位對應、列驗證／略過規則） |
+| `public/js/uldweight/rcl-import.js` | **W3**：選檔、上傳預覽、改欄位後本機重算、勾選列（前端輔助） |
+| `public/js/uldweight/version-diff.js` | **V3**：版本快照摘要 ＋ 欄位級異動比對（**前後端共用純函式**；後端以 `import()` 載入） |
+| `public/js/uldweight/api.js` | API 呼叫層（含 `fetchReportPdfBlob()`：R1 PDF 下載、`fetchBatchPdfBlob()`：V2 批次 ZIP、`syncSheetBookings()`：V1 補建 Booking） |
+| `public/js/uld-weight.js` | 入口 `setupUldWeightSection()`、事件委派、列印、PDF 下載（單張／批次 ZIP）、補建 Booking、Excel／摘要匯出 |
+| `public/css/uld-weight.css` | 樣式（theme 變數） |
+| `routes/uld-weight.js` | 後端 API（sqlite3 callback → Promise 包裝） |
+| `scripts/uld-weight-report-pdf.js` | **R1**：夾重表 A4 PDF 產生器（pdf-lib＋CJK 子集；`--selftest`） |
+| `scripts/test-uld-weight-calc.js` | 計算邏輯（CASE 1–4、比例、取整、檢核、拆分） |
+| `scripts/test-uld-weight-frontend.js` | DOM stub：狀態轉換、渲染、鎖定、邊界 |
+| `scripts/test-uld-weight-api.js` | 端對端（自帶伺服器 + 暫存 DB）：權限／CRUD／422／409 |
+
+---
+
+## 9. 測試指令
+
+```bash
+node scripts/test-uld-weight-calc.js      # 101 項
+node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
+node scripts/test-uld-weight-frontend.js  # 131 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對）
+node scripts/test-uld-weight-api.js       # API 端對端（141 項，會自己啟伺服器，port 3157）
+node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
+node scripts/test-nav-hierarchy.js        # 側欄主/子層級
+```
+
+---
+
+## 10. 已知限制與後續（Phase 2 之後）
+
+- **已完成（Phase 3）**：server 端正式 PDF 檔（`GET /sheets/:id/report.pdf`，`scripts/uld-weight-report-pdf.js`）＝R1；
+  多票比例上下限（`clamp_min_pct`／`clamp_max_pct`）＝R2；明細 diff 更新＝R3；fresh DB seed 競態＝R4；
+  **批次 PDF（多張打包 ZIP，`GET /sheets/batch-pdf`）＝V2**；**補建 Booking Record（`POST /sheets/:id/sync-bookings`，預設 dry_run）＝V1**；
+  **歷史版本／異動比對（`uld_weight_versions` ＋ `GET /sheets/:id/versions`／`/versions/diff`）＝V3**。
+- **尚未做（選用）**：大表即時重算節流（V4，實測卡頓才做）
+  （詳見 `uld-weight-remaining-work.md` §1）。
+  （列印／另存 PDF 的瀏覽器版 W4、磅差門檻可調＋LIH 檢核細分的 W5 都已完成，見 §7 的「🖨 列印」與 §4 檢核表。）
+  **已做**：MAWB 從「打板計劃 Booking Record」帶入（W1）、夾重結果回寫 `mawb_records.gross_weight`（W2）、
+  RCL 磅單匯入（W3：`POST /sheets/:id/import-rcl`，通用欄位對應、只解析不寫 DB、鎖定 409）。
+- 物料重量目前只作「磅差說明」，仍全額由夾重票吸收（實務上 MAWB 最終重量含物料）。
+- 多票夾重的比例基準（重量／件數／平均／手動）已可選；若需要「按比例但有上下限」再擴充。
+- 取整只支援 0.5 / 1.0；特殊航司的 0.1 精度未做。
+

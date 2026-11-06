@@ -6,7 +6,7 @@ const { execFile } = require('child_process');
 const SQLiteStore = require('connect-sqlite3')(session);
 
 // 初始化 SQLite 數據庫（建表 + seed）
-require('./db/database');
+const database = require('./db/database');
 
 // ===== 確保持久目錄（Railway Volume）就緒：首次啟動建立資料夾並複製模板 =====
 // 本地（無 DATA_DIR）時此段為 no-op，維持原路徑。
@@ -36,9 +36,13 @@ execFile(process.execPath, [path.join(__dirname, 'scripts', 'install-hooks.js')]
 });
 
 // ===== 啟動時自動建立預設管理員（僅全新環境第一次） =====
-execFile(process.execPath, [path.join(__dirname, 'scripts', 'seed-admin.js')], { windowsHide: true, timeout: 15000 }, (seedErr, stdout, stderr) => {
-  if (stdout && stdout.trim()) console.log(stdout.trim());
-  if (stderr && stderr.trim()) console.error(stderr.trim());
+// 注意：必須等資料庫 schema 初始化完成（含 companies.company_code 的相容性 ALTER TABLE）才跑，
+// 否則全新 DB 的 seed 會因 `no such column: company_code` 失敗 → 沒有 admin 帳號（R4）
+Promise.resolve(database.ready).then(() => {
+  execFile(process.execPath, [path.join(__dirname, 'scripts', 'seed-admin.js')], { windowsHide: true, timeout: 15000 }, (seedErr, stdout, stderr) => {
+    if (stdout && stdout.trim()) console.log(stdout.trim());
+    if (stderr && stderr.trim()) console.error(stderr.trim());
+  });
 });
 
 // 路由模組
@@ -50,6 +54,7 @@ const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
 const palletRouter = require('./routes/pallet');
 const xlsBookingRouter = require('./routes/xls-booking');
+const uldWeightRouter = require('./routes/uld-weight');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -111,6 +116,8 @@ app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 app.use('/api/orders', requireAuth, ordersRouter);
 // 打板計劃：僅限 admin / staff（內部員工操作）
 app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
+// ULD 夾重系統：僅限 admin / staff（與打板計劃同一批操作人員）
+app.use('/api/uld-weight', requireRole('admin', 'staff'), uldWeightRouter);
 // Shipper Role Project（空運單據工具）：登入即可使用
 app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）

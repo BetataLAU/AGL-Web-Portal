@@ -301,6 +301,10 @@ window.initProtectedSections = function (user) {
   if ((role === 'admin' || role === 'staff') && typeof setupPalletSection === 'function') {
     setupPalletSection();
   }
+  // ULD 夾重系統：同樣僅限 admin / staff（與打板計劃相同操作人員）
+  if ((role === 'admin' || role === 'staff') && typeof window.setupUldWeightSection === 'function') {
+    window.setupUldWeightSection();
+  }
 };
 
 // ===== 右下角「回到頁頂」按鈕 =====

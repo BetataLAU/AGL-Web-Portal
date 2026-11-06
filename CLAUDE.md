@@ -65,14 +65,14 @@
 | `server.js` | Express 入口，掛載全部 API 路由 |
 | `db/database.js` | SQLite 建表（含 orders 相容欄位自動補齊）、skills seed |
 | `routes/` | 後端 API 模組（見下方分節） |
-| `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 資料庫區塊） |
+| `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 模擬裝板 / ULD 夾重 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
-| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / **loadsim** / xls-booking |
+| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / **loadsim** / **uld-weight** / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / xls-booking-* |
+| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / xls-booking-* |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
-| `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md` |
+| `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md`、`uld-weight-system.md` |
 | `docs/research/` | 研究抓取產物（`*-latest.txt` 不進版控） |
 | `README.md` | 專案說明與 API 概覽 |
 | `PROJECT_MAP.md` | 詳細專案地圖（資料模型、API 總表） |
@@ -89,6 +89,7 @@
 | `/api/contour-image` | `routes/contours.js` | 舊路徑的 Contour 影像 |
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
 | `/api/pallet` | `routes/pallet.js` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders（admin+staff） |
+| `/api/uld-weight` | `routes/uld-weight.js` | ULD 夾重系統：bookings（打板計劃帶入）/ sheets CRUD / duplicate / lock / apply（回寫 Booking）/ sync-bookings（補建 Booking，預設 dry_run）/ versions（歷史版本／異動比對）/ import-rcl（RCL 磅單）/ report.pdf（單張 A4 PDF）/ batch-pdf（多張打包 ZIP，admin+staff，見下） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
@@ -106,9 +107,9 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **資料隔離**：`routes/orders/orders-router.js` 對 customer 角色強制 `AND o.customer_company_id = session.company_id` 過濾；單筆操作（GET/PUT/DELETE）先驗證訂單屬於自己的公司；新增訂單時 `customer_company_id` 強制為 session 內的公司。
 
-**資料表**：`users`（company_id, user_id, password_hash, display_name, role, is_active）；`companies` 新增 `company_code` 欄位（登入用公司短碼）。
+**資料表**：`users`（company_id, user_id, password_hash, display_name, role, is_active）；`companies` 的 `company_code`（登入用公司短碼）**建表時就有**（`CREATE TABLE companies` 內含；舊 DB 由 `PRAGMA`＋`ALTER TABLE` 補）。
 
-**預設管理員**：`scripts/seed-admin.js` 啟動時自動建立 `AGL / admin / admin123`（僅全新環境）。
+**預設管理員**：`scripts/seed-admin.js` 啟動時自動建立 `AGL / admin / admin123`（僅全新環境）。`server.js` **必須等 `db.ready`**（`db/database.js` 匯出的 Promise，代表建表與相容性 `ALTER TABLE` 都完成）才 `execFile` 這支，否則全新 DB 會因 `companies.company_code` 還不存在而 seed 失敗（→ 沒有 admin）。
 
 **前端**：`login.html`（獨立登入頁）、`users.html`（使用者管理，admin only）、`js/auth.js`（Sidebar 登入狀態與鎖頭控制）、`js/utils/api.js`（401 自動跳轉登入頁）、`main.js`（受保護區塊僅登入後初始化）。
 
@@ -138,6 +139,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `scripts/sli-eli-overlay.js` | **疊字 PDF 產生器（P3）**：以 pdf-lib 把 fieldmap 的 10 欄位疊在 `sli-eli-blank.pdf` 上輸出 `{MAWB}.pdf`（不需 Excel／Python／merge）；字元三層判定（見下） |
 | `scripts/pdf-charset.js` | **字元支援判定（共用）**：第 0 層 `sanitizeText`（無損淨化）＋第 1 層 WinAnsi 可編碼集合／`winAnsiByte`／`winAnsiHex`（與 `@pdf-lib/standard-fonts` 逐筆核對） |
 | `scripts/pdf-cjk-font.js` | **CJK 字型解析（fontkit）**：平台候選鏈、`.ttc` 集合取單一字型、覆蓋率判定、公制量測、解析快取（`SLI_ELI_CJK_FONT`／`PDF_CJK`） |
+| `scripts/uld-weight-report-pdf.js` | **ULD 夾重表 PDF（R1）**：`buildUldWeightReportPdf(detail, { issueText })` 產 A4 直式報表（表頭／每板 RCL−Tare=淨重＋明細／MAWB 彙總／檢核／全表合計／頁碼）；中文走 `pdf-cjk-font` 子集、缺字以 `?` 取代；`--selftest` 可免伺服器自檢 |
 | `scripts/sli-eli-blank-widen-fonts.js` | **P4 前置**：把「字符集匯出 PDF」的 Arial 字型程式搬進空白（純 pdf-lib，跨文件搬移 FontFile2/Descriptor/Widths；`REQUIRED` 由 `pdf-charset` 提供） |
 | `scripts/sli-eli-diff.py` | 150dpi 逐像素比對＋文字抽取橋接（重用 `sli-eli-font-optimize.py` 的 `diff_pages`） |
 | `scripts/test-sli-eli-overlay.js` | P3 驗收（頁數/A4/文字可抽取/差異 < 0.5%/檔案大小/每筆耗時/fallback 判定） |
@@ -326,6 +328,32 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - API（admin/staff）：`/bookings`（+ `/bookings/destinations`）、`/plans`（+ `reorder` / `duplicate` / `items`）、`/spl-codes`、`/remark-templates`、`POST /sync-orders`
 - 前端：`public/index.html` 的 `#section-palletization` 區塊 + `public/js/pallet/`（api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters）+ `public/css/pallet.css`
 
+## ULD 夾重系統（routes/uld-weight.js，admin/staff）
+
+- **目的**：輸入貨站（HACTL / AAT / CPSL）RCL 磅重 → 選夾重 MAWB（可多票按比例）→ 算出每票 MAWB 的最終重量。
+  目標淨重 `R = RCL Gross − Tare`（散貨 B 的 Tare = 0）；磅差 `D = R − Σ 申報重量`。
+- **取整**：P / X（交板）一律 **正整數（1.0）**；B（交散貨）可用 **0.5 / 1.0**（表頭可選）。尾差預設由「申報重量最大的夾重票」吸收（`tail_mode = adjust_largest | equal | none`）。
+- **不檢核**：ULD Port 可與各票不同、同板各票 Port 也可不同（MIX 混裝）；**Pre-decl Type 完全手動**（1 板 1 MAWB 也可能是 X，不自動判定）。
+- **計算核心**：`public/js/uldweight/calc.js`（純函式 ESM，**前後端共用**；後端以動態 `import()` 載入重算後寫回 `final_weight` / `net_weight` / `diff_weight`）。
+- **前端**：`#section-uld-weight` + `public/js/uld-weight.js`（入口、事件委派、Excel／摘要匯出）+ `public/js/uldweight/{state,render,api,booking-search}.js` + `public/css/uld-weight.css`；admin/staff 才能用（`main.js` 的 `initProtectedSections`）。
+- **MAWB 從打板計劃帶入（W1，2026-11 完成）**：`GET /api/uld-weight/bookings?search=&dest=&limit=`（只讀 `mawb_records`，比照 `routes/pallet.js` 的 `BOOKING_SELECT_SQL`）＋ `public/js/uldweight/booking-search.js`。每張收貨單位卡底部的「新增 MAWB」列是**輸入即篩選**（`window.setupAutocomplete`；`renderEditor()` 尾端 `wireBookingPickers(root)`，每次重畫都重綁）：選到後自動帶入件數（`pcs`）／重量（`gross_weight`）／Port（`dest`），並把 `mawb_record_id` 寫進 item（手動改字會清成 null，**手動輸入仍可用**）。候選清單先快取最近 200 筆（60 秒），查不到才打 `search`。
+- **回寫 Booking Record（W2，2026-11 完成，D1 已決）**：`POST /api/uld-weight/sheets/:id/apply`（僅 `status='locked'`，未鎖定回 **409**）。以 `calc.js` 的 `uldBookingTotals()` 依 `mawb_record_id` 彙總每票最終重量（同票跨板加總）→ **絕對值覆寫** `mawb_records.gross_weight`（冪等，重量相同走 `skipped(unchanged)`），原重量／新重量寫進 `audit_log.detail`（JSON）。**不動 `orders.weight_kg`**；未連結 Booking、`duplicate_booking`／`mawb_mismatch` 一律不回寫（列在 `conflicts`）。前端編輯畫面在鎖定後才會啟用「套用到 Booking」按鈕。
+- **RCL 磅單匯入（W3，2026-11 完成）**：`POST /api/uld-weight/sheets/:id/import-rcl`（multer 記憶體上傳 10MB，`.xlsx`／`.xlsm`／`.csv`；ExcelJS 前先掛 `scripts/xls-exceljs-guard`）。**只解析不寫 DB**（鎖定回 409），回傳 `header_row`／`header`／`columns`／`grid`／`rows`／`skipped`；`sheet` 與 `col_uld/col_tare/col_gross/col_pcs` 可覆寫。解析邏輯是**前後端共用純函式** `public/js/uldweight/rcl-parse.js`（`rclFindHeaderRow`／`rclDetectColumns`／`rclRowsFromGrid`）；前端 `rcl-import.js` ＋ `render.js` 的匯入面板（欄位對應可改、可勾選、只重畫面板），加入後建立草稿單位（Pre-decl 預設 P，需自行確認 P/X）再按「儲存」。**grid 保留空白列**（列號 = Excel 列號）。
+- **列印／另存 PDF（W4，2026-11-05 完成）**：`public/css/uld-weight.css` 檔尾 `@media print`（`@page A4 portrait`、單欄、隱藏側欄／`.uldw-header-actions`／`.uldw-editor-actions`／`.uldw-rcl`／所有按鈕與勾選欄／`.uldw-item-add`；輸入框去框線只留值；`.uldw-unit`／`.uldw-totals` `break-inside: avoid`；數字 `tabular-nums`；`.uldw-table-wrap` 改 `overflow: visible`）。前端編輯畫面加「🖨 列印」（`data-action="print"`，**草稿／鎖定都沒有 disabled**）→ `uld-weight.js` 的 `printCurrent()` → `window.print()`。列印區塊用 `html, html[data-theme]` 重設 CSS 變數＋`-webkit-text-fill-color: #000` 強制黑字白底（深色主題／鎖定灰字也能印）。`B 取整`／`尾差` 表頭欄位標 `uldw-print-hide`（紙本不印）。
+- **server 端正式 PDF（R1，2026-11-05 完成，D4 已決「要做」）**：`GET /api/uld-weight/sheets/:id/report.pdf`（admin/staff；草稿／鎖定都能下載）→ `scripts/uld-weight-report-pdf.js` 的 `buildUldWeightReportPdf(detail, { issueText })`。資料一律來自 `loadSheetDetail()`（**不在 PDF 內另寫算法**），A4 直式、邊界約 10mm、每板區塊不跨頁、數字右對齊、頁尾「第 N / M 頁」。中文字型沿用 `scripts/pdf-cjk-font.js` 的 fontkit 按需子集（`CustomFontSubsetEmbedder` ＋ `PDFFont.of` ＋ `doc.fonts.push()`；含中文 ≈37 KB、`PDF_CJK=off` ≈2 KB）；字串先用 `scripts/pdf-charset.js` 的 `isStdFont()` 判斷走 Helvetica 或 CJK，缺字以 `?` 取代。前端編輯畫面「⤓ PDF」（`data-action="pdf"`，草稿／鎖定都沒有 disabled）→ `api.js` 的 `fetchReportPdfBlob()`（**不能用 `apiFetch`**，它固定解析 JSON）→ Blob 下載。自我檢查：`node scripts/uld-weight-report-pdf.js --selftest`。
+- **磅差門檻可調＋LIH 檢核細分（W5，2026-11-05 完成）**：`uld_weight_sheets` 新增 `diff_warn_pct REAL DEFAULT 2`／`diff_warn_kg REAL DEFAULT 100`（新 DB 在 `CREATE TABLE` 內；既有 DB 由 `db/database.js` 的 `PRAGMA table_info(uld_weight_sheets)` ＋ `ALTER TABLE` 補）。`routes/uld-weight.js` 的 `normalizeHeader()`／`serializeSheetRow()`／INSERT／UPDATE／duplicate 與 `loadSheetDetail()`、PUT 前的 `uldComputeSheet()` 都帶這兩個值（**0／未填 → 預設 2 / 100**）。前端表頭多了「磅差警示 %／kg」兩個數字輸入（`data-header="diff_warn_pct"`／`diff_warn_kg`，`uld-weight.js` 的 `NUMERIC_HEADER_FIELDS` 存數字並只 `refreshComputed()`）。檢核：`LIH_MISMATCH` 拆成 `LIH_UNIT_MISSING`（票有 UN、單位標 N）／`LIH_UNIT_ONLY`（單位標 UN、票都沒有）／`LIH_UN_CODE_MISMATCH`（號碼不一致）；`DIFF_TOO_BIG` 的判定維持 **`|diff| > kg` 且 `|diff%| > pct`**（AND），`detail` 會印出門檻。
+- **多票比例上下限（R2，2026-11-05 完成）**：`uld_weight_sheets` 新增 `clamp_min_pct REAL DEFAULT 0`／`clamp_max_pct REAL DEFAULT 0`（**0 = 不限**；既有 DB 用同一段 `PRAGMA`＋`ALTER TABLE` 補）。表頭「比例下限 %／上限 %」（`data-header="clamp_min_pct"`／`clamp_max_pct`，標 `uldw-print-hide`，`NUMERIC_HEADER_FIELDS` 一併處理）。算法：`calc.uldApplyRatioClamp(ratios, minPct, maxPct)`（water-filling：超出界線的票固定在界線，其餘按原始比例重分配；**≥2 票才生效**）；無解（例：3 票各最少 50%、2 票各最多 30%）→ 忽略上下限 ＋ `CLAMP_INFEASIBLE`（warn，不擋存檔）。被限制的票 `item.ratioClamped = true`，畫面比例後面多一個 `*`；`calc.uldComputeUnit()` 回傳 `clampMinPct`／`clampMaxPct`。
+- **明細 diff 更新（R3，2026-11-05 完成）**：`PUT /sheets/:id` 不再「先刪後插」，改成以 id 比對（payload 有 id 且在該表／該單位內 → **UPDATE**；沒有 → **INSERT**；DB 有但 payload 沒有 → **DELETE**）。前端 `state.uldSheetPayload()` 會帶 `unit.id`／`item.id`（新列為 `null`）；item 比對加 `uld_id` 範圍避免誤改別板。**不帶 id 的舊格式 payload 仍可存**（退回整批重建，id 會變）。`saveCurrent()` 用回應的 detail 覆蓋 `state.current`，所以下一次儲存自然帶得到新 id。
+- **fresh DB 的 seed 競態修正（R4，2026-11-05 完成）**：`db/database.js` 的 `CREATE TABLE companies` 直接含 `company_code TEXT`；同時把相容性工作登記進 `initTasks` 並匯出 **`db.ready`**（Promise），`server.js` 改成 `Promise.resolve(database.ready).then(() => execFile(seed-admin.js))`。API 測試用 `waitForAdmin()` 直接查 DB，確認「伺服器自己」就完成 seed。
+- **模組載入**：`index.html` 以 `type="module"` 載入 `js/uld-weight.js`；`public/js/uld-weight.js` 會動態 `import('./loadsim/uld-specs.js')` 取板型代碼當 Contour 建議清單（失敗也照常運作）。
+- **批次 PDF 打包 ZIP（V2，2026-11-06 完成）**：`GET /api/uld-weight/sheets/batch-pdf?ids=1,2,3`（也可只給 `status=`／`search=`，**上限 50 張**，超過 400、沒有符合 404）。逐張 `loadSheetDetail()` → `buildReportPdfBytes()`（與單張 `report.pdf` 共用同一段，**不在這裡另寫算法**）→ `archiver('zip')` **在記憶體**打包（`on('data')` 收到 `on('end')` → `Buffer.concat`，不落暫存檔）→ `application/zip`、檔名 `uld-weight-batch-YYYYMMDD-HHmm.zip`。ZIP 內是每張 `<sheet_no>.pdf`（`sanitizeFileLabel()` 去非法字元、同名補 `-2`）＋ `manifest.txt`（UTF-8 **BOM**、`\r\n`，列出表號／狀態／RCL／淨重／磅差與失敗清單）。單張失敗不讓整批失敗，成功／失敗張數放在 `X-Uld-Weight-Pdf-Count`／`X-Uld-Weight-Pdf-Failed`。前端：清單頁每列勾選框＋表頭全選，工具列「⤓ 批次 PDF」→ `api.js` 的 `fetchBatchPdfBlob({ ids })`；勾選狀態存 `state.batchSelected`，只更新計數／按鈕／列底色（**不整份重畫**），清單重新載入會剔除已不存在的 id。**陷阱**：`archiver.append()` 只吃 `Buffer`／`Stream`（pdf-lib 的 `doc.save()` 是 `Uint8Array`，要先 `Buffer.from()`）；路由必須宣告在 `GET /sheets/:id` **之前**，否則 `batch-pdf` 會被當成 `:id`。
+- **補建 Booking Record（V1，2026-11-06 完成）**：`POST /api/uld-weight/sheets/:id/sync-bookings`。把**沒有 `mawb_record_id`** 的票（`calc.uldBookingTotals().unlinked`）反推回打板計劃：打板計劃已有同號 MAWB（**正規化比對**：SQL `REPLACE(REPLACE(UPPER(IFNULL(mawb,'')),'-',''),' ','') = ?`，與 `calc.uldMawbKey()` 一致）→ **只連結、不重複建立**；沒有 → `INSERT mawb_records`（`gross_weight` = 夾重後重量加總、`pcs`、`dest` = 該票 Port、`remark` = 「由夾重表 &lt;sheet_no&gt; 建立」）。**預設 `dry_run`（只回預覽、不寫 DB）**，要寫入必須明確傳 `{ "dry_run": false }`；**不動 `orders`**（D1）、**不動夾重表重量**（只更新 `uld_weight_items.mawb_record_id`，鎖定中也能執行）；同號 MAWB 在打板計劃有多筆 → `skipped(duplicate_booking)`（不猜）；夾重表有 `error` → **422**；寫入記 `audit_log`（`uld_weight.sync_bookings`）、回應同時帶回重讀的 `sheet`。前端編輯畫面「⇧ 補建 Booking」（`data-action="sync-bookings"`）固定走「`dryRun:true` 預覽 → confirm 列出將建立／連結／略過 → `dryRun:false` 寫入」。
+- **歷史版本／異動比對（V3，2026-11-06 完成）**：新表 `uld_weight_versions`（`id, sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；新 DB 由 `CREATE TABLE IF NOT EXISTS` 建立）。留版時機：**create／save／lock／unlock／apply／sync_bookings／duplicate**（`saveSheetVersion()`）；**內容相同的 `save` 不重複留**，其他事件照留；每張表保留最近 **30** 版（`VERSION_KEEP`，超過刪舊）。快照只存**輸入值**（`buildSnapshot()` 挑欄位，不含 calc 重算結果）。API：`GET /sheets/:id/versions`（新到舊清單）、`GET /sheets/:id/versions/:versionId`（含 snapshot）、`GET /sheets/:id/versions/diff?from=&to=`（`from` 必填；`to` 省略＝與**目前內容**比較；**必須宣告在 `/versions/:versionId` 之前**）。比對規則只有一份：**`public/js/uldweight/version-diff.js`**（`uldDiffSnapshots()`／`uldSnapshotSummary()`，欄位級 `HEADER_FIELDS`／`UNIT_FIELDS`／`ITEM_FIELDS`，配對用 **DB id**、沒有 id 的新列才退回「MAWB + 序」；後端 `import()` 載入）。前端：編輯畫面「🕘 版本」（`data-action="versions"`）→ 面板 `#uldw-versions`（`refreshVersions()` 只重畫面板），每列「與前一版比／對目前」；列印時整個面板隱藏。
+- **測試**：`npm run test:uldweight`（calc 101 項＋rcl 28 項＋frontend 131 項；§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次勾選、§19 補建 Booking、§20 版本比對）、`npm run test:uldweight-api`（端對端 141 項，自帶伺服器 + 暫存 DB，含 `/bookings`、`/apply`、`/import-rcl`、`report.pdf`、`batch-pdf`（ZIP 結構／`manifest.txt`／PDF 檔頭，測試自行解析 ZIP 中央目錄）、`sync-bookings`（dry_run 預覽不寫 DB／寫入後回填連結／同號 MAWB 只連結／冪等／audit_log）、`versions`（清單排序／單版快照／diff 增量／`to` 省略對目前／相同內容不增版／lock·unlock 各留一版）、上下限往返、明細 id 不變、fresh DB seed）、`node scripts/uld-weight-report-pdf.js --selftest`、`npm run bench:uldweight`（V4 效能基準，見下）、設計文件 `docs/design/uld-weight-system.md`。
+- **效能（V4 量測，2026-11-06 完成 → 不做節流）**：`scripts/bench-uld-weight-calc.js`（`npm run bench:uldweight`）只呼叫 `calc.uldComputeSheet()` 量單次耗時（暖機 10 次、量 60 次、取 median）；實測 **50 板 × 10 票 median 約 0.6ms**（0.58～0.68ms，p95 約 1.5ms）、**100 板 × 20 票 約 2.4ms**，遠低於 16ms（一個 frame）→ **維持每次輸入整表重算，不加 debounce／rAF 節流**。前端輸入事件仍只做 `refreshComputed()` 局部更新（不可整份 `render()`）。日後若真的卡頓：先重跑 `npm run bench:uldweight`，仍 > 16ms 才依 `docs/design/uld-weight-remaining-work.md` §1.1 做輸入節流（30～60ms debounce，`change`／存檔前必須立即重算）。
+  量測注意：① 首次呼叫含 JIT，單次 `console.time` 不可信，要看 median；② 本工具只量 calc，DOM 更新（500 列 `textContent`）不在內，要用 Chrome DevTools Performance 才看得到；③ PowerShell 會把 node 的 `MODULE_TYPELESS_PACKAGE_JSON` stderr 警告顯示成 `exit code 1`，腳本其實成功。
+- **進度**：Phase 1 ＋ W1～W5 ＋ **R1（server 端 PDF）／R2（比例上下限）／R3（明細 diff 更新）／R4（seed 競態）** ＋ **V2（批次 PDF ZIP）／V1（補建 Booking Record）／V3（歷史版本）** 全部完成（V1／V2／V3 為 2026-11-06）；**已無必辦項**，剩下的是選用（V4 大表節流，實測卡頓才做）與 D3／D5／D6 待決。**未完成工作清單與新對話提示詞見 `docs/design/uld-weight-remaining-work.md`**（歷程與陷阱見 `docs/design/uld-weight-phase2-handoff.md`）。
+
 ## 模擬裝板系統（public/js/loadsim/，純前端）
 
 - **入口**：`public/index.html` 的 `#section-loadsim`＋`public/js/loadsim.js`（`type="module"`，`window.setupLoadsimSection` 由 `main.js` 的 `DOMContentLoaded` 呼叫，**免登入**）
@@ -392,8 +420,12 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `templates` | 訂單範本（**已停用**：UI/API 已移除，僅保留供 dbviewer 與公司刪除保護） |
 | `pallet_plans` / `pallet_plan_items` | 打板計劃卡與項目 |
 | `spl_codes` / `remark_templates` | 打板 SPL 代碼與備註範本 |
+| `uld_weight_sheets` / `uld_weight_ulds` / `uld_weight_items` | ULD 夾重表／收貨單位（ULD 或散貨）／明細（每板 × 每 MAWB 的重量分攤） |
+| `uld_weight_versions` | ULD 夾重表歷史版本（V3：`sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；每張表保留最近 30 版） |
 
-> 共 12 張表（`db/database.js` 建表）。REMARK：舊 `messages`（GuestBook/Forum）表已從建表移除，但舊資料庫仍留有該表，待日後 `DROP TABLE` 與 dbviewer 引用清理。
+> 共 **16 張表**（`db/database.js` 建表；16 張都有 `id … AUTOINCREMENT`）。
+> REMARK：舊 `messages`（GuestBook/Forum）已從建表移除；**本機 `database.db` 已無此表**，只剩
+> `routes/dbviewer.js`（`ALLOWED_TABLES`）與 `public/js/dbviewer.js`（中文標籤）各一行引用待清理。
 
 ## 常見任務指引
 

@@ -217,6 +217,37 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - 純前端：狀態存 `localStorage`，換頁 / 重新整理後仍保留
 - 檔案：`public/js/loadsim.js` + `public/js/loadsim/*`、`public/css/loadsim.css`
 
+## ⚖️ ULD 夾重系統（`/api/uld-weight`，admin/staff）
+
+貨站（HACTL / AAT / CPSL）出 RCL 後，把「RCL 磅重 − 倉庫申報」的差額回填到指定 MAWB，算出每票最終重量。
+
+- 目標淨重 `R = RCL Gross − Tare`（散貨 B 的 Tare = 0）；磅差 `D = R − Σ 申報重量`
+- 夾重票**可多票**（重量比例／件數比例／平均／手動 %），未勾選的票重量不變
+- 取整：**P / X（交板）一律正整數**、**B（交散貨）可選 0.5 / 1.0**；尾差預設由申報重量最大的夾重票吸收
+- 不檢核 Port（可混裝）；Pre-decl Type 完全手動（1 板 1 MAWB 也可能是 X）
+- 磅差警示門檻表頭可調（`diff_warn_pct`／`diff_warn_kg`，預設 2% / 100kg；% 與 kg 需同時超過）；LIH 檢核細分為「單位缺標／只有單位標／UN 號不一致」
+- 夾重表 CRUD、複製、鎖定；匯出 Excel（3 個工作表）、複製文字摘要、**A4 列印／另存 PDF**（草稿／鎖定都能印）
+- **server 端正式 PDF**（⤓ PDF，A4 直式固定排版）；清單可勾選多張 → **批次下載 ZIP**（每張 `<sheet_no>.pdf` ＋ `manifest.txt`，上限 50 張）
+- **歷史版本**（🕘 版本）：每次建立／儲存／鎖定／解鎖／套用／補建 Booking 都留一份快照（每表保留 30 版），可比較兩版差異
+- 鎖定後可把結果套用到打板計劃的 Booking Record（`mawb_records.gross_weight`，不動訂單）；
+  也可以反向「**⇧ 補建 Booking**」：把夾重表上還沒連結 Booking 的票補進打板計劃（預設先預覽、確認後才寫；同號 MAWB 只連結不重建）；RCL 磅單（Excel／CSV）可整批匯入收貨單位
+- 前端：`#section-uld-weight`、`public/js/uld-weight.js`、`public/js/uldweight/*`、`public/css/uld-weight.css`；設計文件 `docs/design/uld-weight-system.md`
+
+```bash
+GET    /api/uld-weight/sheets?status=&search=   # 夾重表清單
+POST   /api/uld-weight/sheets                   # 新增（WGT-YYYYMMDD-XX）
+GET    /api/uld-weight/sheets/:id               # 明細 + 即時重算 + 檢核
+PUT    /api/uld-weight/sheets/:id               # 整份儲存（error → 422、鎖定 → 409）
+DELETE /api/uld-weight/sheets/:id               # 刪除
+POST   /api/uld-weight/sheets/:id/duplicate     # 複製
+POST   /api/uld-weight/sheets/:id/lock|unlock   # 鎖定／解鎖
+GET    /api/uld-weight/sheets/:id/report.pdf    # 單張 A4 PDF
+GET    /api/uld-weight/sheets/batch-pdf?ids=…   # 多張打包 ZIP（+ manifest.txt，上限 50 張）
+POST   /api/uld-weight/sheets/:id/sync-bookings # 補建 Booking（預設 dry_run 只回預覽）
+GET    /api/uld-weight/sheets/:id/versions       # 歷史版本清單
+GET    /api/uld-weight/sheets/:id/versions/diff  # 版本差異（from 必填；to 省略＝對目前）
+```
+
 ## 🗄️ 資料庫檢視器（`/api/db`）
 
 - 以白名單（`isAllowedTable`）限制可存取的資料表，避免誤改系統表
@@ -242,6 +273,7 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 | `/api/contours`、`/api/contour-image` | Contour 影像 | 公開 |
 | `/api/orders` | 訂單 CRUD、重複檢查、公司/地點、備註範本 | 登入（customer 僅自己公司） |
 | `/api/pallet` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders | admin / staff |
+| `/api/uld-weight` | ULD 夾重系統：sheets CRUD / duplicate / lock | admin / staff |
 | `/api/xls-booking` | Shipper Role：upload / preview / cnee-preview / process / status / cancel / download / cleanup | 登入 |
 | `/api/db` | 資料庫檢視器 | `db_view` |
 

@@ -11,7 +11,7 @@ const vm = require('vm');
 const NAV_ITEM_HREFS = [
   '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
   '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization', '#section-loadsim',
-  '#section-dbviewer', 'users.html'
+  '#section-uld-weight', '#section-dbviewer', 'users.html'
 ];
 
 // 舊版伺服器實際存下的不完整排序（缺 sli-eli-layout.html）
@@ -120,7 +120,7 @@ function check(name, ok, detail = '') {
   console.log(`A. DOM 順序：${JSON.stringify(orderA)}`);
   check('A1 HOME 仍是最上方', orderA[0] === '#section-home');
   check('A2 未被列到的項目排在最後',
-    orderA.slice(-2).join() === 'sli-eli-layout.html,#section-loadsim',
+    orderA.slice(-2).join() === '#section-loadsim,#section-uld-weight',
     `→ 最後兩項 ${orderA.slice(-2).join(' , ')}`);
   check('A3 已列出的項目維持伺服器順序',
     JSON.stringify(orderA.slice(1, 9)) === JSON.stringify(LEGACY_PARTIAL));

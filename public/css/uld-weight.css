@@ -1,0 +1,756 @@
+/* ===== ULD 夾重系統樣式（沿用 Theme 變數，支援 Light/Dark/Ocean）===== */
+
+.uldw-card { overflow: visible; }
+.uldw-header-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* ===== 共用按鈕 ===== */
+.uldw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.uldw-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.uldw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.uldw-btn-primary { background: var(--primary-gradient); border-color: transparent; color: #fff; }
+.uldw-btn-primary:hover:not(:disabled) { color: #fff; opacity: 0.92; }
+.uldw-btn-danger { color: #dc2626; }
+.uldw-btn-danger:hover:not(:disabled) { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; }
+.uldw-btn-sm { font-size: 0.72rem; padding: 3px 8px; min-height: 26px; border-radius: 6px; }
+
+/* ===== 清單 ===== */
+.uldw-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.uldw-list-toolbar input,
+.uldw-list-toolbar select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+.uldw-list-toolbar input { min-width: 220px; }
+.uldw-list-count { font-size: 0.78rem; color: var(--text-muted); }
+
+/* ===== 批次 PDF（V2）：勾選欄 + 工具列（靠右） ===== */
+.uldw-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.uldw-batch-count { font-size: 0.78rem; color: var(--text-muted); }
+.uldw-batch-cell { width: 30px; text-align: center; }
+.uldw-batch-cell input { cursor: pointer; margin: 0; }
+.uldw-table tr.is-batch-selected td { background: rgba(59, 130, 246, 0.10); }
+
+.uldw-table-wrap { width: 100%; overflow-x: auto; }
+.uldw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.uldw-table th,
+.uldw-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+.uldw-table thead th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--sidebar-bg);
+}
+.uldw-table tbody tr:hover { background: var(--sidebar-bg); }
+.uldw-table-compact { font-size: 0.76rem; }
+.uldw-row-actions { display: flex; gap: 4px; }
+
+/* ===== 狀態 ===== */
+.uldw-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.uldw-status-draft { background: rgba(37, 99, 235, 0.12); color: var(--primary); border-color: rgba(37, 99, 235, 0.3); }
+.uldw-status-locked { background: rgba(100, 116, 139, 0.16); color: var(--text-muted); border-color: rgba(100, 116, 139, 0.35); }
+
+/* ===== 編輯畫面 ===== */
+.uldw-editor { display: flex; flex-direction: column; gap: 12px; }
+.uldw-editor.is-locked .uldw-unit { opacity: 0.92; }
+
+.uldw-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+.uldw-editor-title { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+.uldw-dirty { font-size: 0.72rem; color: #d97706; font-weight: 700; }
+.uldw-editor-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.uldw-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 10px;
+}
+.uldw-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.uldw-fields input,
+.uldw-fields select {
+  padding: 5px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.uldw-field-wide { grid-column: span 2; }
+
+/* ===== 兩欄（左：收貨單位｜右：結果）===== */
+.uldw-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .uldw-columns { grid-template-columns: minmax(0, 1fr); }
+}
+.uldw-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.uldw-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.uldw-col-actions { display: flex; gap: 6px; }
+
+/* ===== 收貨單位卡片 ===== */
+.uldw-unit-list { display: flex; flex-direction: column; gap: 10px; }
+.uldw-unit {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uldw-unit[data-kind="BULK"] { border-style: dashed; }
+.uldw-unit-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.uldw-unit-title { font-size: 0.8rem; font-weight: 700; color: var(--text-main); }
+.uldw-unit-chips { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+
+.uldw-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.uldw-chip-sm { font-size: 0.62rem; padding: 0 5px; }
+.uldw-chip-kind { color: var(--primary); border-color: rgba(37, 99, 235, 0.35); background: rgba(37, 99, 235, 0.1); }
+.uldw-chip-ok { color: #15803d; border-color: rgba(21, 128, 61, 0.35); background: rgba(21, 128, 61, 0.1); }
+.uldw-chip-warn { color: #b45309; border-color: rgba(180, 83, 9, 0.35); background: rgba(180, 83, 9, 0.1); }
+.uldw-chip-bad { color: #dc2626; border-color: rgba(220, 38, 38, 0.35); background: rgba(220, 38, 38, 0.1); }
+
+.uldw-unit-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px 8px;
+}
+.uldw-unit-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.uldw-unit-fields input,
+.uldw-unit-fields select {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 500;
+  min-width: 0;
+}
+
+.uldw-unit-summary {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+}
+.uldw-unit-summary b { color: var(--text-main); }
+
+/* ===== 明細表 ===== */
+.uldw-items { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+.uldw-items th,
+.uldw-items td {
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+.uldw-items thead th { font-size: 0.66rem; color: var(--text-muted); }
+.uldw-items tr.is-squeeze { background: rgba(37, 99, 235, 0.07); }
+.uldw-items tr.is-squeeze td:nth-child(2) input { font-weight: 700; }
+.uldw-items input,
+.uldw-items select {
+  padding: 3px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.75rem;
+  min-width: 0;
+}
+.uldw-input-mawb { width: 130px; }
+.uldw-input { width: 68px; text-align: right; }
+.uldw-input-xs { width: 50px; text-align: right; }
+.uldw-input-lih { width: 92px; }
+.uldw-ratio-cell,
+.uldw-final-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.uldw-final-cell span { font-weight: 700; }
+.uldw-row-btns { display: flex; gap: 3px; }
+.uldw-empty-cell { color: var(--text-muted); font-size: 0.72rem; padding: 8px 4px; }
+
+/* ===== 新增 MAWB（每張卡底部）===== */
+.uldw-item-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+}
+.uldw-item-add input,
+.uldw-item-add select {
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.76rem;
+}
+.uldw-item-add input[data-draft="mawb"] { width: 150px; }
+.uldw-item-add input[data-draft="port"] { width: 64px; }
+.uldw-item-add input[data-draft="pcs"] { width: 62px; }
+.uldw-item-add input[data-draft="declared_weight"] { width: 86px; }
+
+/* MAWB 輸入即篩選（Booking Record）：外層給共用 autocomplete 定位用 */
+.uldw-ac-field { position: relative; display: inline-flex; }
+.uldw-ac-field .app-autocomplete-list {
+  right: auto;
+  min-width: 300px;
+  text-align: left;
+  font-size: 0.74rem;
+}
+.uldw-draft-hint {
+  flex-basis: 100%;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.uldw-draft-hint:empty { display: none; }
+
+/* ===== 版本紀錄面板（V3）===== */
+.uldw-versions {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uldw-versions-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; }
+.uldw-versions-head .uldw-btn { margin-left: auto; }
+.uldw-version-muted { color: var(--text-muted); font-size: 0.74rem; }
+.uldw-version-table th,
+.uldw-version-table td { font-size: 0.74rem; white-space: nowrap; }
+.uldw-version-actions { display: flex; gap: 4px; }
+.uldw-version-diff {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.uldw-version-diff-head { font-size: 0.76rem; color: var(--text-muted); }
+.uldw-version-diff-error { font-size: 0.78rem; color: #dc2626; }
+.uldw-diff-list { margin: 0; padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.uldw-diff-list li { font-size: 0.76rem; line-height: 1.45; }
+.uldw-diff-tag {
+  display: inline-block;
+  min-width: 56px;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  text-align: center;
+}
+.uldw-diff-add { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
+.uldw-diff-del { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
+.uldw-diff-chg { background: rgba(234, 179, 8, 0.18); color: #a16207; }
+
+/* ===== RCL 磅單匯入面板（W3）===== */
+.uldw-rcl {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uldw-rcl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; }
+.uldw-rcl-file { color: var(--text-muted); font-size: 0.74rem; }
+.uldw-rcl-sheet {
+  margin-left: auto;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.uldw-rcl-sheet select,
+.uldw-rcl-mapping select {
+  font-size: 0.74rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+.uldw-rcl-busy { font-size: 0.76rem; color: var(--text-muted); padding: 6px 0; }
+.uldw-rcl-mapping { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.uldw-rcl-mapping label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.uldw-rcl-table-wrap {
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+.uldw-rcl-table th,
+.uldw-rcl-table td { font-size: 0.74rem; }
+.uldw-rcl-table .uldw-num { text-align: right; font-variant-numeric: tabular-nums; }
+.uldw-rcl-table tr.is-selected { background: rgba(37, 99, 235, 0.06); }
+.uldw-rcl-skipped { font-size: 0.72rem; color: var(--text-muted); }
+.uldw-rcl-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.uldw-rcl-count { font-size: 0.74rem; color: var(--text-muted); margin-right: auto; }
+
+/* ===== 檢核 / 合計 ===== */
+.uldw-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.uldw-issues li {
+  font-size: 0.74rem;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  color: var(--text-main);
+}
+.uldw-issue-error { background: rgba(220, 38, 38, 0.1); border-color: rgba(220, 38, 38, 0.35); color: #b91c1c; }
+.uldw-issue-warn { background: rgba(180, 83, 9, 0.1); border-color: rgba(180, 83, 9, 0.3); color: #92400e; }
+.uldw-ok {
+  font-size: 0.76rem;
+  color: #15803d;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(21, 128, 61, 0.1);
+  border: 1px solid rgba(21, 128, 61, 0.3);
+}
+.uldw-warn-text { color: #b45309; }
+
+.uldw-totals {
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+}
+.uldw-totals-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.uldw-totals-grid b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+/* ===== Toast ===== */
+.uldw-toast {
+  position: fixed;
+  right: 20px;
+  top: 90px;
+  z-index: 60;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  box-shadow: var(--shadow);
+}
+
+/* ===== 深色主題微調 ===== */
+[data-theme="dark"] .uldw-chip-ok { color: #4ade80; }
+[data-theme="dark"] .uldw-chip-warn,
+[data-theme="dark"] .uldw-warn-text { color: #fbbf24; }
+[data-theme="dark"] .uldw-chip-bad,
+[data-theme="dark"] .uldw-btn-danger { color: #f87171; }
+[data-theme="dark"] .uldw-issue-error { color: #fca5a5; }
+[data-theme="dark"] .uldw-issue-warn { color: #fcd34d; }
+[data-theme="dark"] .uldw-ok { color: #86efac; }
+
+/* ===== 列印／另存 PDF（W4）=====
+   只靠 @media print，不動畫面；草稿與鎖定都能列印。
+   只留：表頭（表號／日期／貨站／航班／經手人／備註）＋每板「RCL − Tare = 淨重」
+        ＋每票最終重量（MAWB 彙總表）＋磅差＋全表合計；
+   隱藏：側欄、頁面標題區按鈕、.uldw-editor-actions、.uldw-rcl（匯入面板）、
+        所有按鈕／勾選框、輸入框框線。
+   陷阱（別拿掉這些 !important）：
+   1) 深色主題的 CSS 變數會讓紙本變「白字印白紙」→ 這裡強制黑字白底。
+   2) 鎖定（disabled）的 input/select 在 Chrome 會用 -webkit-text-fill-color 印成灰字
+      → 必須覆寫成 #000，否則紙本看不到重量。
+   3) .uldw-table-wrap 有 overflow:auto，列印會被裁掉 → 改成 visible。
+   4) 每張 .uldw-unit 要 break-inside: avoid，不然 3～5 板的表會斷在板與板之間。
+   版面：A4 直式、單欄（左右兩欄在紙上太窄會擠壓數字）。 */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 10mm 12mm;
+  }
+
+  /* 1. 一律黑字白底（深色／Ocean 主題也要能印） */
+  html,
+  html[data-theme] {
+    --text-main: #000 !important;
+    --text-muted: #333 !important;
+    --border-color: #8a8a8a !important;
+    --card-bg: #fff !important;
+    --input-bg: #fff !important;
+    --sidebar-bg: #f1f1f1 !important;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* 2. 版面：去掉側欄與卡片裝飾，主內容吃滿 A4 寬度（約 190mm） */
+  .app-layout {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .sidebar,
+  .uldw-header-actions,
+  .uldw-card .card-desc {
+    display: none !important;
+  }
+  .main-content {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .card.uldw-card {
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .uldw-card h2 {
+    font-size: 12pt;
+    margin: 0 0 2mm;
+    color: #000 !important;
+  }
+
+  /* 3. 只留結果：操作按鈕、匯入面板、新增列、列操作、未儲存提示都不印 */
+  .uldw-btn,
+  .uldw-editor-actions,
+  .uldw-rcl,
+  .uldw-item-add,
+  .uldw-row-btns,
+  .uldw-draft-hint,
+  .uldw-toast,
+  .uldw-dirty,
+  .uldw-col-actions,
+  .uldw-list-toolbar,
+  .uldw-batch-cell,
+  .uldw-versions,
+  .uldw-print-hide {
+    display: none !important;
+  }
+
+  /* 4. 單欄排列；每張收貨單位卡不跨頁（A4 一頁放 3～5 板） */
+  .uldw-editor {
+    gap: 3mm;
+    color: #000 !important;
+  }
+  .uldw-editor.is-locked .uldw-unit {
+    opacity: 1 !important;
+  }
+  .uldw-columns {
+    display: block !important;
+  }
+  .uldw-col {
+    display: block !important;
+    width: 100% !important;
+  }
+  .uldw-col + .uldw-col {
+    margin-top: 3mm;
+  }
+  .uldw-unit-list {
+    gap: 3mm;
+  }
+  .uldw-unit {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #8a8a8a !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    padding: 2mm 2.5mm !important;
+    gap: 1.5mm !important;
+  }
+  .uldw-unit[data-kind="BULK"] {
+    border-style: dashed !important;
+  }
+  .uldw-col-head {
+    background: #f1f1f1 !important;
+    border-radius: 0 !important;
+    padding: 1mm 2mm !important;
+    font-size: 9pt;
+    color: #000 !important;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  .uldw-editor-head {
+    border-bottom: 1.5px solid #000 !important;
+    break-after: avoid;
+  }
+  .uldw-editor-title {
+    font-size: 11pt;
+    color: #000 !important;
+  }
+  .uldw-status {
+    background: #fff !important;
+    border-color: #8a8a8a !important;
+    color: #000 !important;
+  }
+
+  /* 5. 表格不裁切、數字等寬對齊且不換行（不截斷） */
+  .uldw-table-wrap,
+  .uldw-rcl-table-wrap {
+    overflow: visible !important;
+  }
+  .uldw-items,
+  .uldw-table {
+    font-size: 8.5pt;
+    width: 100% !important;
+  }
+  .uldw-items th,
+  .uldw-items td,
+  .uldw-table th,
+  .uldw-table td {
+    color: #000 !important;
+    white-space: nowrap;
+    padding: 0.8mm 1.2mm;
+    border-bottom: 1px solid #c9c9c9 !important;
+  }
+  .uldw-table thead th {
+    background: #f1f1f1 !important;
+    color: #000 !important;
+    font-size: 8pt;
+  }
+  .uldw-items td,
+  .uldw-table td,
+  .uldw-unit-summary,
+  .uldw-totals-grid,
+  .uldw-totals-grid b,
+  .uldw-ratio-cell,
+  .uldw-final-cell {
+    font-variant-numeric: tabular-nums;
+  }
+  /* 勾選框欄與列操作欄不印（checkbox／按鈕在紙上沒有意義） */
+  .uldw-items th:first-child,
+  .uldw-items td:first-child,
+  .uldw-items th:last-child,
+  .uldw-items td:last-child {
+    display: none !important;
+  }
+  .uldw-items tr.is-squeeze {
+    background: #f7f7f7 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 6. 輸入框／下拉只留「值」：去框線、去底色；disabled 灰字改回黑色 */
+  .uldw-fields label,
+  .uldw-unit-fields label {
+    color: #333 !important;
+    font-size: 7.5pt;
+  }
+  .uldw-fields input,
+  .uldw-fields select,
+  .uldw-unit-fields input,
+  .uldw-unit-fields select,
+  .uldw-items input,
+  .uldw-items select {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    opacity: 1 !important;
+    font-size: 8.5pt !important;
+    font-weight: 600;
+    width: auto !important;
+    max-width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .uldw-fields {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 1mm 6mm;
+  }
+  .uldw-fields label {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 1mm;
+  }
+  .uldw-unit-fields {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.5mm 5mm;
+  }
+  .uldw-unit-fields label {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 1mm;
+  }
+  .uldw-input,
+  .uldw-input-xs,
+  .uldw-input-mawb,
+  .uldw-input-lih {
+    width: auto !important;
+    min-width: 2mm;
+  }
+
+  /* 7. 每板摘要（RCL − Tare = 淨重）＋磅差 chip */
+  .uldw-unit-title {
+    font-size: 9pt;
+  }
+  .uldw-unit-summary {
+    background: #f7f7f7 !important;
+    border: 1px solid #d5d5d5 !important;
+    color: #000 !important;
+    font-size: 8.5pt;
+    padding: 1mm 2mm !important;
+  }
+  .uldw-unit-summary b {
+    color: #000 !important;
+  }
+  .uldw-chip {
+    background: #fff !important;
+    border-color: #8a8a8a !important;
+    color: #000 !important;
+    font-size: 7.5pt;
+  }
+  .uldw-warn-text {
+    color: #7a2e00 !important;
+  }
+
+  /* 8. 檢核清單與全表合計（合計不要被拆到下一頁） */
+  .uldw-issues li {
+    background: #fff !important;
+    border-color: #c9c9c9 !important;
+    color: #000 !important;
+    font-size: 8pt;
+    padding: 0.8mm 2mm;
+  }
+  .uldw-issue-error {
+    color: #7f1d1d !important;
+  }
+  .uldw-issue-warn {
+    color: #7a2e00 !important;
+  }
+  .uldw-ok {
+    background: #fff !important;
+    border-color: #c9c9c9 !important;
+    color: #14532d !important;
+  }
+  .uldw-totals {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-top: 1.5px solid #000 !important;
+    color: #000 !important;
+  }
+  .uldw-totals-grid {
+    font-size: 9pt;
+    gap: 1mm 6mm;
+  }
+  .uldw-totals-grid b {
+    color: #000 !important;
+  }
+
+  /* 9. 空狀態、autocomplete 下拉不要印 */
+  .empty-state,
+  .app-autocomplete-list {
+    display: none !important;
+  }
+}
+

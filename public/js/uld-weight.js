@@ -15,7 +15,7 @@ import { uldFormatMawb, uldValidateMawb, uldMawbDigits } from './uldweight/mawb-
 import {
   pickRclFile, loadRclPreview, applyRclColumns, selectedRclRows, rclUldKey
 } from './uldweight/rcl-import.js';
-import { uldFmtKg, uldNum, uldMawbKey, uldIssueText } from './uldweight/calc.js';
+import { uldFmtKg, uldNum, uldMawbKey, uldIssueText, uldLihLabel } from './uldweight/calc.js';
 
 let initialized = false;
 let rootEl = null;
@@ -1112,7 +1112,7 @@ function exportExcel() {
       detailRows.push([
         calc.kind === 'BULK' ? 'B' : 'ULD', name, unit.contour_code || '', unit.port || '', unit.pcs || 0,
         calc.tare, calc.rclGross, calc.material, calc.finalSum, calc.diff,
-        unit.lih_type || 'N', unit.predecl_type || '', unit.squeeze_mode || '',
+        uldLihLabel(unit.lih_type || 'N'), unit.predecl_type || '', unit.squeeze_mode || '',
         item.mawb || '', item.port || '', item.pcs, item.declared,
         item.squeeze ? 'Y' : 'N', Number((item.ratio * 100).toFixed(1)), item.final
       ]);

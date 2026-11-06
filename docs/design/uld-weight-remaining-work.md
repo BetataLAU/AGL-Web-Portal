@@ -43,14 +43,14 @@ RCL 磅單匯入、A4 列印與 server 端 PDF 下載（單張／批次打包 ZI
 | **V1** | **補建 Booking Record（安全版）**：`POST /sheets/:id/sync-bookings`（**預設 dry_run 只回預覽**，`{dry_run:false}` 才寫入）→ 對沒有連結的票：打板計劃已有同號 MAWB **只連結**、沒有才**建立**（`gross_weight` = 夾重後重量、`pcs`、`dest`）；不動 `orders`、不動夾重表重量 | `routes/uld-weight.js`、`public/js/uldweight/{api,render}.js`、`public/js/uld-weight.js` |
 | **V3** | **歷史版本／異動比對**：`uld_weight_versions`（每次建立／儲存／鎖定／解鎖／套用／補建都留快照，每張表保留最近 30 版）＋ `GET /sheets/:id/versions`／`/versions/:vid`／`/versions/diff?from=&to=`（`to` 省略＝對目前內容）；比對規則寫在共用純函式 `public/js/uldweight/version-diff.js`；編輯畫面「🕘 版本」面板列出 v1…vN 並可「與前一版比／對目前」 | `db/database.js`（新表）、`routes/uld-weight.js`、`public/js/uldweight/version-diff.js`（新）、`public/js/uldweight/{api,state,render}.js`、`public/js/uld-weight.js`、`public/css/uld-weight.css` |
 
-目前測試：`calc 101`＋`rcl 28`＋`mawb 33＋frontend 164`＋API 端對端（148 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
+目前測試：`calc 101`＋`rcl 28`＋`mawb 33＋frontend 165`＋API 端對端（148 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
 效能基準：`npm run bench:uldweight`（V4 決策用，量 `uldComputeSheet()` 單次耗時；50 板 × 10 票 median 約 0.6ms → 不需節流）。
 
 ### 0.1 直觀版 UI（U1／U2／U3，2026-11-06 完成）
 
 | 項目 | 內容 | 主要位置 |
 |---|---|---|
-| **U1** | **減法版面**：工具列只留 `← 列表／儲存／鎖定／⋯ 更多`（其餘 7 個動作收進選單）；表頭只留 5 欄＋`⚙ 進階`（B 取整／尾差／磅差門檻／比例上下限）；卡片改成網格、**預設收合**（次要欄位收 `▾`，按 ▾ 或「全部展開」才看得到）、摘要列（`PCS ｜ RCL−Tare→淨  K`）；底部合計改**業界讀法** `PLAN TTL／RCL TTL／DIFF`（單位一律 **K**）；檢核沒有問題時不再顯示空盒子；色碼 **紅＝夾重、橙＝WT 已改**（含圖例） | `public/js/uldweight/render.js`、`public/css/uld-weight.css` |
+| **U1** | **減法版面**：工具列只留 `← 列表／儲存／鎖定／⋯ 更多`（其餘 7 個動作收進選單）；表頭只留 5 欄＋`⚙ 進階`（B 取整／尾差／磅差門檻／比例上下限）；卡片改成網格、**預設收合**（次要欄位收 `▾`，按 ▾ 或「全部展開」才看得到）、摘要列（`PCS ｜ RCL−Tare→淨  K`）；底部合計改**業界讀法** `PLAN TTL／RCL TTL／DIFF`（單位一律 **K**）；檢核沒有問題時不再顯示空盒子；色碼 **紅＝夾重、橙＝WT 已改**（含圖例）；**LIH 下拉／報表只顯示短碼 `N`／`3481`／`3091`**（存檔值仍是 `UN3481`／`UN3091`） | `public/js/uldweight/render.js`、`public/css/uld-weight.css` |
 | **U2** | **輸入加速**：MAWB 欄 **Enter 直接加入**；**⧉ 貼上多列**（Excel 4 欄 MAWB／DEST／PCS／WT，也支援 3／2／1 欄，表頭列自動略過）；**MAWB 自動格式化 `000-0000 0000` ＋ 檢查碼驗證**（11 位、前 7 位 mod 7；不合格提示、貼上時略過；共用 `mawb-format.js`）；**ULD#／Contour／RCL#／Port／MAWB 自動轉大寫**（輸入即顯示、payload 再轉一次；`bulk_ref` 自由批號不轉）；卡片 **拖曳排序**（`⠿` 把手，改 `seq` 只影響顯示與列印）；板序代號 `01/A`…`41/AO`；**上限 41 板**；板數多時可「全部展開／收合」 | 新 `public/js/uldweight/paste-parse.js`、`public/js/uldweight/mawb-format.js`（共用純函式）、`state.js`（`ULD_MAX_UNITS`／`uldMoveUnit`）、`render.js`、`public/js/uld-weight.js` |
 | **U3** | **單板 Loading Sheet**：`GET /sheets/:id/loading-sheet.pdf?unit=<uld_id>`（A4 直式、`MAWB／DEST／PCS／WT`、固定 16 列含空白列、`To:` 取航班前兩碼、`Date` 為 `6 Nov 2026`）；卡片 `⤓` 下載單板、`🖨` 只印這一張卡（`.uldw-print-single`） | `scripts/uld-weight-report-pdf.js`（`buildUldWeightLoadingSheetPdf`）、`routes/uld-weight.js`、`public/js/uldweight/{api,render}.js`、`public/js/uld-weight.js`、`public/css/uld-weight.css` |
 
@@ -203,7 +203,7 @@ node scripts/bench-uld-weight-calc.js --ulds=50 --tickets=10 --clamp-min=5 --cla
 
 ```bash
 npm run sync                                  # 更新 FILE_INVENTORY.md／結構快照
-npm run test:uldweight                        # calc 101 項 + rcl 28 項 + mawb 33＋frontend 164 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+npm run test:uldweight                        # calc 101 項 + rcl 28 項 + mawb 33＋frontend 165 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
 npm run test:uldweight-api                    # API 端對端（148 項，自帶伺服器 + 暫存 DB，port 3157；含 R1 PDF／R2 上下限／R3 明細 id／R4 fresh DB seed／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js       # 側欄排序
 node scripts/test-nav-hierarchy.js            # 側欄主/子層級
@@ -385,7 +385,7 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 3) 再讀 docs/design/uld-weight-phase2-handoff.md（陷阱 §4、驗證 §5）、
    docs/design/uld-weight-system.md（規則與算法）、
    CLAUDE.md 的「ULD 夾重系統」段落、WORKSPACE_STATE.md 的待辦清單
-4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／mawb 33＋frontend 164／API 148）：
+4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／mawb 33＋frontend 165／API 148）：
    npm run test:uldweight
    npm run test:uldweight-api
    node scripts/test-nav-order-frontend.js

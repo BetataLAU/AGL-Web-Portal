@@ -19,11 +19,21 @@ export const ULD_PREDECL_TYPES = [
   { code: 'B', label: 'B — Bulk（交散貨，無板底）' }
 ];
 
+// LIH 選項：存檔值仍是 `N`／`UN3481`／`UN3091`（既有資料與比對不變），
+// 畫面只顯示業界慣用的短碼 `N`／`3481`／`3091`（避免下拉被長文字撐寬）。
 export const ULD_LIH_TYPES = [
-  { code: 'N', label: 'N — 無鋰電池' },
-  { code: 'UN3481', label: 'UN3481 — 鋰離子電池' },
-  { code: 'UN3091', label: 'UN3091 — 鋰金屬電池' }
+  { code: 'N', label: 'N' },
+  { code: 'UN3481', label: '3481' },
+  { code: 'UN3091', label: '3091' }
 ];
+
+// LIH 顯示用短碼（找不到就原樣回傳）
+export function uldLihLabel(code) {
+  const key = String(code == null ? '' : code).trim().toUpperCase();
+  if (!key) return 'N';
+  const hit = ULD_LIH_TYPES.find(t => t.code === key);
+  return hit ? hit.label : key;
+}
 
 export const ULD_SQUEEZE_MODES = [
   { code: 'weight', label: '重量比例' },

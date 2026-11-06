@@ -494,7 +494,7 @@ async function buildReportPdfBytes(detail) {
   const calc = await calcReady;
   const { buildUldWeightReportPdf } = require('../scripts/uld-weight-report-pdf');
   // issueText 由 calc.uldIssueText 提供（不在此另寫一份中文對照表）
-  return buildUldWeightReportPdf(detail, { issueText: calc.uldIssueText });
+  return buildUldWeightReportPdf(detail, { issueText: calc.uldIssueText, lihLabel: calc.uldLihLabel });
 }
 
 // 記憶體內打包 ZIP（archiver 是 Transform stream：收 'data' 到 'end' 即完成，不需要暫存檔）

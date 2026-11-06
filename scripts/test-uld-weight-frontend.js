@@ -1019,6 +1019,11 @@ function apiDetail() {
   check('21.33 檢查碼不符的列會標紅（data-mawb-invalid）',
     /data-mawb-invalid="1"/.test(renderText) &&
     /input\[data-mawb-invalid="1"\]/.test(cssText));
+  check('21.34 LIH 下拉顯示短碼 N／3481／3091（存檔值仍是 UN3481／UN3091）',
+    uxHtml.includes('value="UN3481"') && uxHtml.includes('>3481<') &&
+    uxHtml.includes('value="UN3091"') && uxHtml.includes('>3091<') &&
+    !uxHtml.includes('無鋰電池') &&
+    calc.uldLihLabel('UN3481') === '3481' && calc.uldLihLabel('N') === 'N');
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

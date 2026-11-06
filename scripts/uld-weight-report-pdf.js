@@ -222,7 +222,7 @@ const MAWB_COLUMNS = [
   { label: 'Port', width: 80, align: 'left' }
 ];
 
-function unitTitle(unit) {
+function unitTitle(unit, lihLabel) {
   const calc = unit.calc || {};
   const isBulk = calc.kind === 'BULK';
   const name = isBulk ? (unit.bulk_ref || 'BULK') : (unit.uld_number || 'ULD');
@@ -230,7 +230,7 @@ function unitTitle(unit) {
   if (unit.contour_code) parts.push(`Contour ${unit.contour_code}`);
   if (unit.port) parts.push(`Port ${unit.port}`);
   parts.push(`件數 ${unit.pcs || 0}`);
-  parts.push(`LIH ${unit.lih_type || 'N'}`);
+  parts.push(`LIH ${lihLabel ? lihLabel(unit.lih_type || 'N') : (unit.lih_type || 'N')}`);
   if (unit.rcl_no) parts.push(`RCL# ${unit.rcl_no}`);
   return parts.join('   ');
 }
@@ -286,6 +286,10 @@ async function buildUldWeightReportPdf(detail, options = {}) {
   const issueText = typeof options.issueText === 'function'
     ? options.issueText
     : (issue => `${issue && issue.code ? issue.code : ''}${issue && issue.detail ? `：${issue.detail}` : ''}`);
+  // LIH 顯示用短碼（由呼叫端傳 calc.uldLihLabel；沒傳就原樣顯示）
+  const lihLabel = typeof options.lihLabel === 'function'
+    ? options.lihLabel
+    : (code => String(code == null ? '' : code) || 'N');
 
   const doc = await PDFDocument.create();
   const regular = await doc.embedFont(StandardFonts.Helvetica);
@@ -329,7 +333,7 @@ async function buildUldWeightReportPdf(detail, options = {}) {
     painter.ensure(needed);
     painter.gap(6);
     painter.rule({ after: 6 });
-    painter.line(`#${idx + 1}　${unitTitle(unit)}`, { size: 10, bold: true, lineHeight: 15 });
+    painter.line(`#${idx + 1}　${unitTitle(unit, lihLabel)}`, { size: 10, bold: true, lineHeight: 15 });
     painter.line(
       `RCL ${fmtKg(calc.rclGross)} - Tare ${fmtKg(calc.tare)} = 淨重 ${fmtKg(calc.targetNet)} kg`
       + `　｜　申報合計 ${fmtKg(calc.declaredSum)} kg　｜　磅差 ${fmtSigned(calc.diff)} kg（${fmtPct(calc.diffPct)}）`
@@ -355,7 +359,7 @@ async function buildUldWeightReportPdf(detail, options = {}) {
         { text: fmtKg(item.declared), width: ITEM_COLUMNS[3].width, align: 'right' },
         { text: ratioText, width: ITEM_COLUMNS[4].width, align: 'right' },
         { text: fmtKg(item.final), width: ITEM_COLUMNS[5].width, align: 'right' },
-        { text: item.lih_type || 'N', width: ITEM_COLUMNS[6].width, align: 'center' },
+        { text: lihLabel(item.lih_type || 'N'), width: ITEM_COLUMNS[6].width, align: 'center' },
         { text: item.squeeze ? 'Y' : 'N', width: ITEM_COLUMNS[7].width, align: 'center' }
       ], { size: 8.5, height: 12 });
     });
@@ -611,7 +615,7 @@ if (require.main === module && process.argv.includes('--selftest')) {
       flight_no: 'CX1234', flight_date: '2026-11-05', handler: '測試人員', remark: '中文備註測試',
       status: 'draft', ulds: computed.units, mawbs: computed.mawbs,
       issues: computed.issues, totals: computed.totals
-    }, { issueText: calc.uldIssueText });
+    }, { issueText: calc.uldIssueText, lihLabel: calc.uldLihLabel });
     const header = Buffer.from(bytes.slice(0, 5)).toString('latin1');
     console.log(`PDF ${bytes.length} bytes / header=${header}`);
     if (header !== '%PDF-' || !(bytes.length > 0)) process.exitCode = 1;

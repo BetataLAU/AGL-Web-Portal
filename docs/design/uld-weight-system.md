@@ -27,7 +27,7 @@ RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量�
 | 夾重 | 把磅差分配給「夾重票」；**未勾選夾重的票重量不變** |
 | Pre-decl Type | `P` = Prepack（1 板 1 MAWB）／`X` = MIX（1 板 MAWB 數 ≥ 1，混裝）／`B` = Bulk（交散貨，不裝板，1 MAWB） |
 | Port | **不檢核**：ULD 的 Port 可與各票不同，同一板內各票 Port 也可不同（MIX 混裝） |
-| LIH | 鋰電池資訊：`N` / `UN3481` / `UN3091` |
+| LIH | 鋰電池資訊：存檔值 `N` / `UN3481` / `UN3091`；**畫面與報表只顯示短碼 `N` / `3481` / `3091`**（`calc.uldLihLabel()`，避免下拉與表格被長文字撐寬） |
 | MAWB | **11 位數字**：左 3 位航空公司代號（不足 3 位左補 0）＋右 8 位序號（前 7 位＋第 8 位檢查碼）。顯示格式 `000-0000 0000`。**檢查碼 = 序號前 7 位 mod 7**；不符時提示使用者（不擋存檔，既有／特殊資料仍可作業）。共用純函式：`public/js/uldweight/mawb-format.js` |
 
 **MAWB 範例**：`071-6195 2074` → 數字 `07161952074` → 航空公司 `071`、序號 `61952074` → `6195207 % 7 = 4` ＝ 檢查碼 `4` → 合法。
@@ -258,7 +258,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 node scripts/test-uld-weight-calc.js      # 101 項
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
 node scripts/test-uld-weight-mawb.js      # 33 項（MAWB 11 位／航空公司補 0／mod 7 檢查碼／格式化）
-node scripts/test-uld-weight-frontend.js  # 164 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+node scripts/test-uld-weight-frontend.js  # 165 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
 node scripts/test-uld-weight-api.js       # API 端對端（148 項，會自己啟伺服器，port 3157；含 U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
 node scripts/test-nav-hierarchy.js        # 側欄主/子層級

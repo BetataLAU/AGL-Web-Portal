@@ -13,7 +13,7 @@
     - **U2 輸入加速**：MAWB 欄 **Enter 直接加入**；**⧉ 貼上多列**（Excel 4 欄 MAWB／DEST／PCS／WT，也支援 3／2／1 欄，表頭列自動略過；新共用純函式 `public/js/uldweight/paste-parse.js`）；卡片 **拖曳排序**（`⠿` 把手，`uldMoveUnit()` 只改 `seq`）；**上限 41 板**（`ULD_MAX_UNITS`）；「全部收合」。
     - **U3 單板 Loading Sheet**：`GET /sheets/:id/loading-sheet.pdf?unit=<uld_id>`（`buildUldWeightLoadingSheetPdf()`；A4 直式一板一頁、`MAWB／DEST／PCS／WT`、固定 16 列含空白列、右上角板序、`To:` 取航班前兩碼、`Date` 為 `6 Nov 2026`、`Unit: ULD# / Contour`、`Dest:`＝unit port；WT 取 `calc.items[].final`、表內只寫數字）；卡片 `⤓` 下載單板、`🖨` 只印該卡（`.uldw-print-single`）。
     - **修改**：`public/js/uldweight/{render,state,api}.js`、`public/js/uldweight/paste-parse.js`（新）、`public/js/uld-weight.js`、`public/css/uld-weight.css`、`scripts/uld-weight-report-pdf.js`、`routes/uld-weight.js`、`scripts/test-uld-weight-{frontend,api}.js`、4 份文件
-    - **驗證**：`npm run test:uldweight`（calc 101＋rcl 28＋mawb **33**＋frontend **164**（新增 §21 共 28 項）全 PASS）、`npm run test:uldweight-api`（**148 項**，新增 U3 單板／全板／404 共 7 項）、`test-nav-order-frontend.js`／`test-nav-hierarchy.js`／`npm run test:loadsim`（136＋153）、`node scripts/uld-weight-report-pdf.js --selftest`（兩種 PDF 都產出：全表約 40KB、Loading Sheet 約 13KB）
+    - **驗證**：`npm run test:uldweight`（calc 101＋rcl 28＋mawb **33**＋frontend **165**（新增 §21 共 28 項）全 PASS）、`npm run test:uldweight-api`（**148 項**，新增 U3 單板／全板／404 共 7 項）、`test-nav-order-frontend.js`／`test-nav-hierarchy.js`／`npm run test:loadsim`（136＋153）、`node scripts/uld-weight-report-pdf.js --selftest`（兩種 PDF 都產出：全表約 40KB、Loading Sheet 約 13KB）
     - **新發現（陷阱）**：① 卡片根節點必須剛好 `class="uldw-unit"`（測試用 `/class="uldw-unit"/g` 計數）→ 狀態改放 `data-compact`；② `class="uldw-print-hide"` 不可附加 class（測試用完整字串比對）；③ `data-action="print"` 必須在 `.uldw-editor-actions` 內且前面沒有 `</div>` → 「⋯ 更多」選單要包在 actions 裡；④ 顯示狀態用 class 切換、不要 `render()`（避免打字失焦）；⑤ 第 41 板是 `41/AO`（不是 AP）；⑥ 貼上解析不可用 `split(/\s+/)`（MAWB 含空白）；⑦ 拖曳只能按住把手才 `draggable=true`（否則 input 無法選字）
   - **(AA) ULD 夾重 V4：大表即時重算節流 — 先量測，結論「不做」（2026-11-06）**：依 remaining-work §1.1「單次計算 < 16ms 就不做」的規則先量測。
     - **新增工具**：`scripts/bench-uld-weight-calc.js`（`npm run bench:uldweight`）。只以 `import()` 載入 `public/js/uldweight/calc.js` 呼叫 `uldComputeSheet()`（**不含任何計算邏輯**），暖機 10 次後量 60 次，輸出 min／median／p95／max 與「median < 16ms → 不需節流」判定；可 `--ulds/--tickets/--rounds/--clamp-min/--clamp-max/--squeeze/--all-squeeze` 自訂。
@@ -348,7 +348,7 @@
   - [x] **V1** 補建 Booking Record（`POST /sheets/:id/sync-bookings`，預設 dry_run；同號 MAWB 只連結、不重複建立）——2026-11-06 完成
   - [x] **V3** 歷史版本／異動比對（`uld_weight_versions`＋`GET /sheets/:id/versions`／`/versions/diff`；共用 `version-diff.js`）——2026-11-06 完成
   - [x] **V4** 大表節流 → **先量測，結論不做**（2026-11-06 完成）：新增 `scripts/bench-uld-weight-calc.js`／`npm run bench:uldweight`；實測 50 板 × 10 票 median 0.62ms、100 板 × 20 票 2.4ms（< 16ms）→ 維持 `refreshComputed()` 每次整表重算
-  - [x] **U1～U3** 直觀版 UI（2026-11-06 完成）：減法版面（工具列分組／表頭 5 欄＋⚙ 進階／卡片網格可拖曳／PLAN·RCL·DIFF 以 K 顯示）、輸入加速（Enter 加入／貼上多列／41 板上限）、單板 Loading Sheet PDF（`GET /sheets/:id/loading-sheet.pdf?unit=`）——mawb 33＋frontend 164／API 148 全綠
+  - [x] **U1～U3** 直觀版 UI（2026-11-06 完成）：減法版面（工具列分組／表頭 5 欄＋⚙ 進階／卡片網格可拖曳／PLAN·RCL·DIFF 以 K 顯示）、輸入加速（Enter 加入／貼上多列／41 板上限）、單板 Loading Sheet PDF（`GET /sheets/:id/loading-sheet.pdf?unit=`）——mawb 33＋frontend 165／API 148 全綠
   - [ ] 待決（remaining-work §2）：D3（散貨批號對應）／D5（0.1 取整）／D6（跨板自動拆）——**需使用者決策才動**
 - [ ] 日後每次結構性變更後執行 `npm run sync`，並同步更新本檔
 

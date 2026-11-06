@@ -2,28 +2,23 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午6:10:04
+> 最後更新：2026/11/6 下午6:15:32
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
-M PROJECT_MAP.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
 M docs/design/uld-weight-remaining-work.md
 M docs/design/uld-weight-system.md
-M package.json
-M public/css/uld-weight.css
 M public/js/uld-weight.js
-M public/js/uldweight/booking-search.js
-M public/js/uldweight/render.js
-M public/js/utils/autocomplete.js
+M public/js/uldweight/calc.js
+M routes/uld-weight.js
 M scripts/test-uld-weight-frontend.js
-?? public/js/uldweight/mawb-format.js
-?? scripts/test-uld-weight-mawb.js
+M scripts/uld-weight-report-pdf.js
 ```
 
 ## 📁 檔案清單（共 246 個檔案）
@@ -32,7 +27,7 @@ M scripts/test-uld-weight-frontend.js
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（85.8 KB）
+- `CLAUDE.md`（85.9 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（35.0 KB）
 - `README.md`（24.6 KB）
@@ -124,8 +119,8 @@ M scripts/test-uld-weight-frontend.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/uld-weight-phase2-handoff.md`（43.8 KB）
-- `docs/design/uld-weight-remaining-work.md`（45.4 KB）
-- `docs/design/uld-weight-system.md`（24.0 KB）
+- `docs/design/uld-weight-remaining-work.md`（45.5 KB）
+- `docs/design/uld-weight-system.md`（24.2 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
@@ -235,7 +230,7 @@ M scripts/test-uld-weight-frontend.js
 
 - `public/js/uldweight/api.js`（6.1 KB）
 - `public/js/uldweight/booking-search.js`（8.2 KB）
-- `public/js/uldweight/calc.js`（25.8 KB）
+- `public/js/uldweight/calc.js`（26.2 KB）
 - `public/js/uldweight/mawb-format.js`（3.6 KB）
 - `public/js/uldweight/paste-parse.js`（2.8 KB）
 - `public/js/uldweight/rcl-import.js`（2.6 KB）
@@ -322,14 +317,14 @@ M scripts/test-uld-weight-frontend.js
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-uld-weight-api.js`（53.1 KB）
 - `scripts/test-uld-weight-calc.js`（28.7 KB）
-- `scripts/test-uld-weight-frontend.js`（57.4 KB）
+- `scripts/test-uld-weight-frontend.js`（57.8 KB）
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
-- `scripts/uld-weight-report-pdf.js`（26.8 KB）
+- `scripts/uld-weight-report-pdf.js`（27.2 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）

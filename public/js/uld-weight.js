@@ -591,10 +591,14 @@ function onRootChange(event) {
   if (target.dataset.rcl === 'col') { changeRclColumn(target.dataset.rclKey, target.value); return; }
   if (target.dataset.rclRow != null) { toggleRclRow(Number(target.dataset.rclRow)); return; }
 
+  // TAB 陷阱：文字／數字／下拉在失焦時都會觸發 change；若在這裡 render()（整份重畫），
+  // 被聚焦的欄位會被銷毀 → 焦點丟回 body，TAB 就從文件開頭跑，而不是從剛輸入的格子。
+  // 原則：change 只寫回 state 並做局部重算；唯一例外是「夾重方式→手動 %」需要長出比例輸入框。
   if (target.dataset.header) {
-    s.current[target.dataset.header] = target.value;
+    const field = target.dataset.header;
+    s.current[field] = NUMERIC_HEADER_FIELDS.includes(field) ? uldNum(target.value) : target.value;
     uldMarkDirty();
-    render();
+    refreshComputed(rootEl);
     return;
   }
   const unit = unitOfElement(target);
@@ -602,9 +606,12 @@ function onRootChange(event) {
 
   if (target.dataset.unitField) {
     const field = target.dataset.unitField;
-    unit[field] = upperIfNeeded(field, UPPER_UNIT_FIELDS, target.value);
+    unit[field] = NUMERIC_UNIT_FIELDS.includes(field)
+      ? uldNum(target.value)
+      : upperIfNeeded(field, UPPER_UNIT_FIELDS, target.value);
     uldMarkDirty();
-    render();
+    if (field === 'squeeze_mode') render(); // 手動 % 會多出比例輸入欄
+    else refreshComputed(rootEl);
     return;
   }
   if (target.dataset.itemField) {
@@ -614,7 +621,7 @@ function onRootChange(event) {
     const raw = target.type === 'checkbox' ? target.checked : target.value;
     item[field] = target.type === 'checkbox' ? raw : upperIfNeeded(field, UPPER_ITEM_FIELDS, raw);
     uldMarkDirty();
-    render();
+    refreshComputed(rootEl);
   }
 }
 

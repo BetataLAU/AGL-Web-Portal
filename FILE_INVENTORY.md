@@ -2,7 +2,7 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午5:40:36
+> 最後更新：2026/11/6 下午5:51:02
 
 ## 🔄 Git 變更狀態
 
@@ -17,7 +17,6 @@ M docs/design/uld-weight-system.md
 M public/css/uld-weight.css
 M public/js/uld-weight.js
 M public/js/uldweight/render.js
-M public/js/uldweight/state.js
 M scripts/test-uld-weight-frontend.js
 ```
 
@@ -119,7 +118,7 @@ M scripts/test-uld-weight-frontend.js
 
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/uld-weight-phase2-handoff.md`（43.8 KB）
-- `docs/design/uld-weight-remaining-work.md`（43.2 KB）
+- `docs/design/uld-weight-remaining-work.md`（44.0 KB）
 - `docs/design/uld-weight-system.md`（23.3 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
@@ -142,7 +141,7 @@ M scripts/test-uld-weight-frontend.js
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/uld-weight.css`（30.3 KB）
+- `public/css/uld-weight.css`（30.7 KB）
 - `public/css/xls-booking.css`（20.8 KB）
 
 ### public/css/utils
@@ -168,7 +167,7 @@ M scripts/test-uld-weight-frontend.js
 - `public/js/sli-eli-layout-main.js`（10.9 KB）
 - `public/js/sli-eli-layout-state.js`（10.7 KB）
 - `public/js/theme.js`（5.2 KB）
-- `public/js/uld-weight.js`（48.6 KB）
+- `public/js/uld-weight.js`（49.3 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
@@ -234,7 +233,7 @@ M scripts/test-uld-weight-frontend.js
 - `public/js/uldweight/paste-parse.js`（2.8 KB）
 - `public/js/uldweight/rcl-import.js`（2.6 KB）
 - `public/js/uldweight/rcl-parse.js`（6.7 KB）
-- `public/js/uldweight/render.js`（40.0 KB）
+- `public/js/uldweight/render.js`（40.1 KB）
 - `public/js/uldweight/state.js`（9.0 KB）
 - `public/js/uldweight/version-diff.js`（9.1 KB）
 
@@ -316,7 +315,7 @@ M scripts/test-uld-weight-frontend.js
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-uld-weight-api.js`（53.1 KB）
 - `scripts/test-uld-weight-calc.js`（28.7 KB）
-- `scripts/test-uld-weight-frontend.js`（55.3 KB）
+- `scripts/test-uld-weight-frontend.js`（55.9 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）

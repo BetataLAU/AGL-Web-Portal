@@ -298,11 +298,11 @@ function itemRowHtml(unit, item, idx, locked) {
   <tr data-item-idx="${idx}" data-item-uid="${esc(item.uid)}" class="${item.is_squeeze ? 'is-squeeze' : ''}">
     <td><input type="checkbox" data-item-field="is_squeeze"${item.is_squeeze ? ' checked' : ''}${dis} title="勾選＝參與夾重"></td>
     <td><input type="text" class="uldw-input-mawb" data-item-field="mawb" value="${esc(item.mawb)}"${item.mawb_record_id ? ` title="已連結打板計劃 Booking Record #${esc(item.mawb_record_id)}"` : ''}${dis}></td>
-    <td><input type="text" class="uldw-input-xs" data-item-field="port" value="${esc(item.port)}"${dis}></td>
-    <td><input type="number" min="0" step="1" class="uldw-input-xs" data-item-field="pcs" value="${esc(item.pcs)}"${dis}></td>
-    <td><input type="number" min="0" step="0.1" class="uldw-input" data-item-field="declared_weight" value="${esc(item.declared_weight)}"${dis}></td>
+    <td><input type="text" class="uldw-input-xs uldw-input-dest" data-item-field="port" value="${esc(item.port)}"${dis}></td>
+    <td><input type="number" min="0" step="1" class="uldw-input-xs uldw-input-pcs" data-item-field="pcs" value="${esc(item.pcs)}"${dis}></td>
+    <td><input type="number" min="0" step="0.1" class="uldw-input uldw-input-wt" data-item-field="declared_weight" value="${esc(item.declared_weight)}"${dis}></td>
     <td class="uldw-ratio-cell uldw-col-optional">${manualRatio
-      ? `<input type="number" min="0" step="1" class="uldw-input-xs" data-item-field="squeeze_ratio" value="${esc(item.squeeze_ratio == null ? '' : item.squeeze_ratio)}"${dis} title="手動比例（%）">`
+      ? `<input type="number" min="0" step="1" class="uldw-input-xs uldw-input-ratio" data-item-field="squeeze_ratio" value="${esc(item.squeeze_ratio == null ? '' : item.squeeze_ratio)}"${dis} title="手動比例（%）">`
       : '<span data-calc="ratio">-</span>'}</td>
     <td class="uldw-final-cell"><span data-calc="final">-</span></td>
     <td class="uldw-col-optional"><select class="uldw-input-lih" data-item-field="lih_type"${dis}>${lihOptions(item.lih_type)}</select></td>

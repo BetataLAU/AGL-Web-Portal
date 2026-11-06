@@ -794,7 +794,7 @@
 /* 卡片改「網格」：一列多張，可左右拖曳調整板序 */
 .uldw-unit-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
   gap: 10px;
   align-items: start;
 }
@@ -866,11 +866,15 @@
 /* 壓縮模式只留：夾重／MAWB／DEST／PCS／WT／最終 */
 .uldw-unit[data-compact="1"] .uldw-col-optional { display: none; }
 
-/* 明細表：緊湊欄寬，讓 9 欄在 430px 卡片內也放得下 */
+/* 明細表欄寬：以「實際最大內容」決定，數值欄靠右
+   MAWB 000-0000 0000（13 字）／DEST 3 字母／PCS ≤9999／WT 4 位＋小數 */
 .uldw-items th,
 .uldw-items td { padding: 2px 4px; }
-.uldw-items .uldw-input-mawb { min-width: 96px; }
-.uldw-input-xs { width: 100%; min-width: 44px; }
+.uldw-items .uldw-input-mawb { width: 134px; min-width: 134px; }
+.uldw-input-dest { width: 58px; min-width: 58px; text-align: center; }
+.uldw-input-pcs { width: 64px; min-width: 64px; text-align: right; }
+.uldw-input-wt { width: 84px; min-width: 84px; text-align: right; }
+.uldw-input-ratio { width: 58px; min-width: 58px; text-align: right; }
 
 /* 色碼（業界讀法）：紅＝夾重票、橙＝最終重量與申報不同 */
 .uldw-items tr.is-squeeze .uldw-input-mawb { color: #dc2626; font-weight: 700; }

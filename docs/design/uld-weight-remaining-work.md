@@ -43,7 +43,7 @@ RCL 磅單匯入、A4 列印與 server 端 PDF 下載（單張／批次打包 ZI
 | **V1** | **補建 Booking Record（安全版）**：`POST /sheets/:id/sync-bookings`（**預設 dry_run 只回預覽**，`{dry_run:false}` 才寫入）→ 對沒有連結的票：打板計劃已有同號 MAWB **只連結**、沒有才**建立**（`gross_weight` = 夾重後重量、`pcs`、`dest`）；不動 `orders`、不動夾重表重量 | `routes/uld-weight.js`、`public/js/uldweight/{api,render}.js`、`public/js/uld-weight.js` |
 | **V3** | **歷史版本／異動比對**：`uld_weight_versions`（每次建立／儲存／鎖定／解鎖／套用／補建都留快照，每張表保留最近 30 版）＋ `GET /sheets/:id/versions`／`/versions/:vid`／`/versions/diff?from=&to=`（`to` 省略＝對目前內容）；比對規則寫在共用純函式 `public/js/uldweight/version-diff.js`；編輯畫面「🕘 版本」面板列出 v1…vN 並可「與前一版比／對目前」 | `db/database.js`（新表）、`routes/uld-weight.js`、`public/js/uldweight/version-diff.js`（新）、`public/js/uldweight/{api,state,render}.js`、`public/js/uld-weight.js`、`public/css/uld-weight.css` |
 
-目前測試：`calc 101`＋`rcl 28`＋`frontend 157`＋API 端對端（148 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
+目前測試：`calc 101`＋`rcl 28`＋`frontend 159`＋API 端對端（148 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
 效能基準：`npm run bench:uldweight`（V4 決策用，量 `uldComputeSheet()` 單次耗時；50 板 × 10 票 median 約 0.6ms → 不需節流）。
 
 ### 0.1 直觀版 UI（U1／U2／U3，2026-11-06 完成）
@@ -203,7 +203,7 @@ node scripts/bench-uld-weight-calc.js --ulds=50 --tickets=10 --clamp-min=5 --cla
 
 ```bash
 npm run sync                                  # 更新 FILE_INVENTORY.md／結構快照
-npm run test:uldweight                        # calc 101 項 + rcl 28 項 + frontend 157 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+npm run test:uldweight                        # calc 101 項 + rcl 28 項 + frontend 159 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
 npm run test:uldweight-api                    # API 端對端（148 項，自帶伺服器 + 暫存 DB，port 3157；含 R1 PDF／R2 上下限／R3 明細 id／R4 fresh DB seed／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js       # 側欄排序
 node scripts/test-nav-hierarchy.js            # 側欄主/子層級
@@ -354,6 +354,14 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 45. **自動大寫要做三層**：① CSS `text-transform: uppercase`（輸入時就顯示大寫、**不動 value 所以游標不會跳**）；
     ② `onRootInput`／`onRootChange` 寫進 state 時 `toUpperCase()`；③ `uldSheetPayload()` 再轉一次（貼上／舊資料／API 來源）。
     `bulk_ref`（散貨批號）是自由文字，**不要**轉大寫。
+46. **TAB 會亂跳的真正原因：`change` 事件裡呼叫 `render()`**。按 TAB 時瀏覽器先送 `change`／`blur`，
+    若 handler 同步把整份畫面重畫，被聚焦的 input 被銷毀 → 焦點回到 `body`，下一個 TAB 就從文件最前面跑
+    （使用者會覺得「TAB 都從原本那一格開始」）。
+    規則：`change` 只寫 state ＋ `refreshComputed(rootEl)`；**只有會改變結構的才 `render()`**
+    （目前只有「夾重方式 → 手動 %」會多出比例輸入框）。
+47. **明細表欄寬不能用 `width: 100%`**：input 沒有內在寬度，`table-layout: auto` 會把欄位壓到 `min-width`
+    （DEST 只看到 1～2 個字母、PCS 只剩 1 位數）。要用**實際最大內容**給固定寬：
+    MAWB `000-0000 0000`＝13 字 → 134px；DEST 3 字母 → 58px；PCS ≤9999 → 64px；WT → 84px。
 
 ---
 
@@ -368,7 +376,7 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 3) 再讀 docs/design/uld-weight-phase2-handoff.md（陷阱 §4、驗證 §5）、
    docs/design/uld-weight-system.md（規則與算法）、
    CLAUDE.md 的「ULD 夾重系統」段落、WORKSPACE_STATE.md 的待辦清單
-4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／frontend 157／API 148）：
+4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／frontend 159／API 148）：
    npm run test:uldweight
    npm run test:uldweight-api
    node scripts/test-nav-order-frontend.js

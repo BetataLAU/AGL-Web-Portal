@@ -253,7 +253,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 ```bash
 node scripts/test-uld-weight-calc.js      # 101 項
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
-node scripts/test-uld-weight-frontend.js  # 157 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+node scripts/test-uld-weight-frontend.js  # 159 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
 node scripts/test-uld-weight-api.js       # API 端對端（148 項，會自己啟伺服器，port 3157；含 U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
 node scripts/test-nav-hierarchy.js        # 側欄主/子層級

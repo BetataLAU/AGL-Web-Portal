@@ -989,6 +989,15 @@ function apiDetail() {
   check('21.26 長選項欄位跨兩欄（LIH／Pre-decl 不撐破卡片）',
     renderText.includes('uldw-more-wide') &&
     /\.uldw-unit-more label\.uldw-more-wide \{ grid-column: span 2; \}/.test(cssText));
+  check('21.27 明細欄寬足夠顯示 MAWB 13 字／DEST 3 字母／PCS 4 位數',
+    /\.uldw-items \.uldw-input-mawb \{ width: 134px/.test(cssText) &&
+    /\.uldw-input-dest \{ width: 58px/.test(cssText) &&
+    /\.uldw-input-pcs \{ width: 64px/.test(cssText) &&
+    uxHtml.includes('uldw-input-dest') && uxHtml.includes('uldw-input-pcs') &&
+    uxHtml.includes('uldw-input-wt'));
+  check('21.28 TAB 不因 change 重畫而跳焦點（只有 squeeze_mode 才 render）',
+    /field === 'squeeze_mode'\) render\(\)/.test(entryText) &&
+    !/item\[field\] = target\.type === 'checkbox'[\s\S]{0,140}?uldMarkDirty\(\);\s*render\(\)/.test(entryText));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

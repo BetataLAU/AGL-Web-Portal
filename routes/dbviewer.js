@@ -11,7 +11,6 @@ const router = express.Router();
 // 各表不可由使用者修改的欄位（系統自動管理）；未知表使用 fallback
 const READONLY_COLUMNS = {
   skills: ['id'],
-  messages: ['id', 'created_at'],
   companies: ['id', 'created_at'],
   templates: ['id', 'created_at'],
   note_templates: ['id', 'created_at'],

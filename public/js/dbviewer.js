@@ -10,7 +10,6 @@ let currentDbSelectedIds = new Set();
 // 表的中文顯示名稱
 const TABLE_LABELS = {
   skills: '技能資料',
-  messages: '論壇 / 留言',
   companies: '公司 / 地點',
   templates: '訂單範本',
   note_templates: '備註文字範本',
@@ -29,10 +28,7 @@ const COLUMN_LABELS = {
   notes: '備註',
   created_at: '建立時間',
   updated_at: '更新時間',
-  user_name: '用戶名',
-  title: '標題',
   content: '內容',
-  parent_id: '父ID',
   company_id: '公司ID',
   cargo_desc: '貨品描述',
   quantity: '件數',

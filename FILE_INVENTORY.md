@@ -2,41 +2,18 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午4:07:58
+> 最後更新：2026/11/6 下午4:29:42
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
-M FILE_INVENTORY.md
-M PROJECT_MAP.md
-M README.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
-M db/database.js
 M db/sessions.db
-M docs/README.md
-M package.json
-M public/index.html
-M public/js/auth.js
-M public/js/main.js
-M scripts/fix-nav-order.js
-M scripts/test-nav-order-frontend.js
-M server.js
-?? docs/design/uld-weight-phase2-handoff.md
-?? docs/design/uld-weight-remaining-work.md
-?? docs/design/uld-weight-system.md
-?? public/css/uld-weight.css
-?? public/js/uld-weight.js
-?? public/js/uldweight/
-?? routes/uld-weight.js
-?? scripts/bench-uld-weight-calc.js
-?? scripts/test-uld-weight-api.js
-?? scripts/test-uld-weight-calc.js
-?? scripts/test-uld-weight-frontend.js
-?? scripts/test-uld-weight-rcl.js
-?? scripts/uld-weight-report-pdf.js
+M public/js/dbviewer.js
+M routes/dbviewer.js
 ```
 
 ## 📁 檔案清單（共 243 個檔案）
@@ -45,11 +22,11 @@ M server.js
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（82.0 KB）
+- `CLAUDE.md`（82.2 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（34.1 KB）
 - `README.md`（24.6 KB）
-- `WORKSPACE_STATE.md`（107.8 KB）
+- `WORKSPACE_STATE.md`（108.1 KB）
 - `package.json`（1.1 KB）
 - `server.js`（6.8 KB）
 
@@ -127,7 +104,7 @@ M server.js
 ### db
 
 - `db/database.js`（18.8 KB）
-- `db/db-dump.sql`（140.5 KB）
+- `db/db-dump.sql`（142.5 KB）
 
 ### docs
 
@@ -176,7 +153,7 @@ M server.js
 - `public/js/auth.js`（26.1 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（20.3 KB）
-- `public/js/dbviewer.js`（42.8 KB）
+- `public/js/dbviewer.js`（42.7 KB）
 - `public/js/loadsim.js`（69.4 KB）
 - `public/js/main.js`（14.3 KB）
 - `public/js/orders.js`（418 B）

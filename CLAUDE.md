@@ -424,8 +424,10 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `uld_weight_versions` | ULD 夾重表歷史版本（V3：`sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；每張表保留最近 30 版） |
 
 > 共 **16 張表**（`db/database.js` 建表；16 張都有 `id … AUTOINCREMENT`）。
-> REMARK：舊 `messages`（GuestBook/Forum）已從建表移除；**本機 `database.db` 已無此表**，只剩
-> `routes/dbviewer.js`（`ALLOWED_TABLES`）與 `public/js/dbviewer.js`（中文標籤）各一行引用待清理。
+> REMARK：舊 `messages`（GuestBook/Forum）**已完全清除（2026-11-06）**：建表移除、本機 DB 已無此表，
+> `routes/dbviewer.js` 的 `READONLY_COLUMNS`、`public/js/dbviewer.js` 的中文標籤（`messages` 與 3 個孤兒欄位
+> `user_name`／`title`／`parent_id`）皆已刪除。僅 `public/css/components.css` 的 `.forum-*`／`.guestbook-form`
+> 樣式仍留著（已無 HTML 引用，可日後清理）。
 
 ## 常見任務指引
 

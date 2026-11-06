@@ -201,7 +201,8 @@
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 6px 8px;
 }
-.uldw-unit-fields label {
+.uldw-unit-fields label,
+.uldw-unit-more label {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -210,7 +211,9 @@
   color: var(--text-muted);
 }
 .uldw-unit-fields input,
-.uldw-unit-fields select {
+.uldw-unit-fields select,
+.uldw-unit-more input,
+.uldw-unit-more select {
   padding: 4px 6px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
@@ -849,11 +852,16 @@
 }
 .uldw-unit-more {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 6px 8px;
   padding-top: 4px;
   border-top: 1px dashed var(--border-color);
 }
+/* 長選項（LIH／Pre-decl）跨兩欄，避免原生 select 被文字撐寬、爆出卡片 */
+.uldw-unit-more label.uldw-more-wide { grid-column: span 2; }
+.uldw-unit-more > * { min-width: 0; }
+.uldw-unit-more input,
+.uldw-unit-more select { width: 100%; max-width: 100%; }
 .uldw-unit[data-compact="1"] .uldw-unit-more { display: none; }
 /* 壓縮模式只留：夾重／MAWB／DEST／PCS／WT／最終 */
 .uldw-unit[data-compact="1"] .uldw-col-optional { display: none; }
@@ -895,6 +903,25 @@
 .uldw-unit.is-drop-before { box-shadow: 0 -2px 0 0 var(--primary) inset; }
 .uldw-unit.is-drop-after { box-shadow: 0 2px 0 0 var(--primary) inset; }
 
+/* 代號類欄位一律顯示大寫（實際值在輸入時也會轉大寫，存檔前 payload 再保險一次） */
+input[data-unit-field="uld_number"],
+input[data-unit-field="contour_code"],
+input[data-unit-field="rcl_no"],
+input[data-unit-field="port"],
+input[data-item-field="mawb"],
+input[data-item-field="port"],
+input[data-draft="mawb"],
+input[data-draft="port"] { text-transform: uppercase; }
+
+/* 空狀態小字（右欄「還沒有 MAWB」不要用大號 empty-state） */
+.uldw-empty-note {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
 /* 檢核沒問題時收起（螢幕）／列印時還原 */
 .uldw-issues-empty { display: none; }
 .uldw-col-head.is-hidden { display: none; }
@@ -921,7 +948,7 @@
 /* 貼上列／加入列的緊湊輸入 */
 .uldw-item-add { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .uldw-draft-xs { width: 66px; }
-.uldw-draft-lih { width: 108px; }
+.uldw-draft-lih { width: 118px; max-width: 118px; min-width: 0; }
 
 /* ===== 列印補充（U1／U3）=====
    1) 收合的「進階」與卡片次要欄位在紙上要展開（紙本要完整資訊）

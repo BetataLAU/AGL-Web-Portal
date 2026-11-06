@@ -24,7 +24,7 @@ export const uldWeightState = {
   //   expanded  ：哪些收貨單位卡片展開次要欄位（{ [uid]: true }）
   //   allCompact：卡片太多時全部收合（只留摘要）
   //   printUnit ：只印這一張卡（列印時用；null = 印全部）
-  ui: { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null }
+  ui: { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null }
 };
 
 // U2：收貨單位（板）數量上限（業界實務：一台包機最多約 41 板）
@@ -129,6 +129,11 @@ export function uldSheetFromApi(detail) {
 }
 
 // 編輯用狀態 → PUT payload（只送原始輸入，尾差/取整交給後端與 calc 重算）
+// 代號類欄位一律轉大寫（ULD#／Contour／RCL#／Port／MAWB），避免大小寫混雜造成重複或比對失敗
+function upperText(value) {
+  return String(value == null ? '' : value).toUpperCase();
+}
+
 export function uldSheetPayload(sheet) {
   return {
     sheet_date: sheet.sheet_date,
@@ -149,11 +154,11 @@ export function uldSheetPayload(sheet) {
       // R3：帶回既有 DB id → 後端可做 diff 更新（null／不存在＝新增）
       id: unit.id || null,
       kind: unit.kind,
-      uld_number: unit.uld_number,
+      uld_number: upperText(unit.uld_number),
       bulk_ref: unit.bulk_ref,
-      rcl_no: unit.rcl_no,
-      contour_code: unit.contour_code,
-      port: unit.port,
+      rcl_no: upperText(unit.rcl_no),
+      contour_code: upperText(unit.contour_code),
+      port: upperText(unit.port),
       pcs: uldNum(unit.pcs),
       tare_weight: uldNum(unit.tare_weight),
       rcl_gross_weight: uldNum(unit.rcl_gross_weight),
@@ -164,9 +169,9 @@ export function uldSheetPayload(sheet) {
       items: (unit.items || []).map(item => ({
         // R3：明細的既有 DB id（null＝新增）
         id: item.id || null,
-        mawb: item.mawb,
+        mawb: upperText(item.mawb),
         mawb_record_id: item.mawb_record_id || null,
-        port: item.port,
+        port: upperText(item.port),
         pcs: uldNum(item.pcs),
         declared_weight: uldNum(item.declared_weight),
         is_squeeze: item.is_squeeze ? 1 : 0,

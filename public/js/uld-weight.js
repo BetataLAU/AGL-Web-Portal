@@ -349,7 +349,7 @@ function resetVersionsState() {
 // U1／U2：切換夾重表時把「顯示狀態」歸零（不要沿用上一張的展開／選單狀態）
 function resetUiState() {
   const s = state();
-  s.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
+  s.ui = { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null };
 }
 
 // ===== W3：RCL 磅單匯入（Excel／CSV → 預覽 → 勾選後併入草稿）=====
@@ -510,6 +510,14 @@ const NUMERIC_ITEM_FIELDS = ['pcs', 'declared_weight', 'squeeze_ratio'];
 // W5：表頭數字欄（磅差警示門檻）→ 存成數字，且輸入時就重算檢核（不重畫，焦點不會掉）
 // R2：比例上下限（0 = 不限）同樣是數字欄
 const NUMERIC_HEADER_FIELDS = ['diff_warn_pct', 'diff_warn_kg', 'clamp_min_pct', 'clamp_max_pct'];
+// 自動轉大寫的欄位：ULD#／Contour／RCL#／Port／MAWB（業界代號一律大寫）
+const UPPER_UNIT_FIELDS = ['uld_number', 'contour_code', 'rcl_no', 'port'];
+const UPPER_ITEM_FIELDS = ['mawb', 'port'];
+const UPPER_DRAFT_FIELDS = ['mawb', 'port'];
+
+function upperIfNeeded(field, list, value) {
+  return list.includes(field) ? String(value == null ? '' : value).toUpperCase() : value;
+}
 
 // 文字／數字輸入：只更新狀態 + 局部重算（不重畫 → 不會失去焦點）
 function onRootInput(event) {
@@ -537,7 +545,9 @@ function onRootInput(event) {
 
   if (target.dataset.unitField) {
     const field = target.dataset.unitField;
-    unit[field] = NUMERIC_UNIT_FIELDS.includes(field) ? uldNum(target.value) : target.value;
+    unit[field] = NUMERIC_UNIT_FIELDS.includes(field)
+      ? uldNum(target.value)
+      : upperIfNeeded(field, UPPER_UNIT_FIELDS, target.value);
     uldMarkDirty();
     refreshComputed(rootEl);
     return;
@@ -546,14 +556,17 @@ function onRootInput(event) {
     const item = itemOfElement(target, unit);
     if (!item) return;
     const field = target.dataset.itemField;
-    item[field] = NUMERIC_ITEM_FIELDS.includes(field) ? uldNum(target.value) : target.value;
+    item[field] = NUMERIC_ITEM_FIELDS.includes(field)
+      ? uldNum(target.value)
+      : upperIfNeeded(field, UPPER_ITEM_FIELDS, target.value);
     uldMarkDirty();
     refreshComputed(rootEl);
     return;
   }
   if (target.dataset.draft) {
     unit.draft = unit.draft || {};
-    unit.draft[target.dataset.draft] = target.value;
+    const field = target.dataset.draft;
+    unit.draft[field] = upperIfNeeded(field, UPPER_DRAFT_FIELDS, target.value);
   }
 }
 
@@ -588,7 +601,8 @@ function onRootChange(event) {
   if (!unit) return;
 
   if (target.dataset.unitField) {
-    unit[target.dataset.unitField] = target.value;
+    const field = target.dataset.unitField;
+    unit[field] = upperIfNeeded(field, UPPER_UNIT_FIELDS, target.value);
     uldMarkDirty();
     render();
     return;
@@ -597,7 +611,8 @@ function onRootChange(event) {
     const item = itemOfElement(target, unit);
     if (!item) return;
     const field = target.dataset.itemField;
-    item[field] = target.type === 'checkbox' ? target.checked : target.value;
+    const raw = target.type === 'checkbox' ? target.checked : target.value;
+    item[field] = target.type === 'checkbox' ? raw : upperIfNeeded(field, UPPER_ITEM_FIELDS, raw);
     uldMarkDirty();
     render();
   }
@@ -647,7 +662,8 @@ function onRootClick(event) {
 // ===== U1：顯示狀態切換（盡量只動 class，不整份重畫 → 不打斷輸入）=====
 function uiState() {
   const s = state();
-  if (!s.ui) s.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
+  if (!s.ui) s.ui = { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null };
+  if (s.ui.expandAll === undefined) s.ui.expandAll = false;
   return s.ui;
 }
 
@@ -676,14 +692,14 @@ function toggleUnitCard(uid) {
   const nextCompact = !isCompact;
   card.dataset.compact = nextCompact ? '1' : '0';
   ui.expanded = ui.expanded || {};
-  if (nextCompact) delete ui.expanded[uid]; else ui.expanded[uid] = true;
+  ui.expanded[uid] = !nextCompact; // 明確記住這一張，不受「全部展開」影響
   const btn = card.querySelector('[data-action="toggle-unit"]');
   if (btn) btn.textContent = nextCompact ? '▸' : '▾';
 }
 
 function toggleCompact() {
   const ui = uiState();
-  ui.allCompact = !ui.allCompact;
+  ui.expandAll = !ui.expandAll;
   ui.expanded = {};
   render();
 }
@@ -710,8 +726,8 @@ function addPastedRows(uid, text) {
     if (existing.has(key)) { duplicated += 1; return; }
     existing.add(key);
     unit.items.push(uldNewItem({
-      mawb: row.mawb,
-      port: String(row.port || '').toUpperCase() || String(unit.port || '').toUpperCase(),
+      mawb: String(row.mawb || '').toUpperCase(),
+      port: (String(row.port || '').toUpperCase()) || String(unit.port || '').toUpperCase(),
       pcs: uldNum(row.pcs),
       declared_weight: uldNum(row.weight),
       is_squeeze: unit.items.length === 0, // 第一票預設夾重

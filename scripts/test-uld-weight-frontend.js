@@ -968,6 +968,27 @@ function apiDetail() {
   check('21.22 卡片收合時隱藏次要欄位與比例／LIH 欄（CSS）',
     /\.uldw-unit\[data-compact="1"\] \.uldw-unit-more \{ display: none; \}/.test(cssText) &&
     /\.uldw-unit\[data-compact="1"\] \.uldw-col-optional \{ display: none; \}/.test(cssText));
+  check('21.23 卡片預設收合（第一次看到只留摘要＋明細）', uxHtml.includes('data-compact="1"'));
+
+  const upperSheet = state.uldSheetFromApi(apiDetail());
+  upperSheet.ulds[0].uld_number = 'pmc12345qr';
+  upperSheet.ulds[0].contour_code = 'zq';
+  upperSheet.ulds[0].port = 'hkg';
+  upperSheet.ulds[0].items[0].mawb = '160-abc';
+  upperSheet.ulds[0].items[0].port = 'tpe';
+  const upperPayload = state.uldSheetPayload(upperSheet);
+  check('21.24 存檔 payload 把 ULD#／Contour／Port／MAWB 轉大寫',
+    upperPayload.ulds[0].uld_number === 'PMC12345QR' && upperPayload.ulds[0].contour_code === 'ZQ' &&
+    upperPayload.ulds[0].port === 'HKG' && upperPayload.ulds[0].items[0].mawb === '160-ABC' &&
+    upperPayload.ulds[0].items[0].port === 'TPE',
+    JSON.stringify([upperPayload.ulds[0].uld_number, upperPayload.ulds[0].items[0].mawb]));
+  check('21.25 代號欄位輸入時即顯示大寫（CSS text-transform）',
+    cssText.includes('input[data-unit-field="uld_number"]') &&
+    cssText.includes('input[data-item-field="mawb"]') &&
+    /text-transform: uppercase/.test(cssText));
+  check('21.26 長選項欄位跨兩欄（LIH／Pre-decl 不撐破卡片）',
+    renderText.includes('uldw-more-wide') &&
+    /\.uldw-unit-more label\.uldw-more-wide \{ grid-column: span 2; \}/.test(cssText));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

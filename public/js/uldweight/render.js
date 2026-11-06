@@ -174,14 +174,14 @@ export function renderEditor(root) {
               <button type="button" class="uldw-btn uldw-btn-sm" data-action="add-bulk"${dis}>＋ 散貨</button>
               <button type="button" class="uldw-btn uldw-btn-sm" data-action="import-rcl"${dis} title="從貨站 RCL 磅單（Excel／CSV）匯入 ULD、Tare、Gross 與件數（可先預覽勾選）">⇪ 匯入 RCL</button>
               <button type="button" class="uldw-btn uldw-btn-sm" data-action="toggle-compact"
-                title="卡片很多時全部收合，只看摘要；再按一次展開">${ui.allCompact ? '全部展開' : '全部收合'}</button>
+                title="一次展開／收合所有卡片的次要欄位（Contour／Tare／LIH／Pre-decl…）">${ui.expandAll ? '全部收合' : '全部展開'}</button>
             </span>
             <span class="uldw-legend" aria-hidden="true">
               <span class="uldw-legend-sq" data-tone="squeeze"></span>夾重
               <span class="uldw-legend-sq" data-tone="changed"></span>WT 已改
             </span>
           </div>
-          <div class="uldw-unit-list" data-compact="${ui.allCompact ? '1' : '0'}">
+          <div class="uldw-unit-list" data-compact="${ui.expandAll ? '0' : '1'}">
             ${(sheet.ulds || []).length
               ? sheet.ulds.map((unit, idx) => unitCardHtml(unit, idx, locked)).join('')
               : '<div class="empty-state">① 先按「＋ 新增 ULD」或「⇪ 匯入 RCL」<br>② 在卡片下方輸入 MAWB#（Enter 加入）或「⧉ 貼上」多票<br>③ 勾選要夾重的票 → 看右側結果與底部 PLAN／RCL／DIFF</div>'}
@@ -226,8 +226,9 @@ function unitCardHtml(unit, idx, locked) {
   const items = unit.items || [];
   const draft = unit.draft || {};
   const ui = uldWeightState.ui || {};
-  const forcedOpen = !!(ui.expanded && ui.expanded[unit.uid]);
-  const compact = !!ui.allCompact && !forcedOpen;
+  const explicit = ui.expanded ? ui.expanded[unit.uid] : undefined;
+  const expandedCard = explicit === undefined ? !!ui.expandAll : !!explicit;
+  const compact = !expandedCard; // U1：預設收合（只留摘要＋明細），按 ▾ 才展開次要欄位
   return `
   <div class="uldw-unit" data-uid="${esc(unit.uid)}" data-kind="${unit.kind}" data-compact="${compact ? '1' : '0'}">
     <div class="uldw-unit-head">
@@ -256,8 +257,8 @@ function unitCardHtml(unit, idx, locked) {
       <label>RCL#<input type="text" data-unit-field="rcl_no" value="${esc(unit.rcl_no)}"${dis}></label>
       ${isBulk ? '' : `<label>Tare<input type="number" min="0" step="0.1" data-unit-field="tare_weight" value="${esc(unit.tare_weight)}"${dis}></label>`}
       <label title="裝板物料重量（只作磅差說明，仍由夾重票吸收）">物料<input type="number" min="0" step="0.1" data-unit-field="material_weight" value="${esc(unit.material_weight)}"${dis}></label>
-      <label>LIH<select data-unit-field="lih_type"${dis}>${lihOptions(unit.lih_type)}</select></label>
-      <label>Pre-decl<select data-unit-field="predecl_type"${dis}>${optionsHtml(ULD_PREDECL_TYPES, unit.predecl_type)}</select></label>
+      <label class="uldw-more-wide">LIH<select data-unit-field="lih_type"${dis}>${lihOptions(unit.lih_type)}</select></label>
+      <label class="uldw-more-wide">Pre-decl<select data-unit-field="predecl_type"${dis}>${optionsHtml(ULD_PREDECL_TYPES, unit.predecl_type)}</select></label>
       <label>夾重方式<select data-unit-field="squeeze_mode"${dis}>${optionsHtml(ULD_SQUEEZE_MODES, unit.squeeze_mode)}</select></label>
     </div>
     <div class="uldw-table-wrap">
@@ -314,7 +315,7 @@ function itemRowHtml(unit, item, idx, locked) {
 
 // ===== MAWB 彙總表 =====
 function mawbTableHtml(computed) {
-  if (!computed.mawbs.length) return '<div class="empty-state">還沒有 MAWB。</div>';
+  if (!computed.mawbs.length) return '<div class="uldw-empty-note">還沒有 MAWB</div>';
   const rows = computed.mawbs.map(row => `
     <tr>
       <td><b>${esc(row.mawb)}</b>${row.squeeze ? '' : ' <span class="uldw-chip uldw-chip-sm">不夾重</span>'}</td>

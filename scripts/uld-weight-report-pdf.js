@@ -235,6 +235,45 @@ function unitTitle(unit) {
   return parts.join('   ');
 }
 
+// ===== U3：單板 Loading Sheet 版面常數與小工具 =====
+// 用途：GET /api/uld-weight/sheets/:id/loading-sheet.pdf?unit=<uld_id>
+//   - 一板一頁；欄位固定 MAWB／DEST／PCS／WT（WT＝夾重後最終重量）
+//   - 表格固定列數（預設 16 列），不足補空白列（現場可手寫）
+//   - To＝航班號前兩碼（CX1234 → CX）；Date＝表頭日期（6 Nov 2026）
+// 資料一律來自 loadSheetDetail()（含 unit.calc.items 的最終重量），這裡不重算。
+const LOADING_COLUMNS = [
+  { label: 'MAWB', width: 250, align: 'left' },
+  { label: 'DEST', width: 78, align: 'center' },
+  { label: 'PCS', width: 70, align: 'right' },
+  { label: 'WT', width: 90, align: 'right' }
+];
+const LOADING_ROWS_PER_PAGE = 16;
+
+// 板序代號：01/A、02/B…27/AA（與前端 render.js 的 unitCode() 同一規則；純顯示）
+function unitCodeLabel(index) {
+  let n = Math.max(0, Number(index) || 0);
+  let letters = '';
+  do {
+    letters = String.fromCharCode(65 + (n % 26)) + letters;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return `${String((Number(index) || 0) + 1).padStart(2, '0')}/${letters}`;
+}
+
+// 航班號前兩碼＝航空公司代碼（抓不到就空白，紙本可手寫）
+function airlineCode(flightNo) {
+  const m = String(flightNo || '').trim().toUpperCase().match(/^([A-Z0-9]{2})/);
+  return m ? m[1] : '';
+}
+
+// '2026-11-06' → '6 Nov 2026'（不用 toISOString，避免 UTC+8 變成前一天）
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function longDate(value) {
+  const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(value || '');
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1] || ''} ${m[1]}`;
+}
+
 /**
  * 產生夾重表 PDF。
  * @param {object} detail loadSheetDetail() 的回傳值（表頭 + ulds[].calc + mawbs + issues + totals）
@@ -382,10 +421,160 @@ async function buildUldWeightReportPdf(detail, options = {}) {
   return doc.save();
 }
 
+/**
+ * 產生「單板 Loading Sheet」PDF（U3）。unitId 省略＝每一板各一頁（合成一份）。
+ * @param {object} detail loadSheetDetail() 的回傳值
+ * @param {{ unitId?: number|null, blankRows?: number }} [options]
+ * @returns {Promise<Uint8Array>}
+ */
+async function buildUldWeightLoadingSheetPdf(detail, options = {}) {
+  const sheet = detail || {};
+  const onlyUnitId = options.unitId == null ? null : Number(options.unitId);
+  const rowsPerPage = Math.max(4, Number(options.blankRows) || LOADING_ROWS_PER_PAGE);
+
+  const doc = await PDFDocument.create();
+  const regular = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const cjk = await getCjkFont();
+  const cjkPdf = cjk ? await embedCjkFont(doc, cjk) : null;
+  const painter = createPainter(doc, { regular, bold, cjk, cjkPdf });
+  const pick = painter.pick;
+
+  const allUnits = Array.isArray(sheet.ulds) ? sheet.ulds : [];
+  const units = allUnits
+    .map((unit, index) => ({ unit, index }))
+    .filter(row => onlyUnitId == null || Number(row.unit.id) === onlyUnitId);
+
+  const tableX = MARGIN.left + 26;
+  const tableWidth = LOADING_COLUMNS.reduce((sum, col) => sum + col.width, 0);
+  const rowHeight = 18;
+  const toCode = airlineCode(sheet.flight_no);
+  const dateText = longDate(sheet.sheet_date || sheet.flight_date);
+
+  // 外框＋欄線（照舊表的方格）
+  function drawTableGrid(top, bottom) {
+    painter.page.drawRectangle({
+      x: tableX, y: bottom, width: tableWidth, height: top - bottom,
+      borderColor: BLACK, borderWidth: 0.8, color: undefined
+    });
+    let x = tableX;
+    LOADING_COLUMNS.slice(0, -1).forEach(col => {
+      x += col.width;
+      painter.page.drawLine({ start: { x, y: top }, end: { x, y: bottom }, thickness: 0.6, color: BLACK });
+    });
+  }
+
+  units.forEach(({ unit, index }) => {
+    const calc = unit.calc || {};
+    const items = Array.isArray(calc.items) ? calc.items : [];
+    const unitNo = unit.uld_number || unit.bulk_ref || '';
+    const contour = unit.contour_code || '';
+    const dest = unit.port || (items.find(it => it.port) || {}).port || '';
+    const pagesNeeded = Math.max(1, Math.ceil(items.length / rowsPerPage));
+
+    for (let pageIdx = 0; pageIdx < pagesNeeded; pageIdx += 1) {
+      painter.newPage();
+
+      // 右上角：板序代號（04/D）
+      const codeText = unitCodeLabel(index);
+      const codePicked = pick(codeText);
+      painter.page.drawText(codePicked.text, {
+        x: MARGIN.left + CONTENT_WIDTH - codePicked.font.widthOfTextAtSize(codeText, 13),
+        y: painter.y - 13, size: 13, font: codePicked.font, color: BLACK
+      });
+      painter.gap(26);
+
+      // To（航空公司代碼）／Date
+      const labelSize = 10;
+      painter.line(`To:   ${toCode}`, { size: labelSize, lineHeight: 22, bold: true });
+      const baseY = painter.y + 6;
+      painter.page.drawLine({
+        start: { x: MARGIN.left + 34, y: baseY },
+        end: { x: MARGIN.left + 34 + 190, y: baseY }, thickness: 0.8, color: BLACK
+      });
+      const dateLine = `Date:   ${dateText}`;
+      const datePicked = pick(dateLine);
+      painter.page.drawText(datePicked.text, {
+        x: MARGIN.left + CONTENT_WIDTH - datePicked.font.widthOfTextAtSize(dateLine, labelSize),
+        y: baseY + 6, size: labelSize, font: datePicked.font, color: BLACK
+      });
+      painter.gap(10);
+
+      painter.line('The Following Consignment (s) are Loaded Inside Pre-Packed Unit', {
+        size: 9.5, lineHeight: 20
+      });
+
+      // Unit（ULD# / Contour）／Dest
+      painter.line(`Unit:   ${unitNo}${contour ? ` / ${contour}` : ''}`, {
+        size: 11, lineHeight: 26, bold: true
+      });
+      const unitY = painter.y + 7;
+      painter.page.drawLine({
+        start: { x: MARGIN.left + 40, y: unitY },
+        end: { x: MARGIN.left + 40 + 210, y: unitY }, thickness: 0.8, color: BLACK
+      });
+      const destLine = `Dest :   ${dest}`;
+      const destPicked = pick(destLine);
+      painter.page.drawText(destPicked.text, {
+        x: MARGIN.left + CONTENT_WIDTH - destPicked.font.widthOfTextAtSize(destLine, 10),
+        y: unitY + 7, size: 10, font: destPicked.font, color: BLACK
+      });
+      painter.gap(14);
+
+      // 表格（固定列數；不足補空白列）
+      const tableTop = painter.y;
+      const drawRowLine = () => {
+        painter.page.drawLine({
+          start: { x: tableX, y: painter.y },
+          end: { x: tableX + tableWidth, y: painter.y },
+          thickness: 0.5, color: BLACK
+        });
+      };
+      painter.row(LOADING_COLUMNS.map(col => ({
+        text: col.label, width: col.width, align: col.align === 'right' ? 'right' : 'center', bold: true
+      })), { size: 10, height: rowHeight, fill: HEAD_BG });
+      drawRowLine();
+      const start = pageIdx * rowsPerPage;
+      for (let i = 0; i < rowsPerPage; i += 1) {
+        const item = items[start + i];
+        painter.row([
+          { text: item ? item.mawb || '' : '', width: LOADING_COLUMNS[0].width },
+          { text: item ? item.port || dest : '', width: LOADING_COLUMNS[1].width, align: 'center' },
+          { text: item ? String(item.pcs || 0) : '', width: LOADING_COLUMNS[2].width, align: 'right' },
+          { text: item ? fmtKg(item.final) : '', width: LOADING_COLUMNS[3].width, align: 'right', bold: !!item }
+        ], { size: 10, height: rowHeight });
+        drawRowLine();
+      }
+      drawTableGrid(tableTop, painter.y);
+      painter.gap(8);
+
+      // 表格下方核對小字
+      painter.line(
+        `PCS ${calc.pcsSum || 0}　｜　WT ${fmtKg(calc.finalSum)} K　｜　RCL ${fmtKg(calc.rclGross)} K`
+        + `${unit.tare_weight ? ` − Tare ${fmtKg(calc.tare)} K` : ''}`
+        + `　｜　${sheet.sheet_no || ''}${pagesNeeded > 1 ? `（第 ${pageIdx + 1} / ${pagesNeeded} 頁）` : ''}`,
+        { size: 8, lineHeight: 12, color: GRAY }
+      );
+    }
+  });
+
+  // 頁尾：表號＋頁碼＋產生時間
+  const generatedAt = timestampText();
+  painter.pages.forEach((page, index) => {
+    const footer = `${sheet.sheet_no || ''}　Loading Sheet　第 ${index + 1} / ${painter.pages.length} 頁　${generatedAt}`;
+    const { text: safe, font } = pick(footer);
+    page.drawText(safe, { x: MARGIN.left, y: MARGIN.bottom - 14, size: 7.5, font, color: GRAY });
+  });
+
+  return doc.save();
+}
+
 module.exports = {
   buildUldWeightReportPdf,
+  buildUldWeightLoadingSheetPdf,
   ITEM_COLUMNS,
   MAWB_COLUMNS,
+  LOADING_COLUMNS,
   A4_PAGE: A4
 };
 
@@ -426,5 +615,14 @@ if (require.main === module && process.argv.includes('--selftest')) {
     const header = Buffer.from(bytes.slice(0, 5)).toString('latin1');
     console.log(`PDF ${bytes.length} bytes / header=${header}`);
     if (header !== '%PDF-' || !(bytes.length > 0)) process.exitCode = 1;
+    // U3：單板 Loading Sheet（每板各一頁）
+    const loading = await module.exports.buildUldWeightLoadingSheetPdf({
+      id: 1, sheet_no: 'WGT-20261105-01', sheet_date: '2026-11-05', terminal: 'CPSL',
+      flight_no: 'CX1234', flight_date: '2026-11-05', handler: '測試人員', remark: '',
+      status: 'draft', ulds: computed.units
+    }, {});
+    const loadingHeader = Buffer.from(loading.slice(0, 5)).toString('latin1');
+    console.log(`LoadingSheet PDF ${loading.length} bytes / header=${loadingHeader}`);
+    if (loadingHeader !== '%PDF-' || !(loading.length > 0)) process.exitCode = 1;
   })().catch(err => { console.error(err); process.exitCode = 1; });
 }

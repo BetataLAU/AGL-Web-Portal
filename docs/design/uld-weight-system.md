@@ -152,6 +152,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 | GET | `/sheets/:id/versions/diff?from=&to=` | **異動比對（V3）**：`from` 必填（沒帶 → 400）；`to` 省略＝與**目前內容**比較；回 `{ data: diff, from, to }`，diff 由 `public/js/uldweight/version-diff.js` 產生（欄位級：表頭／單位／明細） |
 | POST | `/sheets/:id/import-rcl` | **RCL 磅單匯入（W3）**：上傳 `.xlsx`／`.xlsm`／`.csv`（10MB、multer 記憶體）；只解析不寫 DB，回傳欄位對應＋可建立的單位清單（`sheet`／`col_*` 可覆寫）；鎖定 → 409 |
 | GET | `/sheets/:id/report.pdf` | **server 端 PDF（R1）**：`application/pdf`＋`Content-Disposition: attachment; filename="<sheet_no>.pdf"`；草稿／鎖定都能下載；由 `scripts/uld-weight-report-pdf.js` 排版（資料來自 `loadSheetDetail()`） |
+| GET | `/sheets/:id/loading-sheet.pdf?unit=<uld_id>` | **單板 Loading Sheet（U3）**：A4 直式一板一頁，欄位 `MAWB／DEST／PCS／WT`（WT＝夾重後最終重量），固定 16 列（不足補空白列）、表頭 `To: <航班前兩碼>／Date／Unit: ULD#／Contour／Dest`；`unit` 省略＝每板各一頁合成一份；不存在的 `unit` → 404；資料同樣來自 `loadSheetDetail()` |
 | GET | `/sheets/batch-pdf?ids=1,2,3`（或 `status=`／`search=`） | **批次 PDF（V2）**：多張夾重表打包成一個 `application/zip`（檔名 `uld-weight-batch-YYYYMMDD-HHmm.zip`）；ZIP 內含每張 `<sheet_no>.pdf` ＋ `manifest.txt`（UTF-8 BOM，列出表號／狀態／RCL／淨重／磅差與失敗清單）；`ids` 省略時依 `status`／`search` 篩選；**上限 50 張**（超過 400、沒有符合 404）；單張失敗不影響整批，成功／失敗張數放在 `X-Uld-Weight-Pdf-Count`／`X-Uld-Weight-Pdf-Failed` |
 | GET | `/sheets?status=&search=` | 清單（含板數／散貨數／RCL 總重／淨重／磅差） |
 | POST | `/sheets` | 新增空表（自動編號 WGT-YYYYMMDD-XX，預設貨站 CPSL） |
@@ -169,13 +170,24 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 
 - 側欄：`模擬裝板系統` 之後 → **ULD 夾重系統**（`#section-uld-weight`，admin/staff，鎖頭樣式同打板計劃）
 - 右側版面：**清單**（夾重表列表）↔ **編輯**
-  - 表頭：日期／貨站／航班／航班日期／經手人／B 取整／尾差／磅差警示 %／磅差警示 kg／比例下限 %／比例上限 %／備註
-  - ① 收貨單位卡：`RCL − Tare → 淨重`、磅差 chip（≤1% 綠、≤3% 黃、>3% 紅）、夾重方式、明細表（勾選夾重、MAWB、Port、件數、申報重量、比例、最終重量、LIH）
+  - 表頭：**常駐 5 欄**（日期／貨站／航班／航班日期／經手人）＋備註；**B 取整／尾差／磅差警示 %／kg／比例下限 %／上限 %** 收在「⚙ 進階」內（預設收起，值照常送出、列印時自動展開）
+  - ① 收貨單位卡（**網格排列、可拖曳調整板序**；板序代號 `01/A`、`02/B`…`41/AO`）：
+    標頭＝`⠿` 拖曳把手＋板序＋ULD#（或散貨批號）＋chips＋`▾`收合／`⤓`單板 PDF／`🖨`單板列印／`✕`刪除；
+    摘要列＝`件數 PCS ｜ RCL − Tare → 淨重 K`；主欄位＝Port／件數／RCL；次要欄位（Contour／RCL#／Tare／物料／LIH／Pre-decl／夾重方式）收在 `▾` 內；
+    明細表＝勾選夾重、MAWB、DEST、PCS、WT、比例、最終、LIH（緊湊模式下比例／LIH 隱藏）
   - ② MAWB 彙總（原重／夾重後／差額／Port，跨板自動加總）
-  - ③ 檢核清單（error 紅、warn 黃）
-  - 底部：全表合計（單位數／MAWB／件數／RCL 總重／Tare／淨重／磅差）
-- 操作：新增／儲存／鎖定／複製／刪除／匯出 Excel（`xlsx.full.min.js`，3 個工作表）／複製文字摘要（`utils/clipboard-utils.js`）
+  - ③ 檢核清單（error 紅、warn 黃；沒有問題時**不顯示**空盒子）
+  - 底部（sticky）：**`PLAN TTL`／`RCL TTL`／`DIFF`**（單位一律 **K**）＋ 淨重／磅差／單位數／MAWB／件數／Tare
+- 色碼（業界慣例）：**紅＝夾重票**（MAWB 紅字＋淡紅底）、**橙＝WT 被改**（最終重量 ≠ 申報）、**綠＝可輸入**、**灰＝計算值**；圖例只在卡片區標頭出現一次
+- 操作：**工具列只留 `← 列表`／`儲存`／`鎖定·解鎖`／`⋯ 更多`**；其餘（套用到 Booking／⇧ 補建 Booking／🕘 版本／🖨 列印／⤓ PDF／複製／刪除）收在「⋯ 更多」。另有新增／匯出 Excel（`xlsx.full.min.js`，3 個工作表）／複製文字摘要（`utils/clipboard-utils.js`）
 - 輸入體驗：文字／數字輸入 → 只做局部重算（`refreshComputed()`），不會失去焦點；下拉／勾選才整份重畫
+- **輸入加速（U2）**：
+  - 「新增 MAWB」列按 **Enter 直接加入**（不必再點「加入」）
+  - **⧉ 貼上**（或直接在卡片內貼上）：從 Excel／booking list 複製 `MAWB／DEST／PCS／WT`（Tab 分隔）→ 一次建立多票；
+    也支援 3 欄（MAWB／PCS／WT）／2 欄（MAWB／PCS）／1 欄（MAWB）；表頭列自動略過（解析在共用純函式 `public/js/uldweight/paste-parse.js`）
+  - 貼上的票若也出現在其他板 → 會提示「已在 02/B…」，可用明細列 `⇄` 依件數拆
+  - **收貨單位上限 41 板**（`ULD_MAX_UNITS`）；超過會提示拆成兩張表
+  - 卡片可**拖曳調整板序**（只改顯示與列印順序＝`seq`，不影響計算）；「全部收合」可在板數多時只看摘要
 - 「新增 MAWB」列：MAWB 欄是**輸入即篩選**（打板計劃 Booking Record，`public/js/uldweight/booking-search.js`），
   選到後自動帶入 Port（`dest`）／件數／重量並記住 `mawb_record_id`；**手動輸入仍可用**（做法：`renderEditor()` 尾端 `wireBookingPickers(root)`）
 - 明細列 `⇄`：用該票的總重量依件數拆到所有相關單位（`uldSplitByPcs`，尾差給件數最多的一筆）
@@ -193,6 +205,9 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 - **「⤓ PDF」**（R1）：下載 server 端固定排版的 A4 PDF（`scripts/uld-weight-report-pdf.js`）；
   前端 `api.js` 的 `fetchReportPdfBlob()`（**不可用 `apiFetch`**，它固定解析 JSON）→ Blob 下載；
   草稿／鎖定都能下載；有未儲存的修改時會先確認（PDF 用的是已存檔內容）。
+- **卡片上的 `⤓`／`🖨`（U3，單板）**：`⤓` 下載該板的 Loading Sheet（`GET /sheets/:id/loading-sheet.pdf?unit=<uld_id>`，
+  A4 直式、`MAWB／DEST／PCS／WT`、固定 16 列）；`🖨` 只印這一張卡（`@media print` 的 `.uldw-print-single`）。
+  WT 一律取 `calc.items[].final`（夾重後重量），表內只寫數字（不寫 kg／K，業界慣例）；表頭 `To:` 取航班號前兩碼。
 - **「比例下限 %／上限 %」**（R2）：多票夾重時單票分攤比例的限制（0＝不限）；被限制的比例後面會多一個 `*`
   （滑鼠移上去有說明）；無解時檢核會出現「夾重比例上下限無解」。
 - **「⤓ 批次 PDF」（V2，清單頁）**：每列多一個勾選框（表頭有全選），工具列右側顯示「已選 N 張」與「⤓ 批次 PDF」按鈕
@@ -238,8 +253,8 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 ```bash
 node scripts/test-uld-weight-calc.js      # 101 項
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
-node scripts/test-uld-weight-frontend.js  # 131 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對）
-node scripts/test-uld-weight-api.js       # API 端對端（141 項，會自己啟伺服器，port 3157）
+node scripts/test-uld-weight-frontend.js  # 153 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+node scripts/test-uld-weight-api.js       # API 端對端（148 項，會自己啟伺服器，port 3157；含 U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
 node scripts/test-nav-hierarchy.js        # 側欄主/子層級
 ```

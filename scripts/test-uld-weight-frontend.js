@@ -864,6 +864,112 @@ function apiDetail() {
     /case 'versions-close':\s*closeVersions\(\)/.test(entryText) &&
     /case 'version-diff':\s*compareVersions\(/.test(entryText));
 
+  // ===== 21. 直觀版（U1／U2／U3）=====
+  console.log('\n--- 21. 直觀版：減法版面／貼上多列／單板 Loading Sheet ---');
+  const renderText = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'uldweight', 'render.js'), 'utf8');
+  const stateText = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'uldweight', 'state.js'), 'utf8');
+  const routeText = fs.readFileSync(path.join(__dirname, '..', 'routes', 'uld-weight.js'), 'utf8');
+  const pdfText = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'uld-weight-report-pdf.js'), 'utf8');
+
+  state.uldWeightState.current = state.uldSheetFromApi(apiDetail());
+  state.uldWeightState.rclImport = null;
+  state.uldWeightState.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
+  const uxRoot = makeRoot();
+  render.renderEditor(uxRoot);
+  const uxHtml = uxRoot.innerHTML;
+
+  // U1：工具列減法（低頻動作收進「⋯ 更多」，但仍在 .uldw-editor-actions 內）
+  const moreIdx = uxHtml.indexOf('class="uldw-more');
+  check('21.1 工具列有「⋯ 更多」（低頻動作收起來）',
+    moreIdx > -1 && uxHtml.includes('data-action="toggle-more"'));
+  check('21.2 apply／補建／版本／列印／PDF／複製／刪除都在「更多」選單內',
+    ['apply', 'sync-bookings', 'versions', 'print', 'pdf', 'duplicate', 'delete']
+      .every(action => uxHtml.indexOf(`data-action="${action}"`) > moreIdx),
+    String(moreIdx));
+
+  // U1：進階表頭欄位收在 .uldw-adv（值仍會送出）
+  const advIdx = uxHtml.indexOf('class="uldw-adv');
+  check('21.3 有「⚙ 進階」開關，6 個進階欄位都在收合區內',
+    uxHtml.includes('data-action="toggle-adv"') && advIdx > -1 &&
+    ['diff_warn_pct', 'diff_warn_kg', 'clamp_min_pct', 'clamp_max_pct', 'round_b', 'tail_mode']
+      .every(f => uxHtml.indexOf(`data-header="${f}"`) > advIdx));
+
+  // U1：卡片網格＋板序代號＋拖曳把手
+  check('21.4 卡片區是網格（CSS）', /\.uldw-unit-list\s*\{[^}]*display:\s*grid/.test(cssText));
+  check('21.5 卡片有拖曳把手與板序代號 01/A',
+    uxHtml.includes('data-drag-handle') && uxHtml.includes('>01/A<') && uxHtml.includes('>02/B<'));
+  check('21.6 unitCode()：0→01/A、25→26/Z、26→27/AA（可到 41 板）',
+    render.unitCode(0) === '01/A' && render.unitCode(25) === '26/Z' &&
+    render.unitCode(26) === '27/AA' && render.unitCode(40) === '41/AO');
+
+  // U2：卡片操作（收合／單板 PDF／單板列印／貼上多列）
+  check('21.7 卡片有收合、單板 PDF、單板列印、貼上多列',
+    ['toggle-unit', 'pdf-unit', 'print-unit', 'paste-items', 'toggle-compact']
+      .every(action => uxHtml.includes(`data-action="${action}"`)));
+
+  // U2：貼上多列（共用純函式）
+  const paste = await import(`${BASE}/paste-parse.js`);
+  const paste4 = paste.uldParsePastedRows('369-9649 4182\tTLV\t60\t1122\n369-9649 4193\tTLV\t1\t70');
+  check('21.8 貼上 4 欄（MAWB／DEST／PCS／WT）→ 2 列、值正確',
+    paste4.rows.length === 2 && paste4.rows[0].port === 'TLV' &&
+    paste4.rows[0].pcs === 60 && paste4.rows[0].weight === 1122,
+    JSON.stringify(paste4.rows[0]));
+  const paste3 = paste.uldParsePastedRows('369-9649 4543,45,698');
+  check('21.9 貼上 3 欄（MAWB／PCS／WT）也能解析',
+    paste3.rows.length === 1 && paste3.rows[0].pcs === 45 && paste3.rows[0].weight === 698,
+    JSON.stringify(paste3.rows[0]));
+  const pasteHeader = paste.uldParsePastedRows('MAWB\tDEST\tPCS\tWT\n369-9649 5560\tTLV\t100\t310');
+  check('21.10 表頭列自動略過，只留資料列',
+    pasteHeader.rows.length === 1 && pasteHeader.rows[0].mawb === '369-9649 5560',
+    JSON.stringify(pasteHeader.rows));
+  check('21.11 看不出 MAWB# 的列會列入 skipped',
+    paste.uldParsePastedRows('hello\nworld').rows.length === 0 &&
+    paste.uldParsePastedRows('hello\nworld').skipped.length === 2);
+
+  // U1：合計列照業界讀法（PLAN TTL／RCL TTL／DIFF，單位 K）
+  check('21.12 合計列顯示 PLAN TTL／RCL TTL／DIFF 且單位是 K',
+    renderText.includes('PLAN TTL') && renderText.includes('RCL TTL') &&
+    renderText.includes('>DIFF<') && renderText.includes('</b> K'));
+
+  // U1：色碼（紅＝夾重、橙＝WT 已改）
+  check('21.13 CSS 有色碼：夾重紅、WT 已改橙',
+    /tr\.is-squeeze[^}]*#dc2626/.test(cssText) && /tr\.is-changed[^}]*#b45309/.test(cssText));
+
+  // U2／U3：入口事件分派與 API
+  check('21.14 入口有 toggle-more／toggle-adv／toggle-unit／toggle-compact 分派',
+    /case 'toggle-more'/.test(entryText) && /case 'toggle-adv'/.test(entryText) &&
+    /case 'toggle-unit'/.test(entryText) && /case 'toggle-compact'/.test(entryText));
+  check('21.15 入口有 Enter 加入、貼上多列、拖曳排序的監聽',
+    /addEventListener\('keydown', onRootKeydown\)/.test(entryText) &&
+    /addEventListener\('paste', onRootPaste\)/.test(entryText) &&
+    /addEventListener\('dragstart', onRootDragStart\)/.test(entryText) &&
+    /addEventListener\('drop', onRootDrop\)/.test(entryText));
+  check('21.16 41 板上限（ULD_MAX_UNITS）在前端狀態與入口都生效',
+    /ULD_MAX_UNITS = 41/.test(stateText) && /length >= ULD_MAX_UNITS/.test(entryText) &&
+    uxHtml.includes('/ 41'));
+
+  // U3：單板 Loading Sheet（API＋PDF＋前端）
+  check('21.17 api.js 有 fetchLoadingSheetPdfBlob（打 /loading-sheet.pdf）',
+    /export async function fetchLoadingSheetPdfBlob/.test(apiText) && apiText.includes('/loading-sheet.pdf'));
+  check('21.18 route 有 GET /sheets/:id/loading-sheet.pdf（含 unit 參數檢核）',
+    routeText.includes("'/sheets/:id/loading-sheet.pdf'") && routeText.includes('req.query.unit') &&
+    routeText.includes('這張夾重表沒有這個收貨單位'));
+  check('21.19 PDF 產生器有 buildUldWeightLoadingSheetPdf 與 MAWB／DEST／PCS／WT 欄位',
+    /async function buildUldWeightLoadingSheetPdf/.test(pdfText) &&
+    pdfText.includes("label: 'MAWB'") && pdfText.includes("label: 'DEST'") &&
+    pdfText.includes("label: 'PCS'") && pdfText.includes("label: 'WT'"));
+  check('21.20 Loading Sheet 固定 16 列（空白列可手寫）且有 To／Date／Unit／Dest',
+    pdfText.includes('LOADING_ROWS_PER_PAGE = 16') && pdfText.includes('To:') &&
+    pdfText.includes('Date:') && pdfText.includes('Unit:') && pdfText.includes('Dest :'));
+  check('21.21 檢核沒問題時收起空盒子，列印時還原',
+    renderText.includes('uldw-issues-empty') &&
+    cssText.includes('.uldw-issues-empty { display: none; }') &&
+    cssText.includes('.uldw-issues-empty { display: block !important; }'));
+  check('21.22 卡片收合時隱藏次要欄位與比例／LIH 欄（CSS）',
+    /\.uldw-unit\[data-compact="1"\] \.uldw-unit-more \{ display: none; \}/.test(cssText) &&
+    /\.uldw-unit\[data-compact="1"\] \.uldw-col-optional \{ display: none; \}/.test(cssText));
+
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
+
   process.exitCode = failCount === 0 ? 0 : 1;
 })();

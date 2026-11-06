@@ -1,7 +1,7 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-11-06T08:15:12.884Z
--- 共 15 張資料表
+-- 匯出時間: 2026-11-06T09:33:00.418Z
+-- 共 16 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
 
@@ -477,6 +477,8 @@ INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "targ
 
 INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (227, 'admin', '系統管理員', 'pallet.plan.add_items', 'pallet_plan', '9', 'AGL-20260831-01 加入 1 筆 MAWB（重複 0 筆）', '2026-08-31 03:40:23');
 
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (228, 'admin', '系統管理員', 'uld_weight.sheet.create', 'uld_weight_sheet', '1', '新增夾重表 WGT-20261106-01', '2026-11-06 08:34:56');
+
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -928,9 +930,10 @@ CREATE TABLE uld_weight_sheets (
       created_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
+    , diff_warn_pct REAL DEFAULT 2, clamp_max_pct REAL DEFAULT 0, clamp_min_pct REAL DEFAULT 0, diff_warn_kg REAL DEFAULT 100);
 
--- (無資料)
+INSERT INTO "uld_weight_sheets" ("id", "sheet_no", "sheet_date", "terminal", "flight_no", "flight_date", "round_px", "round_b", "tail_mode", "handler", "remark", "status", "created_by", "created_at", "updated_at", "diff_warn_pct", "clamp_max_pct", "clamp_min_pct", "diff_warn_kg") VALUES (1, 'WGT-20261106-01', '2026-11-06', 'CPSL', '', '', 1, 1, 'adjust_largest', '', '', 'draft', 'admin', '2026-11-06 08:34:56', '2026-11-06 08:34:56', 2, 0, 0, 100);
+
 
 -- ===== 資料表: uld_weight_ulds =====
 DROP TABLE IF EXISTS "uld_weight_ulds";
@@ -959,6 +962,24 @@ CREATE TABLE uld_weight_ulds (
 
 -- (無資料)
 
+-- ===== 資料表: uld_weight_versions =====
+DROP TABLE IF EXISTS "uld_weight_versions";
+CREATE TABLE uld_weight_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_id INTEGER NOT NULL,
+      version_no INTEGER DEFAULT 1,
+      action TEXT,
+      status TEXT,
+      note TEXT,
+      snapshot TEXT,
+      summary TEXT,
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+INSERT INTO "uld_weight_versions" ("id", "sheet_id", "version_no", "action", "status", "note", "snapshot", "summary", "created_by", "created_at") VALUES (1, 1, 1, 'create', 'draft', '', '{"header":{"sheet_date":"2026-11-06","terminal":"CPSL","flight_no":"","flight_date":"","round_px":1,"round_b":1,"tail_mode":"adjust_largest","diff_warn_pct":2,"diff_warn_kg":100,"clamp_min_pct":0,"clamp_max_pct":0,"handler":"","remark":"","status":"draft"},"units":[]}', '{"uldCount":0,"bulkCount":0,"itemCount":0,"mawbCount":0,"netTotal":0,"diffTotal":0}', 'admin', '2026-11-06 08:34:56');
+
+
 -- ===== 資料表: users =====
 DROP TABLE IF EXISTS "users";
 CREATE TABLE users (
@@ -981,7 +1002,7 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 227);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 228);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 23);
 
@@ -1280,4 +1301,8 @@ INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 68);
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('mawb_records', 5);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 34);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_sheets', 1);
+
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_versions', 1);
 

@@ -2,14 +2,15 @@
 // 版面：① 收貨單位（P/X 板、B 散貨）② 夾重結果（MAWB 彙總）③ 檢核；算法全部在 uldweight/calc.js
 import {
   fetchSheets, createSheet, fetchSheet, saveSheet, deleteSheet, duplicateSheet, setSheetLocked, applySheet,
-  fetchReportPdfBlob, fetchBatchPdfBlob, syncSheetBookings, fetchSheetVersions, fetchVersionDiff
+  fetchReportPdfBlob, fetchLoadingSheetPdfBlob, fetchBatchPdfBlob, syncSheetBookings, fetchSheetVersions, fetchVersionDiff
 } from './uldweight/api.js';
 import {
   uldWeightState, uldSheetFromApi, uldSheetPayload, uldNewUnit, uldNewItem,
-  uldFindUnit, uldMarkDirty, uldSplitMawb, uldComputed
+  uldFindUnit, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, ULD_MAX_UNITS
 } from './uldweight/state.js';
 import { renderList, renderEditor, refreshComputed, refreshRclImport, refreshVersions } from './uldweight/render.js';
 import { resetBookingCache } from './uldweight/booking-search.js';
+import { uldParsePastedRows } from './uldweight/paste-parse.js';
 import {
   pickRclFile, loadRclPreview, applyRclColumns, selectedRclRows, rclUldKey
 } from './uldweight/rcl-import.js';
@@ -83,6 +84,7 @@ async function openSheet(id) {
     s.dirty = false;
     s.view = 'editor';
     resetVersionsState(); // V3：換表時不要沿用上一張的版本清單／比對結果
+    resetUiState();       // U1：換表時不要沿用上一張的展開／「更多」選單狀態
     render();
   } catch (err) {
     alert(`開啟夾重表失敗：${err.message}`);
@@ -342,6 +344,12 @@ function resetVersionsState() {
   const s = state();
   s.versions = { open: false, loading: false, list: [], error: '' };
   s.versionDiff = null;
+}
+
+// U1／U2：切換夾重表時把「顯示狀態」歸零（不要沿用上一張的展開／選單狀態）
+function resetUiState() {
+  const s = state();
+  s.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
 }
 
 // ===== W3：RCL 磅單匯入（Excel／CSV → 預覽 → 勾選後併入草稿）=====
@@ -614,6 +622,13 @@ function onRootClick(event) {
     case 'version-diff': compareVersions(btn.dataset.from, btn.dataset.to); break;
     case 'print': printCurrent(); break;
     case 'pdf': downloadPdf(); break;
+    case 'pdf-unit': downloadUnitPdf(btn.dataset.uid); break;
+    case 'print-unit': printUnit(btn.dataset.uid); break;
+    case 'toggle-more': toggleMore(); break;
+    case 'toggle-adv': toggleAdvanced(); break;
+    case 'toggle-unit': toggleUnitCard(btn.dataset.uid); break;
+    case 'toggle-compact': toggleCompact(); break;
+    case 'paste-items': pasteItems(btn.dataset.uid); break;
     case 'batch-pdf': downloadBatchPdf(); break;
     case 'import-rcl': startRclImport(); break;
     case 'rcl-add': addRclUnits(); break;
@@ -627,6 +642,278 @@ function onRootClick(event) {
     default: break;
   }
   syncHeaderButtons();
+}
+
+// ===== U1：顯示狀態切換（盡量只動 class，不整份重畫 → 不打斷輸入）=====
+function uiState() {
+  const s = state();
+  if (!s.ui) s.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
+  return s.ui;
+}
+
+function toggleMore() {
+  const ui = uiState();
+  ui.more = !ui.more;
+  const box = rootEl && rootEl.querySelector('.uldw-more');
+  if (box && box.classList) box.classList.toggle('is-open', ui.more);
+}
+
+function toggleAdvanced() {
+  const ui = uiState();
+  ui.advanced = !ui.advanced;
+  const box = rootEl && rootEl.querySelector('.uldw-adv');
+  if (box && box.classList) box.classList.toggle('is-open', ui.advanced);
+  const btn = rootEl && rootEl.querySelector('[data-action="toggle-adv"]');
+  if (btn) btn.textContent = `${ui.advanced ? '▾' : '⚙'} 進階`;
+}
+
+function toggleUnitCard(uid) {
+  const ui = uiState();
+  if (!uid) return;
+  const card = rootEl && rootEl.querySelector(`.uldw-unit[data-uid="${uid}"]`);
+  if (!card) return;
+  const isCompact = card.dataset.compact === '1';
+  const nextCompact = !isCompact;
+  card.dataset.compact = nextCompact ? '1' : '0';
+  ui.expanded = ui.expanded || {};
+  if (nextCompact) delete ui.expanded[uid]; else ui.expanded[uid] = true;
+  const btn = card.querySelector('[data-action="toggle-unit"]');
+  if (btn) btn.textContent = nextCompact ? '▸' : '▾';
+}
+
+function toggleCompact() {
+  const ui = uiState();
+  ui.allCompact = !ui.allCompact;
+  ui.expanded = {};
+  render();
+}
+
+// ===== U2：貼上多列（Excel／booking list → 一次建立多票）=====
+function addPastedRows(uid, text) {
+  const s = state();
+  const unit = uldFindUnit(uid);
+  if (!unit || !s.current || s.current.status === 'locked') return;
+  const parsed = uldParsePastedRows(text);
+  const rows = parsed.rows || [];
+  if (!rows.length) {
+    alert('貼上的內容看不出 MAWB#。\n請從 Excel 複製「MAWB／DEST／PCS／WT」四欄（Tab 分隔），或至少 MAWB 一欄。');
+    return;
+  }
+  unit.items = unit.items || [];
+  const existing = new Set(unit.items.map(it => uldMawbKey(it.mawb)).filter(Boolean));
+  let added = 0;
+  let duplicated = 0;
+  const addedKeys = [];
+  rows.forEach(row => {
+    const key = uldMawbKey(row.mawb);
+    if (!key) return;
+    if (existing.has(key)) { duplicated += 1; return; }
+    existing.add(key);
+    unit.items.push(uldNewItem({
+      mawb: row.mawb,
+      port: String(row.port || '').toUpperCase() || String(unit.port || '').toUpperCase(),
+      pcs: uldNum(row.pcs),
+      declared_weight: uldNum(row.weight),
+      is_squeeze: unit.items.length === 0, // 第一票預設夾重
+      lih_type: 'N'
+    }));
+    addedKeys.push(key);
+    added += 1;
+  });
+  if (!added) {
+    alert(`這 ${rows.length} 列都已經在這張卡上了（重複 ${duplicated} 列）。`);
+    return;
+  }
+  uldMarkDirty();
+  render();
+  const otherUnits = [];
+  (s.current.ulds || []).forEach(u => {
+    if (u.uid === unit.uid) return;
+    const hit = (u.items || []).some(it => addedKeys.includes(uldMawbKey(it.mawb)));
+    if (hit) otherUnits.push(u);
+  });
+  const lines = [`已加入 ${added} 票${duplicated ? `（略過重複 ${duplicated} 票）` : ''}`];
+  if (parsed.skipped && parsed.skipped.length) lines.push(`略過 ${parsed.skipped.length} 列（看不出 MAWB#）`);
+  if (otherUnits.length) {
+    lines.push(`提醒：其中有些票也出現在其他板（${otherUnits.map(u => u.uld_number || u.bulk_ref || '散貨').join('、')}），`
+      + '請確認件數／重量怎麼分配（可用明細列的「⇄」依件數拆）。');
+  }
+  alert(lines.join('\n'));
+}
+
+async function pasteItems(uid) {
+  const unit = uldFindUnit(uid);
+  if (!unit) return;
+  if (state().current && state().current.status === 'locked') return;
+  try {
+    if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+      throw new Error('這個瀏覽器不支援讀取剪貼簿');
+    }
+    const text = await navigator.clipboard.readText();
+    addPastedRows(uid, text);
+  } catch (err) {
+    // 讀不到剪貼簿（權限／非 HTTPS）→ 退回手動貼上視窗
+    const typed = window.prompt(
+      '請貼上 MAWB 清單（可從 Excel 直接複製 4 欄：MAWB／DEST／PCS／WT，或以 Tab／逗號分隔）：',
+      ''
+    );
+    if (typed == null) return;
+    addPastedRows(uid, typed);
+  }
+}
+
+// ===== U2：Enter 直接加入（不用再按「加入」）＋ Esc 關閉選單 =====
+function onRootKeydown(event) {
+  const target = event.target;
+  if (!target || !target.dataset) return;
+  const s = state();
+  if (event.key === 'Escape' && s.ui && (s.ui.more || s.ui.advanced)) {
+    s.ui.more = false;
+    s.ui.advanced = false;
+    render();
+    return;
+  }
+  if (event.key !== 'Enter' || !s.current || s.current.status === 'locked') return;
+  if (!target.dataset.draft) return;
+  if (event.preventDefault) event.preventDefault();
+  const unit = unitOfElement(target);
+  if (unit) addItem(unit.uid);
+}
+
+// ===== U2：在卡片內貼上多列 → 自動拆成多票 =====
+function onRootPaste(event) {
+  const target = event.target;
+  if (!target || !target.dataset) return;
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return;
+  const unit = unitOfElement(target);
+  if (!unit) return;
+  const text = event.clipboardData ? event.clipboardData.getData('text') : '';
+  if (!text) return;
+  const parsed = uldParsePastedRows(text);
+  // 只有 1 列且貼在 MAWB 欄 → 讓瀏覽器照常貼單一值（保留 Booking 自動完成）
+  if (!parsed.rows.length || (parsed.rows.length === 1 && target.dataset.draft === 'mawb')) return;
+  if (event.preventDefault) event.preventDefault();
+  addPastedRows(unit.uid, text);
+}
+
+// ===== U3：只印這一板（瀏覽器列印；版面由 @media print 的 .uldw-print-single 控制）=====
+function printUnit(uid) {
+  const s = state();
+  if (!s.current || !rootEl) return;
+  if (typeof window.print !== 'function') {
+    alert('這個瀏覽器不支援列印（window.print）。');
+    return;
+  }
+  const editor = rootEl.querySelector('.uldw-editor');
+  const card = rootEl.querySelector(`.uldw-unit[data-uid="${uid}"]`);
+  if (!editor || !card) return;
+  if (editor.classList) editor.classList.add('uldw-print-single');
+  if (card.classList) card.classList.add('is-print-target');
+  const cleanup = () => {
+    if (editor.classList) editor.classList.remove('uldw-print-single');
+    if (card.classList) card.classList.remove('is-print-target');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  setTimeout(cleanup, 30000); // 保險：部分瀏覽器不會觸發 afterprint
+}
+
+// ===== U2：拖曳排序（只改顯示順序；不影響計算）=====
+let dragUid = null;
+
+function onRootPointerDown(event) {
+  const handle = event.target && event.target.closest ? event.target.closest('[data-drag-handle]') : null;
+  if (!handle) return;
+  const card = handle.closest('.uldw-unit');
+  if (card) card.draggable = true;
+}
+
+function onRootDragStart(event) {
+  const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
+  if (!card) return;
+  dragUid = card.dataset.uid || null;
+  if (!dragUid) return;
+  if (event.dataTransfer) {
+    try {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', dragUid);
+    } catch (e) { /* ignore */ }
+  }
+  if (card.classList) card.classList.add('is-dragging');
+}
+
+function onRootDragOver(event) {
+  if (!dragUid) return;
+  const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
+  if (!card) return;
+  if (event.preventDefault) event.preventDefault();
+  const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+  const after = rect ? (event.clientY - rect.top) > (rect.height / 2) : false;
+  if (card.classList) {
+    card.classList.toggle('is-drop-after', after);
+    card.classList.toggle('is-drop-before', !after);
+  }
+}
+
+function onRootDrop(event) {
+  const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
+  if (!card || !dragUid) return;
+  if (event.preventDefault) event.preventDefault();
+  const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+  const after = rect ? (event.clientY - rect.top) > (rect.height / 2) : false;
+  const targetUid = card.dataset.uid;
+  const from = dragUid;
+  dragUid = null;
+  if (from && targetUid && from !== targetUid && uldMoveUnit(from, targetUid, after)) {
+    uldMarkDirty();
+    render();
+    toast('已調整板序（只影響顯示與列印順序）');
+  }
+}
+
+function onRootDragEnd() {
+  dragUid = null;
+  if (!rootEl || !rootEl.querySelectorAll) return;
+  rootEl.querySelectorAll('.uldw-unit').forEach(card => {
+    card.draggable = false;
+    if (card.classList) {
+      card.classList.remove('is-dragging');
+      card.classList.remove('is-drop-before');
+      card.classList.remove('is-drop-after');
+    }
+  });
+}
+
+// ===== U3：單板 Loading Sheet PDF =====
+async function downloadUnitPdf(uid) {
+  const s = state();
+  const unit = uldFindUnit(uid);
+  if (!s.current || !unit) return;
+  if (!unit.id) {
+    alert('這一板還沒存進資料庫，請先按「儲存」再下載 Loading Sheet。');
+    return;
+  }
+  if (s.dirty) {
+    if (!confirm('尚有未儲存的修改，PDF 會用「已儲存的內容」產生，仍要下載嗎？')) return;
+  }
+  try {
+    toast('正在產生 Loading Sheet…');
+    const blob = await fetchLoadingSheetPdfBlob(s.current.id, unit.id);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const name = unit.uld_number || unit.bulk_ref || `unit-${unit.id}`;
+    link.href = url;
+    link.download = `${s.current.sheet_no || 'uld-weight'}-${name}.pdf`.replace(/[^\w.-]+/g, '-');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast('已下載 Loading Sheet');
+  } catch (err) {
+    alert(`下載 Loading Sheet 失敗：${err.message}`);
+  }
 }
 
 // ===== W4：列印／另存 PDF（@media print；草稿與鎖定都可列印）=====
@@ -835,6 +1122,7 @@ async function createNew() {
     s.dirty = false;
     s.view = 'editor';
     resetVersionsState();
+    resetUiState();
     render();
   } catch (err) {
     alert(`新增夾重表失敗：${err.message}`);
@@ -862,6 +1150,14 @@ export function setupUldWeightSection() {
   rootEl.addEventListener('click', onRootClick);
   rootEl.addEventListener('input', onRootInput);
   rootEl.addEventListener('change', onRootChange);
+  // U2：Enter 加入、貼上多列、卡片拖曳排序
+  rootEl.addEventListener('keydown', onRootKeydown);
+  rootEl.addEventListener('paste', onRootPaste);
+  rootEl.addEventListener('pointerdown', onRootPointerDown);
+  rootEl.addEventListener('dragstart', onRootDragStart);
+  rootEl.addEventListener('dragover', onRootDragOver);
+  rootEl.addEventListener('drop', onRootDrop);
+  rootEl.addEventListener('dragend', onRootDragEnd);
 
   const newBtn = document.getElementById('uldw-btn-new');
   if (newBtn) newBtn.addEventListener('click', createNew);
@@ -891,6 +1187,11 @@ function addUnit(kind) {
   const s = state();
   if (!s.current || s.current.status === 'locked') return;
   s.current.ulds = s.current.ulds || [];
+  // U2：上限 41 板（超過會讓畫面與列印都失控；業界實務一台包機最多約 41 板）
+  if (s.current.ulds.length >= ULD_MAX_UNITS) {
+    alert(`最多 ${ULD_MAX_UNITS} 個收貨單位（板）。如需更多，請拆成兩張夾重表（例如依航班或貨站）。`);
+    return;
+  }
   s.current.ulds.push(uldNewUnit(kind));
   uldMarkDirty();
   render();

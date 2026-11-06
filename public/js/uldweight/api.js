@@ -107,6 +107,13 @@ export async function fetchReportPdfBlob(id) {
   return fetchBlobOrThrow(`/api/uld-weight/sheets/${id}/report.pdf`, '下載 PDF 失敗');
 }
 
+// ===== U3：單板 Loading Sheet（A4 直式，MAWB／DEST／PCS／WT）=====
+// unitId 省略 → 每一板各一頁（合成一份 PDF）
+export async function fetchLoadingSheetPdfBlob(id, unitId) {
+  const query = unitId ? `?unit=${encodeURIComponent(unitId)}` : '';
+  return fetchBlobOrThrow(`/api/uld-weight/sheets/${id}/loading-sheet.pdf${query}`, '下載 Loading Sheet 失敗');
+}
+
 // ===== V2：批次 PDF（多張夾重表打包 ZIP）=====
 // ids 有值 → 只抓這幾張；ids 為空 → 交給後端依目前的 status／search 篩選（上限 50 張）。
 export async function fetchBatchPdfBlob({ ids = [], status = '', search = '' } = {}) {

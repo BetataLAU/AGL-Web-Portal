@@ -1,6 +1,6 @@
 # ULD 夾重系統 — 未完成工作（Phase 3 交接）
 
-> **狀態（2026-11-06）**：Phase 1 ＋ Phase 2（W1～W5）＋ **Phase 3（R1／R2／R3／R4）** ＋ **V2（批次 PDF ZIP）** ＋ **V1（補建 Booking Record）** ＋ **V3（歷史版本／異動比對）全部完成並驗證通過**。
+> **狀態（2026-11-06）**：Phase 1 ＋ Phase 2（W1～W5）＋ **Phase 3（R1／R2／R3／R4）** ＋ **V2（批次 PDF ZIP）** ＋ **V1（補建 Booking Record）** ＋ **V3（歷史版本／異動比對）** ＋ **U1／U2／U3（直觀版 UI／輸入加速／單板 Loading Sheet）全部完成並驗證通過**。
 > **V4（大表即時重算節流）已量測 → 不需要做**（單次 `uldComputeSheet()` 在 50 板 × 10 票下 median **約 0.6ms**、100 板 × 20 票 **約 2.4ms**，皆遠低於 16ms 門檻；量測工具 `npm run bench:uldweight`）。
 > 本檔保留「已完成清單、新發現／陷阱、既定規則、驗證指令」，以及**剩下的選用／待決事項**。
 > 規則與算法 → `docs/design/uld-weight-system.md`；陷阱／已完成清單／驗證細節 → `docs/design/uld-weight-phase2-handoff.md`。
@@ -43,8 +43,16 @@ RCL 磅單匯入、A4 列印與 server 端 PDF 下載（單張／批次打包 ZI
 | **V1** | **補建 Booking Record（安全版）**：`POST /sheets/:id/sync-bookings`（**預設 dry_run 只回預覽**，`{dry_run:false}` 才寫入）→ 對沒有連結的票：打板計劃已有同號 MAWB **只連結**、沒有才**建立**（`gross_weight` = 夾重後重量、`pcs`、`dest`）；不動 `orders`、不動夾重表重量 | `routes/uld-weight.js`、`public/js/uldweight/{api,render}.js`、`public/js/uld-weight.js` |
 | **V3** | **歷史版本／異動比對**：`uld_weight_versions`（每次建立／儲存／鎖定／解鎖／套用／補建都留快照，每張表保留最近 30 版）＋ `GET /sheets/:id/versions`／`/versions/:vid`／`/versions/diff?from=&to=`（`to` 省略＝對目前內容）；比對規則寫在共用純函式 `public/js/uldweight/version-diff.js`；編輯畫面「🕘 版本」面板列出 v1…vN 並可「與前一版比／對目前」 | `db/database.js`（新表）、`routes/uld-weight.js`、`public/js/uldweight/version-diff.js`（新）、`public/js/uldweight/{api,state,render}.js`、`public/js/uld-weight.js`、`public/css/uld-weight.css` |
 
-目前測試：`calc 101`＋`rcl 28`＋`frontend 131`＋API 端對端（141 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
+目前測試：`calc 101`＋`rcl 28`＋`frontend 153`＋API 端對端（148 項，含 R1／R2／R3／R4／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）全部 PASS；nav／hierarchy／loadsim 也全 PASS。
 效能基準：`npm run bench:uldweight`（V4 決策用，量 `uldComputeSheet()` 單次耗時；50 板 × 10 票 median 約 0.6ms → 不需節流）。
+
+### 0.1 直觀版 UI（U1／U2／U3，2026-11-06 完成）
+
+| 項目 | 內容 | 主要位置 |
+|---|---|---|
+| **U1** | **減法版面**：工具列只留 `← 列表／儲存／鎖定／⋯ 更多`（其餘 7 個動作收進選單）；表頭只留 5 欄＋`⚙ 進階`（B 取整／尾差／磅差門檻／比例上下限）；卡片改成網格、預設精簡（次要欄位收 `▾`）、摘要列（`PCS ｜ RCL−Tare→淨  K`）；底部合計改**業界讀法** `PLAN TTL／RCL TTL／DIFF`（單位一律 **K**）；檢核沒有問題時不再顯示空盒子；色碼 **紅＝夾重、橙＝WT 已改**（含圖例） | `public/js/uldweight/render.js`、`public/css/uld-weight.css` |
+| **U2** | **輸入加速**：MAWB 欄 **Enter 直接加入**；**⧉ 貼上多列**（Excel 4 欄 MAWB／DEST／PCS／WT，也支援 3／2／1 欄，表頭列自動略過）；卡片 **拖曳排序**（`⠿` 把手，改 `seq` 只影響顯示與列印）；板序代號 `01/A`…`41/AO`；**上限 41 板**；板數多時可「全部收合」 | 新 `public/js/uldweight/paste-parse.js`（共用純函式）、`state.js`（`ULD_MAX_UNITS`／`uldMoveUnit`）、`render.js`、`public/js/uld-weight.js` |
+| **U3** | **單板 Loading Sheet**：`GET /sheets/:id/loading-sheet.pdf?unit=<uld_id>`（A4 直式、`MAWB／DEST／PCS／WT`、固定 16 列含空白列、`To:` 取航班前兩碼、`Date` 為 `6 Nov 2026`）；卡片 `⤓` 下載單板、`🖨` 只印這一張卡（`.uldw-print-single`） | `scripts/uld-weight-report-pdf.js`（`buildUldWeightLoadingSheetPdf`）、`routes/uld-weight.js`、`public/js/uldweight/{api,render}.js`、`public/js/uld-weight.js`、`public/css/uld-weight.css` |
 
 ---
 
@@ -195,8 +203,8 @@ node scripts/bench-uld-weight-calc.js --ulds=50 --tickets=10 --clamp-min=5 --cla
 
 ```bash
 npm run sync                                  # 更新 FILE_INVENTORY.md／結構快照
-npm run test:uldweight                        # calc 101 項 + rcl 28 項 + frontend 131 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對）
-npm run test:uldweight-api                    # API 端對端（141 項，自帶伺服器 + 暫存 DB，port 3157；含 R1 PDF／R2 上下限／R3 明細 id／R4 fresh DB seed／V2 批次 ZIP／V1 補建 Booking／V3 版本）
+npm run test:uldweight                        # calc 101 項 + rcl 28 項 + frontend 153 項（§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次 ZIP、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
+npm run test:uldweight-api                    # API 端對端（148 項，自帶伺服器 + 暫存 DB，port 3157；含 R1 PDF／R2 上下限／R3 明細 id／R4 fresh DB seed／V2 批次 ZIP／V1 補建 Booking／V3 版本／U3 Loading Sheet）
 node scripts/test-nav-order-frontend.js       # 側欄排序
 node scripts/test-nav-hierarchy.js            # 側欄主/子層級
 npm run test:loadsim                          # 模擬裝板（避免動到共用模組）
@@ -205,6 +213,9 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 ```
 
 手動驗收（挑對應的做）：
+- **直觀版 UI（U1）**：新增一張夾重表 → 第一眼只有 `← 列表／儲存／鎖定／⋯ 更多` 四個按鈕、表頭 5 欄；點「⚙ 進階」才出現 B 取整／尾差／磅差門檻／比例上下限（存檔後重開，值仍保留）；底部合計顯示 `PLAN TTL／RCL TTL／DIFF`（單位 K）。
+- **輸入加速（U2）**：在 MAWB 欄打號碼按 **Enter** 直接加入；從 Excel 複製 4 欄貼在卡片內 → 一次多票；拖 `⠿` 可換板序（存檔重開順序保留）；加到第 42 板會被擋下並提示。
+- **單板 Loading Sheet（U3）**：卡片按 `⤓` → 下載 `<sheet_no>-<ULD#>-loading.pdf` → A4 直式、`MAWB／DEST／PCS／WT`、固定 16 列（不足是空白列可手寫）、右上角 `01/A`、`To:` 是航班前兩碼；按 `🖨` 只印這一張卡。
 - **server 端 PDF（R1）**：開一張 3～5 板的夾重表 → 按「⤓ PDF」→ 下載 `<sheet_no>.pdf` →
   用 PDF 閱讀器開：A4 直式、中文字正常（不是 `?`）、每板不跨頁、數字右對齊；鎖定後再下一次也要能下載。
 - **比例上下限（R2）**：3 票夾重（900／50／50、RCL 2000）→ 表頭「比例上限 %」填 40 →
@@ -309,10 +320,36 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 
 ---
 
+### 5.5 U1／U2／U3（直觀版 UI）實際踩到的
+
+34. **測試對 markup 有硬性要求，改版面時不能「順手」加 class**：
+    - `scripts/test-uld-weight-frontend.js` §7.7 用 `/class="uldw-unit"/g` 計數 → 卡片根節點**必須剛好是 `class="uldw-unit"`**，
+      狀態改放 data 屬性（`data-compact`）或子元素 class。
+    - §15.x 用 `/class="uldw-print-hide"[^>]*>磅差警示 %/` → 進階欄位包進 `<div class="uldw-adv">` 時，
+      `<label>` 的 `class="uldw-print-hide"` **不可附加其他 class**（附加就配對不到）。
+    - §14.3 要求 `data-action="print"` 出現在 `.uldw-editor-actions` 之後、且中間不能有 `</div>` →
+      「⋯ 更多」選單必須包在 `.uldw-editor-actions` 內（開 `<div class="uldw-more">` 在 print 之前、關閉在之後）。
+35. **顯示狀態（more／advanced／expanded）放 `state.ui`，用 class 切換、不要 `render()`**：
+     `toggleMore()`／`toggleAdvanced()`／`toggleUnitCard()` 只改 class，避免打字中失焦；只有 `toggle-compact`、拖曳完成、
+     貼上多列這種「結構性變更」才 `render()`。切換夾重表時 `resetUiState()` 歸零，避免沿用上一張的展開狀態。
+36. **板序代號算法**：`unitCode(idx)` 用 `n % 26` → **第 41 板是 `41/AO`**（不是 AP）；前端 `render.js` 與 PDF
+     `scripts/uld-weight-report-pdf.js` 各有一份（純顯示），兩邊要一致。
+37. **Loading Sheet 的 WT 一律取 `item.final`（夾重後）**，不是 `declared`；表內**只寫數字**（不寫 kg／K，照舊表）；
+    `To:` 取航班號前兩碼（`CX1234 → CX`），抓不到就空白——**不要猜航空公司**（5Y 這類代碼不是規律可推的）。
+38. **pdf-lib 畫「只有邊框的矩形」要 `drawRectangle({ borderColor, borderWidth, color: undefined })`**：
+    省略 `color` 與明確給 `undefined` 行為不同，前者在某些版本會被當成黑底填滿。
+39. **卡片拖曳只能「按住把手才啟用 `draggable`」**（`pointerdown` 在 `[data-drag-handle]` 才設 `true`，`dragend` 收回 false）；
+    直接讓整張卡 `draggable="true"` 會讓卡片內的 input 無法選字／拖選文字。
+40. **貼上解析不要直接用 `String.split(/\s+/)`**：MAWB 本身含空白（`369-9649 4182`），會被切成兩欄。
+    做法：Tab 優先（Excel 一定是 Tab）→ 逗號 → 2 個以上空白；再用「含數字且去符號後長度 ≥6」挑出 MAWB。
+41. **`state.ui` 是「畫面狀態」，不可進 `uldSheetPayload()`**（否則會多送欄位、也會讓版本快照出現噪音）。
+
+---
+
 ## 6. 新對話提示詞（直接複製）
 
 ```text
-延續 AGL-Web-Portal 的「ULD 夾重系統」（Phase 1 ＋ W1～W5 ＋ R1～R4 ＋ V1／V2／V3 已完成並驗證）。
+延續 AGL-Web-Portal 的「ULD 夾重系統」（Phase 1 ＋ W1～W5 ＋ R1～R4 ＋ V1／V2／V3 ＋ U1／U2／U3 已完成並驗證）。
 
 請先做這幾件事（順序照做）：
 1) npm run sync
@@ -320,7 +357,7 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
 3) 再讀 docs/design/uld-weight-phase2-handoff.md（陷阱 §4、驗證 §5）、
    docs/design/uld-weight-system.md（規則與算法）、
    CLAUDE.md 的「ULD 夾重系統」段落、WORKSPACE_STATE.md 的待辦清單
-4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／frontend 131／API 141）：
+4) 先跑一次基準驗證確認環境正常（應全綠：calc 101／rcl 28／frontend 153／API 148）：
    npm run test:uldweight
    npm run test:uldweight-api
    node scripts/test-nav-order-frontend.js
@@ -329,7 +366,8 @@ npm run bench:uldweight                       # V4 效能量測（同 scripts/be
    node scripts/uld-weight-report-pdf.js --selftest
 
 目前狀態：Phase 1／W1～W5／R1～R4／V1（補建 Booking，預設 dry_run）／V2（批次 PDF 打包 ZIP）／
-V3（歷史版本／異動比對）全部完成並驗證通過，**沒有任何必辦項**。
+V3（歷史版本／異動比對）／U1（減法版面）／U2（Enter 加入＋貼上多列＋拖曳板序）／
+U3（單板 Loading Sheet PDF）全部完成並驗證通過，**沒有任何必辦項**。
 
 本次目標（只剩這些）：
 A. V4 — 大表（>50 板 × 10 票）即時重算節流：**已量測 2026-11-06 → 不需要做**
@@ -353,6 +391,9 @@ C. 若我沒指定，就先回報「目前無必辦項」＋基準驗證結果�
 - 版本快照只存輸入值、以 DB id 配對、每張表保留最近 30 版；`/versions/diff` 必須宣告在 `/versions/:versionId` 之前。
 - 舊 DB 補欄位用 PRAGMA table_info ＋ ALTER TABLE；需要 seed／啟動流程的相容性工作要 push 進 db/database.js 的 initTasks（db.ready）。
 - PDF 的 CJK 子集必須 CustomFontSubsetEmbedder ＋ PDFFont.of ＋ doc.fonts.push()；PDF 內不要用 emoji／箭頭。
+- 直觀版規則（U1／U2／U3）：板數上限 41（ULD_MAX_UNITS）；單位一律 K（Loading Sheet 表內只寫數字）；
+  `To:` 取航班號前兩碼；卡片 `class="uldw-unit"` 不可加其他 class；顯示狀態放 state.ui，不進 payload、不進版本快照；
+  拖曳只改 seq（顯示與列印順序），不影響計算。
 
 完成後：跑 remaining-work §4 的全部驗證指令、更新
 docs/design/uld-weight-remaining-work.md（補新發現／新陷阱）、
@@ -373,6 +414,7 @@ docs/design/uld-weight-phase2-handoff.md、CLAUDE.md／PROJECT_MAP.md／WORKSPAC
 | 已完成清單、陷阱、驗證、手動驗收 | `docs/design/uld-weight-phase2-handoff.md` |
 | 計算核心（唯一來源） | `public/js/uldweight/calc.js` |
 | 版本比對（唯一來源） | `public/js/uldweight/version-diff.js` |
+| 貼上多列解析（唯一來源） | `public/js/uldweight/paste-parse.js` |
 | 前端狀態／渲染／API | `public/js/uldweight/{state,render,api,booking-search,rcl-parse,rcl-import}.js` |
 | 入口與事件委派、列印、PDF 下載、Excel／摘要 | `public/js/uld-weight.js` |
 | server 端 PDF 產生器（A4 直式） | `scripts/uld-weight-report-pdf.js` |

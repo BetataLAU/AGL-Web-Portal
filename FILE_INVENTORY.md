@@ -2,31 +2,43 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午4:29:42
+> 最後更新：2026/11/6 下午5:32:47
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
+M PROJECT_MAP.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M database.db
 M db/sessions.db
-M public/js/dbviewer.js
-M routes/dbviewer.js
+M docs/design/uld-weight-phase2-handoff.md
+M docs/design/uld-weight-remaining-work.md
+M docs/design/uld-weight-system.md
+M public/css/uld-weight.css
+M public/js/uld-weight.js
+M public/js/uldweight/api.js
+M public/js/uldweight/render.js
+M public/js/uldweight/state.js
+M routes/uld-weight.js
+M scripts/test-uld-weight-api.js
+M scripts/test-uld-weight-frontend.js
+M scripts/uld-weight-report-pdf.js
+?? public/js/uldweight/paste-parse.js
 ```
 
-## 📁 檔案清單（共 243 個檔案）
+## 📁 檔案清單（共 244 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（82.2 KB）
+- `CLAUDE.md`（84.7 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（34.1 KB）
+- `PROJECT_MAP.md`（34.5 KB）
 - `README.md`（24.6 KB）
-- `WORKSPACE_STATE.md`（108.1 KB）
+- `WORKSPACE_STATE.md`（111.5 KB）
 - `package.json`（1.1 KB）
 - `server.js`（6.8 KB）
 
@@ -34,7 +46,7 @@ M routes/dbviewer.js
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（646.5 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（652.3 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -113,9 +125,9 @@ M routes/dbviewer.js
 ### docs/design
 
 - `docs/design/order-system-design.md`（9.6 KB）
-- `docs/design/uld-weight-phase2-handoff.md`（43.5 KB）
-- `docs/design/uld-weight-remaining-work.md`（35.9 KB）
-- `docs/design/uld-weight-system.md`（20.7 KB）
+- `docs/design/uld-weight-phase2-handoff.md`（43.8 KB）
+- `docs/design/uld-weight-remaining-work.md`（41.7 KB）
+- `docs/design/uld-weight-system.md`（23.3 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
@@ -137,7 +149,7 @@ M routes/dbviewer.js
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/uld-weight.css`（22.0 KB）
+- `public/css/uld-weight.css`（29.3 KB）
 - `public/css/xls-booking.css`（20.8 KB）
 
 ### public/css/utils
@@ -163,7 +175,7 @@ M routes/dbviewer.js
 - `public/js/sli-eli-layout-main.js`（10.9 KB）
 - `public/js/sli-eli-layout-state.js`（10.7 KB）
 - `public/js/theme.js`（5.2 KB）
-- `public/js/uld-weight.js`（36.0 KB）
+- `public/js/uld-weight.js`（47.8 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
@@ -223,13 +235,14 @@ M routes/dbviewer.js
 
 ### public/js/uldweight
 
-- `public/js/uldweight/api.js`（5.7 KB）
+- `public/js/uldweight/api.js`（6.1 KB）
 - `public/js/uldweight/booking-search.js`（8.0 KB）
 - `public/js/uldweight/calc.js`（25.8 KB）
+- `public/js/uldweight/paste-parse.js`（2.8 KB）
 - `public/js/uldweight/rcl-import.js`（2.6 KB）
 - `public/js/uldweight/rcl-parse.js`（6.7 KB）
-- `public/js/uldweight/render.js`（34.7 KB）
-- `public/js/uldweight/state.js`（7.3 KB）
+- `public/js/uldweight/render.js`（39.8 KB）
+- `public/js/uldweight/state.js`（8.7 KB）
 - `public/js/uldweight/version-diff.js`（9.1 KB）
 
 ### public/js/utils
@@ -250,7 +263,7 @@ M routes/dbviewer.js
 - `routes/dbviewer.js`（11.4 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
-- `routes/uld-weight.js`（60.8 KB）
+- `routes/uld-weight.js`（62.6 KB）
 - `routes/xls-booking-helpers.js`（5.6 KB）
 - `routes/xls-booking-layout.js`（23.8 KB）
 - `routes/xls-booking.js`（15.1 KB）
@@ -308,15 +321,15 @@ M routes/dbviewer.js
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
-- `scripts/test-uld-weight-api.js`（51.7 KB）
+- `scripts/test-uld-weight-api.js`（53.1 KB）
 - `scripts/test-uld-weight-calc.js`（28.7 KB）
-- `scripts/test-uld-weight-frontend.js`（47.1 KB）
+- `scripts/test-uld-weight-frontend.js`（53.9 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
-- `scripts/uld-weight-report-pdf.js`（18.1 KB）
+- `scripts/uld-weight-report-pdf.js`（26.8 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）

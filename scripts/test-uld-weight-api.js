@@ -383,6 +383,24 @@ const CASE4 = {
       pdfDraft.disposition);
     check('R1 不存在的夾重表 → 404', (await fetchPdf('/api/uld-weight/sheets/999999/report.pdf')).status === 404);
 
+    // ---- U3：單板 Loading Sheet（A4 直式，MAWB／DEST／PCS／WT）----
+    const unitId1 = Number(reread.body.data.ulds[0].id);
+    const loadingOne = await fetchPdf(`/api/uld-weight/sheets/${sheetId}/loading-sheet.pdf?unit=${unitId1}`);
+    check('U3 GET /loading-sheet.pdf?unit=<id> → 200', loadingOne.status === 200, String(loadingOne.status));
+    check('U3 Content-Type = application/pdf 且檔頭 %PDF-', loadingOne.contentType.includes('application/pdf') &&
+      loadingOne.header === '%PDF-', `${loadingOne.contentType} / ${loadingOne.header}`);
+    check('U3 檔名帶 -loading.pdf', loadingOne.disposition.includes('-loading.pdf'), loadingOne.disposition);
+    check('U3 Loading Sheet 比全表報表小（單板一頁）', loadingOne.size > 1000 && loadingOne.size < pdfDraft.size,
+      `${loadingOne.size} vs ${pdfDraft.size}`);
+    const loadingAll = await fetchPdf(`/api/uld-weight/sheets/${sheetId}/loading-sheet.pdf`);
+    check('U3 省略 unit → 每板一頁（大小 >= 單板）', loadingAll.status === 200 && loadingAll.size >= loadingOne.size,
+      `${loadingAll.size} vs ${loadingOne.size}`);
+    check('U3 不存在的 unit → 404',
+      (await fetchPdf(`/api/uld-weight/sheets/${sheetId}/loading-sheet.pdf?unit=999999`)).status === 404);
+    check('U3 不存在的夾重表 → 404',
+      (await fetchPdf('/api/uld-weight/sheets/999999/loading-sheet.pdf')).status === 404);
+
+
     // ---- R3：明細 diff 更新（儲存後 id 不變、改列是同一個 id）----
     const idsSnapshot = reread.body.data.ulds.map(u => ({
       unitId: Number(u.id),

@@ -39,6 +39,8 @@
 > **目前沒有「待做」的必辦項**；V4 已量測結案（不做節流），剩下的只有 D3／D5／D6 待決事項。
 > **V4 已於 2026-11-06 量測完畢 → 不需要做**：`npm run bench:uldweight`（`scripts/bench-uld-weight-calc.js`）
 > 實測 50 板 × 10 票 median **約 0.6ms**、100 板 × 20 票 **約 2.4ms**（門檻 16ms）。細節見 `uld-weight-remaining-work.md` §1.1。
+> **U1／U2／U3（2026-11-06 完成）**：減法版面（工具列分組／表頭 5 欄＋⚙ 進階／卡片網格可拖曳／底部 PLAN·RCL·DIFF 以 K 顯示）、
+> 輸入加速（Enter 加入、貼上多列、41 板上限）、單板 Loading Sheet PDF（`GET /sheets/:id/loading-sheet.pdf?unit=`）。
 
 ### N1（＝W4）列印／PDF 報表 — **已完成（2026-11-05，做法 A）**
 - **目的**：夾重結果要交給倉庫／貨站核對，目前只有 Excel 與文字摘要。

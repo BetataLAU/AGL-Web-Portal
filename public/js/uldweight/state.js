@@ -17,8 +17,35 @@ export const uldWeightState = {
   rclImport: null,     // W3：RCL 磅單匯入的預覽狀態（null = 沒有在匯入）
   // V3：版本紀錄面板（每次儲存／鎖定／套用／補建都會留一份快照）
   versions: { open: false, loading: false, list: [], error: '' },
-  versionDiff: null    // V3：目前顯示的版本比對結果（null = 沒有在比對）
+  versionDiff: null,   // V3：目前顯示的版本比對結果（null = 沒有在比對）
+  // U1／U2：畫面上的「顯示狀態」（不進 payload、不影響計算）
+  //   more     ：「⋯ 更多」動作選單是否展開
+  //   advanced ：「⚙ 進階」表頭欄位（B 取整／尾差／磅差門檻／比例上下限）是否展開
+  //   expanded  ：哪些收貨單位卡片展開次要欄位（{ [uid]: true }）
+  //   allCompact：卡片太多時全部收合（只留摘要）
+  //   printUnit ：只印這一張卡（列印時用；null = 印全部）
+  ui: { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null }
 };
+
+// U2：收貨單位（板）數量上限（業界實務：一台包機最多約 41 板）
+export const ULD_MAX_UNITS = 41;
+
+// U2：把收貨單位搬到另一個單位的前／後（拖曳排序用；只改順序，不影響計算）
+export function uldMoveUnit(fromUid, toUid, placeAfter = false) {
+  const sheet = uldWeightState.current;
+  if (!sheet || !Array.isArray(sheet.ulds)) return false;
+  if (!fromUid || !toUid || fromUid === toUid) return false;
+  const list = sheet.ulds;
+  const fromIdx = list.findIndex(u => u.uid === fromUid);
+  const toIdx = list.findIndex(u => u.uid === toUid);
+  if (fromIdx < 0 || toIdx < 0) return false;
+  const [moved] = list.splice(fromIdx, 1);
+  let insertAt = list.findIndex(u => u.uid === toUid);
+  if (insertAt < 0) insertAt = list.length;
+  if (placeAfter) insertAt += 1;
+  list.splice(insertAt, 0, moved);
+  return true;
+}
 
 let tempSeq = 1;
 export function uldTempId(prefix = 't') {

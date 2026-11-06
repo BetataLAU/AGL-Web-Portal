@@ -63,7 +63,7 @@
 | `orders/note-templates.js` | 訂單備註文字範本（GET / POST） |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
 | `pallet.js` | **打板計劃 API**：bookings / plans / spl-codes / remark-templates / sync-orders（見 §3.6） |
-| `uld-weight.js` | **ULD 夾重 API**：bookings（打板計劃 Booking Record，輸入即篩選用）/ sheets CRUD（明細 **diff 更新**）/ duplicate / lock / **apply（W2 回寫 Booking Record）** / **sync-bookings（V1 補建 Booking，預設 dry_run）** / **versions（V3 歷史版本／diff）** / **import-rcl（W3 RCL 磅單解析）** / **report.pdf（R1 server 端 A4 PDF）** / **batch-pdf（V2 多張打包 ZIP）**（見 §3.8） |
+| `uld-weight.js` | **ULD 夾重 API**：bookings（打板計劃 Booking Record，輸入即篩選用）/ sheets CRUD（明細 **diff 更新**）/ duplicate / lock / **apply（W2 回寫 Booking Record）** / **sync-bookings（V1 補建 Booking，預設 dry_run）** / **versions（V3 歷史版本／diff）** / **import-rcl（W3 RCL 磅單解析）** / **report.pdf（R1 server 端 A4 PDF）** / **loading-sheet.pdf（U3 單板 Loading Sheet）** / **batch-pdf（V2 多張打包 ZIP）**（見 §3.8） |
 | `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
@@ -126,7 +126,8 @@
 | `js/uld-weight.js` | **ULD 夾重系統**進入點（清單／編輯、事件委派、列印、PDF 下載（單張／批次 ZIP）、Excel／摘要匯出、`setupUldWeightSection`） |
 | `js/uldweight/calc.js` | **夾重計算核心**（純函式 ESM，前後端共用：多票按比例、**比例上下限 clamp**、取整 0.5/1.0、尾差、檢核、依件數拆分） |
 | `js/uldweight/state.js` | 夾重表狀態、API↔編輯狀態轉換、PUT payload（帶 DB `id` 供 diff 更新）、跨板拆分 |
-| `js/uldweight/render.js` | 清單／編輯畫面渲染（清單含 **批次勾選欄＋全選**）、`refreshComputed()` 局部更新、MAWB 彙總／檢核／合計、列印與 PDF 按鈕 |
+| `js/uldweight/render.js` | 清單／編輯畫面渲染（清單含 **批次勾選欄＋全選**）、`refreshComputed()` 局部更新、MAWB 彙總／檢核／合計、列印與 PDF 按鈕；**U1**：工具列「⋯ 更多」、表頭「⚙ 進階」收合、卡片網格＋板序 `01/A`（`unitCode()`）、PLAN／RCL／DIFF 合計（K） |
+| `js/uldweight/paste-parse.js` | **貼上多列解析（U2，共用純函式）**：`uldParsePastedRows()`（Tab／逗號／多空白；4／3／2／1 欄；表頭列略過；MAWB 可含空白） |
 | `js/uldweight/api.js` | 夾重 API 呼叫層（含 `fetchBookings()`：打板計劃 Booking Record、`fetchReportPdfBlob()`：R1 PDF 下載、`fetchBatchPdfBlob()`：V2 批次 ZIP、`syncSheetBookings()`：V1 補建 Booking） |
 | `js/uldweight/booking-search.js` | **MAWB 從打板計劃帶入（W1）**：Booking Record 輸入即篩選（`wireBookingPickers`）、選到後帶入件數／重量／Port 與 `mawb_record_id`、候選清單快取 |
 | `js/uldweight/rcl-parse.js` | **RCL 磅單解析（W3，前後端共用純函式）**：表頭偵測、欄位對應（中英關鍵字）、列驗證／略過與重複偵測 |

@@ -738,6 +738,35 @@ router.get('/sheets/:id/versions/:versionId', async (req, res) => {
   }
 });
 
+// ===== GET /api/uld-weight/sheets/:id/loading-sheet.pdf（U3）=====
+// 單板 Loading Sheet（A4 直式，MAWB／DEST／PCS／WT）；?unit=<uld_id> 只出那一板，
+// 省略 unit 則每一板各一頁（合成一份）。資料一律取 loadSheetDetail()（不在這裡算重量）。
+router.get('/sheets/:id/loading-sheet.pdf', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: '無效的夾重表 ID' });
+    const detail = await loadSheetDetail(id);
+    if (!detail) return res.status(404).json({ error: '找不到夾重表' });
+    const unitId = req.query.unit == null || req.query.unit === '' ? null : parseInt(req.query.unit, 10);
+    if (unitId != null && !Number.isFinite(unitId)) return res.status(400).json({ error: '無效的 unit 參數' });
+    if (unitId != null && !(detail.ulds || []).some(u => Number(u.id) === unitId)) {
+      return res.status(404).json({ error: '這張夾重表沒有這個收貨單位' });
+    }
+    const { buildUldWeightLoadingSheetPdf } = require('../scripts/uld-weight-report-pdf');
+    const bytes = await buildUldWeightLoadingSheetPdf(detail, { unitId });
+    const unitPart = unitId == null ? '' : `-${unitId}`;
+    const fileName = `${(detail.sheet_no || `uld-weight-${id}`).replace(/[^\w.-]+/g, '-')}${unitPart}-loading.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', bytes.length);
+    res.setHeader('Cache-Control', 'no-store');
+    res.end(Buffer.from(bytes));
+  } catch (err) {
+    console.error('[uld-weight] 產生 Loading Sheet 失敗:', err.message);
+    res.status(500).json({ error: `產生 Loading Sheet 失敗：${err.message}` });
+  }
+});
+
 // ===== GET /api/uld-weight/sheets/:id/report.pdf（R1）=====
 // server 端固定排版的 PDF（A4 直式）：草稿與鎖定都能下載；資料一律取 loadSheetDetail()
 // 的「已重算」結果（不在這裡另寫算法，calc.js 仍是唯一來源）。

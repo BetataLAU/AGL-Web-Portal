@@ -754,3 +754,222 @@
   }
 }
 
+/* ============================================================
+   U1：減法版面（工具列分組／進階收合／卡片網格／固定合計）
+   U2：拖曳排序、貼上多列、色碼（紅＝夾重、橙＝WT 已改）
+   ============================================================ */
+
+/* 「⋯ 更多」動作選單（收納低頻動作，主畫面只留 儲存／鎖定） */
+.uldw-more { position: relative; display: inline-flex; }
+.uldw-more-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  flex-direction: column;
+  gap: 4px;
+}
+.uldw-more.is-open .uldw-more-menu { display: flex; }
+.uldw-more-menu .uldw-btn { justify-content: flex-start; width: 100%; text-align: left; }
+
+/* 「⚙ 進階」表頭參數（預設收起；值仍照常送出） */
+.uldw-adv { display: none; }
+.uldw-adv.is-open {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px 10px;
+  grid-column: 1 / -1;
+}
+
+/* 卡片改「網格」：一列多張，可左右拖曳調整板序 */
+.uldw-unit-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .uldw-unit-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 卡片標頭：⠿ 拖曳把手、01/A 板序、ULD#、chips、圖示按鈕 */
+.uldw-drag {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
+}
+.uldw-drag:active { cursor: grabbing; }
+.uldw-unit-title {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+}
+.uldw-unit-no {
+  flex: 1 1 130px;
+  min-width: 110px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.uldw-icon { padding: 2px 7px; line-height: 1.1; }
+
+/* 卡片摘要（由 refreshComputed 更新）：主行大字、副行小字 */
+.uldw-unit-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+  font-variant-numeric: tabular-nums;
+}
+.uldw-sum-main { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
+.uldw-sum-sub { font-size: 0.7rem; color: var(--text-muted); }
+
+/* 主要欄位（Port／件數／RCL）固定三欄；次要欄位收在 .uldw-unit-more */
+.uldw-unit-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 8px;
+}
+.uldw-unit-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px 8px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-color);
+}
+.uldw-unit[data-compact="1"] .uldw-unit-more { display: none; }
+/* 壓縮模式只留：夾重／MAWB／DEST／PCS／WT／最終 */
+.uldw-unit[data-compact="1"] .uldw-col-optional { display: none; }
+
+/* 明細表：緊湊欄寬，讓 9 欄在 430px 卡片內也放得下 */
+.uldw-items th,
+.uldw-items td { padding: 2px 4px; }
+.uldw-items .uldw-input-mawb { min-width: 96px; }
+.uldw-input-xs { width: 100%; min-width: 44px; }
+
+/* 色碼（業界讀法）：紅＝夾重票、橙＝最終重量與申報不同 */
+.uldw-items tr.is-squeeze .uldw-input-mawb { color: #dc2626; font-weight: 700; }
+.uldw-items tr.is-squeeze { background: rgba(220, 38, 38, 0.06); }
+.uldw-items tr.is-changed .uldw-final-cell span { color: #b45309; font-weight: 700; }
+[data-theme="dark"] .uldw-items tr.is-squeeze .uldw-input-mawb { color: #f87171; }
+[data-theme="dark"] .uldw-items tr.is-changed .uldw-final-cell span { color: #fbbf24; }
+
+/* 圖例（只出現一次，放卡片區標頭右側） */
+.uldw-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.uldw-legend-sq {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+  margin-left: 6px;
+}
+.uldw-legend-sq[data-tone="squeeze"] { background: #dc2626; }
+.uldw-legend-sq[data-tone="changed"] { background: #b45309; }
+
+/* 拖曳中的視覺回饋 */
+.uldw-unit.is-dragging { opacity: 0.45; }
+.uldw-unit.is-drop-before { box-shadow: 0 -2px 0 0 var(--primary) inset; }
+.uldw-unit.is-drop-after { box-shadow: 0 2px 0 0 var(--primary) inset; }
+
+/* 檢核沒問題時收起（螢幕）／列印時還原 */
+.uldw-issues-empty { display: none; }
+.uldw-col-head.is-hidden { display: none; }
+
+/* 底部合計：PLAN／RCL／DIFF 主數字，其餘小字（照業界習慣，單位一律 K） */
+.uldw-ttl { display: inline-flex; align-items: baseline; gap: 4px; }
+.uldw-ttl em {
+  font-style: normal;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.uldw-ttl b { font-variant-numeric: tabular-nums; }
+.uldw-ttl-muted { opacity: 0.8; font-size: 0.72rem; }
+.uldw-totals {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+}
+
+/* 貼上列／加入列的緊湊輸入 */
+.uldw-item-add { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.uldw-draft-xs { width: 66px; }
+.uldw-draft-lih { width: 108px; }
+
+/* ===== 列印補充（U1／U3）=====
+   1) 收合的「進階」與卡片次要欄位在紙上要展開（紙本要完整資訊）
+   2) 「只印這一板」：只留被指定的卡片
+   3) 選單／圖例／拖曳把手／勾選欄不印 */
+@media print {
+  .uldw-adv,
+  .uldw-adv.is-open { display: grid !important; grid-template-columns: repeat(3, 1fr); }
+  /* 檢核區在紙上要還原（螢幕上沒問題時是收起的） */
+  .uldw-issues-empty { display: block !important; }
+  .uldw-col-head.is-hidden { display: flex !important; }
+  .uldw-unit-more,
+  .uldw-unit[data-compact="1"] .uldw-unit-more { display: grid !important; }
+  .uldw-unit[data-compact="1"] .uldw-col-optional { display: table-cell !important; }
+  .uldw-more-menu,
+  .uldw-legend,
+  .uldw-drag,
+  .uldw-more,
+  .uldw-adv-toggle { display: none !important; }
+  .uldw-totals { position: static; }
+  .uldw-unit-list { display: block !important; }
+
+  /* 只印這一板 */
+  .uldw-print-single .uldw-fields,
+  .uldw-print-single .uldw-col-head,
+  .uldw-print-single .uldw-col-result,
+  .uldw-print-single .uldw-totals,
+  .uldw-print-single .uldw-editor-head { display: none !important; }
+  .uldw-print-single .uldw-unit { display: none !important; }
+  .uldw-print-single .uldw-unit.is-print-target { display: block !important; }
+
+  /* 卡片標頭的 ULD# 輸入框（鎖定時 disabled）也要印黑字、去框線 */
+  .uldw-unit-no {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    font-size: 10pt !important;
+    padding: 0 !important;
+    width: auto !important;
+  }
+  .uldw-unit-fields input,
+  .uldw-unit-more input,
+  .uldw-unit-more select {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+}
+

@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-11-06T10:15:37.988Z
+-- 匯出時間: 2026-11-06T10:22:49.649Z
 -- 共 16 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -481,6 +481,10 @@ INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "targ
 
 INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (229, 'admin', '系統管理員', 'uld_weight.sheet.save', 'uld_weight_sheet', '1', '儲存夾重表 WGT-20261106-01（1 個收貨單位）', '2026-11-06 10:15:34');
 
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (230, 'admin', '系統管理員', 'uld_weight.sheet.save', 'uld_weight_sheet', '1', '儲存夾重表 WGT-20261106-01（1 個收貨單位）', '2026-11-06 10:15:53');
+
+INSERT INTO "audit_log" ("id", "actor_user_id", "actor_display", "action", "target_type", "target_id", "detail", "created_at") VALUES (231, 'admin', '系統管理員', 'uld_weight.sheet.save', 'uld_weight_sheet', '1', '儲存夾重表 WGT-20261106-01（1 個收貨單位）', '2026-11-06 10:15:58');
+
 
 -- ===== 資料表: companies =====
 DROP TABLE IF EXISTS "companies";
@@ -939,7 +943,7 @@ CREATE TABLE uld_weight_sheets (
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     , diff_warn_pct REAL DEFAULT 2, clamp_max_pct REAL DEFAULT 0, clamp_min_pct REAL DEFAULT 0, diff_warn_kg REAL DEFAULT 100);
 
-INSERT INTO "uld_weight_sheets" ("id", "sheet_no", "sheet_date", "terminal", "flight_no", "flight_date", "round_px", "round_b", "tail_mode", "handler", "remark", "status", "created_by", "created_at", "updated_at", "diff_warn_pct", "clamp_max_pct", "clamp_min_pct", "diff_warn_kg") VALUES (1, 'WGT-20261106-01', '2026-11-06', 'CPSL', '', '', 1, 1, 'adjust_largest', '', '', 'draft', 'admin', '2026-11-06 08:34:56', '2026-11-06 10:15:34', 2, 0, 0, 100);
+INSERT INTO "uld_weight_sheets" ("id", "sheet_no", "sheet_date", "terminal", "flight_no", "flight_date", "round_px", "round_b", "tail_mode", "handler", "remark", "status", "created_by", "created_at", "updated_at", "diff_warn_pct", "clamp_max_pct", "clamp_min_pct", "diff_warn_kg") VALUES (1, 'WGT-20261106-01', '2026-11-06', 'AAT', 'ET3883', '2026-11-09', 1, 1, 'adjust_largest', 'Beta LAU', '', 'draft', 'admin', '2026-11-06 08:34:56', '2026-11-06 10:15:58', 2, 0, 0, 100);
 
 
 -- ===== 資料表: uld_weight_ulds =====
@@ -967,7 +971,7 @@ CREATE TABLE uld_weight_ulds (
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-INSERT INTO "uld_weight_ulds" ("id", "sheet_id", "seq", "kind", "uld_number", "bulk_ref", "rcl_no", "contour_code", "port", "pcs", "tare_weight", "rcl_gross_weight", "material_weight", "lih_type", "predecl_type", "squeeze_mode", "net_weight", "diff_weight", "created_at", "updated_at") VALUES (1, 1, 0, 'ULD', '', '', '', 'J4', 'LGG', 210, 130, 3531, 0, 'N', 'X', 'equal', 3401, -202, '2026-11-06 10:15:34', '2026-11-06 10:15:34');
+INSERT INTO "uld_weight_ulds" ("id", "sheet_id", "seq", "kind", "uld_number", "bulk_ref", "rcl_no", "contour_code", "port", "pcs", "tare_weight", "rcl_gross_weight", "material_weight", "lih_type", "predecl_type", "squeeze_mode", "net_weight", "diff_weight", "created_at", "updated_at") VALUES (1, 1, 0, 'ULD', '', '', '', 'J4', 'LGG', 210, 130, 3531, 0, 'N', 'X', 'equal', 3401, -202, '2026-11-06 10:15:34', '2026-11-06 10:15:58');
 
 
 -- ===== 資料表: uld_weight_versions =====
@@ -988,6 +992,10 @@ CREATE TABLE uld_weight_versions (
 INSERT INTO "uld_weight_versions" ("id", "sheet_id", "version_no", "action", "status", "note", "snapshot", "summary", "created_by", "created_at") VALUES (1, 1, 1, 'create', 'draft', '', '{"header":{"sheet_date":"2026-11-06","terminal":"CPSL","flight_no":"","flight_date":"","round_px":1,"round_b":1,"tail_mode":"adjust_largest","diff_warn_pct":2,"diff_warn_kg":100,"clamp_min_pct":0,"clamp_max_pct":0,"handler":"","remark":"","status":"draft"},"units":[]}', '{"uldCount":0,"bulkCount":0,"itemCount":0,"mawbCount":0,"netTotal":0,"diffTotal":0}', 'admin', '2026-11-06 08:34:56');
 
 INSERT INTO "uld_weight_versions" ("id", "sheet_id", "version_no", "action", "status", "note", "snapshot", "summary", "created_by", "created_at") VALUES (2, 1, 2, 'save', 'draft', '', '{"header":{"sheet_date":"2026-11-06","terminal":"CPSL","flight_no":"","flight_date":"","round_px":1,"round_b":1,"tail_mode":"adjust_largest","diff_warn_pct":2,"diff_warn_kg":100,"clamp_min_pct":0,"clamp_max_pct":0,"handler":"","remark":"","status":"draft"},"units":[{"id":1,"seq":0,"kind":"ULD","uld_number":"","bulk_ref":"","rcl_no":"","contour_code":"J4","port":"LGG","pcs":210,"tare_weight":130,"rcl_gross_weight":3531,"material_weight":0,"lih_type":"N","predecl_type":"X","squeeze_mode":"equal","net_weight":3401,"diff_weight":-202,"items":[{"id":1,"seq":0,"mawb":"071-6133 7533","mawb_record_id":null,"port":"LGG","pcs":2,"declared_weight":597,"final_weight":597,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":2,"seq":1,"mawb":"071-6195 2052","mawb_record_id":null,"port":"LGG","pcs":103,"declared_weight":1780,"final_weight":1780,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":3,"seq":2,"mawb":"071-6195 2074","mawb_record_id":null,"port":"LGG","pcs":105,"declared_weight":1226,"final_weight":1024,"is_squeeze":1,"squeeze_ratio":null,"lih_type":"UN3481"}]}]}', '{"uldCount":1,"bulkCount":0,"itemCount":3,"mawbCount":3,"netTotal":3401,"diffTotal":-202}', 'admin', '2026-11-06 10:15:34');
+
+INSERT INTO "uld_weight_versions" ("id", "sheet_id", "version_no", "action", "status", "note", "snapshot", "summary", "created_by", "created_at") VALUES (3, 1, 3, 'save', 'draft', '', '{"header":{"sheet_date":"2026-11-06","terminal":"AAT","flight_no":"ET3883","flight_date":"2026-11-09","round_px":1,"round_b":1,"tail_mode":"adjust_largest","diff_warn_pct":2,"diff_warn_kg":100,"clamp_min_pct":0,"clamp_max_pct":0,"handler":"","remark":"","status":"draft"},"units":[{"id":1,"seq":0,"kind":"ULD","uld_number":"","bulk_ref":"","rcl_no":"","contour_code":"J4","port":"LGG","pcs":210,"tare_weight":130,"rcl_gross_weight":3531,"material_weight":0,"lih_type":"N","predecl_type":"X","squeeze_mode":"equal","net_weight":3401,"diff_weight":-202,"items":[{"id":1,"seq":0,"mawb":"071-6133 7533","mawb_record_id":null,"port":"LGG","pcs":2,"declared_weight":597,"final_weight":597,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":2,"seq":1,"mawb":"071-6195 2052","mawb_record_id":null,"port":"LGG","pcs":103,"declared_weight":1780,"final_weight":1780,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":3,"seq":2,"mawb":"071-6195 2074","mawb_record_id":null,"port":"LGG","pcs":105,"declared_weight":1226,"final_weight":1024,"is_squeeze":1,"squeeze_ratio":null,"lih_type":"UN3481"}]}]}', '{"uldCount":1,"bulkCount":0,"itemCount":3,"mawbCount":3,"netTotal":3401,"diffTotal":-202}', 'admin', '2026-11-06 10:15:53');
+
+INSERT INTO "uld_weight_versions" ("id", "sheet_id", "version_no", "action", "status", "note", "snapshot", "summary", "created_by", "created_at") VALUES (4, 1, 4, 'save', 'draft', '', '{"header":{"sheet_date":"2026-11-06","terminal":"AAT","flight_no":"ET3883","flight_date":"2026-11-09","round_px":1,"round_b":1,"tail_mode":"adjust_largest","diff_warn_pct":2,"diff_warn_kg":100,"clamp_min_pct":0,"clamp_max_pct":0,"handler":"Beta LAU","remark":"","status":"draft"},"units":[{"id":1,"seq":0,"kind":"ULD","uld_number":"","bulk_ref":"","rcl_no":"","contour_code":"J4","port":"LGG","pcs":210,"tare_weight":130,"rcl_gross_weight":3531,"material_weight":0,"lih_type":"N","predecl_type":"X","squeeze_mode":"equal","net_weight":3401,"diff_weight":-202,"items":[{"id":1,"seq":0,"mawb":"071-6133 7533","mawb_record_id":null,"port":"LGG","pcs":2,"declared_weight":597,"final_weight":597,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":2,"seq":1,"mawb":"071-6195 2052","mawb_record_id":null,"port":"LGG","pcs":103,"declared_weight":1780,"final_weight":1780,"is_squeeze":0,"squeeze_ratio":null,"lih_type":"UN3481"},{"id":3,"seq":2,"mawb":"071-6195 2074","mawb_record_id":null,"port":"LGG","pcs":105,"declared_weight":1226,"final_weight":1024,"is_squeeze":1,"squeeze_ratio":null,"lih_type":"UN3481"}]}]}', '{"uldCount":1,"bulkCount":0,"itemCount":3,"mawbCount":3,"netTotal":3401,"diffTotal":-202}', 'admin', '2026-11-06 10:15:58');
 
 
 -- ===== 資料表: users =====
@@ -1012,7 +1020,7 @@ INSERT INTO "users" ("id", "company_id", "user_id", "password_hash", "display_na
 
 
 -- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 229);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('audit_log', 231);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('companies', 23);
 
@@ -1314,7 +1322,7 @@ INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('pallet_plan_items', 34);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_sheets', 1);
 
-INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_versions', 2);
+INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_versions', 4);
 
 INSERT INTO "sqlite_sequence" ("name", "seq") VALUES ('uld_weight_ulds', 1);
 

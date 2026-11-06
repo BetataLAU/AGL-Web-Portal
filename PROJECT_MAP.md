@@ -23,6 +23,7 @@
 | `scripts/uld-weight-report-pdf.js` | **夾重表 PDF（R1）**：`buildUldWeightReportPdf()`（A4 直式／CJK 子集／每板不跨頁）；`--selftest` 免伺服器自檢 |
 | `scripts/test-uld-weight-calc.js` | 夾重計算邏輯測試（CASE 1–4／多票比例／取整／檢核／拆分／Booking 彙總／比例上下限，101 項） |
 | `scripts/test-uld-weight-rcl.js` | RCL 磅單解析測試（表頭偵測／欄位對應／略過規則，28 項） |
+| `scripts/test-uld-weight-mawb.js` | MAWB 格式化／檢查碼測試（11 位、航空公司左補 0、前 7 位 mod 7、各種輸入寫法，33 項） |
 | `scripts/test-uld-weight-frontend.js` | 夾重前端測試（狀態轉換／渲染／鎖定／邊界／Booking 帶入／套用按鈕／RCL 面板／列印／門檻／上下限／payload id／批次勾選／補建 Booking／版本比對，DOM stub，131 項） |
 | `scripts/test-uld-weight-api.js` | 夾重 API 端對端測試（自帶伺服器＋暫存 DB：權限／CRUD／422／409／`GET /bookings`／`report.pdf`／`batch-pdf` ZIP／`sync-bookings` dry_run／`versions` 清單·diff／上下限／明細 id／fresh DB seed，141 項） |
 | `scripts/bench-uld-weight-calc.js` | **夾重效能量測（V4 決策）**：只呼叫 `calc.uldComputeSheet()` 量單次耗時（暖機＋median／p95；可 `--ulds/--tickets/--rounds/--clamp-min/--clamp-max/--squeeze`）；`npm run bench:uldweight`。2026-11-06 實測 50×10 = 0.62ms → 不需節流 |
@@ -128,6 +129,7 @@
 | `js/uldweight/state.js` | 夾重表狀態、API↔編輯狀態轉換、PUT payload（帶 DB `id` 供 diff 更新）、跨板拆分 |
 | `js/uldweight/render.js` | 清單／編輯畫面渲染（清單含 **批次勾選欄＋全選**）、`refreshComputed()` 局部更新、MAWB 彙總／檢核／合計、列印與 PDF 按鈕；**U1**：工具列「⋯ 更多」、表頭「⚙ 進階」收合、卡片網格＋板序 `01/A`（`unitCode()`）、PLAN／RCL／DIFF 合計（K） |
 | `js/uldweight/paste-parse.js` | **貼上多列解析（U2，共用純函式）**：`uldParsePastedRows()`（Tab／逗號／多空白；4／3／2／1 欄；表頭列略過；MAWB 可含空白） |
+| `js/uldweight/mawb-format.js` | **MAWB 格式化＋檢查碼驗證（共用純函式）**：`uldMawbDigits()`／`uldNormalizeMawbDigits()`（11 位、航空公司左補 0）／`uldFormatMawb()`（`000-0000 0000`）／`uldMawbCheckDigit()`（前 7 位 mod 7）／`uldValidateMawb()`（EMPTY／LENGTH／TOO_LONG／CHECK_DIGIT） |
 | `js/uldweight/api.js` | 夾重 API 呼叫層（含 `fetchBookings()`：打板計劃 Booking Record、`fetchReportPdfBlob()`：R1 PDF 下載、`fetchBatchPdfBlob()`：V2 批次 ZIP、`syncSheetBookings()`：V1 補建 Booking） |
 | `js/uldweight/booking-search.js` | **MAWB 從打板計劃帶入（W1）**：Booking Record 輸入即篩選（`wireBookingPickers`）、選到後帶入件數／重量／Port 與 `mawb_record_id`、候選清單快取 |
 | `js/uldweight/rcl-parse.js` | **RCL 磅單解析（W3，前後端共用純函式）**：表頭偵測、欄位對應（中英關鍵字）、列驗證／略過與重複偵測 |

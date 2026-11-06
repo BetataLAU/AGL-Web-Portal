@@ -876,6 +876,13 @@
 .uldw-input-wt { width: 84px; min-width: 84px; text-align: right; }
 .uldw-input-ratio { width: 58px; min-width: 58px; text-align: right; }
 
+/* MAWB 檢查碼不符 → 紅框提示（只提示，不擋存檔） */
+.uldw-items input[data-mawb-invalid="1"] {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.06);
+}
+[data-theme="dark"] .uldw-items input[data-mawb-invalid="1"] { border-color: #f87171; }
+
 /* 色碼（業界讀法）：紅＝夾重票、橙＝最終重量與申報不同 */
 .uldw-items tr.is-squeeze .uldw-input-mawb { color: #dc2626; font-weight: 700; }
 .uldw-items tr.is-squeeze { background: rgba(220, 38, 38, 0.06); }

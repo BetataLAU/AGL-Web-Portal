@@ -6,7 +6,9 @@
 //     onSelect: (value) => { ... }            // 選中時回呼（可選）
 //   });
 // 特色：可輸入任意值（支援自訂），輸入即時篩選，鍵盤 ↑↓/Enter/Tab/Esc
-function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMessage = '沒有相符的選項，可繼續輸入自訂值。' }) {
+// tabSelects：Tab 時是否「選取目前反白的候選」（預設 true，維持舊行為）；
+//   夾重表傳 false —— Tab 只關閉清單、不改值，避免使用者只是要移到下一格卻被塞入候選值。
+function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMessage = '沒有相符的選項，可繼續輸入自訂值。', tabSelects = true }) {
   if (!input) return;
 
   // 建立下拉清單容器（掛到 input 的父層）
@@ -102,7 +104,7 @@ function setupAutocomplete({ input, suggestions = [], onSelect = null, emptyMess
       e.preventDefault();
       selectItem(currentItems[activeIndex]);
     } else if (e.key === 'Tab') {
-      if (activeIndex >= 0 && currentItems[activeIndex]) {
+      if (tabSelects && activeIndex >= 0 && currentItems[activeIndex]) {
         selectItem(currentItems[activeIndex]);
       } else {
         closeList();

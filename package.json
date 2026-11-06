@@ -7,7 +7,7 @@
     "start": "node server.js",
     "sync": "node scripts/sync-project-state.js",
     "test:loadsim": "node scripts/test-loadsim-geometry.js && node scripts/test-loadsim-frontend.js",
-    "test:uldweight": "node scripts/test-uld-weight-calc.js && node scripts/test-uld-weight-rcl.js && node scripts/test-uld-weight-frontend.js",
+    "test:uldweight": "node scripts/test-uld-weight-calc.js && node scripts/test-uld-weight-rcl.js && node scripts/test-uld-weight-mawb.js && node scripts/test-uld-weight-frontend.js",
     "test:uldweight-api": "node scripts/test-uld-weight-api.js",
     "bench:uldweight": "node scripts/bench-uld-weight-calc.js",
     "db:export": "node scripts/db-export.js",

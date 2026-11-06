@@ -186,7 +186,9 @@ export function wireBookingPickers(root) {
       input,
       suggestions: () => bookingSuggestions(input.value),
       emptyMessage: '沒有相符的 Booking Record，可直接手動輸入 MAWB。',
-      onSelect: label => applyBooking(input, label)
+      onSelect: label => applyBooking(input, label),
+      // Tab 只關閉清單（不選取候選）→ 使用者按 Tab 移到下一格時，不會被塞入候選值
+      tabSelects: false
     });
     // 手動改字就解除 Booking 連結（重量／件數仍保留，使用者可自行修改）
     input.addEventListener('input', () => {

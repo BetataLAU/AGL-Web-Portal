@@ -7,6 +7,7 @@ import {
 import { uldWeightState, uldComputed, ULD_MAX_UNITS } from './state.js';
 import { wireBookingPickers } from './booking-search.js';
 import { rclColumnOptions, rclSkipReasonText, rclWarningText } from './rcl-parse.js';
+import { uldValidateMawb, uldMawbIssueText } from './mawb-format.js';
 
 export function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, m => ({
@@ -143,9 +144,9 @@ export function renderEditor(root) {
       <div class="uldw-fields">
         <label>日期<input type="date" data-header="sheet_date" value="${esc(sheet.sheet_date)}"${dis}></label>
         <label>貨站<select data-header="terminal"${dis}>${optionsHtml(ULD_TERMINALS, sheet.terminal, false)}</select></label>
-        <label>航班<input type="text" data-header="flight_no" value="${esc(sheet.flight_no)}" placeholder="CX1234"${dis}></label>
+        <label>航班<input type="text" data-header="flight_no" value="${esc(sheet.flight_no)}" placeholder="CX1234" autocomplete="off" spellcheck="false"${dis}></label>
         <label>航班日期<input type="date" data-header="flight_date" value="${esc(sheet.flight_date)}"${dis}></label>
-        <label>經手人<input type="text" data-header="handler" value="${esc(sheet.handler)}"${dis}></label>
+        <label>經手人<input type="text" data-header="handler" value="${esc(sheet.handler)}" autocomplete="off" spellcheck="false"${dis}></label>
         <button type="button" class="uldw-btn uldw-btn-sm uldw-adv-toggle" data-action="toggle-adv"
           title="進階參數：B 取整／尾差／磅差警示門檻／比例上下限（不常改，收起來畫面比較清爽）">${advOpen ? '▾' : '⚙'} 進階</button>
         <div class="uldw-adv${advOpen ? ' is-open' : ''}">
@@ -159,7 +160,7 @@ export function renderEditor(root) {
         <label class="uldw-print-hide" title="多票夾重時，單票最少分到多少比例（%；0 或空白＝不限）。超出範圍的部分會依比例重分配給其他票">比例下限 %<input type="number" min="0" max="100" step="1" data-header="clamp_min_pct" value="${esc(sheet.clamp_min_pct)}"${dis}></label>
         <label class="uldw-print-hide" title="多票夾重時，單票最多分到多少比例（%；0 或空白＝不限）。例：填 60 → 任何一票最多吸收 60% 的磅差">比例上限 %<input type="number" min="0" max="100" step="1" data-header="clamp_max_pct" value="${esc(sheet.clamp_max_pct)}"${dis}></label>
         </div>
-        <label class="uldw-field-wide">備註<input type="text" data-header="remark" value="${esc(sheet.remark)}"${dis}></label>
+        <label class="uldw-field-wide">備註<input type="text" data-header="remark" value="${esc(sheet.remark)}" autocomplete="off" spellcheck="false"${dis}></label>
       </div>
 
       ${rclPanelHtml()}
@@ -235,8 +236,8 @@ function unitCardHtml(unit, idx, locked) {
       <span class="uldw-drag" data-drag-handle title="拖曳可調整板序（只影響顯示與列印順序，不影響計算）">⠿</span>
       <span class="uldw-unit-title">${unitCode(idx)}</span>
       ${isBulk
-        ? `<input type="text" class="uldw-unit-no" data-unit-field="bulk_ref" value="${esc(unit.bulk_ref)}" placeholder="批號／RCL"${dis}>`
-        : `<input type="text" class="uldw-unit-no" data-unit-field="uld_number" value="${esc(unit.uld_number)}" placeholder="PMC12345QR"${dis}>`}
+        ? `<input type="text" class="uldw-unit-no" data-unit-field="bulk_ref" value="${esc(unit.bulk_ref)}" placeholder="批號／RCL" autocomplete="off" spellcheck="false"${dis}>`
+        : `<input type="text" class="uldw-unit-no" data-unit-field="uld_number" value="${esc(unit.uld_number)}" placeholder="PMC12345QR" autocomplete="off" spellcheck="false"${dis}>`}
       <span class="uldw-unit-chips" data-calc="chips"></span>
       <button type="button" class="uldw-btn uldw-btn-sm uldw-icon" data-action="toggle-unit" data-uid="${esc(unit.uid)}"
         title="${compact ? '展開這張卡（Contour／Tare／LIH／Pre-decl 等）' : '收合這張卡（只看摘要與票）'}">${compact ? '▸' : '▾'}</button>
@@ -248,13 +249,13 @@ function unitCardHtml(unit, idx, locked) {
     </div>
     <div class="uldw-unit-summary" data-calc="summary"></div>
     <div class="uldw-unit-fields">
-      <label>Port<input type="text" data-unit-field="port" value="${esc(unit.port)}" placeholder="HKG"${dis}></label>
+      <label>Port<input type="text" data-unit-field="port" value="${esc(unit.port)}" placeholder="HKG" autocomplete="off" spellcheck="false"${dis}></label>
       <label>件數<input type="number" min="0" step="1" data-unit-field="pcs" value="${esc(unit.pcs)}"${dis}></label>
       <label>RCL<input type="number" min="0" step="0.1" data-unit-field="rcl_gross_weight" value="${esc(unit.rcl_gross_weight)}"${dis}></label>
     </div>
     <div class="uldw-unit-more">
-      ${isBulk ? '' : `<label>Contour<input type="text" data-unit-field="contour_code" value="${esc(unit.contour_code)}" list="uldw-contour-list" placeholder="ZQ"${dis}></label>`}
-      <label>RCL#<input type="text" data-unit-field="rcl_no" value="${esc(unit.rcl_no)}"${dis}></label>
+      ${isBulk ? '' : `<label>Contour<input type="text" data-unit-field="contour_code" value="${esc(unit.contour_code)}" list="uldw-contour-list" placeholder="ZQ" autocomplete="off" spellcheck="false"${dis}></label>`}
+      <label>RCL#<input type="text" data-unit-field="rcl_no" value="${esc(unit.rcl_no)}" autocomplete="off" spellcheck="false"${dis}></label>
       ${isBulk ? '' : `<label>Tare<input type="number" min="0" step="0.1" data-unit-field="tare_weight" value="${esc(unit.tare_weight)}"${dis}></label>`}
       <label title="裝板物料重量（只作磅差說明，仍由夾重票吸收）">物料<input type="number" min="0" step="0.1" data-unit-field="material_weight" value="${esc(unit.material_weight)}"${dis}></label>
       <label class="uldw-more-wide">LIH<select data-unit-field="lih_type"${dis}>${lihOptions(unit.lih_type)}</select></label>
@@ -278,7 +279,7 @@ function unitCardHtml(unit, idx, locked) {
       <div class="uldw-ac-field">
         <input type="text" data-draft="mawb" value="${esc(draft.mawb || '')}" placeholder="MAWB#（Enter 加入，可搜尋 Booking）" autocomplete="off" spellcheck="false"${dis}>
       </div>
-      <input type="text" class="uldw-draft-xs" data-draft="port" value="${esc(draft.port || '')}" placeholder="DEST"${dis}>
+      <input type="text" class="uldw-draft-xs" data-draft="port" value="${esc(draft.port || '')}" placeholder="DEST" autocomplete="off" spellcheck="false"${dis}>
       <input type="number" class="uldw-draft-xs" min="0" step="1" data-draft="pcs" value="${esc(draft.pcs || '')}" placeholder="PCS"${dis}>
       <input type="number" class="uldw-draft-xs" min="0" step="0.1" data-draft="declared_weight" value="${esc(draft.declared_weight || '')}" placeholder="WT"${dis}>
       <select class="uldw-draft-lih" data-draft="lih_type"${dis}>${lihOptions(draft.lih_type || 'N')}</select>
@@ -294,11 +295,17 @@ function unitCardHtml(unit, idx, locked) {
 function itemRowHtml(unit, item, idx, locked) {
   const dis = locked ? ' disabled' : '';
   const manualRatio = unit.squeeze_mode === 'manual' && item.is_squeeze;
+  // MAWB 檢查碼驗證（只做提示，不擋存檔）：有值但不合法 → 紅框＋title 說明
+  const mawbCheck = uldValidateMawb(item.mawb);
+  const mawbBad = !mawbCheck.ok && !mawbCheck.empty;
+  const mawbTitle = item.mawb_record_id
+    ? `已連結打板計劃 Booking Record #${item.mawb_record_id}`
+    : (mawbBad ? uldMawbIssueText(mawbCheck) : '');
   return `
   <tr data-item-idx="${idx}" data-item-uid="${esc(item.uid)}" class="${item.is_squeeze ? 'is-squeeze' : ''}">
     <td><input type="checkbox" data-item-field="is_squeeze"${item.is_squeeze ? ' checked' : ''}${dis} title="勾選＝參與夾重"></td>
-    <td><input type="text" class="uldw-input-mawb" data-item-field="mawb" value="${esc(item.mawb)}"${item.mawb_record_id ? ` title="已連結打板計劃 Booking Record #${esc(item.mawb_record_id)}"` : ''}${dis}></td>
-    <td><input type="text" class="uldw-input-xs uldw-input-dest" data-item-field="port" value="${esc(item.port)}"${dis}></td>
+    <td><input type="text" class="uldw-input-mawb" data-item-field="mawb" value="${esc(item.mawb)}"${mawbBad ? ' data-mawb-invalid="1"' : ''}${mawbTitle ? ` title="${esc(mawbTitle)}"` : ''} autocomplete="off" spellcheck="false"${dis}></td>
+    <td><input type="text" class="uldw-input-xs uldw-input-dest" data-item-field="port" value="${esc(item.port)}" autocomplete="off" spellcheck="false"${dis}></td>
     <td><input type="number" min="0" step="1" class="uldw-input-xs uldw-input-pcs" data-item-field="pcs" value="${esc(item.pcs)}"${dis}></td>
     <td><input type="number" min="0" step="0.1" class="uldw-input uldw-input-wt" data-item-field="declared_weight" value="${esc(item.declared_weight)}"${dis}></td>
     <td class="uldw-ratio-cell uldw-col-optional">${manualRatio

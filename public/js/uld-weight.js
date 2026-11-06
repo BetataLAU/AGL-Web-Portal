@@ -11,6 +11,7 @@ import {
 import { renderList, renderEditor, refreshComputed, refreshRclImport, refreshVersions } from './uldweight/render.js';
 import { resetBookingCache } from './uldweight/booking-search.js';
 import { uldParsePastedRows } from './uldweight/paste-parse.js';
+import { uldFormatMawb, uldValidateMawb, uldMawbDigits } from './uldweight/mawb-format.js';
 import {
   pickRclFile, loadRclPreview, applyRclColumns, selectedRclRows, rclUldKey
 } from './uldweight/rcl-import.js';
@@ -618,10 +619,28 @@ function onRootChange(event) {
     const item = itemOfElement(target, unit);
     if (!item) return;
     const field = target.dataset.itemField;
+    // MAWB 失焦時自動格式化成 000-0000 0000（輸入中不格式化，避免游標跳動）
+    if (field === 'mawb' && target.type !== 'checkbox') {
+      const formatted = uldFormatMawb(target.value);
+      if (formatted && formatted !== target.value) target.value = formatted;
+    }
     const raw = target.type === 'checkbox' ? target.checked : target.value;
     item[field] = target.type === 'checkbox' ? raw : upperIfNeeded(field, UPPER_ITEM_FIELDS, raw);
     uldMarkDirty();
     refreshComputed(rootEl);
+    return;
+  }
+  // 草稿（新增 MAWB 列）：MAWB 失焦時格式化
+  if (target.dataset.draft) {
+    unit.draft = unit.draft || {};
+    const field = target.dataset.draft;
+    let value = target.value;
+    if (field === 'mawb') {
+      const formatted = uldFormatMawb(value);
+      if (formatted && formatted !== value) target.value = formatted;
+      value = formatted;
+    }
+    unit.draft[field] = upperIfNeeded(field, UPPER_DRAFT_FIELDS, value);
   }
 }
 
@@ -727,13 +746,20 @@ function addPastedRows(uid, text) {
   let added = 0;
   let duplicated = 0;
   const addedKeys = [];
+  const invalid = [];
   rows.forEach(row => {
-    const key = uldMawbKey(row.mawb);
+    const check = uldValidateMawb(row.mawb);
+    if (!check.ok) {
+      invalid.push(`${row.mawb}　（${check.message || '格式不正確'}）`);
+      return;
+    }
+    const mawb = check.formatted;
+    const key = uldMawbKey(mawb);
     if (!key) return;
     if (existing.has(key)) { duplicated += 1; return; }
     existing.add(key);
     unit.items.push(uldNewItem({
-      mawb: String(row.mawb || '').toUpperCase(),
+      mawb,
       port: (String(row.port || '').toUpperCase()) || String(unit.port || '').toUpperCase(),
       pcs: uldNum(row.pcs),
       declared_weight: uldNum(row.weight),
@@ -744,7 +770,8 @@ function addPastedRows(uid, text) {
     added += 1;
   });
   if (!added) {
-    alert(`這 ${rows.length} 列都已經在這張卡上了（重複 ${duplicated} 列）。`);
+    alert(`沒有可加入的票（重複 ${duplicated} 列、格式不符 ${invalid.length} 列）。`
+      + (invalid.length ? `\n\n格式不符：\n${invalid.slice(0, 8).join('\n')}${invalid.length > 8 ? '\n…' : ''}` : ''));
     return;
   }
   uldMarkDirty();
@@ -757,6 +784,9 @@ function addPastedRows(uid, text) {
   });
   const lines = [`已加入 ${added} 票${duplicated ? `（略過重複 ${duplicated} 票）` : ''}`];
   if (parsed.skipped && parsed.skipped.length) lines.push(`略過 ${parsed.skipped.length} 列（看不出 MAWB#）`);
+  if (invalid.length) {
+    lines.push(`略過 ${invalid.length} 票（MAWB 格式／檢查碼不符）：\n${invalid.slice(0, 8).join('\n')}${invalid.length > 8 ? '\n…' : ''}`);
+  }
   if (otherUnits.length) {
     lines.push(`提醒：其中有些票也出現在其他板（${otherUnits.map(u => u.uld_number || u.bulk_ref || '散貨').join('、')}），`
       + '請確認件數／重量怎麼分配（可用明細列的「⇄」依件數拆）。');
@@ -1237,10 +1267,23 @@ function addItem(uid) {
   const unit = uldFindUnit(uid);
   if (!unit || !s.current || s.current.status === 'locked') return;
   const draft = unit.draft || {};
-  const mawb = String(draft.mawb || '').trim();
-  if (!mawb) {
+  const rawMawb = String(draft.mawb || '').trim();
+  if (!rawMawb) {
     alert('請先輸入 MAWB#');
     return;
+  }
+  // 保護：MAWB 與本卡 ULD# 相同 → 通常是值被帶到下一格（貼錯／Tab 誤填）
+  const unitDigits = uldMawbDigits(unit.uld_number);
+  if (unitDigits && uldMawbDigits(rawMawb) === unitDigits) {
+    alert(`MAWB# 與這張卡的 ULD# 相同（${rawMawb}），請確認是不是填錯格子。`);
+    return;
+  }
+  // MAWB 檢查碼驗證：不合法 → 先提示，使用者確定才加入（既有／特殊資料仍可作業）
+  const check = uldValidateMawb(rawMawb);
+  const mawb = check.formatted || rawMawb;
+  if (!check.ok) {
+    const go = confirm(`MAWB「${mawb}」\n${check.message || '格式不正確'}\n\n仍要加入嗎？（建議先更正）`);
+    if (!go) return;
   }
   unit.items = unit.items || [];
   unit.items.push(uldNewItem({

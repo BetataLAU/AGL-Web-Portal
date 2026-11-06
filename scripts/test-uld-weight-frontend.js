@@ -999,6 +999,27 @@ function apiDetail() {
     /field === 'squeeze_mode'\) render\(\)/.test(entryText) &&
     !/item\[field\] = target\.type === 'checkbox'[\s\S]{0,140}?uldMarkDirty\(\);\s*render\(\)/.test(entryText));
 
+  // ===== MAWB 格式／檢查碼（U2b）=====
+  const mawbText = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'uldweight', 'mawb-format.js'), 'utf8');
+  const autoText = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'utils', 'autocomplete.js'), 'utf8');
+  const bookingSrcText = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'uldweight', 'booking-search.js'), 'utf8');
+  check('21.29 自動完成：Tab 只關閉清單、不選取候選（避免被塞值到下一格）',
+    /tabSelects = true/.test(autoText) && /if \(tabSelects && activeIndex >= 0/.test(autoText) &&
+    /tabSelects: false/.test(bookingSrcText));
+  check('21.30 夾重表的輸入框關閉瀏覽器自動填入（autocomplete="off"）',
+    (uxHtml.match(/autocomplete="off"/g) || []).length >= 8,
+    String((uxHtml.match(/autocomplete="off"/g) || []).length));
+  check('21.31 MAWB 有格式化／驗證純函式（11 位、mod 7 檢查碼）',
+    /export function uldFormatMawb/.test(mawbText) && /export function uldValidateMawb/.test(mawbText) &&
+    /% 7/.test(mawbText) && /CHECK_DIGIT/.test(mawbText));
+  check('21.32 加入前驗證：MAWB 不可與 ULD# 相同，且不合格會 prompt',
+    /uldMawbDigits\(unit\.uld_number\)/.test(entryText) &&
+    /uldValidateMawb\(rawMawb\)/.test(entryText) &&
+    /仍要加入嗎/.test(entryText));
+  check('21.33 檢查碼不符的列會標紅（data-mawb-invalid）',
+    /data-mawb-invalid="1"/.test(renderText) &&
+    /input\[data-mawb-invalid="1"\]/.test(cssText));
+
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 
   process.exitCode = failCount === 0 ? 0 : 1;

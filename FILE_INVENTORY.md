@@ -2,23 +2,12 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午6:15:32
+> 最後更新：2026/11/6 下午6:23:36
 
 ## 🔄 Git 變更狀態
 
 ```
-M CLAUDE.md
-M WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx
-M database.db
-M db/sessions.db
-M docs/design/uld-weight-remaining-work.md
-M docs/design/uld-weight-system.md
-M public/js/uld-weight.js
-M public/js/uldweight/calc.js
-M routes/uld-weight.js
-M scripts/test-uld-weight-frontend.js
-M scripts/uld-weight-report-pdf.js
+M FILE_INVENTORY.md
 ```
 
 ## 📁 檔案清單（共 246 個檔案）
@@ -27,11 +16,11 @@ M scripts/uld-weight-report-pdf.js
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（85.9 KB）
+- `CLAUDE.md`（86.2 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（35.0 KB）
 - `README.md`（24.6 KB）
-- `WORKSPACE_STATE.md`（111.5 KB）
+- `WORKSPACE_STATE.md`（111.9 KB）
 - `package.json`（1.1 KB）
 - `server.js`（6.8 KB）
 
@@ -109,7 +98,7 @@ M scripts/uld-weight-report-pdf.js
 ### db
 
 - `db/database.js`（18.8 KB）
-- `db/db-dump.sql`（144.5 KB）
+- `db/db-dump.sql`（150.9 KB）
 
 ### docs
 

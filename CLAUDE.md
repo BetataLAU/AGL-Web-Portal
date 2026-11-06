@@ -56,7 +56,7 @@
 
 - **技術棧**：Node.js + Express 4 + SQLite3，前端純 Vanilla JS + HTML + CSS（無框架、無 build step）
 - **啟動**：`npm start`（node server.js）；PORT 被佔用會自動 +1；資料庫首次啟動自動建檔建表
-- **資料庫檔案**：根目錄 `database.db`（程式自動維護，勿直接編輯）
+- **資料庫檔案**：根目錄 `database.db`（程式自動維護，勿直接編輯）；**不進版控**（`.gitignore` 已列，2026-11-06 起以 `git rm --cached` 停止追蹤，實體檔案保留）。跨機同步一律走 `npm run db:export`／`db:import` → 版控的 `db/db-dump.sql`（pre-commit hook 每次提交都會自動匯出）。
 
 ## 目錄地圖（摘要）
 

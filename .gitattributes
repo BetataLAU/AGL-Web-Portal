@@ -1,0 +1,16 @@
+# ===== 二進位檔：禁止換行轉換（避免檔案損壞／無意義的 diff）=====
+# Excel / Office
+*.xlsx binary
+*.xlsm binary
+*.xls  binary
+*.docx binary
+*.pptx binary
+# PDF / 圖片
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+# SQLite
+*.db   binary

@@ -298,6 +298,21 @@ body.xls-col-resizing * {
   text-align: center;
   vertical-align: top;
 }
+/* ===== ② 預覽表格：兩列表頭「分層」sticky（TAG 那行永遠看得到） =====
+   thead 有兩列：第 1 列＝欄位 TAG＋Excel 欄字母、第 2 列＝原始欄名。
+   若兩列都 top:0，往下捲時第 2 列會整片蓋在第 1 列上（TAG 那行像被吃掉、看不到）。
+   因此：第 1 列固定 top:0（z-index 較高），第 2 列黏在第 1 列下緣。
+   第 1 列高度不固定（TAG 換行會變高）→ 由 public/js/xls-booking-preview.js 的
+   xlsSyncStickyHeadHeight() 量測後寫入 --xls-head-h。**不要改回兩列都 top:0**。
+   ③ 標準化表格只有一列 thead → 不受影響（沿用上面的 top:0）。 */
+.xls-preview-table thead tr:nth-child(1) th {
+  top: 0;
+  z-index: 4;
+}
+.xls-preview-table thead tr:nth-child(2) th {
+  top: var(--xls-head-h, 0px);
+  z-index: 3;
+}
 .xls-preview-table .xls-row-num {
   color: var(--text-muted, #64748b);
   background: var(--bg-muted, #f8fafc);

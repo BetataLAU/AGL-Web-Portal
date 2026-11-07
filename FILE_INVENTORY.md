@@ -2,51 +2,41 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/7 下午5:07:27
+> 最後更新：2026/11/7 下午9:13:51
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
 M FILE_INVENTORY.md
-M PROJECT_MAP.md
-M README.md
 M WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx
-M db/database.js
-M package.json
-M public/css/loadsim.css
+M public/css/components.css
 M public/css/topbar.css
 M public/css/xls-booking.css
 M public/index.html
-M public/js/loadsim.js
-M public/js/loadsim/state.js
 M public/js/xls-booking-preview.js
-M public/js/xls-booking-state.js
-M scripts/test-loadsim-frontend.js
 M scripts/test-topbar.js
-M server.js
-?? public/js/loadsim/plans.js
-?? routes/loadsim.js
-?? scripts/test-loadsim-api.js
-?? scripts/test-loadsim-plans.js
 ?? scripts/test-xls-preview-head.js
-?? scripts/test-xls-step-nav.js
 ```
 
-## 📁 檔案清單（共 258 個檔案）
+## 📁 檔案清單（共 204 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
-- `.gitignore`（642 B）
-- `CLAUDE.md`（97.9 KB）
+- `.gitattributes`（316 B）
+- `.gitignore`（864 B）
+- `CLAUDE.md`（99.9 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（37.9 KB）
 - `README.md`（25.2 KB）
-- `WORKSPACE_STATE.md`（127.9 KB）
+- `WORKSPACE_STATE.md`（133.9 KB）
 - `package.json`（1.4 KB）
 - `server.js`（7.1 KB）
+
+### .vscode
+
+- `.vscode/settings.json`（163 B）
 
 ### data/templates
 
@@ -58,71 +48,10 @@ M server.js
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
 - `data/templates/sli-eli-fieldmap.json`（13.7 KB）
 
-### data/test-p2
-
-- `data/test-p2/analyze-geometry.py`（2.5 KB）
-- `data/test-p2/annots-probe.py`（3.0 KB）
-- `data/test-p2/bitmap-p0-200.pdf`（53.8 KB）
-- `data/test-p2/bitmap-p0-300.pdf`（87.5 KB）
-- `data/test-p2/bitmap-p0-400.pdf`（128.8 KB）
-- `data/test-p2/bitmap-p1-200.pdf`（56.5 KB）
-- `data/test-p2/bitmap-p1-300.pdf`（102.8 KB）
-- `data/test-p2/bitmap-p1-400.pdf`（160.2 KB）
-- `data/test-p2/bitmap-probe.py`（1.7 KB）
-- `data/test-p2/breakdown-probe.py`（2.9 KB）
-- `data/test-p2/clean.pdf`（143.4 KB）
-- `data/test-p2/date-check.py`（425 B）
-- `data/test-p2/font-probe.py`（3.0 KB）
-- `data/test-p2/gid-probe.py`（2.8 KB）
-- `data/test-p2/glyph-probe.py`（1.5 KB）
-- `data/test-p2/hinting-probe.py`（2.8 KB）
-- `data/test-p2/list-fieldmap.py`（746 B）
-- `data/test-p2/noannots-clean.pdf`（143.4 KB）
-- `data/test-p2/noannots.pdf`（143.4 KB）
-- `data/test-p2/opt-a.pdf`（279.9 KB）
-- `data/test-p2/opt-b.pdf`（286.2 KB）
-- `data/test-p2/opt.pdf`（281.4 KB）
-- `data/test-p2/opt2.pdf`（208.3 KB）
-- `data/test-p2/opt3.pdf`（143.1 KB）
-- `data/test-p2/opt4.pdf`（123.4 KB）
-- `data/test-p2/overlay-check.pdf`（132.1 KB）
-- `data/test-p2/stream-probe.py`（1.6 KB）
-- `data/test-p2/subset-probe.py`（1.9 KB）
-- `data/test-p2/ttf-tables-probe.py`（1.4 KB）
-- `data/test-p2/verify-build.py`（2.7 KB）
-- `data/test-p2/verify-fieldmap.py`（2.5 KB）
-- `data/test-p2/verify-output.py`（1.6 KB）
-
-### data/test-p3
-
-- `data/test-p3/apply-calibration.js`（4.7 KB）
-- `data/test-p3/baseline-model.json`（156 B）
-- `data/test-p3/ink-bbox.py`（1.7 KB）
-- `data/test-p3/measure-baseline-delta.py`（2.6 KB）
-- `data/test-p3/measure-refs.py`（3.7 KB）
-- `data/test-p3/measure-wrap.py`（3.8 KB）
-- `data/test-p3/mine-065-49876385.pdf`（124.6 KB）
-- `data/test-p3/probe-diff-regions.py`（1.8 KB）
-- `data/test-p3/probe-font-dict.py`（1.4 KB）
-- `data/test-p3/probe-font-floor.py`（2.2 KB）
-- `data/test-p3/probe-font-floor2.py`（2.6 KB）
-- `data/test-p3/probe-line-extents.py`（1.4 KB）
-- `data/test-p3/probe-mine-vs-ideal.py`（1.8 KB）
-- `data/test-p3/probe-shift.py`（1.8 KB）
-- `data/test-p3/probe-span-size.py`（1.2 KB）
-- `data/test-p3/probe-text-pos.py`（2.1 KB）
-- `data/test-p3/probe-visual.py`（1.8 KB）
-- `data/test-p3/ref-065-49011480.pdf`（544.9 KB）
-- `data/test-p3/ref-065-49011491.pdf`（544.9 KB）
-- `data/test-p3/ref-065-49011502.pdf`（544.9 KB）
-- `data/test-p3/ref-065-49876374.pdf`（542.9 KB）
-- `data/test-p3/ref-065-49876385.pdf`（536.5 KB）
-- `data/test-p3/try-customname.js`（1.6 KB）
-
 ### db
 
 - `db/database.js`（21.1 KB）
-- `db/db-dump.sql`（159.6 KB）
+- `db/db-dump.sql`（165.0 KB）
 
 ### docs
 
@@ -148,16 +77,16 @@ M server.js
 
 - `public/css/animations.css`（5.2 KB）
 - `public/css/base.css`（3.8 KB）
-- `public/css/components.css`（7.4 KB）
+- `public/css/components.css`（9.7 KB）
 - `public/css/dbviewer.css`（15.6 KB）
 - `public/css/layout.css`（18.6 KB）
 - `public/css/loadsim.css`（26.4 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/topbar.css`（12.9 KB）
+- `public/css/topbar.css`（12.6 KB）
 - `public/css/uld-weight.css`（42.1 KB）
-- `public/css/xls-booking.css`（22.7 KB）
+- `public/css/xls-booking.css`（22.0 KB）
 
 ### public/css/utils
 
@@ -186,9 +115,9 @@ M server.js
 - `public/js/uld-weight.js`（64.3 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
-- `public/js/xls-booking-preview.js`（18.3 KB）
+- `public/js/xls-booking-preview.js`（19.3 KB）
 - `public/js/xls-booking-standard.js`（25.1 KB）
-- `public/js/xls-booking-state.js`（12.8 KB）
+- `public/js/xls-booking-state.js`（7.9 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.4 KB）
 
@@ -336,17 +265,16 @@ M server.js
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-topbar-behavior.js`（10.8 KB）
-- `scripts/test-topbar.js`（8.9 KB）
+- `scripts/test-topbar.js`（10.0 KB）
 - `scripts/test-uld-weight-api.js`（61.0 KB）
 - `scripts/test-uld-weight-calc.js`（33.2 KB）
 - `scripts/test-uld-weight-frontend.js`（72.6 KB）
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
-- `scripts/test-xls-preview-head.js`（5.4 KB）
+- `scripts/test-xls-preview-head.js`（7.3 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
-- `scripts/test-xls-step-nav.js`（8.8 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
 - `scripts/uld-weight-grid-preview.js`（5.5 KB）
 - `scripts/uld-weight-report-pdf.js`（27.3 KB）

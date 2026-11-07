@@ -64,17 +64,19 @@
 
 - **生效範圍**：只有 `<body class="has-topbar">` 的頁面（`index.html`、`sli-eli-layout.html`）會被改寫成抽屜；`users.html`／`login.html` 沒有這個 class，完全不受影響（`layout.css` 的 `.sidebar` 原樣保留）。
 - **DOM**：`<header class="topbar" id="topbar">`（工作列）＋ `<div class="topbar-scrim" id="topbar-scrim">`（遮罩）放在 `.app-layout` 之前；原本的 `<aside class="sidebar">` 只加 `id="app-sidebar"`，內部結構（`.sidebar-nav` / `.nav-item` / 鎖頭 / 拖曳把手 / 登入卡 / 主題切換）完全沒動 → 拖曳排序（`main.js`）與權限鎖頭（`auth.js`）不受影響。
+- **最左邊是「☰ 目錄 ＋ 目錄搜尋」一個圓角膠囊**（`<div class="topbar-nav-search" id="topbar-nav-search">`）：左段 `#topbar-menu-btn`（☰ 目錄）→ `.topbar-nav-search-sep`（1px 中線）→ 右段 `#topbar-search`（內含放大鏡圖示與 `#topbar-search-input`，placeholder＝**搜尋目錄**，`Ctrl+K` 提示放在 `title`）。兩者本來就是同一組功能，**不要**再把搜尋框搬回 `.topbar-right`（`scripts/test-topbar.js` 的 A12／C13 會擋）。外框是 `overflow:hidden`，所以**焦點光環畫在外框**（`.topbar-nav-search:focus-within`），左段按鈕的鍵盤焦點用 `inset` 內環，否則往外擴的 `box-shadow` 會被裁掉。
 - **互動**（`public/js/topbar.js`）：
   - 最左邊 ☰（`#topbar-menu-btn`）點一下 → `.sidebar.is-open`（CSS `translateY` 動畫往下展開）；再點一下收起。`Alt+M` 亦可切換。
-  - **游標離開抽屜 → 自動收合**（`mouseleave` + 260ms 延遲；游標回到抽屜、或搜尋框有內容時取消）。點目錄項目／點抽屜外／`ESC` 也會收合；拖曳排序中（`draggingNav`）不收合。
+  - **游標離開抽屜 → 自動收合**（`mouseleave` + 260ms 延遲；游標回到抽屜、或搜尋框有內容時取消）。點目錄項目／點抽屜外／`ESC` 也會收合；拖曳排序中（`draggingNav`）不收合。因為 ☰ 與搜尋框是同一個膠囊，**游標停在整組（`#topbar-nav-search`）或點組內任何位置（含放大鏡圖示）都不收合**，點放大鏡會聚焦輸入框。
   - 收合是 `transform: translateY(-100% - --topbar-h)` 往上捲回工作列後面，**不會影響主內容捲動位置**；`body.topbar-nav-open` 會讓工作列轉為近不透明，避免抽屜滑動時從半透明處透出。
-  - **內容不會滑到工作列底下（關鍵）**：`body.has-topbar .app-layout { margin-top: var(--topbar-h); height: calc(100vh - var(--topbar-h)) }`（`--topbar-h: 56px`，另補 `100dvh`）。用 `margin-top`＋高度而**不是** `padding-top`：padding 屬於捲動內容，往下捲會跟著捲走，內容仍會鑽到固定工作列底下並從半透明 bar 透出文字；改成 margin 後捲動容器上緣＝工作列下緣，怎麼捲都不會重疊。
-- **工作列右側工具**：（1）功能搜尋 `#topbar-search-input`：輸入即過濾目錄並展開抽屜（`Ctrl/Cmd+K` 聚焦、`Enter` 跳到第一個符合項目；無結果顯示 `.nav-empty`；`display:none` 的無權限項目不列入過濾）；（2）主題循環切換 light→dark→ocean（有 `theme.js` 時走 `applyTheme()`，沒有時直接改 `data-theme` 並寫入 `localStorage['site-theme']`）；（3）全螢幕；（4）回到頁頂；（5）香港時間（`Asia/Hong_Kong`，每 20 秒對時）。
+  - **內容不會滑到工作列底下（關鍵，2026-11-07 二次修正）**：用 `body.has-topbar { padding-top: var(--topbar-h); height: 100vh/100dvh; min-height: 0; overflow: hidden }` ＋ `body.has-topbar .app-layout { margin-top: 0; height: 100%; overflow-y: auto }`（`--topbar-h: 56px`）。
+    **絕對不要改回 `.app-layout { margin-top: var(--topbar-h) }`**：子元素的 `margin-top` 會與 body 上外邊界**合併（margin collapsing）**，margin 被推到 body 外面 → `html` 文件高度變成 `100dvh + 56px`，也就是**視窗本身還能再捲 56px**（實測 `documentElement.scrollHeight - innerHeight = 56`）。一旦視窗被捲動（`#anchor` 連結、`scrollIntoView`（`xlsScrollToEl()` 就是用它）、`window.scrollTo`、PageDown…），整個 `.app-layout` 連同內容與 sticky 的 ①②③④ 步驟列都會往上滑到固定工作列底下 → 看起來就是「工作列和內容重疊」（步驟列只剩一小條從 bar 下面露出來）。改用 body `padding-top`（padding 不合併）＋固定高度＋`overflow:hidden` 後，捲動只發生在 `.app-layout` 內，視窗永遠不會移動（實測 `maxWindowScroll = 0`）。`scripts/test-topbar.js` 的 C5／C12 會擋住這個回歸。
+- **工作列右側工具**：（1）目錄搜尋 `#topbar-search-input`（**在左側、與 ☰ 同一個膠囊**，placeholder「搜尋目錄」）：輸入即過濾目錄並展開抽屜（`Ctrl/Cmd+K` 聚焦、`Enter` 跳到第一個符合項目；無結果顯示 `.nav-empty`；`display:none` 的無權限項目不列入過濾）；（2）主題循環切換 light→dark→ocean（有 `theme.js` 時走 `applyTheme()`，沒有時直接改 `data-theme` 並寫入 `localStorage['site-theme']`）；（3）全螢幕；（4）回到頁頂；（5）香港時間（`Asia/Hong_Kong`，每 20 秒對時）。
 - **目前位置**：`main.js` 的 `showSection()` 會呼叫 `window.topbarSetSection(sectionId)` 更新 `#topbar-crumb-text`（沒有工作列的頁面不會有此函式，故有 `typeof` 檢查）。
 - **滿版對齊與 sticky 偏移（2026-11-07 修正）**：內容區變寬後，`public/css/xls-booking.css` 原本 `.xls-card { max-width: min(1200px, 100%) }` 會讓卡片右側留一大片空白、和滿版的 `.xls-step-nav` 不齊 → 改為 `max-width: none`（日後若要限制閱讀寬度，步驟列與卡片要**一起**限制）。`.topbar` 左右 padding 也改成與 `.main-content` 一致（桌面 24px、≤900px 16px），內容邊界才會齊一。
-- **① ② ③ ④ 步驟列釘在工作列下方（2026-11-07 修正，取代純 CSS sticky）**：只用 `position: sticky` 會因「捲動容器改用 margin-top 讓位／區塊進場動畫的 transform／瀏覽器差異」而出現**被工作列蓋住一大半**或**黏到很下面**。現在改由 `public/js/xls-booking-state.js` 的 `xlsUpdateStepNavPin()` 量測 `#section-xls-booking` 位置後 `position: fixed` 釘住（`top = 工作列高 + --xls-step-nav-gap`，左右對齊區塊），並插入 `.xls-step-nav-spacer` 補回原佔高度（避免內容上移被蓋住）；判斷式**只看 section 幾何**（不看 nav 自己）→ 不會 fixed/sticky 互相回饋而抖動。CSS 的 sticky 只當沒有 JS 時的後備。另外 `body.has-topbar #section-xls-booking.section-enter` 的進場動畫改成**只淡入**（`xls-section-fade-in`），因為 `transform` 會讓 `position: fixed` 子元素以該區塊為座標系而暫時跑到錯的位置。間隙只有一個來源：`--xls-step-nav-gap`（`topbar.css :root`），JS 與 `xlsStickyNavClearance()` 都讀它；`@media print` 會還原成 `static`。
+- **① ② ③ ④ 步驟列貼在工作列下方（純 CSS sticky，2026-11-07 二次修正）**：`.xls-step-nav` 是 `position: sticky; top: 10px`（`xls-booking.css`），`body.has-topbar` 版由 `topbar.css` 覆寫成 `top: 8px` 並給**不透明底色**＋陰影（避免下方卡片文字透出）。因為 `.app-layout` 的上緣＝工作列下緣（見上一條「內容不會滑到工作列底下」），sticky `top: 8px` 就等於「緊貼工作列下方」，不需要 JS 釘位置。跳到某一步時由 `xlsStickyNavClearance()` 量測「nav 高度 + CSS `top` + 12px」寫入目標的 `scroll-margin-top`，避免標題被步驟列蓋住（`scrollIntoView` 只會捲動真正可捲動的祖先 = `.app-layout`）。**先前文件提到的 `xlsUpdateStepNavPin()`／`.xls-step-nav-spacer`／`--xls-step-nav-gap`／`xls-section-fade-in` 在程式碼中並不存在，別再找**；區塊進場動畫仍是 `animations.css` 的 `.content-section.section-enter`。
 - **新增工作列功能**：`index.html`／`sli-eli-layout.html` 的 `.topbar-right` 加按鈕 → `topbar.js` 的 `setupTopbar()` 內加一個 `setupXxx()`（沿用 `byId()`），並在 `scripts/test-topbar.js` 補一條驗收。
-- **測試**：`npm run test:topbar` ＝ `node scripts/test-topbar.js`（HTML／CSS／JS 靜態檢查 37 項）＋ `node scripts/test-topbar-behavior.js`（以 DOM stub 載入 `topbar.js`，驗證開合／自動收合／ESC／搜尋過濾／主題循環 25 項）。另有 `node scripts/test-nav-hierarchy.js`、`node scripts/test-nav-order-frontend.js` 確保目錄層級與拖曳排序未被破壞。
+- **測試**：`npm run test:topbar` ＝ `node scripts/test-topbar.js`（HTML／CSS／JS 靜態檢查 45 項，含 A12／C13「☰ 與搜尋同一個膠囊」、C5／C12「body padding-top＋視窗不可捲」回歸）＋ `node scripts/test-topbar-behavior.js`（以 DOM stub 載入 `topbar.js`，驗證開合／自動收合／ESC／搜尋過濾／主題循環 28 項）。另有 `node scripts/test-nav-hierarchy.js`、`node scripts/test-nav-order-frontend.js` 確保目錄層級與拖曳排序未被破壞。
 
 ## 目錄地圖（摘要）
 
@@ -343,6 +345,14 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 **樣式對應**：`public/css/utils/modal.css`、`cbm-calculator.css`、`time-picker.css`、`autocomplete.css`（已在 `index.html` 引入）
 
 **注意**：這些是全域函式（無模組/namespace 包裝），引入順序必須在 `orders.js` 等使用方之前（`index.html` 已排好）
+
+## Contour 頁搜尋欄位（`index.html` 的 `#section-contour`）
+
+- **輸入框＋Search 按鈕合成「同一個圓角欄位」**（2026-11-07）：`form#contour-search-form` 就是膠囊外框（`public/css/components.css` 的 `.contour-search-form`：`display:flex`、`border-radius:999px`、`overflow:hidden`）；`input#contour-search-input` 無框線／透明底、`flex:1 1 auto` 佔左側；`button.contour-search-btn` 貼在右側、用 `border-left` 當分隔線（hover 才上淡藍底）。**不要**把按鈕改回 `pill btn-primary`（會變回獨立膠囊並掉到搜尋框下面一行）。
+- **placeholder 要短**：`Search code or model…`（原本 `Type to search contour code or model…` 在 360px 欄位裡會被 `type="search"` 的原生清除鈕擠掉、尾端被截斷）。完整說明放 `title` 屬性（滑鼠移上去可看）。
+- **覆寫注意**：`base.css` 另有一條 `.contour-search-form input { width:100%; border; border-radius:12px }`，改樣式要在 `components.css` 覆寫（後載入、`.contour-search-form input` 同特異度即可蓋過）。
+- **`.contour-controls`**：`flex:1 1 auto; justify-content:flex-end; flex-wrap:nowrap` → 搜尋欄位與 `Show All` 永遠同一行且整組靠右；真的放不下時由外層 `.card-header-flex` 的 `flex-wrap` 整組換行。
+- **焦點藍框要畫在「外框」上（2026-11-07 修正，別改回）**：曾經用 `input:focus-visible { outline: 2px solid var(--primary); outline-offset:-2px }`，但 input 自己是 `border-radius:0`（方框），外框是 `999px` 膠囊＋`overflow:hidden` → **左端（左上／左下）的藍邊被圓角切掉，看起來就是「藍邊在圓角處出現缺口」**。現改為 `.contour-search-form:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--surface-glow), inset 0 1px 2px rgba(15,23,42,0.05) }`（沿用 `topbar.css` 的 `.topbar-search:focus-within` 做法，圓角光環會跟著膠囊走，滑鼠點進來也會顯示），input 的 `:focus`／`:focus-visible` 一律 `outline:none; box-shadow:none`；`button.contour-search-btn` 另給 `border-radius: 0 999px 999px 0`，鍵盤焦點環與 hover 淡藍底才會貼合右端圓角。
 
 ## 打板計劃（routes/pallet.js）
 

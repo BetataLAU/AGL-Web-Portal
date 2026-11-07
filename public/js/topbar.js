@@ -20,6 +20,8 @@
   let menuBtn = null;
   let scrim = null;
   let searchInput = null;
+  let searchBox = null;   // 搜尋框外框（放大鏡圖示所在，與 ☰ 同一個圓角膠囊）
+  let navGroup = null;    // 「☰ 目錄 ＋ 目錄搜尋」整組（#topbar-nav-search）
   let closeTimer = null;
   let draggingNav = false;
 
@@ -129,6 +131,17 @@
       });
     }
 
+    // 「☰ 目錄 ＋ 目錄搜尋」是同一個圓角膠囊 → 游標在整組裡（含搜尋框）都不收合。
+    // 注意：☰ → 搜尋框是「同一個元素內移動」，不會再觸發 mouseenter，
+    // 所以另補 mouseover（會從子元素冒泡）取消已排定的收合，否則抽屜會在 260ms 後誤關。
+    if (navGroup) {
+      navGroup.addEventListener('mouseenter', cancelScheduledClose);
+      navGroup.addEventListener('mouseover', cancelScheduledClose);
+      navGroup.addEventListener('mouseleave', function () {
+        if (isOpen()) scheduleClose();
+      });
+    }
+
     sidebar.addEventListener('mouseenter', cancelScheduledClose);
     sidebar.addEventListener('mouseleave', function () {
       if (isOpen()) scheduleClose();
@@ -158,8 +171,10 @@
       if (!isOpen()) return;
       const t = e.target;
       if (sidebar.contains(t)) return;
+      // 「☰ 目錄 ＋ 目錄搜尋」是同一個控制項：點到整組的任何位置（含放大鏡圖示）都不收合
+      if (navGroup && navGroup.contains(t)) return;
       if (menuBtn && menuBtn.contains(t)) return;
-      if (searchInput && searchInput.contains(t)) return;
+      if (searchBox && searchBox.contains(t)) return;
       setOpen(false);
     });
 
@@ -188,6 +203,14 @@
   // ---------- 綁定：搜尋過濾目錄 ----------
   function setupSearch() {
     if (!searchInput) return;
+
+    // 點搜尋框（含放大鏡圖示、留白處）都直接聚焦輸入框——整組是一個控制項
+    if (searchBox) {
+      searchBox.addEventListener('click', function (e) {
+        if (e.target === searchInput) return;
+        searchInput.focus();
+      });
+    }
 
     searchInput.addEventListener('input', function () {
       const q = searchInput.value.trim();
@@ -367,6 +390,8 @@
     if (!byId('topbar') || !sidebar) return; // 此頁沒有工作列（例如 users.html）
     scrim = byId('topbar-scrim');
     searchInput = byId('topbar-search-input');
+    searchBox = byId('topbar-search');
+    navGroup = byId('topbar-nav-search');
 
     setupMenuToggle();
     setupDismiss();

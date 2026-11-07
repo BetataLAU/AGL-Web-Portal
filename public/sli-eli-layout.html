@@ -13,13 +13,22 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="has-topbar">
-  <!-- 頂部工作列：最左邊 ☰ 開關目錄（抽屜往下展開）＋ 目前位置 ＋ 搜尋 ＋ 工具 -->
+  <!-- 頂部工作列：最左邊「目錄＋目錄搜尋」同一組（一個圓角膠囊）＋ 目前位置 ＋ 工具 -->
   <header class="topbar" id="topbar">
     <div class="topbar-left">
-      <button type="button" class="topbar-menu-btn" id="topbar-menu-btn"
-              aria-expanded="false" aria-controls="app-sidebar" title="開關目錄（Alt+M）">
-        <i class="fa-solid fa-bars" aria-hidden="true"></i><span class="topbar-menu-label">目錄</span>
-      </button>
+      <!-- 目錄開關 ＋ 目錄搜尋：同一個圓角膠囊（中間一條細分隔線）→ 兩者本來就是同一組功能 -->
+      <div class="topbar-nav-search" id="topbar-nav-search">
+        <button type="button" class="topbar-menu-btn" id="topbar-menu-btn"
+                aria-expanded="false" aria-controls="app-sidebar" title="開關目錄（Alt+M）">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i><span class="topbar-menu-label">目錄</span>
+        </button>
+        <span class="topbar-nav-search-sep" aria-hidden="true"></span>
+        <div class="topbar-search" id="topbar-search" title="搜尋目錄（Ctrl+K）">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="topbar-search-input" autocomplete="off"
+                 placeholder="搜尋目錄" aria-label="搜尋目錄">
+        </div>
+      </div>
       <a href="index.html" class="topbar-brand" id="topbar-brand" title="回到首頁">📐 SLI / ELI Layout</a>
       <span class="topbar-divider" aria-hidden="true"></span>
       <nav class="topbar-crumb" aria-label="目前位置">
@@ -28,11 +37,6 @@
       </nav>
     </div>
     <div class="topbar-right">
-      <div class="topbar-search">
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input type="search" id="topbar-search-input" autocomplete="off"
-               placeholder="搜尋功能（Ctrl+K）" aria-label="搜尋目錄功能">
-      </div>
       <button type="button" class="topbar-icon-btn" id="topbar-theme-btn" title="切換主題" aria-label="切換主題">
         <i class="fa-solid fa-sun" aria-hidden="true"></i>
       </button>

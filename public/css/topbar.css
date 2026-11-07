@@ -3,6 +3,7 @@
    主內容因此可以吃滿整個寬度（增加工作空間）。
    - 只有含 <body class="has-topbar"> 的頁面（index.html / sli-eli-layout.html）才生效；
      users.html / login.html 不受影響（layout.css 的 .sidebar 原樣保留）。
+   - 最左邊「☰ 目錄」與「目錄搜尋」是**同一個圓角膠囊**（.topbar-nav-search，中間細分隔線）。
    - 抽屜收合方式：translateY 往上捲回工作列後面（不影響主內容的捲動位置）。
    - 游標離開抽屜範圍會自動收合（邏輯在 public/js/topbar.js，延遲 260ms 避免誤關）。 */
 
@@ -56,51 +57,76 @@
   gap: 6px;
 }
 
-/* ---------- 最左邊：目錄開關（☰） ---------- */
-.topbar-menu-btn {
+/* ---------- 最左邊：目錄開關 ＋ 目錄搜尋（同一個圓角膠囊） ----------
+   2026-11-07：使用者反映「☰ 目錄」和右側搜尋框**隔太遠**，其實兩者是同一組功能
+   → 併成一個圓角外框（.topbar-nav-search）：左段 ☰ 目錄、右段搜尋，中間一條細分隔線。
+   焦點環畫在「外框」上（:focus-within）→ 圓角處不會出現缺口（同 Contour 搜尋欄的做法）。 */
+.topbar-nav-search {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: 38px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--input-bg);
+  overflow: hidden; /* 內層 hover／展開的底色才會被外框圓角裁好 */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.topbar-nav-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--surface-glow);
+}
+
+/* 左段：目錄開關（☰ 目錄） */
+.topbar-nav-search .topbar-menu-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 38px;
+  height: 100%;
   padding: 0 13px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  background: rgba(255, 255, 255, 0.55);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-main);
   font-family: inherit;
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease,
-              box-shadow 0.2s ease, transform 0.2s ease;
+  transition: color 0.2s ease, background 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.topbar-menu-btn:hover {
+.topbar-nav-search .topbar-menu-btn:hover {
   color: var(--primary);
-  border-color: var(--primary);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+  background: var(--surface-glow);
 }
 
-.topbar-menu-btn:focus-visible {
+/* 鍵盤焦點：外框已有 :focus-within 光環，這裡只補一圈貼合左段圓角的內環
+   （外框是 overflow:hidden，往外擴的 box-shadow 會被裁掉） */
+.topbar-nav-search .topbar-menu-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--surface-glow);
-  border-color: var(--primary);
+  box-shadow: inset 0 0 0 2px var(--primary);
 }
 
-.topbar-menu-btn[aria-expanded="true"] {
+/* 抽屜展開時：左段轉為主題色（保留「開關按下去」的回饋） */
+.topbar-nav-search .topbar-menu-btn[aria-expanded="true"] {
   color: #fff;
-  border-color: transparent;
   background: var(--primary-gradient);
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.3);
 }
 
-.topbar-menu-btn i {
+.topbar-nav-search .topbar-menu-btn i {
   font-size: 0.95rem;
   line-height: 1;
+}
+
+/* 兩段之間的中線（草圖那一條細分隔線） */
+.topbar-nav-search-sep {
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--border-color);
 }
 
 .topbar-menu-label {
@@ -157,32 +183,31 @@
   white-space: nowrap;
 }
 
-/* ---------- 右側：功能搜尋 ---------- */
+/* ---------- 右段：目錄搜尋（外框／底色由 .topbar-nav-search 提供） ---------- */
 .topbar-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
+  padding: 0 12px 0 10px;
+  min-width: 0;
 }
 
-.topbar-search:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--surface-glow);
-}
-
+/* 輸入框有焦點時（整組是 :focus-within），放大鏡跟著主題色 */
 .topbar-search i {
   color: var(--text-muted);
   font-size: 0.8rem;
   flex-shrink: 0;
+  cursor: text; /* 點放大鏡也會聚焦輸入框（public/js/topbar.js） */
+  transition: color 0.2s ease;
+}
+
+.topbar-search:focus-within i {
+  color: var(--primary);
 }
 
 .topbar-search input {
-  width: clamp(110px, 16vw, 210px);
+  width: clamp(120px, 18vw, 220px);
   border: none;
   outline: none;
   background: transparent;
@@ -276,19 +301,32 @@ body.topbar-nav-open .topbar {
 }
 
 /* ===== 主內容「實際」從工作列下緣開始 =====
-   用 margin-top + height（而不是 padding-top）：
-   - padding-top 屬於捲動內容的一部分，往下捲時 padding 會跟著捲走 → 內容仍會滑到固定工作列「底下」，
-     半透明的工作列就會和內容重疊（文字從 bar 後面透出來）。
-   - 改成 margin-top + height 後，捲動容器本身的上緣就在工作列下緣，
-     任何內容捲到最上面都只會停在這裡，永遠不會和工作列重疊。
+   ⚠️ 2026-11-07 修正（第二次）：不要再用 `.app-layout { margin-top: var(--topbar-h) }`。
+   原因：子元素的 margin-top 會與 body 的上外邊界「合併」（margin collapsing），
+   margin 被推到 body 外面 → html 的文件高度變成 100dvh + 56px，
+   也就是「視窗本身」還可以再往下捲 56px（實測 documentElement.scrollHeight - innerHeight = 56）。
+   一旦視窗被捲動（點 #anchor 連結、scrollIntoView、window.scrollTo、PageDown…），
+   整個 .app-layout（連同內容與 sticky 的 ①②③④ 步驟列）就會往上滑到固定工作列底下 →
+   看起來就是「頂部工作列和內容重疊」（步驟列只剩一小條從 bar 下面露出來）。
+   現在改成：body 用 padding-top 讓位（padding 不會合併）＋ 固定高度 ＋ overflow:hidden，
+   捲動只發生在 .app-layout 內部，視窗永遠不會移動 → 內容不可能跑到工作列底下。
    高度用 100vh 並補 100dvh（手機瀏覽器網址列會伸縮，dvh 才不會被切掉）。 */
+body.has-topbar {
+  padding-top: var(--topbar-h);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0; /* 蓋掉 base.css 的 min-height:100vh（否則 dvh 較小時又會多出可捲高度） */
+  overflow: hidden;
+}
+
 body.has-topbar .app-layout {
-  margin-top: var(--topbar-h);
-  height: calc(100vh - var(--topbar-h));
-  height: calc(100dvh - var(--topbar-h));
+  margin-top: 0;
+  height: 100%;
   min-height: 0;
   padding-top: 0;
   scroll-padding-top: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* 頁面層級的 sticky 元素（例如 Shipper Role Project 的步驟快速跳轉列）
@@ -387,9 +425,7 @@ body.has-topbar .sidebar::after {
 
   /* 抽屜改成覆蓋層後，主內容容器自己捲動（原本是視窗捲動） */
   body.has-topbar .app-layout {
-    margin-top: var(--topbar-h);
-    height: calc(100vh - var(--topbar-h));
-    height: calc(100dvh - var(--topbar-h));
+    height: 100%;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -414,7 +450,9 @@ body.has-topbar .sidebar::after {
     gap: 8px;
   }
 
-  .topbar-menu-btn {
+  /* 注意：外框內的按鈕選擇器特異度較高（.topbar-nav-search .topbar-menu-btn），
+     這裡要同步用同樣的特異度才蓋得過 */
+  .topbar-nav-search .topbar-menu-btn {
     padding: 0 10px;
   }
 
@@ -431,8 +469,14 @@ body.has-topbar .sidebar::after {
 }
 
 @media (max-width: 480px) {
-  .topbar-search {
-    display: none; /* 極窄螢幕優先保留目錄與工具按鈕 */
+  /* 極窄螢幕優先保留目錄與工具按鈕：搜尋收起來（分隔線也要一起收，不然會留一條孤線） */
+  .topbar-search,
+  .topbar-nav-search-sep {
+    display: none;
+  }
+
+  .topbar-nav-search .topbar-menu-btn {
+    padding: 0 12px;
   }
 }
 

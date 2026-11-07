@@ -3,6 +3,7 @@
 //       主內容可吃滿整個寬度；游標離開抽屜範圍要自動捲回。
 // 驗收項目：
 //   A. public/index.html：工作列 + ☰ 開關 + aside#app-sidebar + CSS/JS 引用
+//      （☰ 目錄與目錄搜尋是同一個膠囊 .topbar-nav-search，placeholder＝搜尋目錄）
 //   B. public/sli-eli-layout.html（同版面的子功能頁）：同樣具備工作列與開關
 //   C. public/css/topbar.css：工作列固定定位、抽屜收合／展開動畫、遮罩、搜尋過濾樣式
 //   D. public/js/topbar.js：游標離開自動收合、ESC／點外面收合、搜尋過濾、右側工具
@@ -52,6 +53,14 @@ check('A10 有搜尋無結果提示（id=nav-empty）', /id="nav-empty"/.test(in
 const navBlock = (indexHtml.match(/<nav class="sidebar-nav">([\s\S]*?)<\/nav>/) || ['', ''])[1];
 check('A11 nav-empty 不放在 <nav> 內（不干擾拖曳排序的 .nav-item 集合）',
   navBlock.indexOf('nav-empty') === -1);
+// 「☰ 目錄」與「目錄搜尋」必須是**同一個圓角膠囊**，且在工作列左側（兩者本來就是同一組功能）
+const topbarLeftBlock = (indexHtml.match(/<div class="topbar-left">([\s\S]*?)<div class="topbar-right">/) || ['', ''])[1];
+check('A12 ☰ 目錄與搜尋框在同一個膠囊（.topbar-nav-search：#topbar-menu-btn＋分隔線＋#topbar-search-input）',
+  /class="topbar-nav-search" id="topbar-nav-search"/.test(topbarLeftBlock)
+  && topbarLeftBlock.indexOf('id="topbar-menu-btn"') !== -1
+  && topbarLeftBlock.indexOf('class="topbar-nav-search-sep"') !== -1
+  && topbarLeftBlock.indexOf('id="topbar-search-input"') !== -1);
+check('A13 搜尋框 placeholder 為「搜尋目錄」', /placeholder="搜尋目錄"/.test(indexHtml));
 
 // ---------- B. sli-eli-layout.html ----------
 const subHtml = readPublic('sli-eli-layout.html');
@@ -62,6 +71,9 @@ check('B3 子功能頁的 Sidebar 加上 id="app-sidebar"', /<aside class="sideb
 check('B4 子功能頁品牌連結回 index.html', /id="topbar-brand"[^>]*href="index\.html"|href="index\.html"[^>]*id="topbar-brand"/.test(subHtml));
 check('B5 子功能頁引用 css/topbar.css 與 js/topbar.js',
   /css\/topbar\.css/.test(subHtml) && /js\/topbar\.js/.test(subHtml));
+check('B6 子功能頁同樣是「☰ 目錄＋搜尋」同一膠囊（placeholder 搜尋目錄）',
+  /class="topbar-nav-search"/.test(subHtml) && /class="topbar-nav-search-sep"/.test(subHtml)
+  && /placeholder="搜尋目錄"/.test(subHtml));
 
 // ---------- C. public/css/topbar.css ----------
 const css = readPublic('css/topbar.css');
@@ -77,10 +89,19 @@ const sidebarOpen = cssBlock(css, 'body.has-topbar .sidebar.is-open');
 check('C4 展開狀態 translateY(0) 且可互動、有轉場動畫',
   /translateY\(0\)/.test(sidebarOpen) && /opacity:\s*1/.test(sidebarOpen)
   && /pointer-events:\s*auto/.test(sidebarOpen) && /transition:/.test(sidebarOpen));
-check('C5 主內容實際從工作列下方開始（margin-top＋高度，不是 padding-top）',
-  /margin-top:\s*var\(--topbar-h\)/.test(cssBlock(css, 'body.has-topbar .app-layout'))
-  && /height:\s*calc\(100vh - var\(--topbar-h\)\)/.test(cssBlock(css, 'body.has-topbar .app-layout'))
-  && !/padding-top:\s*var\(--topbar-h\)/.test(cssBlock(css, 'body.has-topbar .app-layout')));
+// 主內容實際從工作列下方開始：body 用 padding-top 讓位（padding 不會 margin collapse）
+// ⚠️ 不可改回 `.app-layout { margin-top: var(--topbar-h) }`：子元素的 margin-top 會與 body 上外邊界合併，
+//    讓 html 文件高度多出一個 topbar 高度（實測 56px）→ 視窗本身還能再捲 56px，
+//    一旦被 anchor／scrollIntoView／window.scrollTo 捲動，內容與 sticky 步驟列就會滑到工作列底下（看起來像重疊）。
+const bodyHasTopbar = cssBlock(css, 'body.has-topbar');
+const appLayoutTopbar = cssBlock(css, 'body.has-topbar .app-layout');
+check('C5 主內容從工作列下方開始（body padding-top＋固定高度＋不可捲，非 margin-top）',
+  /padding-top:\s*var\(--topbar-h\)/.test(bodyHasTopbar)
+  && /height:\s*100dvh/.test(bodyHasTopbar)
+  && /overflow:\s*hidden/.test(bodyHasTopbar)
+  && /margin-top:\s*0/.test(appLayoutTopbar)
+  && /height:\s*100%/.test(appLayoutTopbar)
+  && !/margin-top:\s*var\(--topbar-h\)/.test(appLayoutTopbar));
 check('C6 有遮罩樣式與展開狀態', /position:\s*fixed/.test(cssBlock(css, '.topbar-scrim'))
   && /visibility:\s*visible/.test(cssBlock(css, '.topbar-scrim.is-open')));
 check('C7 搜尋過濾樣式（.nav-item.nav-filtered-out 隱藏）',
@@ -102,6 +123,19 @@ const stepNavCss = cssBlock(css, 'body.has-topbar .xls-step-nav');
 check('C11 步驟列緊貼工作列下方（top 8~10px）且不透明',
   /top:\s*(8|10)px/.test(stepNavCss) && /background:/.test(stepNavCss)
   && /--input-bg/.test(stepNavCss));
+// 任何地方都不可再用 margin-top 讓位（桌面與 ≤900px 響應式都一樣），否則視窗會多出可捲高度
+// 註解裡提到舊做法是允許的 → 先去掉 CSS 註解再檢查
+const cssNoComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+check('C12 整份 topbar.css 沒有 margin-top: var(--topbar-h)（避免 margin collapse 讓視窗可捲）',
+  !/margin-top:\s*var\(--topbar-h\)/.test(cssNoComments));
+// 「☰ 目錄 ＋ 目錄搜尋」膠囊：圓角外框、焦點光環畫在**外框**（:focus-within）、中間細分隔線
+const navSearchCss = cssBlock(css, '.topbar-nav-search');
+const navSearchFocusCss = cssBlock(css, '.topbar-nav-search:focus-within');
+const navSearchSepCss = cssBlock(css, '.topbar-nav-search-sep');
+check('C13 「目錄＋搜尋」膠囊：圓角外框＋:focus-within 光環＋1px 分隔線',
+  /border-radius:\s*\d+px/.test(navSearchCss) && /border:\s*1px solid/.test(navSearchCss)
+  && /box-shadow:\s*0 0 0 3px var\(--surface-glow\)/.test(navSearchFocusCss)
+  && /width:\s*1px/.test(navSearchSepCss));
 
 // ---------- D. public/js/topbar.js ----------
 const js = readPublic('js/topbar.js');

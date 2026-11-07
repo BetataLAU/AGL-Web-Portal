@@ -294,7 +294,67 @@ function renderPreviewPanel(fileIndex, data) {
     }
   }
   panel.style.display = 'block';
+  // 表頭兩列分層 sticky：面板顯示後量測第 1 列（TAG 列）高度寫入 --xls-head-h
+  xlsSyncStickyHeadHeight();
   xlsScrollToEl(document.getElementById('xls-preview-panel'));
+}
+
+// ===== ② 預覽表格：兩列表頭 sticky 分層（TAG 那行永遠看得到）=====
+// thead 有兩列（第 1 列＝欄位 TAG＋Excel 欄字母、第 2 列＝原始欄名），兩列都是 sticky。
+// 若兩列都 top:0，往下捲時第 2 列會整片蓋在第 1 列上 → 看不到 TAG。
+// CSS 讓第 2 列黏在 `--xls-head-h` 下緣，數值在這裡量測第 1 列高度後寫入（TAG 換行會變高）。
+
+// 面板寬度改變（目錄抽屜開合、視窗縮放）也會讓 TAG 換行 → 有 ResizeObserver 就自動追蹤
+let xlsHeadObserver = null;
+let xlsHeadObservedEl = null;
+function xlsWatchStickyHead(wrap) {
+  if (!wrap) return;
+  if (typeof window === 'undefined' || typeof window.ResizeObserver !== 'function') return;
+  if (xlsHeadObservedEl === wrap) return; // 同一個容器只觀察一次（面板重繪會換新容器）
+  if (xlsHeadObserver) xlsHeadObserver.disconnect();
+  xlsHeadObservedEl = wrap;
+  xlsHeadObserver = new window.ResizeObserver(() => xlsScheduleStickyHeadSync());
+  xlsHeadObserver.observe(wrap);
+}
+
+function xlsSyncStickyHeadHeight() {
+  if (typeof document === 'undefined') return;
+  const panel = document.getElementById('xls-preview-panel');
+  if (!panel || !panel.querySelector) return;
+  const wrap = panel.querySelector('.xls-preview-table-wrap');
+  if (!wrap || !wrap.style) return;
+  const headRow = wrap.querySelector ? wrap.querySelector('.xls-preview-table > thead > tr') : null;
+  let h = 0;
+  if (headRow && typeof headRow.getBoundingClientRect === 'function') {
+    const r = headRow.getBoundingClientRect();
+    h = Math.round((r && r.height) || 0);
+  }
+  if (h > 0) {
+    if (typeof wrap.style.setProperty === 'function') wrap.style.setProperty('--xls-head-h', `${h}px`);
+  } else if (typeof wrap.style.removeProperty === 'function') {
+    wrap.style.removeProperty('--xls-head-h'); // 量不到（面板未顯示）→ 維持 CSS 預設 top:0
+  }
+  xlsWatchStickyHead(wrap);
+}
+
+// 視窗尺寸改變／字型載入後第 1 列可能換行變高 → 延遲重算（debounce，避免連續 resize 反覆排版）
+let xlsHeadSyncTimer = null;
+function xlsScheduleStickyHeadSync() {
+  if (xlsHeadSyncTimer) clearTimeout(xlsHeadSyncTimer);
+  xlsHeadSyncTimer = setTimeout(xlsSyncStickyHeadHeight, 150);
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('resize', xlsScheduleStickyHeadSync);
+  window.addEventListener('orientationchange', xlsScheduleStickyHeadSync);
+}
+if (typeof document !== 'undefined' && document.fonts && document.fonts.ready
+  && typeof document.fonts.ready.then === 'function') {
+  document.fonts.ready.then(xlsSyncStickyHeadHeight).catch(() => {});
+}
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  // 繁中字型較晚載入時表頭高度會變，載入完成後再校正一次
+  document.addEventListener('DOMContentLoaded', xlsScheduleStickyHeadSync);
 }
 
 function xlsColName(idx) {

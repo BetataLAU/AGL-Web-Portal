@@ -1,9 +1,10 @@
 // ===== 頂部工作列（Topbar）行為測試（最小 DOM stub，免瀏覽器）=====
 // 以 vm sandbox 載入 public/js/topbar.js，驗證：
 //   A. ☰ 點一下 → 抽屜 .is-open（CSS 動畫）＋ aria-expanded ＋ body.topbar-nav-open
-//   B. 游標離開抽屜 → 延遲後自動收合；游標回到抽屜 → 取消收合
+//   B. 游標離開抽屜 → 延遲後自動收合；游標回到抽屜／「目錄＋搜尋」膠囊 → 取消收合
 //   C. ESC / 點擊抽屜外 → 收合
-//   D. 搜尋框輸入 → 展開抽屜並過濾目錄（無權限隱藏的項目不受影響）
+//   D. 搜尋框輸入 → 展開抽屜並過濾目錄（無權限隱藏的項目不受影響）；
+//      點「目錄＋搜尋」膠囊內任何位置不收合、點放大鏡圖示會聚焦輸入框
 //   E. topbarSetSection() 同步「目前位置」；主題切換循環 light→dark→ocean
 // 用法：node scripts/test-topbar-behavior.js
 const fs = require('fs');
@@ -107,6 +108,12 @@ const scrim = makeEl('topbar-scrim');
 const crumb = makeEl('topbar-crumb-text');
 const searchInput = makeEl('topbar-search-input');
 const navEmpty = makeEl('nav-empty');
+// 「☰ 目錄 ＋ 目錄搜尋」同一個膠囊（外框）＋搜尋框外框
+const navGroup = makeEl('topbar-nav-search');
+const searchBox = makeEl('topbar-search');
+searchBox.contains = (t) => t === searchInput || !!t.inSearchBox;
+const focusCalls = [];
+searchInput.focus = () => focusCalls.push(1);
 const brand = makeEl('topbar-brand');
 brand.attrs.href = '#section-home';
 const themeBtn = makeEl('topbar-theme-btn');
@@ -130,6 +137,8 @@ const els = {
   'topbar-scrim': scrim,
   'topbar-crumb-text': crumb,
   'topbar-search-input': searchInput,
+  'topbar-search': searchBox,
+  'topbar-nav-search': navGroup,
   'nav-empty': navEmpty,
   'topbar-brand': brand,
   'topbar-theme-btn': themeBtn,
@@ -227,6 +236,20 @@ const openByClick = () => {
   await sleep(CLOSE_DELAY_GUESS);
   check('B3 游標移回抽屜 → 取消已排定的收合', isOpen());
 
+  // --- B4. 游標移到「☰ 目錄 ＋ 搜尋框」整組 → 取消已排定的收合 ---
+  openByClick();
+  sidebar.dispatch('mouseleave');
+  navGroup.dispatch('mouseenter'); // 兩者同一個膠囊，游標在整組裡都算「還在使用」
+  await sleep(CLOSE_DELAY_GUESS);
+  check('B4 游標移到「目錄＋搜尋」膠囊 → 取消收合', isOpen());
+
+  // --- B5. 游標從 ☰ 移到同一膠囊的搜尋框（組內移動，不會再觸發 mouseenter）→ 不收合 ---
+  openByClick();
+  menuBtn.dispatch('mouseleave');  // 先排定 260ms 後收合
+  navGroup.dispatch('mouseover');  // 但游標其實還在同一個膠囊內（☰ → 搜尋框）
+  await sleep(CLOSE_DELAY_GUESS);
+  check('B5 游標在「目錄＋搜尋」膠囊內移動 → 不收合', isOpen());
+
   // --- C. ESC / 點擊抽屜外 ---
   fireDoc('keydown', { key: 'Escape' });
   check('C1 ESC 收合抽屜', !isOpen());
@@ -257,6 +280,16 @@ const openByClick = () => {
     `(clicks=${clicks.slice(beforeEnter).join(',')})`);
   check('D6 收合後清除搜尋字與過濾狀態',
     searchInput.value === '' && !home.classList.contains('nav-filtered-out'));
+
+  // --- D7/D8：目錄與搜尋是同一個膠囊（點膠囊內任何位置都不收合、點放大鏡聚焦輸入框）---
+  openByClick();
+  fireDoc('pointerdown', { target: { inSearchBox: true } }); // 點搜尋框（含放大鏡）
+  check('D7 點「目錄＋搜尋」膠囊內的搜尋框不會收起抽屜', isOpen());
+
+  const beforeFocus = focusCalls.length;
+  searchBox.dispatch('click', { target: { tagName: 'I' } }); // 點放大鏡圖示
+  check('D8 點放大鏡圖示 → 聚焦搜尋輸入框', focusCalls.length === beforeFocus + 1);
+  fireDoc('keydown', { key: 'Escape' }); // 收合，維持後續測試的前提
 
   // --- E. 目前位置 / 主題 / 時鐘 ---
   sandbox.window.topbarSetSection('section-orders');

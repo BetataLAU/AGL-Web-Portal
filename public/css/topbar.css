@@ -1,0 +1,445 @@
+/* ===== 頂部工作列（Topbar）=====
+   目的：把原本「常駐左側」的 Sidebar 改成「從頂部工作列往下展開的抽屜」，
+   主內容因此可以吃滿整個寬度（增加工作空間）。
+   - 只有含 <body class="has-topbar"> 的頁面（index.html / sli-eli-layout.html）才生效；
+     users.html / login.html 不受影響（layout.css 的 .sidebar 原樣保留）。
+   - 抽屜收合方式：translateY 往上捲回工作列後面（不影響主內容的捲動位置）。
+   - 游標離開抽屜範圍會自動收合（邏輯在 public/js/topbar.js，延遲 260ms 避免誤關）。 */
+
+:root {
+  --topbar-h: 56px;
+}
+
+/* ---------- 工作列本體 ---------- */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px; /* 與 .main-content 的左右 padding(24px) 對齊，內容邊界齊一 */
+  z-index: 1400; /* 低於 modal(9999) / time-picker(3000)，高於抽屜(1300) */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.66));
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+  transition: box-shadow 0.25s ease, background 0.25s ease;
+}
+
+[data-theme="dark"] .topbar {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.82));
+}
+
+[data-theme="ocean"] .topbar {
+  background: linear-gradient(180deg, rgba(236, 254, 255, 0.92), rgba(236, 254, 255, 0.74));
+}
+
+/* 往下捲動後加一點陰影，讓工作列與內容分層 */
+.topbar.is-scrolled {
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.topbar-right {
+  gap: 6px;
+}
+
+/* ---------- 最左邊：目錄開關（☰） ---------- */
+.topbar-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease,
+              box-shadow 0.2s ease, transform 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topbar-menu-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.topbar-menu-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--surface-glow);
+  border-color: var(--primary);
+}
+
+.topbar-menu-btn[aria-expanded="true"] {
+  color: #fff;
+  border-color: transparent;
+  background: var(--primary-gradient);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.3);
+}
+
+.topbar-menu-btn i {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.topbar-menu-label {
+  white-space: nowrap;
+}
+
+/* ---------- 品牌（點擊回首頁） ---------- */
+.topbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 4px 6px;
+  border-radius: 10px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.topbar-brand:hover {
+  color: var(--primary);
+  background: var(--surface-glow);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+
+/* ---------- 目前位置（breadcrumb） ---------- */
+.topbar-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  overflow: hidden;
+}
+
+.topbar-crumb > i {
+  color: var(--primary);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+#topbar-crumb-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- 右側：功能搜尋 ---------- */
+.topbar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.topbar-search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--surface-glow);
+}
+
+.topbar-search i {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.topbar-search input {
+  width: clamp(110px, 16vw, 210px);
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.83rem;
+  min-width: 0;
+}
+
+.topbar-search input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.topbar-search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* ---------- 右側：圖示按鈕 ---------- */
+.topbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topbar-icon-btn:hover {
+  color: var(--primary);
+  background: var(--surface-glow);
+  border-color: var(--border-color);
+}
+
+.topbar-icon-btn:focus-visible {
+  outline: none;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ---------- 右側：香港時間 ---------- */
+.topbar-clock {
+  padding-left: 8px;
+  border-left: 1px solid var(--border-color);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---------- 抽屜背後的淡化遮罩（點擊可收起） ---------- */
+.topbar-scrim {
+  position: fixed;
+  inset: var(--topbar-h) 0 0 0;
+  z-index: 1250;
+  background: rgba(2, 6, 23, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.topbar-scrim.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.3s ease, visibility 0s;
+}
+
+
+/* 抽屜展開時工作列更不透明，抽屜往上滑動時才不會從半透明處「透出來」 */
+body.topbar-nav-open .topbar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(255, 255, 255, 0.94));
+}
+
+[data-theme="dark"] body.topbar-nav-open .topbar {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.99), rgba(15, 23, 42, 0.95));
+}
+
+[data-theme="ocean"] body.topbar-nav-open .topbar {
+  background: linear-gradient(180deg, rgba(236, 254, 255, 0.99), rgba(236, 254, 255, 0.95));
+}
+
+/* ===== 主內容「實際」從工作列下緣開始 =====
+   用 margin-top + height（而不是 padding-top）：
+   - padding-top 屬於捲動內容的一部分，往下捲時 padding 會跟著捲走 → 內容仍會滑到固定工作列「底下」，
+     半透明的工作列就會和內容重疊（文字從 bar 後面透出來）。
+   - 改成 margin-top + height 後，捲動容器本身的上緣就在工作列下緣，
+     任何內容捲到最上面都只會停在這裡，永遠不會和工作列重疊。
+   高度用 100vh 並補 100dvh（手機瀏覽器網址列會伸縮，dvh 才不會被切掉）。 */
+body.has-topbar .app-layout {
+  margin-top: var(--topbar-h);
+  height: calc(100vh - var(--topbar-h));
+  height: calc(100dvh - var(--topbar-h));
+  min-height: 0;
+  padding-top: 0;
+  scroll-padding-top: 0;
+}
+
+/* 頁面層級的 sticky 元素（例如 Shipper Role Project 的步驟快速跳轉列）
+   貼在捲動容器上緣下方 8px → 視覺上就緊貼在固定工作列下面（不會有空一條的內容從中間穿過）。
+   另外給不透明底色，避免下方卡片文字從半透明背景透出來（疊字）。 */
+body.has-topbar .xls-step-nav {
+  top: 8px;
+  background: linear-gradient(var(--card-bg, #fff), var(--card-bg, #fff)), var(--input-bg, #fff);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+}
+
+/* ===== 目錄抽屜：原本的 Sidebar 改成從工作列往下展開 ===== */
+body.has-topbar .sidebar {
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0;
+  width: 320px;
+  max-width: min(360px, 90vw);
+  height: calc(100vh - var(--topbar-h));
+  height: calc(100dvh - var(--topbar-h));
+  max-height: calc(100vh - var(--topbar-h));
+  max-height: calc(100dvh - var(--topbar-h));
+  padding: 20px 18px;
+  border-right: 1px solid var(--border-color);
+  border-radius: 0 0 22px 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1300;
+  /* 玻璃背景：疊在 card-bg 上，抽屜覆蓋內容時仍看得清楚 */
+  background:
+    linear-gradient(180deg, var(--sidebar-bg), transparent 55%),
+    var(--card-bg);
+  box-shadow: 16px 26px 60px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  /* 收合狀態：整塊往上捲回工作列後面 */
+  transform: translateY(calc(-100% - var(--topbar-h) - 10px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.3s ease,
+              visibility 0s linear 0.42s;
+}
+
+body.has-topbar .sidebar.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.22s ease,
+              visibility 0s;
+}
+
+/* 抽屜頂端的小把手（提示「從上面拉下來」） */
+body.has-topbar .sidebar::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border-color);
+  pointer-events: none;
+}
+
+/* 抽屜裡的目錄若被搜尋過濾掉 */
+.nav-item.nav-filtered-out {
+  display: none !important;
+}
+
+/* 搜尋沒有結果時的提示 */
+.nav-empty {
+  display: none;
+  padding: 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.nav-empty.is-visible {
+  display: block;
+}
+
+/* ===== 響應式 ===== */
+@media (max-width: 900px) {
+  /* 手機版主內容 padding 變 16px → 工作列左右 padding 同步 */
+  .topbar {
+    padding: 0 16px;
+  }
+
+  /* 抽屜改成覆蓋層後，主內容容器自己捲動（原本是視窗捲動） */
+  body.has-topbar .app-layout {
+    margin-top: var(--topbar-h);
+    height: calc(100vh - var(--topbar-h));
+    height: calc(100dvh - var(--topbar-h));
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  body.has-topbar .sidebar {
+    position: fixed;
+    width: min(88vw, 340px);
+    max-width: 88vw;
+    height: calc(100vh - var(--topbar-h));
+    height: calc(100dvh - var(--topbar-h));
+    max-height: calc(100vh - var(--topbar-h));
+    max-height: calc(100dvh - var(--topbar-h));
+    border-radius: 0 0 18px 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    padding: 0 16px; /* 與手機版 .main-content padding(16px) 對齊 */
+    gap: 8px;
+  }
+
+  .topbar-menu-btn {
+    padding: 0 10px;
+  }
+
+  .topbar-menu-label,
+  .topbar-brand,
+  .topbar-divider,
+  .topbar-clock {
+    display: none;
+  }
+
+  .topbar-search input {
+    width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-search {
+    display: none; /* 極窄螢幕優先保留目錄與工具按鈕 */
+  }
+}
+
+/* 尊重「減少動畫」偏好 */
+@media (prefers-reduced-motion: reduce) {
+  body.has-topbar .sidebar,
+  body.has-topbar .sidebar.is-open {
+    transition-duration: 0.01ms;
+  }
+}

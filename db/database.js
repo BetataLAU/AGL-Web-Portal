@@ -401,6 +401,30 @@ db.serialize(() => {
   db.run('CREATE INDEX IF NOT EXISTS idx_uld_weight_ulds_sheet ON uld_weight_ulds(sheet_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_uld_weight_items_uld ON uld_weight_items(uld_id)');
 
+  // ===== ULD 夾重系統：MAWB 申報列（方案 B）=====
+  // 一票一列＝載荷表左邊那一欄（SEQ／MAWB／DEST／申報 PCS·WT／W/H or Booking）。
+  // 各板只填件數，重量由 calc.uldApplyMawbAllocation() 依件數分到各板（Σ = 申報重量）。
+  // auto_alloc：1 = 依件數自動分重量（預設）／0 = 保留各板自填重量（舊資料自動長出來的列用 0，
+  //             避免升級後把使用者原本填好的分板重量改掉）。
+  db.run(`
+    CREATE TABLE IF NOT EXISTS uld_weight_mawbs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sheet_id INTEGER NOT NULL,
+      seq INTEGER DEFAULT 0,
+      mawb TEXT,
+      mawb_record_id INTEGER,
+      dest TEXT,
+      pcs INTEGER DEFAULT 0,
+      declared_weight REAL DEFAULT 0,
+      wh_ref TEXT,
+      auto_alloc INTEGER DEFAULT 1,
+      is_squeeze INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_uld_weight_mawbs_sheet ON uld_weight_mawbs(sheet_id)');
+
   // ===== ULD 夾重系統：歷史版本（V3）=====
   // 每次「新增／儲存／鎖定／解鎖／套用／補建 Booking」都留一份 snapshot（JSON，只存輸入值），
   // 供版本清單與異動比對用。每張表只保留最近 N 版（見 routes/uld-weight.js 的 VERSION_KEEP）。

@@ -3,7 +3,7 @@
 // 確保「畫面算的」與「存進資料庫的」永遠一致。
 //
 // 核心規則（見 docs/design/uld-weight-system.md）：
-//   目標淨重 R = RCL Gross − Tare（B 散貨 Tare = 0）
+//   目標淨重 R = RCL WT（RCL 磅單填的就是淨重；Tare 只顯示參考，不再從 RCL 扣除）
 //   磅差     D = R − Σ 各票申報重量（正 = RCL 比申報重，含裝板物料）
 //   夾重票（可多票）依比例分攤 D；未勾選夾重的票「重量不變」
 //   取整：P / X（交板）一律整數（1.0）；B（散貨）可用 0.5 或 1.0
@@ -218,7 +218,9 @@ export function uldComputeUnit(unit, options = {}) {
     manualRatio: raw && raw.squeeze_ratio != null ? uldNum(raw.squeeze_ratio) : null
   }));
 
-  const targetNet = rclGross - tare;
+  // RCL 欄 = 貨站磅單的淨重（RCL wt）→ 目標淨重就是 RCL 值。
+  // Tare（板重）仍讀進來、仍顯示，但**不再從 RCL 扣除**（2026-11-07 規則變更）。
+  const targetNet = rclGross;
   const declaredSum = items.reduce((sum, it) => sum + it.declared, 0);
   const diff = targetNet - declaredSum;
   const diffPct = targetNet > 0 ? (diff / targetNet) * 100 : 0;
@@ -397,7 +399,7 @@ export function uldComputeUnit(unit, options = {}) {
     // R2：本次實際套用的比例上下限（%，100 = 該方向不限）
     clampMinPct: Number(((clampInfo.minRatio || 0) * 100).toFixed(2)),
     clampMaxPct: Number(((clampInfo.maxRatio || 1) * 100).toFixed(2)),
-    diffAfterFinal: Number((rclGross - tare - finalSum).toFixed(6)),
+    diffAfterFinal: Number((targetNet - finalSum).toFixed(6)),
     finalSum,
     pcsSum,
     items,
@@ -505,8 +507,9 @@ export function uldComputeSheet(sheet, options = {}) {
     return acc;
   }, { unitCount: 0, bulkCount: 0, rclTotal: 0, tareTotal: 0, netTotal: 0, diffTotal: 0, pcsTotal: 0 });
   totals.mawbCount = mawbs.length;
-  totals.diffPct = totals.rclTotal - totals.tareTotal > 0
-    ? (totals.diffTotal / (totals.rclTotal - totals.tareTotal)) * 100
+  // 磅差 % 以 RCL（淨重）合計為分母（RCL 已是淨重，不再扣 Tare）
+  totals.diffPct = totals.rclTotal > 0
+    ? (totals.diffTotal / totals.rclTotal) * 100
     : 0;
   totals.hasError = issues.some(i => i.level === 'error');
 
@@ -632,6 +635,72 @@ export function uldSplitByPcs(totalWeight, items, inc = 1) {
     i += 1;
   }
   return ticks.map(v => Number((v * step).toFixed(6)));
+}
+
+// ===== 方案 B：MAWB 申報列 → 各板重量分配 =====
+// 一票 MAWB 的「申報重量」放在表級（`uld_weight_mawbs`），各板只填件數；
+// 重量依件數比例分到各板（Σ 一定等於該票申報重量，尾差給件數最多的一筆）。
+// 這裡是**唯一**的分配規則：前端、後端、載荷表顯示都呼叫這支，避免三套算法。
+export function uldAllocateByPcs(totalWeight, cells) {
+  const list = Array.isArray(cells) ? cells : [];
+  if (!list.length) return [];
+  const total = Math.max(0, uldNum(totalWeight));
+  const pcsList = list.map(cell => Math.max(0, uldNum(cell && cell.pcs)));
+  let pcsTotal = pcsList.reduce((sum, v) => sum + v, 0);
+  const bases = pcsTotal > 0 ? pcsList : list.map(() => 1);
+  if (!(pcsTotal > 0)) pcsTotal = list.length;
+
+  const out = bases.map(v => Number(((v / pcsTotal) * total).toFixed(3)));
+  const diff = Number((total - out.reduce((sum, v) => sum + v, 0)).toFixed(3));
+  if (Math.abs(diff) > 1e-9) {
+    let maxIdx = 0;
+    bases.forEach((v, i) => { if (v > bases[maxIdx]) maxIdx = i; });
+    out[maxIdx] = Math.max(0, Number((out[maxIdx] + diff).toFixed(3)));
+  }
+  return out;
+}
+
+// 把整張表的「申報列」套回各板明細（就地修改 item.declared_weight）
+// 規則：
+//   1. 只有 `auto_alloc !== 0` 的列會依件數重算（手動分配的舊資料 auto_alloc = 0，重量不動）
+//   2. 沒有對應申報列的明細（舊資料／臨時列）維持原重量
+//   3. 一票只在一板 → 整票重量都在那一板
+// 回傳 { changed }：有幾個明細的重量被調整（給存檔／測試用）
+export function uldApplyMawbAllocation(sheet) {
+  const src = sheet || {};
+  const rows = Array.isArray(src.mawbs) ? src.mawbs : [];
+  if (!rows.length) return { changed: 0 };
+
+  const rowByKey = new Map();
+  rows.forEach(row => {
+    const key = uldMawbKey(row && row.mawb);
+    if (key && !rowByKey.has(key)) rowByKey.set(key, row);
+  });
+
+  const cellsByKey = new Map();
+  (src.ulds || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      const key = uldMawbKey(item && item.mawb);
+      if (!key || !rowByKey.has(key)) return;
+      if (!cellsByKey.has(key)) cellsByKey.set(key, []);
+      cellsByKey.get(key).push({ unit, item });
+    });
+  });
+
+  let changed = 0;
+  cellsByKey.forEach((cells, key) => {
+    const row = rowByKey.get(key);
+    if (!row) return;
+    // 手動分配（auto_alloc = 0，例如舊資料自動長出來的列）→ 保留各板原本填的重量
+    if (row.auto_alloc === 0 || row.auto_alloc === false) return;
+    const weights = uldAllocateByPcs(row.declared_weight, cells.map(cell => ({ pcs: cell.item.pcs })));
+    cells.forEach((cell, i) => {
+      const next = weights[i];
+      if (Math.abs(uldNum(cell.item.declared_weight) - next) > 1e-6) changed += 1;
+      cell.item.declared_weight = next;
+    });
+  });
+  return { changed };
 }
 
 // 檢核代碼 → 中文說明

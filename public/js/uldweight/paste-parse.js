@@ -58,3 +58,14 @@ export function uldParsePastedRows(text) {
 export function uldPasteHasRows(text) {
   return uldParsePastedRows(text).rows.length > 0;
 }
+
+// 貼上事件只攔「MAWB 類」欄位（data-draft／data-item-field／data-row-field = 'mawb'）。
+// 其他欄位（ULD#／Contour／RCL#／Port／件數／重量…）要讓瀏覽器照正常貼上：
+// 否則把 ULD#（例：PMC40026DS）貼進 ULD# 欄也會被丟去 addPastedRows() 當成 MAWB 驗證，
+// 跳出「沒有可加入的票…MAWB 是 11 位數字…格式不符」，使用者根本貼不進去。
+const PASTE_MAWB_FIELD_KEYS = ['draft', 'itemField', 'rowField'];
+
+export function uldPasteIsMawbField(dataset) {
+  const data = dataset || {};
+  return PASTE_MAWB_FIELD_KEYS.some(key => data[key] === 'mawb');
+}

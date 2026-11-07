@@ -20,9 +20,9 @@ RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量�
 | 名詞 | 定義 |
 |---|---|
 | 貨站（terminal） | **HACTL / AAT / CPSL** 三個（CPSL 為 CX 貨站，勿稱「CX 貨站」） |
-| RCL Gross | 貨站磅重後的總重，**最終決定** |
-| Tare weight | 板底重量（散貨 B 類無板底，視為 0） |
-| Net weight | 目標淨重 = `RCL Gross − Tare`；也＝該單位內所有 MAWB 貨物重量合計 |
+| RCL WT（淨重） | 貨站磅單上的重量＝**淨重**，最終決定（2026-11-07 起不再扣 Tare；DB 欄位名仍是 `rcl_gross_weight`） |
+| Tare weight | 板底重量（散貨 B 類無板底，視為 0）；**只顯示參考，不從 RCL 扣除** |
+| Net weight | 目標淨重 = **RCL WT**；也＝該單位內所有 MAWB 貨物重量合計 |
 | 磅差（diff） | `目標淨重 − Σ 各票申報重量`（正＝RCL 比申報重；含裝板物料） |
 | 夾重 | 把磅差分配給「夾重票」；**未勾選夾重的票重量不變** |
 | Pre-decl Type | `P` = Prepack（1 板 1 MAWB）／`X` = MIX（1 板 MAWB 數 ≥ 1，混裝）／`B` = Bulk（交散貨，不裝板，1 MAWB） |
@@ -32,6 +32,10 @@ RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量�
 
 **MAWB 範例**：`071-6195 2074` → 數字 `07161952074` → 航空公司 `071`、序號 `61952074` → `6195207 % 7 = 4` ＝ 檢查碼 `4` → 合法。
 輸入 `61952074`（只有序號）→ 航空公司補 `000` → `000-6195 2074`；輸入 `7161952074` → 補成 `071-6195 2074`。
+
+> **2026-11-07 規則變更（RCL wt = Net weight）**：卡片／載荷表的 RCL 欄填的是貨站的**淨重**，
+> 因此 **目標淨重 = RCL（不再 `RCL − Tare`）**；Tare 仍會存、仍會顯示（「Tare … 參考」），但不參與計算。
+> 舊資料若當初填的是 Gross，重算後每板會比原本多一個 Tare 的重量，需自行確認／修正。
 
 **取整（rounding）**
 
@@ -49,10 +53,18 @@ RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量�
 ## 3. 演算法（`public/js/uldweight/calc.js`）
 
 ```text
+（方案 B）先把「MAWB 申報列」的重量分回各板：
+  每票申報重量 Σ = sheet.mawbs[].declared_weight（左邊那一欄，人工輸入）
+  各板只填件數 item.pcs；重量 = 申報重量 × (該板件數 / 該票總件數)
+      尾差給件數最多的一筆，保證 Σ 各板重量 = 申報重量（calc.uldAllocateByPcs）
+  只有 auto_alloc ≠ 0 的列會重算；auto_alloc = 0（舊資料自動長出的列）保留各板自填重量
+  這一步在 uldComputed()（前端）與 loadSheetDetail()／PUT（後端）都會先跑 → 兩邊一致
+
 對每個收貨單位 u：
-  T = Tare（B 類 = 0）        G = RCL Gross
-  R = G − T                    目標淨重
-  D = R − Σ w_i                磅差（w_i = 該單位第 i 票申報重量）
+  T = Tare（B 類 = 0；只顯示參考，不參與計算）
+  G = RCL WT（貨站磅單的淨重）
+  R = G                        目標淨重（不再 R − T = G − T）
+  D = R − Σ w_i                磅差（w_i = 該單位第 i 票申報重量＝上一步分配結果）
   夾重票集合 S（可多票）；比例 p_i：
       weight（預設）w_i / Σ_S w_j ｜ pcs 件數 ｜ equal 平均 ｜ manual 手動%
   比例上下限（選用，0＝不限）：把 p_i 限制在 [clamp_min_pct, clamp_max_pct]
@@ -69,12 +81,12 @@ RCL 的 **Gross weight 是最終權威**，但倉庫申報的每票 MAWB 重量�
 
 | CASE | 輸入 | 結果 |
 |---|---|---|
-| 1 | 1 ULD 1 MAWB：RCL 2568／Tare 115／申報 2438 | 夾重後 **2453**（= 2568 − 115） |
-| 2 | 1 ULD 2 MAWB：RCL 2568／Tare 115／a 2138（夾重）／b 300 | a **2153**、b **300**（不變） |
-| 3 | 2 ULD 1 MAWB：2300(T115) / 2000(T112)，原 4050 | **2185 + 1888 = 4073** |
-| 4 | 板a 540(T115)：a 300、b 125（夾 b）；板b 1000(T112)：b 888 | a **300**、b **1013**（125 + 888） |
+| 1 | 1 ULD 1 MAWB：RCL 2453／Tare 115／申報 2438 | 夾重後 **2453**（= RCL） |
+| 2 | 1 ULD 2 MAWB：RCL 2453／Tare 115／a 2138（夾重）／b 300 | a **2153**、b **300**（不變） |
+| 3 | 2 ULD 1 MAWB：RCL 2185(T115) / 1888(T112)，原 4050 | **2185 + 1888 = 4073** |
+| 4 | 板a RCL 425(T115)：a 300、b 125（夾 b）；板b RCL 888(T112)：b 888 | a **300**、b **1013**（125 + 888） |
 
-**多票按比例**（新規則）：RCL 2568／T115 → 淨重 2453、a 2138 / b 300 兩票都夾重
+**多票按比例**（新規則）：RCL 2453（Tare 115 只參考）、a 2138 / b 300 兩票都夾重
 → D = 15、比例 87.68% / 12.32% → 精確 2151.15 / 301.85 → 取整 2152 / 302 = 2454 → 尾差 −1 由 a 吸收 → **2151 / 302（合計 2453）**。
 
 ---
@@ -127,6 +139,11 @@ uld_weight_items             -- 每板 × 每 MAWB（重量分攤的關鍵）
   id, uld_id, seq, mawb, mawb_record_id(可選), port, pcs,
   declared_weight, final_weight, is_squeeze(0/1), squeeze_ratio(手動%), lih_type
 
+uld_weight_mawbs             -- MAWB 申報列（方案 B：載荷表左邊那一欄）
+  id, sheet_id, seq, mawb(UNIQUE per sheet 由程式檢查), mawb_record_id(可選),
+  dest, pcs, declared_weight, wh_ref(W/H or Booking 自由文字),
+  auto_alloc(1=依件數自動分重量／0=保留各板自填重量), is_squeeze(0/1)
+
 uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照）
   id, sheet_id, version_no, action(create|save|lock|unlock|apply|sync_bookings|duplicate),
   status, note, snapshot(JSON：只存輸入值), summary(JSON：單位數／票數／淨重／磅差),
@@ -174,10 +191,25 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 
 - 側欄：`模擬裝板系統` 之後 → **ULD 夾重系統**（`#section-uld-weight`，admin/staff，鎖頭樣式同打板計劃）
 - 右側版面：**清單**（夾重表列表）↔ **編輯**
+  - **編輯有兩種版面**（`state.ui.view`；工具列「▤ 卡片編輯／▦ 載荷表」切換，**預設載荷表**）：
+    - **載荷表（grid，U4＋方案 B，2026-11-07）**：照業界 **CHARTER LOADING SHEET** 的 Excel 版面，**可直接編輯**。
+      一票一列（申報列 `uld_weight_mawbs`）：`SEQ／MAWB／DEST／申報 PCS／申報 WT／W/H or Booking／自動／夾重／MAWB 上數（Σ final）`；
+      一板一組欄（`01/A`、`02/B`…，板頭顯示 `ULD#/Contour`）：每組 `PCS`（**手動填入這票在該板的件數**）＋`WT`（**算出來的**）；
+      重量分配：`calc.uldApplyMawbAllocation()` 依件數把申報 WT 分到各板（Σ = 申報 WT，尾差給件數最多的板）；
+      列上的「自動」取消（`auto_alloc = 0`）→ 保留各板自填重量（舊資料自動長出的列預設就是 0，升級不會偷改重量）。
+      顏色：**紅字＝夾重**（`item.is_squeeze`）、**橙字＝wt 有差**（上數 − 申報 > 0.5kg）、標頭「要自己入」黃底／「會自動計」藍底；
+      底部：各板 `板合計（PCS／WT）`、`RCL（淨）／ 磅差`、`PLAN TTL`（Σ 申報）／`RCL TTL`／`DIFF`（**K**）。
+      操作：最下面一列輸入 MAWB# 按 Enter＝新增一票、`＋ 列`、每列 `✕` 刪除（連同各板件數）、
+      `Clear Content`（清空全部申報列與明細，表頭與板資料保留、不自動存檔）、`Check & format MAWB#`（批次格式化＋列不合格）、
+      `Sort by MAWB#`（**只改顯示順序**，不寫回資料）。資料一律由 `uldComputeSheet()` 轉出（`public/js/uldweight/sheet-grid.js` 的
+      `uldGridModel()`／`uldGridHtml()`／`uldGridSortRows()`／`refreshGridComputed()`），**不另寫算法**。
+      卡片檢視（`▤ 卡片檢視`）改板資料（ULD#／Contour／Tare／RCL（淨）／LIH／Pre-decl／夾重方式）；卡片裡的 MAWB／申報 WT 唯讀
+      （由申報列管），只有 `auto_alloc = 0` 的列可以直接改重量。
+    - **卡片（cards）**：原本的收貨單位卡片＋MAWB 彙總＋檢核（新增／修改明細、夾重勾選、比例、LIH 都在這裡）。
   - 表頭：**常駐 5 欄**（日期／貨站／航班／航班日期／經手人）＋備註；**B 取整／尾差／磅差警示 %／kg／比例下限 %／上限 %** 收在「⚙ 進階」內（預設收起，值照常送出、列印時自動展開）
   - ① 收貨單位卡（**網格排列、可拖曳調整板序**；板序代號 `01/A`、`02/B`…`41/AO`）：
     標頭＝`⠿` 拖曳把手＋板序＋ULD#（或散貨批號）＋chips＋`▾`收合／`⤓`單板 PDF／`🖨`單板列印／`✕`刪除；
-    摘要列＝`件數 PCS ｜ RCL − Tare → 淨重 K`；主欄位＝Port／件數／RCL；次要欄位（Contour／RCL#／Tare／物料／LIH／Pre-decl／夾重方式）收在 `▾` 內；
+    摘要列＝`件數 PCS ｜ RCL（淨）x ｜ Tare y 參考 → 夾重後 K`；主欄位＝Port／件數／RCL（淨）；次要欄位（Contour／RCL#／Tare／物料／LIH／Pre-decl／夾重方式）收在 `▾` 內；
     明細表＝勾選夾重、MAWB、DEST、PCS、WT、比例、最終、LIH（緊湊模式下比例／LIH 隱藏）
   - ② MAWB 彙總（原重／夾重後／差額／Port，跨板自動加總）
   - ③ 檢核清單（error 紅、warn 黃；沒有問題時**不顯示**空盒子）
@@ -201,7 +233,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
   → 「加入選取的單位」并入草稿（Pre-decl 預設 P）→ 再按「儲存」；只重畫面板，不整份重畫
 - **「🖨 列印」**（W4）：編輯畫面工具列按鈕（`data-action="print"` → `printCurrent()` → `window.print()`），**草稿與鎖定都可印**。
   紙本版面只靠 `public/css/uld-weight.css` 的 `@media print`：A4 直式（`@page size: A4 portrait`）、單欄、
-  只留「表頭（表號／狀態／日期／貨站／航班／航班日期／經手人／備註）＋每板 `RCL − Tare = 淨重`＋每票最終重量＋磅差＋全表合計」；
+  只留「表頭（表號／狀態／日期／貨站／航班／航班日期／經手人／備註）＋每板 `RCL（淨重）`＋Tare 參考＋每票最終重量＋磅差＋全表合計」；
   隱藏側欄、頁面上的匯入／匯出按鈕、`.uldw-editor-actions`、`.uldw-rcl`、勾選欄與列操作欄、`.uldw-item-add`；
   輸入框／下拉去框線只留值（`-webkit-text-fill-color: #000` 讓鎖定灰字也能印）、每張單位卡 `break-inside: avoid`、
   數字 `tabular-nums`、`.uldw-table-wrap` 改 `overflow: visible`；`@media print` 內用 `html, html[data-theme]` 強制黑字白底。
@@ -234,9 +266,11 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 
 | 檔案 | 說明 |
 |---|---|
-| `public/js/uldweight/calc.js` | **計算核心**（前後端共用，純函式；含 `uldBookingTotals()`：W2 回寫 Booking Record 的彙總、`uldApplyRatioClamp()`：R2 比例上下限） |
+| `public/js/uldweight/calc.js` | **計算核心**（前後端共用，純函式；含 `uldBookingTotals()`：W2 回寫 Booking Record 的彙總、`uldApplyRatioClamp()`：R2 比例上下限、**`uldAllocateByPcs()`／`uldApplyMawbAllocation()`：方案 B 申報重量→各板分配**） |
 | `public/js/uldweight/state.js` | 前端狀態、API↔編輯狀態轉換、拆分、payload 帶 DB `id`（R3） |
-| `public/js/uldweight/render.js` | 清單／編輯畫面渲染 + 局部更新 |
+| `public/js/uldweight/render.js` | 清單／編輯畫面渲染 + 局部更新（`ui.view === 'grid'` 時改呼叫 `sheet-grid.js`） |
+| `public/js/uldweight/sheet-grid.js` | **U4 載荷表（CHARTER LOADING SHEET）／方案 B**：`uldGridModel()`（純函式：申報列 × 一板一組欄、上數／PLAN／RCL／DIFF）、`uldGridHtml()`（可編輯矩陣：申報列輸入、各板件數、自動／夾重、紅橙字、底部合計）、`uldGridSortRows()`（只排顯示順序）、`refreshGridComputed()`（輸入時只更新數字與顏色，不重畫） |
+| `scripts/uld-weight-grid-preview.js` | **U4 版面預覽**：用假資料（5 票 × 3 板）產出 `data/work/uldw-grid-preview.html`，免登入／免伺服器即可目視檢查載荷表版面（`npm run preview:uldweight`） |
 | `public/js/uldweight/booking-search.js` | **W1**：打板計劃 Booking Record 的輸入即篩選／自動帶入（`wireBookingPickers`） |
 | `public/js/uldweight/rcl-parse.js` | **W3**：RCL 磅單解析純函式（**前後端共用**：表頭偵測、欄位對應、列驗證／略過規則） |
 | `public/js/uldweight/rcl-import.js` | **W3**：選檔、上傳預覽、改欄位後本機重算、勾選列（前端輔助） |
@@ -255,11 +289,12 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 ## 9. 測試指令
 
 ```bash
-node scripts/test-uld-weight-calc.js      # 101 項
+node scripts/test-uld-weight-calc.js      # 109 項（含 §18 申報列重量分配）
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
 node scripts/test-uld-weight-mawb.js      # 33 項（MAWB 11 位／航空公司補 0／mod 7 檢查碼／格式化）
-node scripts/test-uld-weight-frontend.js  # 165 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI）
-node scripts/test-uld-weight-api.js       # API 端對端（148 項，會自己啟伺服器，port 3157；含 U3 Loading Sheet）
+node scripts/test-uld-weight-frontend.js  # 200 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI、§22 載荷表、§23 方案 B 申報列）
+node scripts/uld-weight-grid-preview.js   # U4：產出載荷表預覽（data/work/uldw-grid-preview.html）
+node scripts/test-uld-weight-api.js       # API 端對端（會自己啟伺服器，port 3157；含 U3 Loading Sheet、B1～B11 申報列）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
 node scripts/test-nav-hierarchy.js        # 側欄主/子層級
 ```

@@ -5,17 +5,18 @@ import {
   fetchReportPdfBlob, fetchLoadingSheetPdfBlob, fetchBatchPdfBlob, syncSheetBookings, fetchSheetVersions, fetchVersionDiff
 } from './uldweight/api.js';
 import {
-  uldWeightState, uldSheetFromApi, uldSheetPayload, uldNewUnit, uldNewItem,
-  uldFindUnit, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, ULD_MAX_UNITS
+  uldWeightState, uldSheetFromApi, uldSheetPayload, uldNewUnit, uldNewItem, uldNewMawb,
+  uldFindUnit, uldFindMawb, uldRowItems, uldEnsureItem, uldSyncRowToItems, uldRemoveMawbRow,
+  uldSetRowSqueeze, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, ULD_MAX_UNITS
 } from './uldweight/state.js';
 import { renderList, renderEditor, refreshComputed, refreshRclImport, refreshVersions } from './uldweight/render.js';
 import { resetBookingCache } from './uldweight/booking-search.js';
-import { uldParsePastedRows } from './uldweight/paste-parse.js';
-import { uldFormatMawb, uldValidateMawb, uldMawbDigits } from './uldweight/mawb-format.js';
+import { uldParsePastedRows, uldPasteIsMawbField } from './uldweight/paste-parse.js';
+import { uldFormatMawb, uldValidateMawb, uldMawbDigits, uldMawbIssueText } from './uldweight/mawb-format.js';
 import {
   pickRclFile, loadRclPreview, applyRclColumns, selectedRclRows, rclUldKey
 } from './uldweight/rcl-import.js';
-import { uldFmtKg, uldNum, uldMawbKey, uldIssueText, uldLihLabel } from './uldweight/calc.js';
+import { uldFmtKg, uldNum, uldMawbKey, uldIssueText, uldLihLabel, uldUnitLabel } from './uldweight/calc.js';
 
 let initialized = false;
 let rootEl = null;
@@ -348,9 +349,18 @@ function resetVersionsState() {
 }
 
 // U1／U2：切換夾重表時把「顯示狀態」歸零（不要沿用上一張的展開／選單狀態）
+// 新版預設用「載荷表」（CHARTER LOADING SHEET）版面；要看／改卡片再按「▤ 卡片編輯」。
 function resetUiState() {
   const s = state();
-  s.ui = { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null };
+  s.ui = {
+    view: 'grid',
+    gridSortMawb: false,
+    more: false,
+    advanced: false,
+    expanded: {},
+    expandAll: false,
+    printUnit: null
+  };
 }
 
 // ===== W3：RCL 磅單匯入（Excel／CSV → 預覽 → 勾選後併入草稿）=====
@@ -541,6 +551,36 @@ function onRootInput(event) {
     if (NUMERIC_HEADER_FIELDS.includes(field)) refreshComputed(rootEl);
     return;
   }
+
+  // ===== 方案 B：載荷表（申報列／各板件數）=====
+  const rowTr = target.closest ? target.closest('tr[data-row-uid]') : null;
+  const gridRow = rowTr ? uldFindMawb(rowTr.dataset.rowUid) : null;
+  if (gridRow && target.dataset.rowField) {
+    const field = target.dataset.rowField;
+    if (field === 'mawb' || field === 'dest') {
+      const prevMawb = target.dataset.prevMawb != null ? target.dataset.prevMawb : gridRow.mawb;
+      gridRow[field] = upperIfNeeded(field, ['mawb', 'dest'], target.value);
+      // 改 MAWB／DEST 要同步各板明細（否則重量會算在舊號碼上）
+      uldSyncRowToItems(gridRow, uldMawbKey(prevMawb));
+      target.dataset.prevMawb = gridRow.mawb;
+    } else if (field === 'pcs' || field === 'declared_weight') {
+      gridRow[field] = Math.max(0, uldNum(target.value));
+    } else if (field === 'wh_ref') {
+      gridRow.wh_ref = target.value;
+    }
+    uldMarkDirty();
+    refreshComputed(rootEl);
+    return;
+  }
+  if (gridRow && target.dataset.cellField === 'pcs') {
+    const item = uldEnsureItem(target.dataset.cellUnit, gridRow);
+    if (!item) return; // 這一票還沒填 MAWB#
+    item.pcs = Math.max(0, Math.round(uldNum(target.value)));
+    uldMarkDirty();
+    refreshComputed(rootEl);
+    return;
+  }
+
   const unit = unitOfElement(target);
   if (!unit) return;
 
@@ -602,6 +642,41 @@ function onRootChange(event) {
     refreshComputed(rootEl);
     return;
   }
+
+  // ===== 方案 B：載荷表的勾選框（自動分配／夾重）與 MAWB 失焦格式化 =====
+  const chgRowTr = target.closest ? target.closest('tr[data-row-uid]') : null;
+  const chgRow = chgRowTr ? uldFindMawb(chgRowTr.dataset.rowUid) : null;
+  if (chgRow && target.dataset.rowField) {
+    const field = target.dataset.rowField;
+    if (field === 'auto_alloc') {
+      chgRow.auto_alloc = target.checked ? 1 : 0;
+    } else if (field === 'is_squeeze') {
+      uldSetRowSqueeze(chgRow, target.checked);
+    } else if (field === 'mawb' && target.type !== 'checkbox') {
+      // MAWB 失焦時格式化（輸入中不格式化，避免游標跳動）
+      const formatted = uldFormatMawb(target.value);
+      if (formatted && formatted !== target.value) {
+        const prevMawb = chgRow.mawb;
+        chgRow.mawb = formatted;
+        target.value = formatted;
+        uldSyncRowToItems(chgRow, uldMawbKey(prevMawb));
+      }
+      target.dataset.prevMawb = chgRow.mawb;
+    } else if (field === 'dest') {
+      target.value = String(chgRow.dest || '').toUpperCase();
+    }
+    uldMarkDirty();
+    refreshComputed(rootEl);
+    return;
+  }
+  if (chgRow && target.dataset.cellField === 'pcs') {
+    const item = uldEnsureItem(target.dataset.cellUnit, chgRow);
+    if (item) item.pcs = Math.max(0, Math.round(uldNum(target.value)));
+    uldMarkDirty();
+    refreshComputed(rootEl);
+    return;
+  }
+
   const unit = unitOfElement(target);
   if (!unit) return;
 
@@ -680,6 +755,18 @@ function onRootClick(event) {
     case 'add-item': addItem(btn.dataset.uid); break;
     case 'del-item': removeItem(btn.dataset.uid, btn.dataset.itemUid); break;
     case 'split-item': splitItem(btn.dataset.uid, btn.dataset.itemUid); break;
+    // 新版載荷表（CHARTER LOADING SHEET）
+    case 'view-grid': setEditorView('grid'); break;
+    case 'view-cards': setEditorView('cards'); break;
+    case 'grid-sort': toggleGridSort(); break;
+    case 'grid-check-mawb': checkAndFormatMawbs(); break;
+    case 'grid-clear': clearSheetContent(); break;
+    case 'grid-add-row': {
+      const newInput = rootEl && rootEl.querySelector('#uldw-grid-new-mawb');
+      addMawbRow(newInput ? newInput.value : '');
+      break;
+    }
+    case 'grid-del-row': deleteMawbRow(btn.dataset.rowUid); break;
     default: break;
   }
   syncHeaderButtons();
@@ -688,7 +775,10 @@ function onRootClick(event) {
 // ===== U1：顯示狀態切換（盡量只動 class，不整份重畫 → 不打斷輸入）=====
 function uiState() {
   const s = state();
-  if (!s.ui) s.ui = { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null };
+  if (!s.ui) s.ui = {
+    view: 'grid', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null
+  };
   if (s.ui.expandAll === undefined) s.ui.expandAll = false;
   return s.ui;
 }
@@ -730,6 +820,146 @@ function toggleCompact() {
   render();
 }
 
+// ===== 新版：載荷表（CHARTER LOADING SHEET）=====
+// 版面切換：grid（矩陣檢視，預設）↔ cards（收貨單位卡片，輸入用）
+function setEditorView(view) {
+  const ui = uiState();
+  ui.view = view === 'cards' ? 'cards' : 'grid';
+  render();
+}
+
+// Sort by MAWB#：只改顯示順序，不寫回資料（存檔後仍是原本的加入順序）
+function toggleGridSort() {
+  const ui = uiState();
+  ui.gridSortMawb = !ui.gridSortMawb;
+  render();
+  toast(ui.gridSortMawb ? '載荷表已依 MAWB# 排序（只影響顯示）' : '載荷表已恢復加入順序');
+}
+
+// Check & format MAWB#：合格的格式化成 000-0000 0000；不合格只列出、不改值
+function checkAndFormatMawbs() {
+  const s = state();
+  if (!s.current) return;
+  if (s.current.status === 'locked') { alert('已鎖定的夾重表不能修改。'); return; }
+  const bad = [];
+  let formatted = 0;
+  const formatOne = (raw, label) => {
+    const check = uldValidateMawb(raw);
+    if (!check.ok) {
+      bad.push(`${label}｜${raw}：${uldMawbIssueText(check)}`);
+      return null;
+    }
+    const next = check.formatted || uldFormatMawb(raw);
+    return next && next !== raw ? next : null;
+  };
+
+  // 申報列優先（改列 → 各板明細一起改）
+  (s.current.mawbs || []).forEach((row, idx) => {
+    const raw = String(row.mawb || '').trim();
+    if (!raw) return;
+    const next = formatOne(raw, `SEQ ${String(idx + 1).padStart(3, '0')}`);
+    if (!next) return;
+    const prevMawb = row.mawb;
+    row.mawb = next;
+    uldSyncRowToItems(row, uldMawbKey(prevMawb));
+    formatted += 1;
+  });
+  // 沒有對應申報列的明細（舊資料／手動加的）也一併處理
+  const rowKeys = new Set((s.current.mawbs || []).map(row => uldMawbKey(row.mawb)));
+  (s.current.ulds || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      const raw = String(item.mawb || '').trim();
+      if (!raw || rowKeys.has(uldMawbKey(raw))) return;
+      const next = formatOne(raw, uldUnitLabel(unit));
+      if (!next) return;
+      item.mawb = next;
+      formatted += 1;
+    });
+  });
+
+  if (formatted) {
+    uldMarkDirty();
+    render();
+  }
+  if (bad.length) {
+    const list = bad.slice(0, 20).join('\n');
+    const more = bad.length > 20 ? `\n…另有 ${bad.length - 20} 筆` : '';
+    alert(`以下 MAWB# 格式不正確（未修改）：\n\n${list}${more}`);
+    return;
+  }
+  toast(formatted ? `已格式化 ${formatted} 筆 MAWB#` : '所有 MAWB# 格式都正確');
+}
+
+// Clear Content：清空所有板的明細與申報列（表頭與板資料保留；不會自動存檔）
+function clearSheetContent() {
+  const s = state();
+  if (!s.current) return;
+  if (s.current.status === 'locked') { alert('已鎖定的夾重表不能修改。'); return; }
+  const units = s.current.ulds || [];
+  const itemCount = units.reduce((n, unit) => n + (unit.items || []).length, 0);
+  const rowCount = (s.current.mawbs || []).length;
+  if (!itemCount && !rowCount) {
+    toast('目前沒有明細可清空');
+    return;
+  }
+  if (!confirm(`確定清空全部明細（${rowCount} 票 MAWB／${itemCount} 筆分板）？\n表頭與板資料（ULD#／Tare／RCL（淨）…）會保留；這個動作不會立即存檔。`)) return;
+  s.current.mawbs = [];
+  units.forEach(unit => { unit.items = []; });
+  uldMarkDirty();
+  render();
+  toast('已清空明細（尚未儲存）');
+}
+
+// 新增一票申報列（載荷表「＋ 列」／最下面那列按 Enter）
+function addMawbRow(mawb = '') {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return null;
+  const raw = String(mawb == null ? '' : mawb).trim();
+  const formatted = raw ? (uldFormatMawb(raw) || raw.toUpperCase()) : '';
+  if (formatted) {
+    const key = uldMawbKey(formatted);
+    const exists = (s.current.mawbs || []).some(row => uldMawbKey(row.mawb) === key);
+    if (exists) {
+      alert(`MAWB「${formatted}」已經在清單裡，請直接改那一列的件數／重量。`);
+      return null;
+    }
+    const check = uldValidateMawb(formatted);
+    if (!check.ok && !confirm(`MAWB「${formatted}」\n${uldMawbIssueText(check)}\n\n仍要加入嗎？`)) return null;
+  }
+  s.current.mawbs = s.current.mawbs || [];
+  const row = uldNewMawb({ mawb: formatted, seq: s.current.mawbs.length });
+  s.current.mawbs.push(row);
+  uldMarkDirty();
+  render();
+  const input = rootEl && rootEl.querySelector(`tr[data-row-uid="${row.uid}"] [data-row-field="mawb"]`);
+  if (input && input.focus) input.focus();
+  return row;
+}
+
+// 刪除一票申報列（連同它在各板的件數）
+function deleteMawbRow(rowUid) {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return;
+  const row = uldFindMawb(rowUid);
+  if (!row) return;
+  const linked = uldRowItems(row).length;
+  const label = row.mawb || '（空白 MAWB）';
+  if (linked && !confirm(`確定刪除「${label}」？\n它在 ${linked} 個板上的件數也會一起刪掉。`)) return;
+  uldRemoveMawbRow(rowUid);
+  uldMarkDirty();
+  render();
+  toast(`已刪除 ${label}（尚未儲存）`);
+}
+
+// 記錄「進欄位前的 MAWB」：改名時才能把各板明細一起改到新號碼
+function onRootFocusIn(event) {
+  const target = event.target;
+  if (!target || !target.dataset || target.dataset.rowField !== 'mawb') return;
+  const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
+  const row = tr ? uldFindMawb(tr.dataset.rowUid) : null;
+  if (row) target.dataset.prevMawb = row.mawb || '';
+}
+
 // ===== U2：貼上多列（Excel／booking list → 一次建立多票）=====
 function addPastedRows(uid, text) {
   const s = state();
@@ -758,12 +988,31 @@ function addPastedRows(uid, text) {
     if (!key) return;
     if (existing.has(key)) { duplicated += 1; return; }
     existing.add(key);
+    const pcs = Math.max(0, Math.round(uldNum(row.pcs)));
+    const weight = Math.max(0, uldNum(row.weight));
+    const dest = String(row.port || '').toUpperCase() || String(unit.port || '').toUpperCase();
+    // 方案 B：貼上的每一票都要有「申報列」；重量放列上，各板只記件數
+    s.current.mawbs = s.current.mawbs || [];
+    let mawbRow = s.current.mawbs.find(r => uldMawbKey(r.mawb) === key) || null;
+    if (!mawbRow) {
+      mawbRow = uldNewMawb({
+        mawb, dest, pcs, declared_weight: weight,
+        auto_alloc: 1,
+        is_squeeze: unit.items.length === 0 // 第一票預設夾重
+      });
+      s.current.mawbs.push(mawbRow);
+    } else {
+      if (!mawbRow.dest && dest) mawbRow.dest = dest;
+      if (!uldNum(mawbRow.pcs) && pcs) mawbRow.pcs = pcs;
+      if (!uldNum(mawbRow.declared_weight) && weight) mawbRow.declared_weight = weight;
+    }
     unit.items.push(uldNewItem({
       mawb,
-      port: (String(row.port || '').toUpperCase()) || String(unit.port || '').toUpperCase(),
-      pcs: uldNum(row.pcs),
-      declared_weight: uldNum(row.weight),
-      is_squeeze: unit.items.length === 0, // 第一票預設夾重
+      mawb_record_id: mawbRow.mawb_record_id || null,
+      port: dest || mawbRow.dest,
+      pcs,
+      declared_weight: 0, // 由申報 WT 依件數分配
+      is_squeeze: !!mawbRow.is_squeeze,
       lih_type: 'N'
     }));
     addedKeys.push(key);
@@ -827,6 +1076,25 @@ function onRootKeydown(event) {
     return;
   }
   if (event.key !== 'Enter' || !s.current || s.current.status === 'locked') return;
+  // 載荷表最下面那列：輸入 MAWB# 按 Enter → 直接新增一票
+  if (target.id === 'uldw-grid-new-mawb') {
+    if (event.preventDefault) event.preventDefault();
+    const value = target.value;
+    target.value = '';
+    addMawbRow(value);
+    return;
+  }
+  // 申報列的 MAWB：Enter 跳到「申報件數」
+  if (target.dataset.rowField === 'mawb') {
+    const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
+    const pcsInput = tr ? tr.querySelector('[data-row-field="pcs"]') : null;
+    if (pcsInput && pcsInput.focus && event.preventDefault) {
+      event.preventDefault();
+      pcsInput.focus();
+      if (pcsInput.select) pcsInput.select();
+    }
+    return;
+  }
   if (!target.dataset.draft) return;
   if (event.preventDefault) event.preventDefault();
   const unit = unitOfElement(target);
@@ -834,6 +1102,9 @@ function onRootKeydown(event) {
 }
 
 // ===== U2：在卡片內貼上多列 → 自動拆成多票 =====
+// 只攔「MAWB 類」欄位（MAWB# 輸入框／明細列 MAWB／申報列 MAWB），其他欄位照瀏覽器正常貼上。
+// 原因：ULD# 欄（placeholder 就是 PMC12345QR）若也被攔，貼 PMC40026DS 這種 ULD# 會被
+// 丟去 addPastedRows() 當成 MAWB 驗證 → 跳出「沒有可加入的票…MAWB 是 11 位數字…」。
 function onRootPaste(event) {
   const target = event.target;
   if (!target || !target.dataset) return;
@@ -841,6 +1112,10 @@ function onRootPaste(event) {
   if (!s.current || s.current.status === 'locked') return;
   const unit = unitOfElement(target);
   if (!unit) return;
+  // 貼在「非輸入欄位」的空白處 → 仍當成「貼 MAWB 清單」的快捷（原有習慣不變）
+  const tag = String(target.tagName || '').toUpperCase();
+  const isFormField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (isFormField && !uldPasteIsMawbField(target.dataset)) return;
   const text = event.clipboardData ? event.clipboardData.getData('text') : '';
   if (!text) return;
   const parsed = uldParsePastedRows(text);
@@ -1101,7 +1376,7 @@ function exportExcel() {
   const computed = uldComputed();
 
   const detailRows = [[
-    '類別', 'ULD#／批號', 'Contour', 'Port', '件數', 'Tare', 'RCL Gross', '物料',
+    '類別', 'ULD#／批號', 'Contour', 'Port', '件數', 'Tare', 'RCL（淨）', '物料',
     '淨重（夾重後）', '磅差', 'LIH', 'Pre-decl', '夾重方式',
     'MAWB#', 'MAWB Port', 'MAWB 件數', '申報重量', '夾重', '比例%', '最終重量'
   ]];
@@ -1127,8 +1402,8 @@ function exportExcel() {
   const infoRows = [
     ['夾重表', sheet.sheet_no], ['日期', sheet.sheet_date], ['貨站', sheet.terminal],
     ['航班', `${sheet.flight_no || ''} ${sheet.flight_date || ''}`.trim()], ['經手人', sheet.handler],
-    ['RCL 總重（kg）', computed.totals.rclTotal], ['Tare 總重（kg）', computed.totals.tareTotal],
-    ['淨重合計（kg）', computed.totals.netTotal], ['磅差（kg）', computed.totals.diffTotal], []
+    ['RCL（淨）總計（kg）', computed.totals.rclTotal], ['Tare 總重（kg，參考）', computed.totals.tareTotal],
+    ['夾重後合計（kg）', computed.totals.netTotal], ['磅差（kg）', computed.totals.diffTotal], []
   ];
   const issueRows = [['級別', '對象', '內容']];
   computed.issues.forEach(issue => {
@@ -1151,7 +1426,7 @@ function copySummary() {
   const sign = t.diffTotal > 0 ? '+' : '';
   const lines = [
     `【ULD 夾重】${sheet.sheet_no}　${sheet.terminal || ''}　${sheet.flight_no || ''}　${sheet.sheet_date || ''}`,
-    `單位 ${t.unitCount}（散 ${t.bulkCount}）｜MAWB ${t.mawbCount}｜RCL ${uldFmtKg(t.rclTotal)}kg｜淨重 ${uldFmtKg(t.netTotal)}kg｜磅差 ${sign}${uldFmtKg(t.diffTotal)}kg`
+    `單位 ${t.unitCount}（散 ${t.bulkCount}）｜MAWB ${t.mawbCount}｜RCL（淨）${uldFmtKg(t.rclTotal)}kg｜夾重後 ${uldFmtKg(t.netTotal)}kg｜磅差 ${sign}${uldFmtKg(t.diffTotal)}kg`
   ];
   computed.mawbs.forEach(row => {
     const rowSign = row.diff > 0 ? '+' : '';
@@ -1205,6 +1480,8 @@ export function setupUldWeightSection() {
   rootEl.addEventListener('change', onRootChange);
   // U2：Enter 加入、貼上多列、卡片拖曳排序
   rootEl.addEventListener('keydown', onRootKeydown);
+  // 方案 B：進 MAWB 欄時記住原值（改名時各板明細要同步）
+  rootEl.addEventListener('focusin', onRootFocusIn);
   rootEl.addEventListener('paste', onRootPaste);
   rootEl.addEventListener('pointerdown', onRootPointerDown);
   rootEl.addEventListener('dragstart', onRootDragStart);
@@ -1286,13 +1563,42 @@ function addItem(uid) {
     if (!go) return;
   }
   unit.items = unit.items || [];
+  // ===== 方案 B：先找／建「MAWB 申報列」，再在這板建立明細 =====
+  // 申報 PCS／WT 放表級；這板只記件數，重量由 calc 依件數分配。
+  s.current.mawbs = s.current.mawbs || [];
+  const key = uldMawbKey(mawb);
+  const draftPcs = Math.max(0, Math.round(uldNum(draft.pcs)));
+  const draftWeight = Math.max(0, uldNum(draft.declared_weight));
+  const draftDest = String(draft.port || '').trim().toUpperCase();
+  let row = s.current.mawbs.find(r => uldMawbKey(r.mawb) === key) || null;
+  if (!row) {
+    row = uldNewMawb({
+      mawb,
+      mawb_record_id: draft.mawb_record_id || null,
+      dest: draftDest,
+      pcs: draftPcs,
+      declared_weight: draftWeight,
+      auto_alloc: 1,
+      is_squeeze: unit.items.length === 0 // 第一票預設夾重（單票最常見）
+    });
+    s.current.mawbs.push(row);
+  } else {
+    if (!row.dest && draftDest) row.dest = draftDest;
+    if (!row.mawb_record_id && draft.mawb_record_id) row.mawb_record_id = draft.mawb_record_id;
+    if (!uldNum(row.pcs) && draftPcs) row.pcs = draftPcs;
+    if (!uldNum(row.declared_weight) && draftWeight) row.declared_weight = draftWeight;
+  }
+  if (unit.items.some(it => uldMawbKey(it.mawb) === key)) {
+    alert(`這一板已經有「${mawb}」，請直接改它的件數（重量由申報 WT 依件數分配）。`);
+    return;
+  }
   unit.items.push(uldNewItem({
     mawb,
-    mawb_record_id: draft.mawb_record_id || null, // 從打板計劃 Booking Record 選的才有值
-    port: String(draft.port || '').trim().toUpperCase(),
-    pcs: uldNum(draft.pcs),
-    declared_weight: uldNum(draft.declared_weight),
-    is_squeeze: unit.items.length === 0, // 第一票預設夾重（單票最常見）
+    mawb_record_id: row.mawb_record_id || draft.mawb_record_id || null,
+    port: draftDest || row.dest,
+    pcs: draftPcs,          // 先在這一板拿全部件數；要拆到別板就在載荷表改
+    declared_weight: 0,     // 由申報列的 WT 依件數分配（auto_alloc）
+    is_squeeze: !!row.is_squeeze,
     lih_type: draft.lih_type || 'N'
   }));
   unit.draft = { mawb: '', mawb_record_id: null, port: '', pcs: '', declared_weight: '', lih_type: 'N' };
@@ -1309,7 +1615,7 @@ function removeItem(uid, itemUid) {
   render();
 }
 
-// 依件數把一票 MAWB 的總重量拆到所有相關單位
+// 依件數把一票 MAWB 平均分配到它出現的板（重量會依件數自動分）
 function splitItem(uid, itemUid) {
   const s = state();
   const unit = uldFindUnit(uid);
@@ -1318,34 +1624,36 @@ function splitItem(uid, itemUid) {
   if (!item) return;
   const key = uldMawbKey(item.mawb);
   if (!key) {
-    alert('這一列沒有 MAWB#，無法拆分');
+    alert('這一列沒有 MAWB#，無法分配件數');
     return;
   }
-  const related = [];
+  const row = (s.current.mawbs || []).find(r => uldMawbKey(r.mawb) === key) || null;
+  const links = [];
   (s.current.ulds || []).forEach(u => {
     (u.items || []).forEach(it => {
-      if (uldMawbKey(it.mawb) === key) related.push(it);
+      if (uldMawbKey(it.mawb) === key) links.push({ unit: u, item: it });
     });
   });
-  if (related.length < 2) {
-    alert('這票 MAWB 只出現在一個單位，不需要拆分');
+  if (links.length < 2) {
+    alert('這票 MAWB 只出現在一個板，不需要分配件數');
     return;
   }
-  const suggested = related.reduce((sum, it) => sum + uldNum(it.declared_weight), 0);
-  const input = window.prompt(
-    `「${item.mawb}」的總重量（kg），將依件數拆到 ${related.length} 個單位：`,
-    suggested > 0 ? String(suggested) : ''
-  );
-  if (input == null) return;
-  const total = uldNum(input);
-  if (!(total > 0)) return;
-  const result = uldSplitMawb(uid, itemUid, total);
-  if (!result.count) {
-    alert('找不到可拆分的 MAWB 明細');
+  const totalPcs = row
+    ? uldNum(row.pcs)
+    : links.reduce((sum, link) => sum + uldNum(link.item.pcs), 0);
+  if (!(totalPcs > 0)) {
+    alert('這一票的申報件數是 0，請先在載荷表左邊填入申報 PCS。');
     return;
   }
+  const base = Math.floor(totalPcs / links.length);
+  let remainder = totalPcs - base * links.length;
+  links.forEach(link => {
+    link.item.pcs = base + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+  });
+  uldMarkDirty();
   render();
-  toast(`已拆分：${result.weights.map(w => uldFmtKg(w)).join(' / ')} kg`);
+  toast(`已把 ${totalPcs} 件平均分到 ${links.length} 個板（重量依件數自動分）`);
 }
 
 // 對外掛到 window（main.js 的 initProtectedSections 用 window.setupUldWeightSection 呼叫）

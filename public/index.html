@@ -7,6 +7,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20fill='%2366f'%20/%3E%3Ctext%20x='50%25'%20y='55%25'%20font-size='10'%20text-anchor='middle'%20fill='white'%20font-family='Arial'%3EG%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/topbar.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
   <!-- 通用工具元件樣式 -->
@@ -22,13 +23,49 @@
   <link rel="stylesheet" href="css/xls-booking.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body class="has-topbar">
   <div id="scroll-progress-bar" aria-hidden="true"></div>
   <canvas id="bg-particles-canvas" aria-hidden="true"></canvas>
   <canvas id="cursor-trail-canvas" aria-hidden="true"></canvas>
+
+  <!-- 頂部工作列：最左邊 ☰ 開關目錄（抽屜往下展開）＋ 目前位置 ＋ 搜尋 ＋ 工具 -->
+  <header class="topbar" id="topbar">
+    <div class="topbar-left">
+      <button type="button" class="topbar-menu-btn" id="topbar-menu-btn"
+              aria-expanded="false" aria-controls="app-sidebar" title="開關目錄（Alt+M）">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i><span class="topbar-menu-label">目錄</span>
+      </button>
+      <a href="#section-home" class="topbar-brand" id="topbar-brand" title="回到首頁">✨ Betata 比他他</a>
+      <span class="topbar-divider" aria-hidden="true"></span>
+      <nav class="topbar-crumb" aria-label="目前位置">
+        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+        <span id="topbar-crumb-text">HOME</span>
+      </nav>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-search">
+        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input type="search" id="topbar-search-input" autocomplete="off"
+               placeholder="搜尋功能（Ctrl+K）" aria-label="搜尋目錄功能">
+      </div>
+      <button type="button" class="topbar-icon-btn" id="topbar-theme-btn" title="切換主題" aria-label="切換主題">
+        <i class="fa-solid fa-sun" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="topbar-icon-btn" id="topbar-fullscreen-btn" title="全螢幕" aria-label="全螢幕">
+        <i class="fa-solid fa-expand" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="topbar-icon-btn" id="topbar-top-btn" title="回到頁頂" aria-label="回到頁頂">
+        <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+      </button>
+      <span class="topbar-clock" id="topbar-clock" title="香港時間">--:--</span>
+    </div>
+  </header>
+  <!-- 目錄抽屜背後的淡化遮罩（點擊收起） -->
+  <div class="topbar-scrim" id="topbar-scrim"></div>
+
   <div class="app-layout">
-    <!-- 左側 Sidebar -->
-    <aside class="sidebar">
+    <!-- 左側目錄（頂部 ☰ 按鈕控制，往下展開的抽屜） -->
+    <aside class="sidebar" id="app-sidebar">
       <div class="sidebar-header">
         <span class="logo-text">✨ Betata 比他他</span>
       </div>
@@ -115,6 +152,9 @@
                 <i class="fa-solid fa-users-gear"></i> <span>使用者管理</span>
               </a>
             </nav>
+
+      <!-- 工作列搜尋沒有結果時的提示（topbar.js 控制顯示） -->
+      <div class="nav-empty" id="nav-empty">找不到符合的目錄</div>
 
       <div class="sidebar-footer">
         <span>v1.0 · SQLite</span>
@@ -481,7 +521,7 @@
           <div class="card-header-flex">
             <div>
               <h2><i class="fa-solid fa-scale-balanced"></i> ULD 夾重系統</h2>
-              <p class="card-desc">輸入貨站 RCL 磅重 → 勾選夾重 MAWB（可多票按比例）→ 自動算回每票最終重量（P/X 交板取整數、B 散貨 0.5／1.0）。MAWB 可直接搜尋打板計劃的 Booking Record 帶入件數與重量，也可手動輸入；RCL 磅單（Excel／CSV）可整批匯入 ULD、Tare 與磅重。清單可勾選多張批次下載 PDF（ZIP）；手動輸入的票可用「補建 Booking」反推到打板計劃；「版本」可比較每次異動的差異。</p>
+              <p class="card-desc">輸入貨站 RCL 磅重 → 勾選夾重 MAWB（可多票按比例）→ 自動算回每票最終重量（P/X 交板取整數、B 散貨 0.5／1.0）。預設用「載荷表（CHARTER LOADING SHEET）」矩陣：左邊一票一列輸入申報 PCS／WT、右邊每板只填件數（重量依件數自動分），紅字＝夾重、橙字＝wt 有差；按「▤ 卡片檢視」可看／改板資料（ULD#／Contour／Tare／RCL Gross／LIH）。MAWB 可直接搜尋打板計劃的 Booking Record 帶入件數與重量，也可手動輸入；RCL 磅單（Excel／CSV）可整批匯入 ULD、Tare 與磅重。清單可勾選多張批次下載 PDF（ZIP）；手動輸入的票可用「補建 Booking」反推到打板計劃；「版本」可比較每次異動的差異。</p>
             </div>
             <div class="uldw-header-actions">
               <button type="button" class="pill" id="uldw-btn-new"><i class="fa-solid fa-plus"></i> 新增夾重表</button>
@@ -564,6 +604,7 @@
   <script src="./js/xls-booking-assign.js"></script>
   <script src="./js/xls-booking-standard.js"></script>
   <script src="./js/xls-booking-workflow.js"></script>
+  <script src="./js/topbar.js"></script>
   <script src="./js/main.js"></script>
 </body>
 </html>

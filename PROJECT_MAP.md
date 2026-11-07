@@ -74,9 +74,10 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `index.html` | 單一頁面結構 + Sidebar 導航 |
+| `index.html` | 單一頁面結構 + 頂部工作列（`#topbar`）／目錄抽屜（`#app-sidebar`） |
 | `css/base.css` | 主題變數（Light/Dark/Ocean）與全域樣式 |
-| `css/layout.css` | 版面與響應式 |
+| `css/layout.css` | 版面與響應式（`body.has-topbar` 時由 `topbar.css` 改寫成抽屜） |
+| `css/topbar.css` | 頂部工作列與目錄抽屜（往下展開／往上捲回動畫、遮罩、搜尋過濾、響應式） |
 | `css/components.css` | 共用元件 |
 | `css/animations.css` | 動畫 |
 | `css/orders.css` | 訂單系統樣式（手機優先） |
@@ -92,7 +93,8 @@
 | `js/chat.js` | AI Playground 邏輯 |
 | `js/orders.js` | 訂單系統邏輯（前端主軸） |
 | `js/dbviewer.js` | 資料庫檢視器邏輯 |
-| `js/main.js` | 共用工具與初始化 |
+| `js/main.js` | 共用工具與初始化（`showSection()` 會呼叫 `topbarSetSection()` 同步工作列位置） |
+| `js/topbar.js` | 頂部工作列：☰ 開關目錄抽屜（游標離開自動收合）、目前位置、功能搜尋（過濾目錄）、主題循環、全螢幕、回到頁頂、HKT 時鐘 |
 | `js/xls-booking-state.js` | XLS Booking：常數/狀態/工具/上傳拖曳/初始化（第一個載入） |
 | `js/xls-booking-upload.js` | XLS Booking：上傳與檔案列表 |
 | `js/xls-booking-preview.js` | XLS Booking：自動偵測欄位、預覽面板、欄位指派 |
@@ -293,9 +295,11 @@ created_at, updated_at
 | GET | `/api/uld-weight/sheets/batch-pdf?ids=…` | **V2 批次 PDF（ZIP）**：`application/zip`（`uld-weight-batch-YYYYMMDD-HHmm.zip`）；ZIP 內每張 `<sheet_no>.pdf` ＋ `manifest.txt`（UTF-8 BOM）；`ids` 省略時用 `status=`／`search=` 篩選；上限 50 張；單張失敗不影響整批（`X-Uld-Weight-Pdf-Count`／`-Failed`）；**路由必須在 `GET /sheets/:id` 之前宣告** |
 
 - 權限：`requireRole('admin', 'staff')`；寫入記 `audit_log`（`uld_weight.*`）
-- 資料表：`uld_weight_sheets`（表頭；含 `diff_warn_pct`／`diff_warn_kg` 磅差門檻與 `clamp_min_pct`／`clamp_max_pct` 比例上下限）、`uld_weight_ulds`（收貨單位：P/X 板或 B 散貨）、`uld_weight_items`（每板 × 每 MAWB 的重量分攤）
-- 儲存策略（R3）：以 **id 做 diff 更新**（UPDATE／INSERT／DELETE；前端 payload 帶 `id`、新列 `null`；沒帶 id 的舊 payload 會整批重建）
-- 前端：`#section-uld-weight` + `public/js/uld-weight.js` + `public/js/uldweight/{state,render,api,booking-search}.js` + `public/css/uld-weight.css`
+- 資料表：`uld_weight_sheets`（表頭；含 `diff_warn_pct`／`diff_warn_kg` 磅差門檻與 `clamp_min_pct`／`clamp_max_pct` 比例上下限）、`uld_weight_mawbs`（**方案 B：MAWB 申報列**；`dest`／`pcs`／`declared_weight`／`wh_ref`／`auto_alloc`／`is_squeeze`）、`uld_weight_ulds`（收貨單位：P/X 板或 B 散貨）、`uld_weight_items`（每板 × 每 MAWB 的件數與重量分攤）
+- 儲存策略（R3）：以 **id 做 diff 更新**（UPDATE／INSERT／DELETE；前端 payload 帶 `id`、新列 `null`；沒帶 id 的舊 payload 會整批重建）；**申報列同理**（`mawb_rows`），沒帶 `mawb_rows` 的舊 payload 保留 DB 既有列（相容）
+- 重量分配（方案 B）：`calc.uldAllocateByPcs()`／`calc.uldApplyMawbAllocation()` 依各板件數把申報 WT 分下去（Σ = 申報 WT）；`auto_alloc = 0` 的列保留各板自填重量（舊資料自動長出的列預設 0）
+- 前端：`#section-uld-weight` + `public/js/uld-weight.js` + `public/js/uldweight/{state,render,sheet-grid,api,booking-search}.js` + `public/css/uld-weight.css`
+  - 編輯畫面兩種版面（`state.ui.view`，預設 `grid`）：**載荷表**（CHARTER LOADING SHEET，**可編輯**：左邊申報列 MAWB／DEST／PCS／WT／W-H／自動／夾重；右邊每板只填件數、重量自動分；底部 PLAN/RCL/DIFF）／**卡片**（板資料：ULD#／Contour／Tare／RCL Gross／LIH／Pre-decl；MAWB 與申報 WT 唯讀）
   - 「新增 MAWB」列的 MAWB 欄＝**輸入即篩選**打板計劃 Booking Record（選到後帶入件數／重量／Port＋`mawb_record_id`；手動輸入仍可用；`renderEditor()` 尾端 `wireBookingPickers()` 每次重畫重綁）
   - 鎖定後才有「套用到 Booking」按鈕（W2）：`calc.uldBookingTotals()` 彙總後回寫 `mawb_records.gross_weight`，跳出 applied／skipped／conflicts 報告
   - 「⇪ 匯入 RCL」（W3）：上傳磅單 → 面板（表頭列／4 個欄位對應／可勾選單位／略過原因）→ 加入草稿單位（Pre-decl 預設 P）→ 按「儲存」；`rcl-parse.js` 前後端共用

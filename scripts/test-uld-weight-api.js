@@ -209,7 +209,7 @@ const CASE4 = {
   ulds: [
     {
       kind: 'ULD', uld_number: 'PMC0003XX', contour_code: 'ZQ', port: 'HKG', pcs: 8,
-      tare_weight: 115, rcl_gross_weight: 540, material_weight: 0,
+      tare_weight: 115, rcl_gross_weight: 425, material_weight: 0,
       lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
       items: [
         { mawb: '160-00000005', port: 'HKG', pcs: 5, declared_weight: 300, is_squeeze: 0, lih_type: 'N' },
@@ -218,7 +218,7 @@ const CASE4 = {
     },
     {
       kind: 'ULD', uld_number: 'PMC0004XX', contour_code: 'PMC', port: 'HKG', pcs: 3,
-      tare_weight: 112, rcl_gross_weight: 1000, material_weight: 0,
+      tare_weight: 112, rcl_gross_weight: 888, material_weight: 0,
       lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
       items: [
         { mawb: '160-00000006', port: 'TPE', pcs: 3, declared_weight: 888, is_squeeze: 1, lih_type: 'N' }
@@ -355,9 +355,9 @@ const CASE4 = {
     const mawbB = (detail.mawbs || []).find(m => m.mawb === '160-00000006');
     check('CASE4 MAWB a = 300（不夾重）', mawbA && Number(mawbA.final) === 300, mawbA ? String(mawbA.final) : 'missing');
     check('CASE4 MAWB b = 125 + 888 = 1013', mawbB && Number(mawbB.final) === 1013, mawbB ? String(mawbB.final) : 'missing');
-    check('板 a 淨重 = 540 − 115 = 425', Number(detail.ulds[0].calc.finalSum) === 425, String(detail.ulds[0].calc.finalSum));
-    check('板 b 淨重 = 1000 − 112 = 888', Number(detail.ulds[1].calc.finalSum) === 888, String(detail.ulds[1].calc.finalSum));
-    check('全表淨重 = 1313', Number(detail.totals.netTotal) === 1313, String(detail.totals.netTotal));
+    check('板 a 淨重（RCL）= 425（Tare 115 不扣）', Number(detail.ulds[0].calc.finalSum) === 425, String(detail.ulds[0].calc.finalSum));
+    check('板 b 淨重（RCL）= 888（Tare 112 不扣）', Number(detail.ulds[1].calc.finalSum) === 888, String(detail.ulds[1].calc.finalSum));
+    check('全表夾重後 = 1313', Number(detail.totals.netTotal) === 1313, String(detail.totals.netTotal));
     check('全表無 error', detail.totals.hasError === false);
 
     // ---- 讀回（後端重算一致）----
@@ -543,13 +543,13 @@ const CASE4 = {
     const list = await req('GET', '/api/uld-weight/sheets');
     const row = (list.body.data || [])[0];
     check('清單 1 筆', (list.body.data || []).length === 1, String((list.body.data || []).length));
-    check('清單 RCL 總重 1540', row && Number(row.rcl_total) === 1540, row ? String(row.rcl_total) : 'missing');
-    check('清單淨重 1313', row && Number(row.net_total) === 1313, row ? String(row.net_total) : 'missing');
+    check('清單 RCL（淨）總計 1313', row && Number(row.rcl_total) === 1313, row ? String(row.rcl_total) : 'missing');
+    check('清單夾重後 1313', row && Number(row.net_total) === 1313, row ? String(row.net_total) : 'missing');
     check('清單板數 2', row && row.uld_count === 2, row ? String(row.uld_count) : 'missing');
 
     // ---- 錯誤資料 → 422（有磅差但未勾夾重）----
     const badPayload = JSON.parse(JSON.stringify(CASE4));
-    badPayload.ulds[0].rcl_gross_weight = 600; // 製造磅差（425 → 485）
+    badPayload.ulds[0].rcl_gross_weight = 600; // 製造磅差（RCL 425 → 600）
     badPayload.ulds[0].items.forEach(it => { it.is_squeeze = 0; });
     badPayload.ulds[1].items.forEach(it => { it.is_squeeze = 0; });
     const bad = await req('PUT', `/api/uld-weight/sheets/${sheetId}`, badPayload);
@@ -678,10 +678,10 @@ const CASE4 = {
 
     // ---- W5：門檻改變 → DIFF_TOO_BIG 行為跟著變（用複本測，不動上面的 CASE4 資料）----
     const bigDiffPayload = JSON.parse(JSON.stringify(CASE4));
-    bigDiffPayload.ulds[1].rcl_gross_weight = 1500; // 淨重 1388 vs 申報 888 → 磅差 500kg（36%）
+    bigDiffPayload.ulds[1].rcl_gross_weight = 1500; // RCL 1500 vs 申報 888 → 磅差 612kg（41%）
     const tightWarn = await req('PUT', `/api/uld-weight/sheets/${dupId}`,
       Object.assign({}, bigDiffPayload, { diff_warn_pct: 2, diff_warn_kg: 100 }));
-    check('W5 門檻 2% / 100kg → 磅差 500kg（36%）提示 DIFF_TOO_BIG',
+    check('W5 門檻 2% / 100kg → 磅差 612kg（41%）提示 DIFF_TOO_BIG',
       tightWarn.status === 200 && (tightWarn.body.data.issues || []).some(i => i.code === 'DIFF_TOO_BIG'),
       tightWarn.status === 200 ? JSON.stringify((tightWarn.body.data.issues || []).map(i => i.code)) : String(tightWarn.status));
     const looseWarn = await req('PUT', `/api/uld-weight/sheets/${dupId}`,
@@ -704,12 +704,12 @@ const CASE4 = {
       ulds: [
         {
           kind: 'ULD', uld_number: 'PMC0009XX', contour_code: 'ZQ', port: 'HKG', pcs: 5,
-          tare_weight: 100, rcl_gross_weight: 400, material_weight: 0,
+          tare_weight: 100, rcl_gross_weight: 300, material_weight: 0,
           lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
           items: [
             // 打板計劃已有這票（W2 前置建的 Booking，原重 300）→ 只連結、不重建
             { mawb: '160-00000005', port: 'HKG', pcs: 2, declared_weight: 150, is_squeeze: 0, lih_type: 'N' },
-            // 打板計劃沒有 → 建立（夾重票：淨重 300 − 150 = 150）
+            // 打板計劃沒有 → 建立（夾重票：RCL 淨重 300 − 申報 150 = 150）
             { mawb: '160-00008888', port: 'NRT', pcs: 3, declared_weight: 150, is_squeeze: 1, lih_type: 'N' }
           ]
         }
@@ -858,7 +858,135 @@ const CASE4 = {
       v3LockList[0].status === 'draft' && v3LockList[1].status === 'locked',
       `${v3LockList.length} 版／${v3LockList[0].status},${v3LockList[1].status}`);
 
+    // ---- 方案 B：MAWB 申報列（mawb_rows）----
+    // 舊資料（沒有 mawb_rows）→ GET 會用明細彙總自動長出列，且 auto_alloc = 0（不動原本各板重量）
+    const legacyDetail = await req('GET', `/api/uld-weight/sheets/${sheetId}`);
+    const legacyRows = (legacyDetail.body.data && legacyDetail.body.data.mawb_rows) || [];
+    check('B1 舊資料沒有申報列 → GET 用明細彙總自動長出（2 票、auto_alloc = 0）',
+      legacyRows.length === 2 && legacyRows.every(r => Number(r.auto_alloc) === 0),
+      JSON.stringify(legacyRows.map(r => [r.mawb, r.auto_alloc])));
+
+    const createdB = await req('POST', '/api/uld-weight/sheets', { flight_no: 'CX88' });
+    const sheetB = createdB.body.data && createdB.body.data.id;
+    check('B2 POST 新表（方案 B 用）→ 201', createdB.status === 201 && !!sheetB, String(createdB.status));
+
+    const payloadB = {
+      sheet_date: '2026-11-07', terminal: 'CPSL', flight_no: 'CX88', flight_date: '2026-11-07',
+      round_px: 1, round_b: 1, tail_mode: 'adjust_largest',
+      mawb_rows: [
+        { mawb: '574-3429 3523', dest: 'LGG', pcs: 10, declared_weight: 1000, wh_ref: 'W/H-1', auto_alloc: 1, is_squeeze: 1 },
+        { mawb: '574-3429 3512', dest: 'LGG', pcs: 6, declared_weight: 600, wh_ref: '', auto_alloc: 1, is_squeeze: 1 }
+      ],
+      ulds: [
+        {
+          kind: 'ULD', uld_number: 'PMC90936NAS', contour_code: 'H3', port: 'LGG', pcs: 11,
+          tare_weight: 115, rcl_gross_weight: 2000, predecl_type: 'X', squeeze_mode: 'weight', lih_type: 'N',
+          items: [
+            { mawb: '574-3429 3523', port: 'LGG', pcs: 8, declared_weight: 0, is_squeeze: 1, lih_type: 'N' },
+            { mawb: '574-3429 3512', port: 'LGG', pcs: 3, declared_weight: 0, is_squeeze: 1, lih_type: 'N' }
+          ]
+        },
+        {
+          kind: 'ULD', uld_number: 'PMC28420FF', contour_code: 'H3', port: 'LGG', pcs: 5,
+          tare_weight: 110, rcl_gross_weight: 700, predecl_type: 'X', squeeze_mode: 'weight', lih_type: 'N',
+          items: [
+            { mawb: '574-3429 3523', port: 'LGG', pcs: 2, declared_weight: 0, is_squeeze: 1, lih_type: 'N' },
+            { mawb: '574-3429 3512', port: 'LGG', pcs: 3, declared_weight: 0, is_squeeze: 1, lih_type: 'N' }
+          ]
+        }
+      ]
+    };
+    const savedB = await req('PUT', `/api/uld-weight/sheets/${sheetB}`, payloadB);
+    const detailB = savedB.body.data || {};
+    const rowsB = detailB.mawb_rows || [];
+    check('B3 PUT 帶 mawb_rows → 存檔成功且回傳 2 票（有 DB id／W/H）',
+      savedB.status === 200 && rowsB.length === 2 && rowsB.every(r => Number(r.id) > 0) &&
+      rowsB[0].wh_ref === 'W/H-1',
+      JSON.stringify(rowsB.map(r => [r.id, r.mawb, r.auto_alloc])));
+    const itemsB1 = (detailB.ulds && detailB.ulds[0] && detailB.ulds[0].items) || [];
+    const itemsB2 = (detailB.ulds && detailB.ulds[1] && detailB.ulds[1].items) || [];
+    check('B4 重量依件數分到各板（3523：8 件 800／2 件 200；3512：3 件 300／3 件 300）',
+      Number(itemsB1[0].declared_weight) === 800 && Number(itemsB2[0].declared_weight) === 200 &&
+      Number(itemsB1[1].declared_weight) === 300 && Number(itemsB2[1].declared_weight) === 300,
+      JSON.stringify([
+        itemsB1.map(it => Number(it.declared_weight)), itemsB2.map(it => Number(it.declared_weight))
+      ]));
+    check('B5 每票上數 = 夾重後合計（3523／3512 都有值）',
+      (detailB.mawbs || []).length === 2 && (detailB.mawbs || []).every(m => Number(m.final) > 0),
+      JSON.stringify((detailB.mawbs || []).map(m => [m.mawb, m.final])));
+
+    const rereadSheetB = await req('GET', `/api/uld-weight/sheets/${sheetB}`);
+    const rowsB2 = rereadSheetB.body.data.mawb_rows || [];
+    check('B6 讀回申報列 id 不變（diff 更新，不會每次重建）',
+      rowsB2.length === 2 && rowsB2.map(r => Number(r.id)).join() === rowsB.map(r => Number(r.id)).join(),
+      JSON.stringify(rowsB2.map(r => Number(r.id))));
+    const rereadSheetBItems1 = rereadSheetB.body.data.ulds[0].items;
+    check('B7 讀回各板重量仍是 800／300（分配結果穩定、可重現）',
+      Number(rereadSheetBItems1[0].declared_weight) === 800 && Number(rereadSheetBItems1[1].declared_weight) === 300,
+      JSON.stringify(rereadSheetBItems1.map(it => Number(it.declared_weight))));
+
+    // 改申報重量 → 重量重新分配（8:2）
+    const payloadB2 = JSON.parse(JSON.stringify(payloadB));
+    payloadB2.mawb_rows = rowsB2.map(row => ({ ...row }));
+    payloadB2.mawb_rows[0].declared_weight = 1200;
+    payloadB2.ulds = rereadSheetB.body.data.ulds.map(unit => ({
+      id: unit.id, kind: unit.kind, uld_number: unit.uld_number, contour_code: unit.contour_code,
+      port: unit.port, pcs: unit.pcs, tare_weight: unit.tare_weight, rcl_gross_weight: unit.rcl_gross_weight,
+      predecl_type: unit.predecl_type, squeeze_mode: unit.squeeze_mode, lih_type: unit.lih_type,
+      items: unit.items.map(it => ({
+        id: it.id, mawb: it.mawb, port: it.port, pcs: it.pcs,
+        declared_weight: it.declared_weight, is_squeeze: it.is_squeeze, lih_type: it.lih_type
+      }))
+    }));
+    const savedB2 = await req('PUT', `/api/uld-weight/sheets/${sheetB}`, payloadB2);
+    check('B8 改申報重量 1000 → 1200 → 各板自動重分（8 件 960／2 件 240）',
+      savedB2.status === 200 &&
+      Number(savedB2.body.data.ulds[0].items[0].declared_weight) === 960 &&
+      Number(savedB2.body.data.ulds[1].items[0].declared_weight) === 240,
+      JSON.stringify([
+        Number(savedB2.body.data.ulds[0].items[0].declared_weight),
+        Number(savedB2.body.data.ulds[1].items[0].declared_weight)
+      ]));
+
+    // 取消「自動分配」→ 保留各板手填重量
+    const payloadB3 = JSON.parse(JSON.stringify(payloadB2));
+    payloadB3.mawb_rows[0].auto_alloc = 0;
+    payloadB3.ulds[0].items[0].declared_weight = 111;
+    payloadB3.ulds[1].items[0].declared_weight = 222;
+    const savedB3 = await req('PUT', `/api/uld-weight/sheets/${sheetB}`, payloadB3);
+    check('B9 auto_alloc = 0 → 保留各板手填重量（111／222，不再依件數重算）',
+      savedB3.status === 200 &&
+      Number(savedB3.body.data.ulds[0].items[0].declared_weight) === 111 &&
+      Number(savedB3.body.data.ulds[1].items[0].declared_weight) === 222,
+      JSON.stringify([
+        Number(savedB3.body.data.ulds[0].items[0].declared_weight),
+        Number(savedB3.body.data.ulds[1].items[0].declared_weight)
+      ]));
+
+    // 版本快照有 mawbs，diff 會列出「新增 MAWB」
+    const versionsB = await req('GET', `/api/uld-weight/sheets/${sheetB}/versions`);
+    const listB = versionsB.body.data || [];
+    const firstVersionB = listB[listB.length - 1];
+    const diffB = await req('GET', `/api/uld-weight/sheets/${sheetB}/versions/diff?from=${firstVersionB.id}`);
+    check('B10 版本 diff 有「MAWB 申報列」區塊（新增 2 票）',
+      diffB.status === 200 && diffB.body.data.mawbs && diffB.body.data.mawbs.added.length === 2 &&
+      diffB.body.data.summary.mawbsAdded === 2,
+      JSON.stringify(diffB.body.data.summary));
+
+    // 複製：申報列一起複製（含 auto_alloc）
+    const dupSheetB = await req('POST', `/api/uld-weight/sheets/${sheetB}/duplicate`);
+    const dupSheetBRows = (dupSheetB.body.data && dupSheetB.body.data.mawb_rows) || [];
+    check('B11 複製夾重表 → 申報列一起複製（2 票、auto_alloc 保留 0/1）',
+      dupSheetB.status === 201 && dupSheetBRows.length === 2 &&
+      dupSheetBRows.some(r => Number(r.auto_alloc) === 0) && dupSheetBRows.some(r => Number(r.auto_alloc) === 1),
+      JSON.stringify(dupSheetBRows.map(r => [r.mawb, r.auto_alloc])));
+
+    await req('DELETE', `/api/uld-weight/sheets/${dupSheetB.body.data.id}`);
+    await req('DELETE', `/api/uld-weight/sheets/${sheetB}`);
+
     // ---- 刪除 ----
+
+
     const del = await req('DELETE', `/api/uld-weight/sheets/${sheetId}`);
     check('刪除 → 200', del.status === 200, String(del.status));
     const gone = await req('GET', `/api/uld-weight/sheets/${sheetId}`);

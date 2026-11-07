@@ -73,15 +73,23 @@ function xlsNormMawb(v) {
 }
 
 // ===== Shipper Role 快速捲動操作 =====
-// 桌面版實際捲動容器是 .app-layout、手機版是視窗；scrollIntoView 會自動捲動
-// 真正可捲動的祖先，因此同一寫法跨裝置通用。
-// 注意：.xls-step-nav 是 sticky（top:10px），若目標直接貼齊捲動視窗頂端，
-// 標題會被導覽列蓋住。故跳轉前先量測導覽列「實際高度」並設 scroll-margin-top，
-// 偏移 = 導覽列高 + 頂距 10px + 間隙 12px（窄螢幕 wrap 成兩行時會自動變大）。
+// 桌面版實際捲動容器是 .app-layout、手機版也是 .app-layout（工作列版）／視窗；
+// scrollIntoView 會自動捲動真正可捲動的祖先，因此同一寫法跨裝置通用。
+// 注意：.xls-step-nav 是 sticky（topbar 版 top:8px），若目標直接貼齊捲動視窗頂端，
+// 標題會被導覽列蓋住。故跳轉前先量測導覽列「實際高度 + 實際 sticky 位移」並設 scroll-margin-top，
+// 偏移 = 導覽列高 + sticky top + 間隙 12px（窄螢幕 wrap 成兩行時高度會自動變大）。
 function xlsStickyNavClearance() {
   const nav = document.querySelector('.xls-step-nav');
-  const navH = nav ? nav.getBoundingClientRect().height : 0;
-  return navH + 10 + 12;
+  if (!nav) return 20;
+  const navH = nav.getBoundingClientRect().height;
+  // 直接讀 CSS 的 sticky 位移（工作列版由 topbar.css 覆寫成 8px），避免 JS/CSS 兩邊硬編碼不同步
+  let top = 0;
+  try {
+    if (typeof getComputedStyle === 'function') {
+      top = parseFloat(getComputedStyle(nav).top) || 0;
+    }
+  } catch (e) { /* 取不到就用 0 */ }
+  return navH + top + 12;
 }
 
 // 把指定 element 捲到步驟區（自動避開 sticky 導覽列）；el 傳 DOM element

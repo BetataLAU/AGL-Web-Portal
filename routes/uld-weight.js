@@ -147,6 +147,7 @@ function normalizeUnit(raw = {}, idx = 0) {
     port: str(raw.port, 20).toUpperCase(),
     pcs: intNum(raw.pcs),
     tare_weight: kind === 'BULK' ? 0 : num(raw.tare_weight),
+    // RCL WT＝貨站磅單的淨重（＝目標淨重，不再扣 Tare）；欄位名沿用 rcl_gross_weight 以免 DB 遷移
     rcl_gross_weight: Math.max(0, num(raw.rcl_gross_weight)),
     material_weight: Math.max(0, num(raw.material_weight)),
     lih_type: pickUpper(raw.lih_type, LIH_TYPES, 'N'),
@@ -156,9 +157,78 @@ function normalizeUnit(raw = {}, idx = 0) {
   };
 }
 
+// ===== 方案 B：MAWB 申報列（載荷表左邊那一欄）=====
+// 一票一列；各板只填件數，重量由 calc.uldApplyMawbAllocation() 依件數分下去。
+function normalizeMawbRow(raw = {}, idx = 0) {
+  return {
+    // 與收貨單位／明細相同的 diff 更新規則：帶回既有 id → UPDATE；null → INSERT
+    id: raw.id ? (Number(raw.id) || null) : null,
+    seq: idx,
+    mawb: str(raw.mawb, 40).toUpperCase(),
+    mawb_record_id: raw.mawb_record_id ? (Number(raw.mawb_record_id) || null) : null,
+    dest: str(raw.dest != null ? raw.dest : raw.port, 20).toUpperCase(),
+    pcs: intNum(raw.pcs),
+    declared_weight: Math.max(0, num(raw.declared_weight)),
+    // W/H or Booking：自由文字（可能是 W/H 單號或備註，不轉大寫）
+    wh_ref: str(raw.wh_ref, 60),
+    // 0 = 保留各板自填重量（舊資料）；其餘一律視為 1＝依件數自動分配
+    auto_alloc: (raw.auto_alloc === 0 || raw.auto_alloc === false || raw.auto_alloc === '0') ? 0 : 1,
+    is_squeeze: raw.is_squeeze ? 1 : 0
+  };
+}
+
+function serializeMawbRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    seq: row.seq != null ? Number(row.seq) : 0,
+    mawb: row.mawb || '',
+    mawb_record_id: row.mawb_record_id != null ? Number(row.mawb_record_id) : null,
+    dest: row.dest || '',
+    pcs: intNum(row.pcs),
+    declared_weight: num(row.declared_weight),
+    wh_ref: row.wh_ref || '',
+    auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1,
+    is_squeeze: row.is_squeeze ? 1 : 0
+  };
+}
+
+// 舊資料（DB 沒有申報列）→ 用明細依 MAWB 彙總自動長出列；auto_alloc = 0 保留原本各板重量
+function synthesizeMawbRows(units) {
+  const keyOf = value => String(value == null ? '' : value).replace(/[\s-]/g, '').toUpperCase();
+  const map = new Map();
+  const order = [];
+  (units || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      const key = keyOf(item.mawb);
+      if (!key) return;
+      let row = map.get(key);
+      if (!row) {
+        row = {
+          id: null, seq: order.length, mawb: item.mawb || '', mawb_record_id: null,
+          dest: '', pcs: 0, declared_weight: 0, wh_ref: '', auto_alloc: 0, is_squeeze: 0
+        };
+        map.set(key, row);
+        order.push(row);
+      }
+      row.pcs += intNum(item.pcs);
+      row.declared_weight = Number((row.declared_weight + num(item.declared_weight)).toFixed(3));
+      if (!row.dest && item.port) row.dest = item.port;
+      if (!row.mawb_record_id && item.mawb_record_id) row.mawb_record_id = Number(item.mawb_record_id);
+      if (item.is_squeeze) row.is_squeeze = 1;
+    });
+  });
+  return order;
+}
+
 function normalizeSheetPayload(body = {}) {
   const ulds = (Array.isArray(body.ulds) ? body.ulds : []).slice(0, 100).map(normalizeUnit);
-  return { header: normalizeHeader(body), ulds };
+  // 方案 B：MAWB 申報列。**沒帶 `mawb_rows` 這個欄位＝舊格式**（保留 DB 既有列不動；
+  // DB 也沒有列時才用明細彙總自動長出來，auto_alloc = 0 以保留原本各板重量）
+  const mawbRows = Array.isArray(body.mawb_rows)
+    ? body.mawb_rows.slice(0, 1000).map(normalizeMawbRow)
+    : null;
+  return { header: normalizeHeader(body), ulds, mawbRows };
 }
 
 
@@ -231,7 +301,17 @@ async function loadSheetDetail(id) {
     byUld.get(it.uld_id).push(it);
   });
 
-  const result = calc.uldComputeSheet({
+  const unitsForCalc = ulds.map(u => ({ ...u, uid: `u${u.id}`, items: byUld.get(u.id) || [] }));
+
+  // ===== 方案 B：MAWB 申報列 =====
+  // DB 沒有列（舊資料）→ 用明細彙總自動長出（auto_alloc = 0，重量維持原樣）；
+  // 有列 → 先把申報重量依件數分回各板（只有 auto_alloc 的列會動），再算夾重。
+  let mawbRows = (await dbAll(
+    'SELECT * FROM uld_weight_mawbs WHERE sheet_id = ? ORDER BY seq ASC, id ASC', [id]
+  )).map(serializeMawbRow);
+  if (!mawbRows.length) mawbRows = synthesizeMawbRows(unitsForCalc);
+
+  const sheetLike = {
     round_px: sheet.round_px,
     round_b: sheet.round_b,
     tail_mode: sheet.tail_mode,
@@ -239,11 +319,15 @@ async function loadSheetDetail(id) {
     diff_warn_kg: sheet.diff_warn_kg,
     clamp_min_pct: sheet.clamp_min_pct,
     clamp_max_pct: sheet.clamp_max_pct,
-    ulds: ulds.map(u => ({ ...u, uid: `u${u.id}`, items: byUld.get(u.id) || [] }))
-  });
+    mawbs: mawbRows,
+    ulds: unitsForCalc
+  };
+  calc.uldApplyMawbAllocation(sheetLike);
+  const result = calc.uldComputeSheet(sheetLike);
 
   return {
     ...serializeSheetRow(sheet),
+    mawb_rows: mawbRows,
     ulds: result.units,
     mawbs: result.mawbs,
     issues: result.issues,
@@ -268,7 +352,7 @@ function safeJsonParse(text, fallback = null) {
 
 // loadSheetDetail() 的結果 → 版本快照（只挑輸入欄位）
 function buildSnapshot(detail) {
-  if (!detail) return { header: {}, units: [] };
+  if (!detail) return { header: {}, units: [], mawbs: [] };
   return {
     header: {
       sheet_date: detail.sheet_date || '',
@@ -286,6 +370,19 @@ function buildSnapshot(detail) {
       remark: detail.remark || '',
       status: detail.status || 'draft'
     },
+    // 方案 B：MAWB 申報列（版本比對會顯示「申報 PCS／WT、DEST、W/H」的異動）
+    mawbs: (detail.mawb_rows || []).map(row => ({
+      id: row.id != null ? Number(row.id) : null,
+      seq: row.seq != null ? Number(row.seq) : null,
+      mawb: row.mawb || '',
+      mawb_record_id: row.mawb_record_id != null ? Number(row.mawb_record_id) : null,
+      dest: row.dest || '',
+      pcs: num(row.pcs),
+      declared_weight: num(row.declared_weight),
+      wh_ref: row.wh_ref || '',
+      auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1,
+      is_squeeze: row.is_squeeze ? 1 : 0
+    })),
     units: (detail.ulds || []).map(unit => ({
       id: unit.id != null ? Number(unit.id) : null,
       seq: unit.seq != null ? Number(unit.seq) : null,
@@ -803,6 +900,20 @@ router.put('/sheets/:id', async (req, res) => {
     const calc = await calcReady;
     const payload = normalizeSheetPayload(req.body || {});
 
+    // ===== 方案 B：MAWB 申報列 =====
+    // 有帶 `mawb_rows` → 以 payload 為準（儲存時做 diff 更新）；沒帶 → 用 DB 既有列；
+    // DB 也沒有（舊資料）→ 用明細彙總長出（auto_alloc = 0，不動原本各板重量）。
+    const rowsProvided = Array.isArray(payload.mawbRows);
+    let mawbRows = payload.mawbRows;
+    if (!rowsProvided) {
+      const existingRows = await dbAll(
+        'SELECT * FROM uld_weight_mawbs WHERE sheet_id = ? ORDER BY seq ASC, id ASC', [id]
+      );
+      mawbRows = existingRows.length ? existingRows.map(serializeMawbRow) : synthesizeMawbRows(payload.ulds);
+    }
+    // 先依申報列把重量分回各板（只有 auto_alloc 的列會動），再做夾重計算 —— 順序不可顛倒
+    calc.uldApplyMawbAllocation({ mawbs: mawbRows, ulds: payload.ulds });
+
     // 先重算一次；語意錯誤（負重 / 未勾夾重 / 目標過小）不允許儲存
     const computed = calc.uldComputeSheet({
       round_px: payload.header.round_px,
@@ -949,6 +1060,48 @@ router.put('/sheets/:id', async (req, res) => {
       );
     }
 
+    // ===== 方案 B：MAWB 申報列（與收貨單位同一套 diff 更新）=====
+    if (rowsProvided) {
+      const oldRows = await dbAll('SELECT id FROM uld_weight_mawbs WHERE sheet_id = ?', [id]);
+      const oldRowIds = new Set(oldRows.map(row => Number(row.id)));
+      const keptRowIds = new Set();
+      for (let i = 0; i < mawbRows.length; i += 1) {
+        const row = mawbRows[i];
+        const payloadRowId = row.id ? Number(row.id) : null;
+        if (payloadRowId && oldRowIds.has(payloadRowId)) {
+          await dbRun(
+            `UPDATE uld_weight_mawbs
+                SET seq = ?, mawb = ?, mawb_record_id = ?, dest = ?, pcs = ?, declared_weight = ?,
+                    wh_ref = ?, auto_alloc = ?, is_squeeze = ?, updated_at = CURRENT_TIMESTAMP
+              WHERE id = ? AND sheet_id = ?`,
+            [
+              i, row.mawb, row.mawb_record_id, row.dest, row.pcs, row.declared_weight,
+              row.wh_ref, row.auto_alloc, row.is_squeeze, payloadRowId, id
+            ]
+          );
+          keptRowIds.add(payloadRowId);
+          continue;
+        }
+        const inserted = await dbRun(
+          `INSERT INTO uld_weight_mawbs
+            (sheet_id, seq, mawb, mawb_record_id, dest, pcs, declared_weight, wh_ref, auto_alloc, is_squeeze)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id, i, row.mawb, row.mawb_record_id, row.dest, row.pcs, row.declared_weight,
+            row.wh_ref, row.auto_alloc, row.is_squeeze
+          ]
+        );
+        keptRowIds.add(Number(inserted.lastID));
+      }
+      const removedRowIds = [...oldRowIds].filter(rowId => !keptRowIds.has(rowId));
+      if (removedRowIds.length) {
+        await dbRun(
+          `DELETE FROM uld_weight_mawbs WHERE id IN (${removedRowIds.map(() => '?').join(',')})`,
+          removedRowIds
+        );
+      }
+    }
+
     writeAuditLog(
       req, 'uld_weight.sheet.save', 'uld_weight_sheet', id,
       `儲存夾重表 ${existing.sheet_no}（${payload.ulds.length} 個收貨單位）`
@@ -1042,6 +1195,22 @@ router.post('/sheets/:id/duplicate', async (req, res) => {
           ]
         );
       }
+    }
+
+    // 方案 B：MAWB 申報列一起複製（否則複本會用明細反推，auto_alloc 會變成 0）
+    const srcMawbRows = await dbAll(
+      'SELECT * FROM uld_weight_mawbs WHERE sheet_id = ? ORDER BY seq ASC, id ASC', [id]
+    );
+    for (const row of srcMawbRows) {
+      await dbRun(
+        `INSERT INTO uld_weight_mawbs
+          (sheet_id, seq, mawb, mawb_record_id, dest, pcs, declared_weight, wh_ref, auto_alloc, is_squeeze)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newId, row.seq, row.mawb, row.mawb_record_id, row.dest, row.pcs,
+          row.declared_weight, row.wh_ref, row.auto_alloc, row.is_squeeze
+        ]
+      );
     }
 
     writeAuditLog(req, 'uld_weight.sheet.duplicate', 'uld_weight_sheet', newId, `複製 ${src.sheet_no} → ${sheetNo}`);

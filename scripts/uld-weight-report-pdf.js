@@ -320,8 +320,8 @@ async function buildUldWeightReportPdf(detail, options = {}) {
   painter.rule({ after: 8 });
   painter.line(
     `合計：單位 ${totals.unitCount || 0}（散貨 ${totals.bulkCount || 0}）｜MAWB ${totals.mawbCount || 0}`
-    + `｜件數 ${totals.pcsTotal || 0}｜RCL ${fmtKg(totals.rclTotal)} kg｜Tare ${fmtKg(totals.tareTotal)} kg`
-    + `｜淨重 ${fmtKg(totals.netTotal)} kg｜磅差 ${fmtSigned(totals.diffTotal)} kg（${fmtPct(totals.diffPct)}）`,
+    + `｜件數 ${totals.pcsTotal || 0}｜RCL（淨）${fmtKg(totals.rclTotal)} kg｜Tare ${fmtKg(totals.tareTotal)} kg（參考）`
+    + `｜夾重後 ${fmtKg(totals.netTotal)} kg｜磅差 ${fmtSigned(totals.diffTotal)} kg（${fmtPct(totals.diffPct)}）`,
     { size: 9, lineHeight: 15 }
   );
 
@@ -335,8 +335,9 @@ async function buildUldWeightReportPdf(detail, options = {}) {
     painter.rule({ after: 6 });
     painter.line(`#${idx + 1}　${unitTitle(unit, lihLabel)}`, { size: 10, bold: true, lineHeight: 15 });
     painter.line(
-      `RCL ${fmtKg(calc.rclGross)} - Tare ${fmtKg(calc.tare)} = 淨重 ${fmtKg(calc.targetNet)} kg`
-      + `　｜　申報合計 ${fmtKg(calc.declaredSum)} kg　｜　磅差 ${fmtSigned(calc.diff)} kg（${fmtPct(calc.diffPct)}）`
+      `RCL（淨重）${fmtKg(calc.rclGross)} kg`
+      + (fmtKg(calc.tare) !== '0' ? `　｜　Tare ${fmtKg(calc.tare)} kg（參考）` : '')
+      + `　｜　夾重後 ${fmtKg(calc.finalSum)} kg　｜　申報合計 ${fmtKg(calc.declaredSum)} kg　｜　磅差 ${fmtSigned(calc.diff)} kg（${fmtPct(calc.diffPct)}）`
       + (Math.abs(Number(calc.diffAfterFinal) || 0) > 1e-9
         ? `　｜　與目標差 ${fmtSigned(calc.diffAfterFinal)} kg`
         : ''),
@@ -554,8 +555,8 @@ async function buildUldWeightLoadingSheetPdf(detail, options = {}) {
 
       // 表格下方核對小字
       painter.line(
-        `PCS ${calc.pcsSum || 0}　｜　WT ${fmtKg(calc.finalSum)} K　｜　RCL ${fmtKg(calc.rclGross)} K`
-        + `${unit.tare_weight ? ` − Tare ${fmtKg(calc.tare)} K` : ''}`
+        `PCS ${calc.pcsSum || 0}　｜　WT ${fmtKg(calc.finalSum)} K　｜　RCL（淨）${fmtKg(calc.rclGross)} K`
+        + `${unit.tare_weight ? `　｜　Tare ${fmtKg(calc.tare)} K` : ''}`
         + `　｜　${sheet.sheet_no || ''}${pagesNeeded > 1 ? `（第 ${pageIdx + 1} / ${pagesNeeded} 頁）` : ''}`,
         { size: 8, lineHeight: 12, color: GRAY }
       );

@@ -1,7 +1,7 @@
 // ===== RCL 磅單解析（前後端共用純函式，W3）=====
 // 三個貨站（HACTL / AAT / CPSL）的磅單格式不同，而且常常改版，所以這裡「不寫死欄位位置」：
 //   1) rclFindHeaderRow()  在前 20 列找出「含 ULD 欄 + 重量欄」的表頭列
-//   2) rclDetectColumns()  依表頭文字猜出 ULD／Tare／Gross／件數 的欄位索引
+//   2) rclDetectColumns()  依表頭文字猜出 ULD／Tare／RCL WT（淨重）／件數 的欄位索引
 //   3) 前端可讓使用者改欄位對應，並用同一支 rclRowsFromGrid() 重算（不必重新上傳）
 // 與 calc.js 一樣：後端以 import() 載入同一支，避免「後端解析一套、畫面顯示另一套」。
 
@@ -9,7 +9,7 @@
 export const RCL_COLUMNS = [
   { key: 'uld', label: 'ULD#／板號', required: true },
   { key: 'tare', label: 'Tare（板重）', required: false },
-  { key: 'gross', label: 'RCL Gross（磅重）', required: true },
+  { key: 'gross', label: 'RCL WT（淨重）', required: true },
   { key: 'pcs', label: '件數', required: false }
 ];
 
@@ -17,7 +17,7 @@ export const RCL_COLUMNS = [
 const COLUMN_HINTS = {
   uld: [/uld/, /u\.?l\.?d/, /貨櫃/, /櫃號/, /板號/, /container\s*(no|number|#)/, /^container/],
   tare: [/tare/, /皮重/, /板重/, /盤重/, /empty\s*weight/],
-  gross: [/gross/, /毛重/, /總重/, /磅重/, /actual/, /^weight$/, /total\s*weight/, /磅秤/],
+  gross: [/gross/, /毛重/, /總重/, /磅重/, /actual/, /^weight$/, /total\s*weight/, /磅秤/, /net/, /淨重/],
   pcs: [/pcs/, /pieces/, /件數/, /箱數/, /數量/, /qty/, /quantity/, /ctns?/]
 };
 
@@ -32,13 +32,13 @@ const COLUMN_EXCLUDES = {
 export const RCL_SKIP_REASON = {
   no_uld_column: '找不到 ULD# 欄位，請在上方「欄位對應」手動選擇',
   no_uld: '沒有 ULD#（略過）',
-  no_gross: '沒有磅重或磅重為 0（略過）',
+  no_gross: '沒有 RCL 重量或重量為 0（略過）',
   duplicate: 'ULD# 重複（只取第一筆）',
   limit: '超過單次匯入上限（200 筆）'
 };
 
 const WARNING_TEXT = {
-  gross_lt_tare: '磅重小於 Tare'
+  gross_lt_tare: 'RCL 淨重小於 Tare（可能欄位對應錯）'
 };
 
 // 文字正規化（去不斷行空白、去頭尾空白）

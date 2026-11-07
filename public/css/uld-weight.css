@@ -1011,3 +1011,299 @@ input[data-draft="port"] { text-transform: uppercase; }
   }
 }
 
+/* ===== CHARTER LOADING SHEET（載荷表：Excel 式矩陣檢視，2026-11-07）=====
+   照業界包機載荷表的長相：左邊一票一列（SEQ／MAWB／DEST／申報 PCS·WT／W/H or Booking／上數），
+   右邊一板一組欄（01/A、02/B…，每組 PCS／WT），底部各板合計＋PLAN TTL／RCL TTL／DIFF。
+   **唯讀**（新增／修改仍在「▤ 卡片編輯」），所以沒有輸入框樣式要顧。
+   顏色照圖：紅字＝夾重、橙字＝wt 有差（上數 ≠ 申報）。 */
+.uldw-grid { display: flex; flex-direction: column; gap: 8px; }
+
+.uldw-grid-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(234, 179, 8, 0.24), rgba(234, 179, 8, 0.10));
+}
+.uldw-grid-title-main { font-size: 1rem; font-weight: 800; letter-spacing: 0.06em; color: var(--text-main); }
+.uldw-grid-title-meta { font-size: 0.78rem; color: var(--text-muted); }
+.uldw-grid-title-actions { margin-left: auto; }
+
+.uldw-grid-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.uldw-grid-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.uldw-grid-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.uldw-grid-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.uldw-grid-btn.is-on { border-color: var(--primary); color: var(--primary); background: rgba(37, 99, 235, 0.10); }
+.uldw-grid-btn-danger { color: #dc2626; }
+.uldw-grid-btn-danger:hover:not(:disabled) { border-color: #dc2626; background: rgba(220, 38, 38, 0.08); color: #dc2626; }
+.uldw-grid-sep { width: 1px; height: 18px; background: var(--border-color); margin: 0 4px; }
+.uldw-grid-spacer { flex: 1 1 auto; }
+
+.uldw-grid-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--text-muted); }
+.uldw-grid-legend-item {
+  padding: 1px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  font-weight: 700;
+}
+.uldw-grid-legend-item.is-manual { background: rgba(234, 179, 8, 0.20); }
+.uldw-grid-legend-item.is-auto { background: rgba(37, 99, 235, 0.10); }
+.uldw-grid-legend-item.is-squeeze { color: #dc2626; }
+.uldw-grid-legend-item.is-diff { color: #d97706; }
+.uldw-grid-hint { font-size: 0.7rem; }
+
+.uldw-grid-wrap {
+  overflow: auto;
+  max-height: 68vh;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.uldw-grid-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.uldw-grid-table th,
+.uldw-grid-table td {
+  padding: 3px 6px;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+.uldw-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--sidebar-bg);
+  color: var(--text-main);
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.uldw-grid-table thead tr.uldw-grid-group th { z-index: 3; }
+/* 圖例色：要自己入＝黃底、會自動計＝藍底（照 Excel 的標頭色塊） */
+.uldw-grid-manual { background: rgba(234, 179, 8, 0.20) !important; }
+.uldw-grid-auto { background: rgba(37, 99, 235, 0.10) !important; }
+.uldw-grid-unit-th { min-width: 88px; }
+.uldw-grid-unit-th.is-bulk { background: rgba(139, 92, 246, 0.16) !important; }
+.uldw-grid-code { display: block; font-weight: 800; line-height: 1.1; }
+.uldw-grid-uld { display: block; font-size: 0.66rem; font-weight: 600; color: var(--text-muted); }
+
+/* 橫向捲動時 SEQ／MAWB 固定在左邊（left 值要和 colgroup 的寬度一致） */
+.uldw-grid-table thead th.uldw-grid-seq,
+.uldw-grid-table tbody td.uldw-grid-seq,
+.uldw-grid-table tfoot td.uldw-grid-seq {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  width: 44px;
+}
+.uldw-grid-table thead th.uldw-grid-mawb,
+.uldw-grid-table tbody td.uldw-grid-mawb {
+  position: sticky;
+  left: 44px;
+  z-index: 5;
+  width: 118px;
+}
+.uldw-grid-table thead th.uldw-grid-seq,
+.uldw-grid-table thead th.uldw-grid-mawb { z-index: 6; }
+.uldw-grid-table tbody td { background: var(--card-bg); }
+.uldw-grid-table tbody tr:hover td { background: var(--sidebar-bg); }
+
+/* 欄寬（colgroup） */
+.uldw-grid-col-seq { width: 44px; }
+.uldw-grid-col-mawb { width: 118px; }
+.uldw-grid-col-dest { width: 52px; }
+.uldw-grid-col-pcs { width: 46px; }
+.uldw-grid-col-wt { width: 62px; }
+.uldw-grid-col-wh { width: 92px; }
+
+.uldw-grid-num { text-align: right; }
+.uldw-grid-seq { text-align: center; color: var(--text-muted); font-weight: 700; }
+.uldw-grid-mawb { font-weight: 700; }
+.uldw-grid-dest { text-align: center; }
+.uldw-grid-wh { text-align: center; font-size: 0.72rem; color: var(--text-muted); }
+.uldw-grid-num.is-empty { color: var(--text-muted); opacity: 0.55; }
+/* 紅字＝夾重、橙字＝wt 有差 */
+.uldw-grid-num.is-squeeze { color: #dc2626; font-weight: 800; }
+.uldw-grid-num.is-diff { color: #d97706; font-weight: 700; }
+
+.uldw-grid-table tfoot td {
+  background: var(--sidebar-bg);
+  color: var(--text-main);
+  font-weight: 700;
+  border-top: 2px solid var(--border-color);
+}
+.uldw-grid-plan .uldw-grid-label { text-align: right; letter-spacing: 0.04em; }
+
+.uldw-grid-no-rows,
+.uldw-grid-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.uldw-grid-empty { border: 1px dashed var(--border-color); border-radius: 8px; }
+.uldw-grid-issues { display: flex; flex-direction: column; gap: 6px; }
+/* 沒有檢核問題時整塊收起來（`issuesHtml()` 會回「✔ 沒有發現問題」，載荷表不需要它佔位） */
+.uldw-grid-issues:has(.uldw-issues-empty) { display: none; }
+
+/* ===== 載荷表可編輯格（方案 B）=====
+   左邊申報列（MAWB／DEST／PCS／WT／W/H／自動／夾重）＋右邊各板件數；
+   右邊 WT（重量）是算出來的，只顯示不能改。 */
+.uldw-grid-input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.uldw-grid-input:hover:not(:disabled) { border-color: var(--border-color); }
+.uldw-grid-input:focus { outline: none; border-color: var(--primary); background: var(--input-bg); }
+.uldw-grid-input:disabled { opacity: 1; color: var(--text-main); -webkit-text-fill-color: var(--text-main); }
+.uldw-grid-input-mawb { text-align: left; text-transform: uppercase; font-weight: 700; }
+.uldw-grid-input-dest { text-align: center; text-transform: uppercase; }
+.uldw-grid-input-wh { text-align: left; }
+.uldw-grid-new-mawb {
+  width: 190px;
+  text-align: left;
+  text-transform: uppercase;
+  border-color: var(--border-color);
+  background: var(--input-bg);
+}
+.uldw-grid-flag { text-align: center; }
+.uldw-grid-flag input { width: 15px; height: 15px; vertical-align: middle; }
+.uldw-grid-col-flag { width: 40px; }
+.uldw-grid-col-x { width: 34px; }
+.uldw-grid-x {
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #dc2626;
+  font-weight: 700;
+  cursor: pointer;
+}
+.uldw-grid-x:hover:not(:disabled) { background: rgba(220, 38, 38, 0.12); }
+.uldw-grid-x:disabled { opacity: 0.35; cursor: not-allowed; }
+.uldw-grid-addrow td { background: transparent; border-bottom: none; }
+.uldw-grid-hint-inline { margin-left: 8px; font-size: 0.7rem; color: var(--text-muted); }
+.uldw-grid-table tbody tr.is-squeeze-row .uldw-grid-seq { color: #dc2626; font-weight: 800; }
+[data-theme="dark"] .uldw-grid-x { color: #f87171; }
+
+/* 深色主題：紅／橙要提亮，不然在深底上看不見 */
+[data-theme="dark"] .uldw-grid-num.is-squeeze,
+[data-theme="dark"] .uldw-grid-legend-item.is-squeeze { color: #f87171; }
+[data-theme="dark"] .uldw-grid-num.is-diff,
+[data-theme="dark"] .uldw-grid-legend-item.is-diff { color: #fbbf24; }
+
+
+
+/* 載荷表列印：A4 橫向（板數多，直式會把 41 板擠成一條線）
+   named page：只有 .uldw-grid 用橫向，卡片檢視仍是 A4 直式（上面的 @page 不受影響） */
+@media print {
+  @page uld-grid {
+    size: A4 landscape;
+    margin: 8mm 8mm 10mm;
+  }
+
+  .uldw-grid {
+    page: uld-grid;
+    gap: 2mm;
+  }
+  .uldw-grid-title {
+    padding: 0 0 2mm;
+    border: none;
+    border-radius: 0;
+    background: transparent !important;
+  }
+  .uldw-grid-title-main { font-size: 12pt; color: #000 !important; }
+  .uldw-grid-title-meta { font-size: 8pt; color: #333 !important; }
+  .uldw-grid-title-actions,
+  .uldw-grid-tools,
+  .uldw-grid-hint,
+  .uldw-grid-issues { display: none !important; }
+  /* 紙本不需要「新增列／自動／夾重／刪除」這些操作欄；輸入框去框線只留值 */
+  .uldw-grid-addrow,
+  .uldw-grid-flag,
+  .uldw-grid-x,
+  .uldw-grid-hint-inline { display: none !important; }
+  .uldw-grid-input {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+
+  /* 圖例照樣印（紙本要看得懂紅／橙字），標頭色塊也保留 */
+  .uldw-grid-legend { font-size: 7pt; gap: 2mm; }
+  .uldw-grid-legend-item,
+  .uldw-grid-manual,
+  .uldw-grid-auto {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .uldw-grid-wrap {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+  .uldw-grid-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 6.8pt;
+    break-inside: auto;
+  }
+  .uldw-grid-table th,
+  .uldw-grid-table td {
+    position: static !important;
+    padding: 1.5pt 3pt;
+    border-color: #555 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+  .uldw-grid-table thead { display: table-header-group; }
+  .uldw-grid-table tfoot { display: table-footer-group; }
+  .uldw-grid-table tr { break-inside: avoid; }
+  .uldw-grid-table thead th { font-size: 6.5pt; }
+  .uldw-grid-uld { font-size: 6pt; color: #333 !important; }
+  .uldw-grid-manual { background: #fdf3c8 !important; }
+  .uldw-grid-auto { background: #e6eefb !important; }
+  /* 紙本仍要分辨紅／橙（不要被上面的黑字規則蓋掉） */
+  .uldw-grid-num.is-squeeze { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; font-weight: 800; }
+  .uldw-grid-num.is-diff { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; font-weight: 700; }
+  .uldw-grid-num.is-empty { color: #999 !important; -webkit-text-fill-color: #999 !important; }
+}
+

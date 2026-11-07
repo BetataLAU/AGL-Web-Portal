@@ -29,7 +29,7 @@ const UNIT_FIELDS = [
   { field: 'port', label: 'Port' },
   { field: 'pcs', label: '件數', numeric: true },
   { field: 'tare_weight', label: 'Tare', numeric: true, kg: true },
-  { field: 'rcl_gross_weight', label: 'RCL Gross', numeric: true, kg: true },
+  { field: 'rcl_gross_weight', label: 'RCL（淨）', numeric: true, kg: true },
   { field: 'material_weight', label: '物料', numeric: true, kg: true },
   { field: 'lih_type', label: 'LIH' },
   { field: 'predecl_type', label: 'Pre-decl' },
@@ -45,6 +45,18 @@ const ITEM_FIELDS = [
   { field: 'is_squeeze', label: '夾重' },
   { field: 'squeeze_ratio', label: '比例', numeric: true },
   { field: 'lih_type', label: 'LIH' },
+  { field: 'mawb_record_id', label: 'Booking 連結' }
+];
+
+// 方案 B：MAWB 申報列（載荷表左邊那一欄）的欄位
+const MAWB_FIELDS = [
+  { field: 'mawb', label: 'MAWB#' },
+  { field: 'dest', label: 'DEST' },
+  { field: 'pcs', label: '申報件數', numeric: true },
+  { field: 'declared_weight', label: '申報重量', numeric: true, kg: true },
+  { field: 'wh_ref', label: 'W/H or Booking' },
+  { field: 'auto_alloc', label: '重量分配', numeric: true },
+  { field: 'is_squeeze', label: '夾重' },
   { field: 'mawb_record_id', label: 'Booking 連結' }
 ];
 
@@ -136,9 +148,38 @@ export function uldDiffSnapshots(prev, next) {
   const header = fieldChanges(HEADER_FIELDS, before.header || {}, after.header || {});
   const diff = {
     header,
+    // 方案 B：MAWB 申報列（表級）
+    mawbs: { added: [], removed: [], changed: [] },
     units: { added: [], removed: [], changed: [] },
     items: { added: [], removed: [], changed: [] }
   };
+
+  // MAWB 申報列以 id 比對（沒有 id 才退回 mawb + 序）
+  const keyOfMawb = (row, idx) => (row && row.id != null
+    ? `id:${row.id}`
+    : `k:${text(row && row.mawb)}|${row && row.seq != null ? row.seq : idx}`);
+  const beforeMawbs = new Map();
+  (before.mawbs || []).forEach((row, idx) => beforeMawbs.set(keyOfMawb(row, idx), row));
+  const afterMawbs = new Map();
+  (after.mawbs || []).forEach((row, idx) => afterMawbs.set(keyOfMawb(row, idx), row));
+  afterMawbs.forEach((row, key) => {
+    const prevRow = beforeMawbs.get(key);
+    if (!prevRow) {
+      diff.mawbs.added.push({ mawb: text(row.mawb), pcs: num(row.pcs), weight: num(row.declared_weight) });
+      return;
+    }
+    const changes = fieldChanges(MAWB_FIELDS, prevRow, row);
+    if (changes.length) {
+      diff.mawbs.changed.push({
+        mawb: text(row.mawb) || text(prevRow.mawb),
+        fields: changes
+      });
+    }
+    beforeMawbs.delete(key);
+  });
+  beforeMawbs.forEach(row => {
+    diff.mawbs.removed.push({ mawb: text(row.mawb), pcs: num(row.pcs), weight: num(row.declared_weight) });
+  });
 
   // 收貨單位以 id 比對（R3 之後 id 不會變）；沒有 id 才退回「類型 + 號碼 + 序」
   const keyOfUnit = (unit, idx) => {
@@ -204,6 +245,9 @@ export function uldDiffSnapshots(prev, next) {
 
   diff.summary = {
     header: header.length,
+    mawbsAdded: diff.mawbs.added.length,
+    mawbsRemoved: diff.mawbs.removed.length,
+    mawbsChanged: diff.mawbs.changed.length,
     unitsAdded: diff.units.added.length,
     unitsRemoved: diff.units.removed.length,
     unitsChanged: diff.units.changed.length,

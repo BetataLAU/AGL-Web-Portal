@@ -58,6 +58,23 @@
 - **啟動**：`npm start`（node server.js）；PORT 被佔用會自動 +1；資料庫首次啟動自動建檔建表
 - **資料庫檔案**：根目錄 `database.db`（程式自動維護，勿直接編輯）；**不進版控**（`.gitignore` 已列，2026-11-06 起以 `git rm --cached` 停止追蹤，實體檔案保留）。跨機同步一律走 `npm run db:export`／`db:import` → 版控的 `db/db-dump.sql`（pre-commit hook 每次提交都會自動匯出）。
 
+## 頂部工作列與目錄抽屜（public/js/topbar.js + public/css/topbar.css）
+
+原本常駐左側的 `.sidebar`（308px）改為**從頂部工作列往下展開的抽屜**，主內容因此吃滿整個寬度。
+
+- **生效範圍**：只有 `<body class="has-topbar">` 的頁面（`index.html`、`sli-eli-layout.html`）會被改寫成抽屜；`users.html`／`login.html` 沒有這個 class，完全不受影響（`layout.css` 的 `.sidebar` 原樣保留）。
+- **DOM**：`<header class="topbar" id="topbar">`（工作列）＋ `<div class="topbar-scrim" id="topbar-scrim">`（遮罩）放在 `.app-layout` 之前；原本的 `<aside class="sidebar">` 只加 `id="app-sidebar"`，內部結構（`.sidebar-nav` / `.nav-item` / 鎖頭 / 拖曳把手 / 登入卡 / 主題切換）完全沒動 → 拖曳排序（`main.js`）與權限鎖頭（`auth.js`）不受影響。
+- **互動**（`public/js/topbar.js`）：
+  - 最左邊 ☰（`#topbar-menu-btn`）點一下 → `.sidebar.is-open`（CSS `translateY` 動畫往下展開）；再點一下收起。`Alt+M` 亦可切換。
+  - **游標離開抽屜 → 自動收合**（`mouseleave` + 260ms 延遲；游標回到抽屜、或搜尋框有內容時取消）。點目錄項目／點抽屜外／`ESC` 也會收合；拖曳排序中（`draggingNav`）不收合。
+  - 收合是 `transform: translateY(-100% - --topbar-h)` 往上捲回工作列後面，**不會影響主內容捲動位置**；`body.topbar-nav-open` 會讓工作列轉為近不透明，避免抽屜滑動時從半透明處透出。
+  - **內容不會滑到工作列底下（關鍵）**：`body.has-topbar .app-layout { margin-top: var(--topbar-h); height: calc(100vh - var(--topbar-h)) }`（`--topbar-h: 56px`，另補 `100dvh`）。用 `margin-top`＋高度而**不是** `padding-top`：padding 屬於捲動內容，往下捲會跟著捲走，內容仍會鑽到固定工作列底下並從半透明 bar 透出文字；改成 margin 後捲動容器上緣＝工作列下緣，怎麼捲都不會重疊。
+- **工作列右側工具**：（1）功能搜尋 `#topbar-search-input`：輸入即過濾目錄並展開抽屜（`Ctrl/Cmd+K` 聚焦、`Enter` 跳到第一個符合項目；無結果顯示 `.nav-empty`；`display:none` 的無權限項目不列入過濾）；（2）主題循環切換 light→dark→ocean（有 `theme.js` 時走 `applyTheme()`，沒有時直接改 `data-theme` 並寫入 `localStorage['site-theme']`）；（3）全螢幕；（4）回到頁頂；（5）香港時間（`Asia/Hong_Kong`，每 20 秒對時）。
+- **目前位置**：`main.js` 的 `showSection()` 會呼叫 `window.topbarSetSection(sectionId)` 更新 `#topbar-crumb-text`（沒有工作列的頁面不會有此函式，故有 `typeof` 檢查）。
+- **滿版對齊與 sticky 偏移（2026-11-07 修正）**：內容區變寬後，`public/css/xls-booking.css` 原本 `.xls-card { max-width: min(1200px, 100%) }` 會讓卡片右側留一大片空白、和滿版的 `.xls-step-nav` 不齊 → 改為 `max-width: none`（日後若要限制閱讀寬度，步驟列與卡片要**一起**限制）。頁面層級的 sticky（`.xls-step-nav`）在 `body.has-topbar` 下為 `top: 8px`（捲動容器上緣就是工作列下緣，所以視覺上緊貼工作列下面）並改為不透明底色，避免下方卡片文字透出疊字；`xlsStickyNavClearance()` 改成讀 `getComputedStyle(nav).top` 動態計算，不再硬編碼 10px。`.topbar` 左右 padding 也改成與 `.main-content` 一致（桌面 24px、≤900px 16px），內容邊界才會齊一。
+- **新增工作列功能**：`index.html`／`sli-eli-layout.html` 的 `.topbar-right` 加按鈕 → `topbar.js` 的 `setupTopbar()` 內加一個 `setupXxx()`（沿用 `byId()`），並在 `scripts/test-topbar.js` 補一條驗收。
+- **測試**：`npm run test:topbar` ＝ `node scripts/test-topbar.js`（HTML／CSS／JS 靜態檢查 37 項）＋ `node scripts/test-topbar-behavior.js`（以 DOM stub 載入 `topbar.js`，驗證開合／自動收合／ESC／搜尋過濾／主題循環 25 項）。另有 `node scripts/test-nav-hierarchy.js`、`node scripts/test-nav-order-frontend.js` 確保目錄層級與拖曳排序未被破壞。
+
 ## 目錄地圖（摘要）
 
 | 路徑 | 職責 |
@@ -65,11 +82,11 @@
 | `server.js` | Express 入口，掛載全部 API 路由 |
 | `db/database.js` | SQLite 建表（含 orders 相容欄位自動補齊）、skills seed |
 | `routes/` | 後端 API 模組（見下方分節） |
-| `public/index.html` | 單一頁面 + Sidebar 導航（含訂單 / Shipper Role / 打板計劃 / 模擬裝板 / ULD 夾重 / 資料庫區塊） |
+| `public/index.html` | 單一頁面 + 頂部工作列／目錄抽屜（含訂單 / Shipper Role / 打板計劃 / 模擬裝板 / ULD 夾重 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
-| `public/css/` | base / layout / components / animations / orders / dbviewer / pallet / **loadsim** / **uld-weight** / xls-booking |
+| `public/css/` | base / layout / **topbar** / components / animations / orders / dbviewer / pallet / **loadsim** / **uld-weight** / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / xls-booking-* |
+| `public/js/` | theme / animations / **topbar** / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / xls-booking-* |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
 | `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md`、`uld-weight-system.md` |
@@ -331,7 +348,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 ## ULD 夾重系統（routes/uld-weight.js，admin/staff）
 
 - **目的**：輸入貨站（HACTL / AAT / CPSL）RCL 磅重 → 選夾重 MAWB（可多票按比例）→ 算出每票 MAWB 的最終重量。
-  目標淨重 `R = RCL Gross − Tare`（散貨 B 的 Tare = 0）；磅差 `D = R − Σ 申報重量`。
+  目標淨重 `R = RCL WT`（**RCL 欄填的就是淨重；Tare 只顯示參考，不從 RCL 扣除**）；磅差 `D = R − Σ 申報重量`。
 - **取整**：P / X（交板）一律 **正整數（1.0）**；B（交散貨）可用 **0.5 / 1.0**（表頭可選）。尾差預設由「申報重量最大的夾重票」吸收（`tail_mode = adjust_largest | equal | none`）。
 - **不檢核**：ULD Port 可與各票不同、同板各票 Port 也可不同（MIX 混裝）；**Pre-decl Type 完全手動**（1 板 1 MAWB 也可能是 X，不自動判定）。
 - **計算核心**：`public/js/uldweight/calc.js`（純函式 ESM，**前後端共用**；後端以動態 `import()` 載入重算後寫回 `final_weight` / `net_weight` / `diff_weight`）。
@@ -351,10 +368,11 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **歷史版本／異動比對（V3，2026-11-06 完成）**：新表 `uld_weight_versions`（`id, sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；新 DB 由 `CREATE TABLE IF NOT EXISTS` 建立）。留版時機：**create／save／lock／unlock／apply／sync_bookings／duplicate**（`saveSheetVersion()`）；**內容相同的 `save` 不重複留**，其他事件照留；每張表保留最近 **30** 版（`VERSION_KEEP`，超過刪舊）。快照只存**輸入值**（`buildSnapshot()` 挑欄位，不含 calc 重算結果）。API：`GET /sheets/:id/versions`（新到舊清單）、`GET /sheets/:id/versions/:versionId`（含 snapshot）、`GET /sheets/:id/versions/diff?from=&to=`（`from` 必填；`to` 省略＝與**目前內容**比較；**必須宣告在 `/versions/:versionId` 之前**）。比對規則只有一份：**`public/js/uldweight/version-diff.js`**（`uldDiffSnapshots()`／`uldSnapshotSummary()`，欄位級 `HEADER_FIELDS`／`UNIT_FIELDS`／`ITEM_FIELDS`，配對用 **DB id**、沒有 id 的新列才退回「MAWB + 序」；後端 `import()` 載入）。前端：編輯畫面「🕘 版本」（`data-action="versions"`）→ 面板 `#uldw-versions`（`refreshVersions()` 只重畫面板），每列「與前一版比／對目前」；列印時整個面板隱藏。
 - **直觀版 UI（U1／U2／U3，2026-11-06 完成）**：目標是「業界第一眼看就懂、少操作」。
   - **U1 減法版面**：編輯工具列只留 `← 列表／儲存／鎖定·解鎖／⋯ 更多`（`data-action="toggle-more"`），套用／補建／版本／列印／PDF／複製／刪除收進 `.uldw-more-menu`；表頭只留 5 欄＋`⚙ 進階`（`data-action="toggle-adv"`，內含 `round_b`／`tail_mode`／`diff_warn_*`／`clamp_*`，預設收起、值照送、列印自動展開）；收貨單位改成**網格**（`.uldw-unit-list` `auto-fill minmax(380px)`）、板序代號 `01/A`…`41/AO`（`render.unitCode()`）、卡片預設精簡（次要欄位在 `.uldw-unit-more`，`data-compact="1"` 時隱藏）；底部合計改 **`PLAN TTL`／`RCL TTL`／`DIFF`**（單位一律 **K**）；色碼紅＝夾重、橙＝WT 被改（`.uldw-items tr.is-squeeze`／`tr.is-changed`）；**LIH 下拉與報表只顯示短碼 `N`／`3481`／`3091`**（`calc.uldLihLabel()`；存檔值仍是 `UN3481`／`UN3091`）。**顯示狀態一律放 `state.ui`（more／advanced／expanded／allCompact／printUnit），不進 payload、不進版本快照**。
-  - **U2 輸入加速**：MAWB 欄 **Enter 直接加入**（`onRootKeydown` → `addItem`）；**貼上多列**（`onRootPaste`＋「⧉ 貼上」按鈕 → `addPastedRows()`）；解析用共用純函式 **`public/js/uldweight/paste-parse.js`**（`uldParsePastedRows()`：Tab／逗號／多空白；4 欄 MAWB·DEST·PCS·WT、3／2／1 欄也可；表頭列略過；MAWB 可含空白）。**ULD#／Contour／RCL#／Port／MAWB 自動轉大寫**（CSS `text-transform`＋input/change 轉值＋`uldSheetPayload()` 再轉；`bulk_ref` 不轉）。卡片可**拖曳排序**（`pointerdown` 在 `[data-drag-handle]` 才 `draggable=true`；`uldMoveUnit()` 只改 `seq`）；**上限 41 板**（`ULD_MAX_UNITS`，`state.js`）。
+  - **U2 輸入加速**：MAWB 欄 **Enter 直接加入**（`onRootKeydown` → `addItem`）；**貼上多列**（`onRootPaste`＋「⧉ 貼上」按鈕 → `addPastedRows()`；**只攔 MAWB 欄位**——`uldPasteIsMawbField()` 判斷 `data-draft／data-item-field／data-row-field = 'mawb'`，ULD#／Contour／RCL#／Port／件數／重量等欄位照瀏覽器正常貼上，貼在卡片空白處仍當「貼 MAWB 清單」捷徑）；解析用共用純函式 **`public/js/uldweight/paste-parse.js`**（`uldParsePastedRows()`：Tab／逗號／多空白；4 欄 MAWB·DEST·PCS·WT、3／2／1 欄也可；表頭列略過；MAWB 可含空白）。**ULD#／Contour／RCL#／Port／MAWB 自動轉大寫**（CSS `text-transform`＋input/change 轉值＋`uldSheetPayload()` 再轉；`bulk_ref` 不轉）。卡片可**拖曳排序**（`pointerdown` 在 `[data-drag-handle]` 才 `draggable=true`；`uldMoveUnit()` 只改 `seq`）；**上限 41 板**（`ULD_MAX_UNITS`，`state.js`）。
   - **MAWB 格式化與檢查碼（2026-11-06 追加）**：共用純函式 **`public/js/uldweight/mawb-format.js`**（`uldMawbDigits()`／`uldNormalizeMawbDigits()`／`uldFormatMawb()`／`uldValidateMawb()`／`uldMawbCheckDigit()`）。規則：**11 位數字**＝左 3 位航空公司（不足左補 0）＋右 8 位序號（前 7 位＋第 8 位檢查碼＝**前 7 位 mod 7**）；顯示 `000-0000 0000`。行為：輸入框**失焦自動格式化**（輸入中不動，游標不跳）；按 Enter／加入時驗證，不合格用 `confirm` 提示（可選擇仍加入，既有資料不被擋）；貼上多列時**逐筆驗證、不合格列出略過**；明細列不合格的 MAWB 標紅（`data-mawb-invalid`）＋title 說明。另：`addItem()` 會擋「MAWB 與同卡 ULD# 相同」（值被帶到下一格的誤填）。自動完成（`utils/autocomplete.js`）新增 `tabSelects` 選項，夾重表傳 **false**（Tab 只關清單、不選取候選）。
   - **U3 單板 Loading Sheet**：`GET /sheets/:id/loading-sheet.pdf?unit=<uld_id>`（`buildUldWeightLoadingSheetPdf()`；A4 直式一板一頁、`MAWB／DEST／PCS／WT`、固定 16 列含空白列、右上角板序、`To:` = 航班號前兩碼、`Date` = `6 Nov 2026`、`Unit: ULD# / Contour`、`Dest:` = unit port；WT 取 `calc.items[].final`、表內只寫數字）。前端卡片 `⤓`（`data-action="pdf-unit"`）下載單板、`🖨`（`print-unit`）只印該卡（`@media print` 的 `.uldw-print-single` / `.is-print-target`）。
-- **測試**：`npm run test:uldweight`（calc 101 項＋rcl 28 項＋mawb 33＋frontend 165 項；§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次勾選、§19 補建 Booking、§20 版本比對）、`npm run test:uldweight-api`（端對端 148 項，自帶伺服器 + 暫存 DB，含 `/bookings`、`/apply`、`/import-rcl`、`report.pdf`、`loading-sheet.pdf`（單板／全板／unit 不存在 404）、`batch-pdf`（ZIP 結構／`manifest.txt`／PDF 檔頭，測試自行解析 ZIP 中央目錄）、`sync-bookings`（dry_run 預覽不寫 DB／寫入後回填連結／同號 MAWB 只連結／冪等／audit_log）、`versions`（清單排序／單版快照／diff 增量／`to` 省略對目前／相同內容不增版／lock·unlock 各留一版）、上下限往返、明細 id 不變、fresh DB seed）、`node scripts/uld-weight-report-pdf.js --selftest`、`npm run bench:uldweight`（V4 效能基準，見下）、設計文件 `docs/design/uld-weight-system.md`。
+- **U4 載荷表（CHARTER LOADING SHEET）＋方案 B（2026-11-07）**：編輯畫面兩種版面 `state.ui.view = 'grid' | 'cards'`（**預設 grid**；工具列「▤ 卡片檢視／▦ 載荷表」切換，動作 `view-grid`／`view-cards`；切換表時 `resetUiState()` 重設為 grid）。**方案 B 的資料關係**：一票一列的「申報列」放新表 **`uld_weight_mawbs`**（`sheet_id, seq, mawb, mawb_record_id, dest, pcs, declared_weight, wh_ref, auto_alloc, is_squeeze`），各板明細只記**件數**；重量由共用純函式 **`calc.uldAllocateByPcs()`／`calc.uldApplyMawbAllocation()`** 依件數把申報 WT 分到各板（Σ = 申報 WT、尾差給件數最多的板），在 `state.uldComputed()`（前端）與 `loadSheetDetail()`／PUT（後端）都先跑，兩邊數字一致。`auto_alloc = 0`＝保留各板自填重量（**舊資料沒有申報列時，後端 `synthesizeMawbRows()` 用明細彙總自動長出列並設 0**，升級不會偷改重量；前端 `legacyRows()` 再保險一層）。前端新模組 **`public/js/uldweight/sheet-grid.js`**：`uldGridModel()`（純函式）、`uldGridHtml()`（可編輯矩陣）、`uldGridSortRows()`、`refreshGridComputed()`（輸入時只改數字／顏色，不重畫→游標不跳）。版面：左 `SEQ／MAWB／DEST／申報 PCS／申報 WT／W/H or Booking／自動／夾重／MAWB 上數（Σ final）`，右邊一板一組 `PCS`（手動）＋`WT`（算出來的），板頭 `01/A`＋`ULD#/Contour`；底部各板 `板合計`／`RCL Gross ／ 磅差`＋`PLAN TTL／RCL TTL／DIFF`（K）。色碼：紅＝夾重、橙＝上數−申報 > 0.5kg、標頭「要自己入」黃底／「會自動計」藍底。操作：最下面一列輸入 MAWB# Enter 新增、`＋ 列`、每列 `✕` 刪除（連同各板件數）、`Clear Content`、`Check & format MAWB#`（列改 MAWB 會同步各板明細）、`Sort by MAWB#`（只改顯示）。卡片檢視改板資料（ULD#／Contour／Tare／RCL／LIH／Pre-decl／夾重方式），卡片內 MAWB／申報 WT 唯讀（`auto_alloc = 0` 才可改）。API：`GET /sheets/:id` 回 **`mawb_rows`**（申報列；`mawbs` 仍是 calc 的 MAWB 彙總）、PUT 接受 `mawb_rows`（帶 id 做 diff 更新；**不帶＝舊格式，保留 DB 既有列**）、複製會一併複製申報列；版本快照含 `mawbs`，`version-diff.js` 新增 `MAWB_FIELDS` 與 `mawbs` 差異（前端版本面板會列「新增／刪除／改 MAWB」）。列印：`@page uld-grid { size: A4 landscape }`（只有載荷表橫向，卡片仍直式）、`thead` 每頁重印、`tr` 不跨頁、紙上隱藏新增列／自動／夾重／刪除欄。**版面預覽**：`npm run preview:uldweight`（`scripts/uld-weight-grid-preview.js`）用假資料（5 票 × 3 板）產出 `data/work/uldw-grid-preview.html`（`data/work` 不進版控）。
+- **測試**：`npm run test:uldweight`（calc 115 項＋rcl 28 項＋mawb 33＋frontend 205 項；§14 列印、§15 門檻／LIH、§16 比例上下限、§17 diff／PDF、§18 批次勾選、§19 補建 Booking、§20 版本比對、§22 載荷表 21 項、**§23 方案 B 申報列 14 項**）、`npm run test:uldweight-api`（端對端（含 B1～B11 申報列），自帶伺服器 + 暫存 DB，含 `/bookings`、`/apply`、`/import-rcl`、`report.pdf`、`loading-sheet.pdf`（單板／全板／unit 不存在 404）、`batch-pdf`（ZIP 結構／`manifest.txt`／PDF 檔頭，測試自行解析 ZIP 中央目錄）、`sync-bookings`（dry_run 預覽不寫 DB／寫入後回填連結／同號 MAWB 只連結／冪等／audit_log）、`versions`（清單排序／單版快照／diff 增量／`to` 省略對目前／相同內容不增版／lock·unlock 各留一版）、上下限往返、明細 id 不變、fresh DB seed）、`node scripts/uld-weight-report-pdf.js --selftest`、`npm run bench:uldweight`（V4 效能基準，見下）、設計文件 `docs/design/uld-weight-system.md`。
 - **效能（V4 量測，2026-11-06 完成 → 不做節流）**：`scripts/bench-uld-weight-calc.js`（`npm run bench:uldweight`）只呼叫 `calc.uldComputeSheet()` 量單次耗時（暖機 10 次、量 60 次、取 median）；實測 **50 板 × 10 票 median 約 0.6ms**（0.58～0.68ms，p95 約 1.5ms）、**100 板 × 20 票 約 2.4ms**，遠低於 16ms（一個 frame）→ **維持每次輸入整表重算，不加 debounce／rAF 節流**。前端輸入事件仍只做 `refreshComputed()` 局部更新（不可整份 `render()`）。日後若真的卡頓：先重跑 `npm run bench:uldweight`，仍 > 16ms 才依 `docs/design/uld-weight-remaining-work.md` §1.1 做輸入節流（30～60ms debounce，`change`／存檔前必須立即重算）。
   量測注意：① 首次呼叫含 JIT，單次 `console.time` 不可信，要看 median；② 本工具只量 calc，DOM 更新（500 列 `textContent`）不在內，要用 Chrome DevTools Performance 才看得到；③ PowerShell 會把 node 的 `MODULE_TYPELESS_PACKAGE_JSON` stderr 警告顯示成 `exit code 1`，腳本其實成功。
 - **進度**：Phase 1 ＋ W1～W5 ＋ **R1（server 端 PDF）／R2（比例上下限）／R3（明細 diff 更新）／R4（seed 競態）** ＋ **V2（批次 PDF ZIP）／V1（補建 Booking Record）／V3（歷史版本）** 全部完成（V1／V2／V3 為 2026-11-06）；**已無必辦項**，剩下的是選用（V4 大表節流，實測卡頓才做）與 D3／D5／D6 待決。**未完成工作清單與新對話提示詞見 `docs/design/uld-weight-remaining-work.md`**（歷程與陷阱見 `docs/design/uld-weight-phase2-handoff.md`）。
@@ -440,6 +458,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
 - **改模擬裝板**：前端改 `public/js/loadsim/*` + `public/css/loadsim.css`；板型尺寸/收角改 `loadsim/uld-specs.js`（無後端、無資料表）
 - **改網站內容**：`public/index.html`
+- **改頂部工作列／目錄抽屜**：`public/css/topbar.css` + `public/js/topbar.js`（只影響 `body.has-topbar` 的頁面；目錄的 DOM 仍由 `index.html` 的 `.sidebar` 決定，別把 `.nav-empty` 之類的非 `.nav-item` 放進 `<nav class="sidebar-nav">`）
 - **改主題**：`public/css/base.css`（主題變數）+ `public/js/theme.js`
 - **新增資料表**：`db/database.js` 加 `CREATE TABLE`，並在 `routes/` 建對應路由模組，`server.js` 掛載
 - **新增文件**：先看 `docs/README.md` 的分類規則（根目錄只放現役導航文件；歷史規格放 `docs/archive/`、設計放 `docs/design/`）

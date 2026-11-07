@@ -1,7 +1,9 @@
 // ===== ULD 夾重系統：前端狀態 =====
 // 一張夾重表 = { 表頭欄位..., ulds: [ { uid, items: [ { uid, ... } ] } ] }
 // uid 只用在前端（DB id 可能重複出現於不同單位，故統一用 uid 定位）
-import { uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey } from './calc.js';
+import {
+  uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey, uldApplyMawbAllocation
+} from './calc.js';
 
 export const uldWeightState = {
   view: 'list',        // list | editor
@@ -19,12 +21,22 @@ export const uldWeightState = {
   versions: { open: false, loading: false, list: [], error: '' },
   versionDiff: null,   // V3：目前顯示的版本比對結果（null = 沒有在比對）
   // U1／U2：畫面上的「顯示狀態」（不進 payload、不影響計算）
+  //   view       ：編輯畫面用哪一種版面（grid＝CHARTER LOADING SHEET 載荷表／cards＝收貨單位卡片）
+  //   gridSortMawb：載荷表是否依 MAWB# 排序（只影響顯示，不寫回資料）
   //   more     ：「⋯ 更多」動作選單是否展開
   //   advanced ：「⚙ 進階」表頭欄位（B 取整／尾差／磅差門檻／比例上下限）是否展開
   //   expanded  ：哪些收貨單位卡片展開次要欄位（{ [uid]: true }）
   //   allCompact：卡片太多時全部收合（只留摘要）
   //   printUnit ：只印這一張卡（列印時用；null = 印全部）
-  ui: { more: false, advanced: false, expanded: {}, expandAll: false, printUnit: null }
+  ui: {
+    view: 'grid',
+    gridSortMawb: false,
+    more: false,
+    advanced: false,
+    expanded: {},
+    expandAll: false,
+    printUnit: null
+  }
 };
 
 // U2：收貨單位（板）數量上限（業界實務：一台包機最多約 41 板）
@@ -92,6 +104,25 @@ export function uldNewItem(values = {}) {
   };
 }
 
+// 方案 B：新增一票「MAWB 申報列」（載荷表左邊那一列）
+// auto_alloc：1 = 依件數自動把申報重量分到各板（預設）；0 = 保留各板自填重量
+export function uldNewMawb(values = {}) {
+  return {
+    uid: uldTempId('m'),
+    id: null,
+    seq: null,
+    mawb: '',
+    mawb_record_id: null,
+    dest: '',
+    pcs: 0,
+    declared_weight: 0,
+    wh_ref: '',
+    auto_alloc: 1,
+    is_squeeze: false,
+    ...values
+  };
+}
+
 // API 回傳的明細 → 編輯用狀態
 export function uldSheetFromApi(detail) {
   if (!detail) return null;
@@ -114,6 +145,13 @@ export function uldSheetFromApi(detail) {
     handler: detail.handler || '',
     remark: detail.remark || '',
     status: detail.status || 'draft',
+    // 方案 B：MAWB 申報列（舊資料後端會用明細彙總自動長出來；auto_alloc = 0 保留原重量）
+    mawbs: (detail.mawb_rows || []).map(row => ({
+      ...row,
+      uid: uldTempId('m'),
+      is_squeeze: !!row.is_squeeze,
+      auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1
+    })),
     ulds: (detail.ulds || []).map(unit => ({
       ...unit,
       uid: unit.uid || `u${unit.id}`,
@@ -135,6 +173,9 @@ function upperText(value) {
 }
 
 export function uldSheetPayload(sheet) {
+  // 方案 B：先把申報列的重量依件數分回各板（auto_alloc），再組 payload，
+  // 確保「存進 DB 的重量」與「畫面／載荷表算的」完全一致。
+  uldApplyMawbAllocation(sheet);
   return {
     sheet_date: sheet.sheet_date,
     terminal: sheet.terminal,
@@ -150,6 +191,18 @@ export function uldSheetPayload(sheet) {
     clamp_max_pct: uldNum(sheet.clamp_max_pct) > 0 ? uldNum(sheet.clamp_max_pct) : 0,
     handler: sheet.handler,
     remark: sheet.remark,
+    // 方案 B：MAWB 申報列（帶既有 id → 後端做 diff 更新）
+    mawb_rows: (sheet.mawbs || []).map(row => ({
+      id: row.id || null,
+      mawb: upperText(row.mawb),
+      mawb_record_id: row.mawb_record_id || null,
+      dest: upperText(row.dest),
+      pcs: uldNum(row.pcs),
+      declared_weight: uldNum(row.declared_weight),
+      wh_ref: row.wh_ref || '',
+      auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1,
+      is_squeeze: row.is_squeeze ? 1 : 0
+    })),
     ulds: (sheet.ulds || []).map(unit => ({
       // R3：帶回既有 DB id → 後端可做 diff 更新（null／不存在＝新增）
       id: unit.id || null,
@@ -183,13 +236,114 @@ export function uldSheetPayload(sheet) {
 }
 
 // 目前夾重表的即時計算結果
+// 方案 B：先依 MAWB 申報列把重量分回各板（只動 auto_alloc 的列），再算夾重。
 export function uldComputed() {
-  return uldComputeSheet(uldWeightState.current || {});
+  const sheet = uldWeightState.current || {};
+  uldApplyMawbAllocation(sheet);
+  return uldComputeSheet(sheet);
 }
 
 export function uldFindUnit(uid) {
   return (uldWeightState.current && uldWeightState.current.ulds || [])
     .find(unit => unit.uid === uid) || null;
+}
+
+// ===== 方案 B：MAWB 申報列的輔助函式 =====
+export function uldFindMawb(uid) {
+  return ((uldWeightState.current && uldWeightState.current.mawbs) || [])
+    .find(row => row.uid === uid) || null;
+}
+
+// 一票申報列分佈在哪些板（跨板）
+export function uldRowItems(row) {
+  const sheet = uldWeightState.current;
+  if (!sheet || !row) return [];
+  const key = uldMawbKey(row.mawb);
+  if (!key) return [];
+  const out = [];
+  (sheet.ulds || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      if (uldMawbKey(item.mawb) === key) out.push({ unit, item });
+    });
+  });
+  return out;
+}
+
+// 確保某板有這票的明細（在載荷表直接輸入件數時用；沒有就建一筆）
+export function uldEnsureItem(unitUid, row, values = {}) {
+  const unit = uldFindUnit(unitUid);
+  if (!unit || !row) return null;
+  const key = uldMawbKey(row.mawb);
+  if (!key) return null;
+  if (!Array.isArray(unit.items)) unit.items = [];
+  let item = unit.items.find(it => uldMawbKey(it.mawb) === key);
+  if (!item) {
+    item = uldNewItem({
+      mawb: row.mawb,
+      port: row.dest,
+      mawb_record_id: row.mawb_record_id || null,
+      pcs: 0,
+      declared_weight: 0,
+      is_squeeze: !!row.is_squeeze,
+      ...values
+    });
+    unit.items.push(item);
+  }
+  return item;
+}
+
+// 改申報列的 MAWB／DEST 時，把它所有板的明細一起改（MAWB 改名、Port 跟 DEST）
+export function uldSyncRowToItems(row, prevKey) {
+  if (!row) return 0;
+  const sheet = uldWeightState.current;
+  if (!sheet) return 0;
+  const nextKey = uldMawbKey(row.mawb);
+  let changed = 0;
+  (sheet.ulds || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      const key = uldMawbKey(item.mawb);
+      if (key !== prevKey && key !== nextKey) return;
+      if (key === prevKey && key !== nextKey) {
+        item.mawb = row.mawb;
+        changed += 1;
+      }
+      if (row.mawb_record_id && !item.mawb_record_id) item.mawb_record_id = row.mawb_record_id;
+      if (row.dest && item.port !== row.dest) {
+        item.port = row.dest;
+        changed += 1;
+      }
+    });
+  });
+  return changed;
+}
+
+// 刪除申報列（連同它在各板的明細）
+export function uldRemoveMawbRow(uid) {
+  const sheet = uldWeightState.current;
+  if (!sheet || !Array.isArray(sheet.mawbs)) return 0;
+  const idx = sheet.mawbs.findIndex(row => row.uid === uid);
+  if (idx < 0) return 0;
+  const row = sheet.mawbs[idx];
+  const key = uldMawbKey(row.mawb);
+  let removedItems = 0;
+  if (key) {
+    (sheet.ulds || []).forEach(unit => {
+      const before = (unit.items || []).length;
+      unit.items = (unit.items || []).filter(item => uldMawbKey(item.mawb) !== key);
+      removedItems += before - unit.items.length;
+    });
+  }
+  sheet.mawbs.splice(idx, 1);
+  return removedItems;
+}
+
+// 列的「夾重」勾選：套到這票的所有明細（之後新加的明細也會沿用 row.is_squeeze）
+export function uldSetRowSqueeze(row, squeeze) {
+  if (!row) return 0;
+  row.is_squeeze = !!squeeze;
+  const items = uldRowItems(row);
+  items.forEach(({ item }) => { item.is_squeeze = !!squeeze; });
+  return items.length;
 }
 
 export function uldMarkDirty() {

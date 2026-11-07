@@ -64,6 +64,11 @@ function setupPageNavigation() {
       const href = item.getAttribute('href');
       item.classList.toggle('active', href === `#${sectionId}`);
     });
+
+    // 同步頂部工作列的「目前位置」顯示（topbar.js；沒有工作列的頁面不會有這個函式）
+    if (typeof window.topbarSetSection === 'function') {
+      window.topbarSetSection(sectionId);
+    }
   }
 
   navItems.forEach(item => {

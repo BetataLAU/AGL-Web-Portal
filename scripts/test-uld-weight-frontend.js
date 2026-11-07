@@ -57,7 +57,7 @@ function apiDetail() {
     ulds: [
       {
         id: 11, uid: 'u11', kind: 'ULD', uld_number: 'PMC0003XX', contour_code: 'ZQ',
-        port: 'HKG', pcs: 8, tare_weight: 115, rcl_gross_weight: 540, material_weight: 0,
+        port: 'HKG', pcs: 8, tare_weight: 115, rcl_gross_weight: 425, material_weight: 0,
         lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
         items: [
           { id: 21, mawb: '160-00000005', port: 'HKG', pcs: 5, declared_weight: 300, final_weight: 300, is_squeeze: 0, squeeze_ratio: null, lih_type: 'N' },
@@ -66,7 +66,7 @@ function apiDetail() {
       },
       {
         id: 12, uid: 'u12', kind: 'ULD', uld_number: 'PMC0004XX', contour_code: 'PMC',
-        port: 'HKG', pcs: 3, tare_weight: 112, rcl_gross_weight: 1000, material_weight: 0,
+        port: 'HKG', pcs: 3, tare_weight: 112, rcl_gross_weight: 888, material_weight: 0,
         lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
         items: [
           { id: 23, mawb: '160-00000006', port: 'TPE', pcs: 3, declared_weight: 888, final_weight: 888, is_squeeze: 1, squeeze_ratio: null, lih_type: 'N' }
@@ -85,6 +85,10 @@ function apiDetail() {
   const render = await import(`${BASE}/render.js`);
   const calc = await import(`${BASE}/calc.js`);
   const versionDiff = await import(`${BASE}/version-diff.js`);
+
+  // 2026-11-07：編輯畫面預設改成「載荷表（CHARTER LOADING SHEET，grid）」；
+  // 這一支測試的 §7～§21 是卡片／狀態行為，固定切回 cards（§22 再測 grid）。
+  state.uldWeightState.ui.view = 'cards';
 
   // ===== 1. 新增單位預設值 =====
   console.log('--- 1. 新增收貨單位 ---');
@@ -182,7 +186,7 @@ function apiDetail() {
     html.includes('>HACTL<') && html.includes('>AAT<') && html.includes('>CPSL<'));
   check('7.3 有 ULD# 與 Contour 輸入（含建議清單）',
     html.includes('data-unit-field="uld_number"') && html.includes('data-unit-field="contour_code"') && html.includes('uldw-contour-list'));
-  check('7.4 有 Tare / RCL Gross / 物料欄位',
+  check('7.4 有 Tare / RCL（淨） / 物料欄位',
     html.includes('data-unit-field="tare_weight"') &&
     html.includes('data-unit-field="rcl_gross_weight"') &&
     html.includes('data-unit-field="material_weight"'));
@@ -728,7 +732,7 @@ function apiDetail() {
       units: [
         {
           id: 11, seq: 0, kind: 'ULD', uld_number: 'PMC0003XX', bulk_ref: '', rcl_no: '',
-          contour_code: 'ZQ', port: 'HKG', pcs: 8, tare_weight: 115, rcl_gross_weight: 540,
+          contour_code: 'ZQ', port: 'HKG', pcs: 8, tare_weight: 115, rcl_gross_weight: 425,
           material_weight: 0, lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
           net_weight: 425, diff_weight: 0,
           items: [
@@ -738,7 +742,7 @@ function apiDetail() {
         },
         {
           id: 12, seq: 1, kind: 'ULD', uld_number: 'PMC0004XX', bulk_ref: '', rcl_no: '',
-          contour_code: 'PMC', port: 'HKG', pcs: 3, tare_weight: 112, rcl_gross_weight: 1000,
+          contour_code: 'PMC', port: 'HKG', pcs: 3, tare_weight: 112, rcl_gross_weight: 888,
           material_weight: 0, lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
           net_weight: 888, diff_weight: 0,
           items: [
@@ -873,7 +877,7 @@ function apiDetail() {
 
   state.uldWeightState.current = state.uldSheetFromApi(apiDetail());
   state.uldWeightState.rclImport = null;
-  state.uldWeightState.ui = { more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
+  state.uldWeightState.ui = { view: 'cards', more: false, advanced: false, expanded: {}, allCompact: false, printUnit: null };
   const uxRoot = makeRoot();
   render.renderEditor(uxRoot);
   const uxHtml = uxRoot.innerHTML;
@@ -1024,6 +1028,252 @@ function apiDetail() {
     uxHtml.includes('value="UN3091"') && uxHtml.includes('>3091<') &&
     !uxHtml.includes('無鋰電池') &&
     calc.uldLihLabel('UN3481') === '3481' && calc.uldLihLabel('N') === 'N');
+  check('21.35 貼上只攔 MAWB 欄位（ULD#／Contour 等照正常貼上）',
+    paste.uldPasteIsMawbField({ draft: 'mawb' }) === true &&
+    paste.uldPasteIsMawbField({ itemField: 'mawb' }) === true &&
+    paste.uldPasteIsMawbField({ rowField: 'mawb' }) === true &&
+    paste.uldPasteIsMawbField({ unitField: 'uld_number' }) === false &&
+    paste.uldPasteIsMawbField({ unitField: 'contour_code' }) === false &&
+    paste.uldPasteIsMawbField({ draft: 'port' }) === false &&
+    paste.uldPasteIsMawbField({}) === false);
+  check('21.36 onRootPaste 先判斷欄位（貼 ULD# 不會被當成 MAWB 驗證）',
+    /uldPasteIsMawbField\(target\.dataset\)/.test(entryText) &&
+    /isFormField/.test(entryText));
+  check('21.37 RCL WT = 淨重：卡片標示「RCL（淨）」、摘要不再寫 RCL − Tare',
+    uxHtml.includes('RCL（淨）') && uxHtml.includes('Tare') &&
+    /RCL（淨）/.test(renderText) && !/RCL \$\{uldFmtKg\(calc\.rclGross\)\}`\s*\n\s*\+ `\$\{calc\.tare \? ` − Tare/.test(renderText));
+  check('21.38 PDF 以「RCL（淨重）」呈現（不再寫 RCL − Tare = 淨重）',
+    pdfText.includes('RCL（淨重）') && !/RCL \$\{fmtKg\(calc\.rclGross\)\} - Tare/.test(pdfText));
+
+  // ===== 22. CHARTER LOADING SHEET（載荷表：Excel 式矩陣檢視／列印，2026-11-07）=====
+  console.log('\n--- 22. 載荷表（CHARTER LOADING SHEET）---');
+  const gridMod = await import(`${BASE}/sheet-grid.js`);
+  state.uldWeightState.current = state.uldSheetFromApi(apiDetail());
+  const gridModel = gridMod.uldGridModel(state.uldComputed());
+  check('22.1 一票一列（2 票 MAWB）', gridModel.rows.length === 2, String(gridModel.rows.length));
+  const gridRowB = gridModel.rows.find(row => row.mawb === '160-00000006');
+  check('22.2 同票跨板：上數＝各板最終重量相加（125 + 888 = 1013）',
+    Math.abs(gridRowB.upWt - 1013) < 1e-6, String(gridRowB.upWt));
+  check('22.3 每板一格：MAWB b 在兩張板都有 cell（3 + 3 = 6 PCS）',
+    Object.keys(gridRowB.cells).length === 2 && gridRowB.upPcs === 6,
+    JSON.stringify([Object.keys(gridRowB.cells), gridRowB.upPcs]));
+  check('22.4 底部數字：PLAN 1313／RCL（淨）1313／DIFF 0（同卡片檢視的定義）',
+    Math.abs(gridModel.planWt - 1313) < 1e-6 && Math.abs(gridModel.rclTotal - 1313) < 1e-6 &&
+    Math.abs(gridModel.planDiff) < 1e-6,
+    JSON.stringify([gridModel.planWt, gridModel.rclTotal, gridModel.planDiff]));
+  const gridSorted = gridMod.uldGridSortRows(gridModel.rows);
+  check('22.5 Sort by MAWB# 只排顯示順序（回傳新陣列、不改資料）',
+    gridSorted !== gridModel.rows && gridSorted.length === 2 &&
+    String(gridSorted[0].key) <= String(gridSorted[1].key));
+
+  state.uldWeightState.ui = {
+    view: 'grid', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null
+  };
+  const gridRoot = makeRoot();
+  render.renderEditor(gridRoot);
+  const gridHtml = gridRoot.innerHTML;
+  check('22.6 標題帶 CHARTER LOADING SHEET', gridHtml.includes('CHARTER LOADING SHEET'));
+  check('22.7 圖例：要自己入／會自動計／紅字=夾重／橙字=wt有差',
+    ['要自己入', '會自動計', '紅字=夾重', '橙字=wt有差'].every(t => gridHtml.includes(t)));
+  check('22.8 三顆按鈕：Clear Content／Check & format MAWB#／Sort by MAWB#',
+    ['grid-clear', 'grid-check-mawb', 'grid-sort'].every(a => gridHtml.includes(`data-action="${a}"`)));
+  check('22.9 表頭：SEQ／MAWB／DEST／PCS／WT／W/H or Booking／MAWB 上數＋01/A、02/B',
+    ['>SEQ<', '>MAWB<', '>DEST<', '>PCS<', '>WT<', 'W/H or Booking', 'MAWB 上數', '>01/A<', '>02/B<']
+      .every(t => gridHtml.includes(t)));
+  check('22.10 板頭顯示 ULD#／Contour（PMC0003XX/ZQ）', gridHtml.includes('PMC0003XX/ZQ'));
+  check('22.11 底部有 PLAN TTL／RCL TTL／DIFF',
+    ['PLAN TTL', 'RCL TTL', 'DIFF'].every(t => gridHtml.includes(t)));
+  check('22.11b 底部標籤是 RCL（淨）（RCL wt = 淨重）',
+    gridHtml.includes('RCL（淨）／ 磅差'));
+  check('22.12 夾重格標紅（is-squeeze）、有 wt 有差（is-diff）的樣式',
+    gridHtml.includes('uldw-grid-num is-squeeze') && /\.uldw-grid-num\.is-diff\s*\{[^}]*color/.test(cssText));
+  check('22.13 載荷表是唯讀矩陣（沒有明細輸入框）＋有「▤ 卡片編輯」切換',
+    !gridHtml.includes('data-item-field="mawb"') && gridHtml.includes('data-action="view-cards"'));
+  check('22.14 預設版面是載荷表（state.ui.view）',
+    /view: 'grid'/.test(stateText) && /gridSortMawb/.test(stateText));
+
+  // 卡片檢視仍可用（切回 cards 就回到原本的收貨單位卡片）
+  state.uldWeightState.ui.view = 'cards';
+  const backRoot = makeRoot();
+  render.renderEditor(backRoot);
+  check('22.15 切回 cards 有收貨單位卡片與「▦ 載荷表」按鈕',
+    (backRoot.innerHTML.match(/class="uldw-unit"/g) || []).length === 2 &&
+    backRoot.innerHTML.includes('data-action="view-grid"'));
+
+  // 入口：版面切換／排序／檢查格式化／清空的動作分派
+  check('22.16 入口有 view-grid／view-cards／grid-sort／grid-check-mawb／grid-clear',
+    ['view-grid', 'view-cards', 'grid-sort', 'grid-check-mawb', 'grid-clear']
+      .every(action => entryText.includes(`case '${action}':`)));
+  check('22.17 Check & format MAWB# 走共用格式／驗證函式、Clear Content 先 confirm',
+    /function checkAndFormatMawbs/.test(entryText) && /uldValidateMawb\(raw\)/.test(entryText) &&
+    /uldFormatMawb\(raw\)/.test(entryText) && /function clearSheetContent/.test(entryText) &&
+    /confirm\(/.test(entryText.slice(entryText.indexOf('function clearSheetContent'))));
+  check('22.18 列印：載荷表用 A4 橫向（named page uld-grid）',
+    /@page uld-grid\s*\{\s*size:\s*A4 landscape/.test(cssText) &&
+    /\.uldw-grid\s*\{[^}]*page:\s*uld-grid/.test(cssText));
+  check('22.19 載荷表 CSS：表頭 sticky／左右捲動／前兩欄固定',
+    /\.uldw-grid-table thead th\s*\{[^}]*position:\s*sticky/.test(cssText) &&
+    /\.uldw-grid-wrap\s*\{[^}]*overflow:\s*auto/.test(cssText) &&
+    /td\.uldw-grid-mawb\s*\{[^}]*left:\s*44px/.test(cssText));
+
+  // 邊界：空表（沒有收貨單位）不拋錯、鎖定時破壞性按鈕 disabled
+  state.uldWeightState.current = state.uldSheetFromApi(Object.assign({}, apiDetail(), { ulds: [] }));
+  state.uldWeightState.ui = {
+    view: 'grid', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null
+  };
+  const emptyGridRoot = makeRoot();
+  let emptyGridThrew = false;
+  try {
+    render.renderEditor(emptyGridRoot);
+  } catch (err) {
+    emptyGridThrew = true;
+    console.log(err);
+  }
+  check('22.20 空表（0 板）載荷表不拋錯，顯示「還沒有收貨單位」提示',
+    emptyGridThrew === false && emptyGridRoot.innerHTML.includes('還沒有收貨單位'));
+
+  state.uldWeightState.current = state.uldSheetFromApi(Object.assign({}, apiDetail(), { status: 'locked' }));
+  const lockedGridRoot = makeRoot();
+  render.renderEditor(lockedGridRoot);
+  check('22.21 鎖定時 Clear Content／Check & format／新增板 都 disabled（唯讀）',
+    /data-action="grid-clear" disabled/.test(lockedGridRoot.innerHTML) &&
+    /data-action="grid-check-mawb" disabled/.test(lockedGridRoot.innerHTML) &&
+    /data-action="add-uld" disabled/.test(lockedGridRoot.innerHTML));
+
+  // ===== 23. 方案 B：MAWB 申報列（可編輯載荷表）=====
+  console.log('\n--- 23. MAWB 申報列（方案 B）---');
+  function detailWithRows() {
+    const detail = apiDetail();
+    detail.mawb_rows = [
+      { id: 91, seq: 0, mawb: '160-00000005', dest: 'HKG', pcs: 5, declared_weight: 300, wh_ref: 'W/H-1', auto_alloc: 1, is_squeeze: 0 },
+      { id: 92, seq: 1, mawb: '160-00000006', dest: 'TPE', pcs: 6, declared_weight: 1013, wh_ref: '', auto_alloc: 1, is_squeeze: 1 }
+    ];
+    return detail;
+  }
+  state.uldWeightState.current = state.uldSheetFromApi(detailWithRows());
+  state.uldWeightState.rclImport = null;
+  check('23.1 API → 編輯狀態帶申報列（2 票、有 uid／auto_alloc／is_squeeze）',
+    state.uldWeightState.current.mawbs.length === 2 &&
+    state.uldWeightState.current.mawbs.every(row => !!row.uid) &&
+    state.uldWeightState.current.mawbs[1].auto_alloc === 1 &&
+    state.uldWeightState.current.mawbs[1].is_squeeze === true);
+
+  const computedRows = state.uldComputed();
+  const cellB1 = computedRows.units[0].calc.items.find(it => it.mawb === '160-00000006');
+  const cellB2 = computedRows.units[1].calc.items.find(it => it.mawb === '160-00000006');
+  check('23.2 申報重量依件數分到各板（3 件／3 件 → 506.5／506.5）',
+    Math.abs(cellB1.declared - 506.5) < 1e-6 && Math.abs(cellB2.declared - 506.5) < 1e-6,
+    JSON.stringify([cellB1.declared, cellB2.declared]));
+
+  state.uldWeightState.ui = {
+    view: 'grid', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null
+  };
+  const gridB = makeRoot();
+  render.renderEditor(gridB);
+  const gridBHtml = gridB.innerHTML;
+  const gridBModel = gridMod.uldGridModel(state.uldComputed(), state.uldWeightState.current);
+  const gridRowB2 = gridBModel.rows.find(row => row.mawb === '160-00000006');
+  check('23.3 載荷表列以申報列為準（W/H、自動、上數 = 夾重後 1013）',
+    gridBModel.rows.length === 2 && gridBModel.rows[0].whRef === 'W/H-1' &&
+    gridBModel.rows.every(row => row.autoAlloc === 1) &&
+    Math.abs(gridRowB2.upWt - 1013) < 1e-6,
+    JSON.stringify([gridBModel.rows.length, gridBModel.rows[0].whRef, gridRowB2.upWt]));
+  check('23.4 載荷表可編輯：申報列欄位＋各板件數＋新增列／刪除列',
+    ['mawb', 'dest', 'pcs', 'declared_weight', 'wh_ref', 'auto_alloc', 'is_squeeze']
+      .every(field => gridBHtml.includes(`data-row-field="${field}"`)) &&
+    gridBHtml.includes('data-cell-field="pcs"') &&
+    gridBHtml.includes('id="uldw-grid-new-mawb"') &&
+    gridBHtml.includes('data-action="grid-add-row"') &&
+    gridBHtml.includes('data-action="grid-del-row"'),
+    'data-row-field／data-cell-field／grid-add-row／grid-del-row');
+  check('23.5 右邊 WT 是算出來的（不是輸入框）',
+    /<span data-calc-cell="wt" data-cell-unit="u11">/.test(gridBHtml));
+
+  // 各板件數 → 自動建立明細
+  const rowA = state.uldWeightState.current.mawbs[0];
+  const beforeItems = state.uldWeightState.current.ulds[1].items.length;
+  const ensured = state.uldEnsureItem('u12', rowA, { pcs: 0 });
+  check('23.6 在沒有這票的板輸入件數 → 自動建立明細（帶 DEST）',
+    !!ensured && state.uldWeightState.current.ulds[1].items.length === beforeItems + 1 &&
+    ensured.mawb === '160-00000005' && ensured.port === 'HKG',
+    ensured ? `${ensured.mawb}／${ensured.port}` : 'missing');
+
+  // 改 MAWB → 各板明細一起改
+  const rowAKey = calc.uldMawbKey(rowA.mawb);
+  rowA.mawb = '160-00000005X';
+  state.uldSyncRowToItems(rowA, rowAKey);
+  check('23.7 改申報列的 MAWB → 各板明細一起改名（不會留在舊號碼）',
+    state.uldWeightState.current.ulds.every(unit =>
+      (unit.items || []).every(item => item.mawb !== '160-00000005')),
+    JSON.stringify(state.uldWeightState.current.ulds.map(u => u.items.map(it => it.mawb))));
+  rowA.mawb = '160-00000005';
+  state.uldSyncRowToItems(rowA, calc.uldMawbKey('160-00000005X'));
+
+  // 列夾重開關 → 套到所有明細
+  state.uldSetRowSqueeze(state.uldWeightState.current.mawbs[0], true);
+  const squeezed = state.uldRowItems(state.uldWeightState.current.mawbs[0]);
+  check('23.8 勾「夾重」→ 這票所有板的明細都參與夾重',
+    squeezed.length >= 1 && squeezed.every(({ item }) => item.is_squeeze === true));
+  state.uldSetRowSqueeze(state.uldWeightState.current.mawbs[0], false);
+
+  // 存檔 payload 帶申報列
+  const payloadRows = state.uldSheetPayload(state.uldWeightState.current);
+  check('23.9 存檔 payload 帶 mawb_rows（id／W-H／auto_alloc／夾重）',
+    Array.isArray(payloadRows.mawb_rows) && payloadRows.mawb_rows.length === 2 &&
+    payloadRows.mawb_rows[0].id === 91 && payloadRows.mawb_rows[0].wh_ref === 'W/H-1' &&
+    payloadRows.mawb_rows[1].auto_alloc === 1 && payloadRows.mawb_rows[1].is_squeeze === 1,
+    JSON.stringify(payloadRows.mawb_rows));
+
+  // 卡片檢視：MAWB 由申報列管 → 唯讀
+  state.uldWeightState.ui.view = 'cards';
+  const cardsB = makeRoot();
+  render.renderEditor(cardsB);
+  check('23.10 卡片檢視的 MAWB 欄唯讀（改名請在載荷表左邊）',
+    /data-item-field="mawb" value="160-00000006" readonly/.test(cardsB.innerHTML));
+
+  // 刪除申報列 → 連同各板明細
+  const removeRow = state.uldWeightState.current.mawbs[1];
+  const removedCount = state.uldRemoveMawbRow(removeRow.uid);
+  check('23.11 刪除申報列 → 各板明細一起刪（列數 1）',
+    state.uldWeightState.current.mawbs.length === 1 && removedCount >= 1 &&
+    state.uldWeightState.current.ulds.every(unit =>
+      (unit.items || []).every(item => item.mawb !== '160-00000006')),
+    `removed ${removedCount}`);
+
+  // 版本比對：多一票申報列 → mawbsAdded
+  const snapBase = {
+    header: { terminal: 'CPSL', status: 'draft' },
+    mawbs: [{ id: 1, mawb: '160-00000005', pcs: 5, declared_weight: 300, auto_alloc: 1 }],
+    units: []
+  };
+  const snapMore = JSON.parse(JSON.stringify(snapBase));
+  snapMore.mawbs.push({ id: 2, mawb: '160-00000006', pcs: 6, declared_weight: 1013, auto_alloc: 1 });
+  snapMore.mawbs[0].declared_weight = 350;
+  const mawbDiff = versionDiff.uldDiffSnapshots(snapBase, snapMore);
+  check('23.12 版本比對有 MAWB 申報列（新增 1、修改 1）',
+    mawbDiff.summary.mawbsAdded === 1 && mawbDiff.summary.mawbsChanged === 1 &&
+    mawbDiff.mawbs.changed[0].fields.some(change => change.field === 'declared_weight'),
+    JSON.stringify(mawbDiff.summary));
+
+  // 局部更新（stub DOM 沒有子節點）不拋錯
+  let refreshThrew = false;
+  try {
+    gridMod.refreshGridComputed(gridB, state.uldComputed(), state.uldWeightState.current);
+  } catch (err) {
+    refreshThrew = true;
+    console.log(err);
+  }
+  check('23.13 refreshGridComputed 不拋錯（stub DOM 無子節點）', refreshThrew === false);
+
+  // 入口：新增／刪除列與 focusin（改名同步）
+  check('23.14 入口有 grid-add-row／grid-del-row／focusin／addMawbRow／deleteMawbRow',
+    ['grid-add-row', 'grid-del-row'].every(action => entryText.includes(`case '${action}':`)) &&
+    /onRootFocusIn/.test(entryText) && /function addMawbRow/.test(entryText) &&
+    /function deleteMawbRow/.test(entryText) &&
+    /addEventListener\('focusin', onRootFocusIn\)/.test(entryText));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

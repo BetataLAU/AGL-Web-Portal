@@ -106,7 +106,9 @@
 | npm scripts | `test:uldweight`、`test:uldweight-api` |
 
 **已定案的業務規則（不要自行改掉）**
-- `目標淨重 R = RCL Gross − Tare`；**B（散貨）Tare 一律 0**
+- ~~`目標淨重 R = RCL Gross − Tare`；**B（散貨）Tare 一律 0**~~
+  → **2026-11-07 改為 `目標淨重 R = RCL WT`（RCL 欄填的就是淨重，不扣 Tare；Tare 只顯示參考）**，
+  見 `docs/design/uld-weight-remaining-work.md` §0.2
 - 磅差 `D = R − Σ 申報重量`；**未勾選夾重的票重量不變**
 - 取整：**P/X 一律正整數（1.0）**；**B 可選 0.5 或 1.0**（表頭 `round_b`）
 - 尾差預設由「申報重量最大的夾重票」吸收（`tail_mode = adjust_largest | equal | none`）

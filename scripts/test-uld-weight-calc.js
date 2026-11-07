@@ -33,22 +33,43 @@ function codes(result) {
     uldComputeUnit, uldComputeSheet, uldSplitByPcs, uldCeilTo, uldFmtKg, uldNormalizeMawb, uldBookingTotals
   } = calc;
 
+  // ===== 0. RCL WT = 淨重（2026-11-07 規則變更）=====
+  console.log('--- 0. RCL WT = 淨重（Tare 只顯示參考）---');
+  const rclIsNet = uldComputeUnit({
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 1000,
+    items: [{ mawb: '160-00000091', pcs: 1, declared_weight: 900, is_squeeze: true }]
+  });
+  check('0.1 目標淨重 = RCL 1000（不是 1000 − 115 = 885）', near(rclIsNet.targetNet, 1000), `(${rclIsNet.targetNet})`);
+  check('0.2 磅差 = RCL 1000 − 申報 900 = 100', near(rclIsNet.diff, 100), `(${rclIsNet.diff})`);
+  check('0.3 夾重後合計 = 1000（Tare 不影響分配）', near(rclIsNet.finalSum, 1000), `(${rclIsNet.finalSum})`);
+  check('0.4 Tare 仍回傳、僅供顯示', near(rclIsNet.tare, 115), `(${rclIsNet.tare})`);
+  check('0.5 磅差 % 以 RCL 為分母（100 / 1000 = 10%）', near(rclIsNet.diffPct, 10), `(${rclIsNet.diffPct})`);
+  const rclIsNetSheet = uldComputeSheet({
+    ulds: [{
+      uid: 'a', kind: 'ULD', uld_number: 'PMC1', tare_weight: 115, rcl_gross_weight: 1000,
+      items: [{ mawb: '160-00000091', pcs: 1, declared_weight: 900, is_squeeze: true }]
+    }]
+  });
+  check('0.6 全表 netTotal／rclTotal 都以 RCL（淨重）為準（1000）',
+    near(rclIsNetSheet.totals.netTotal, 1000) && near(rclIsNetSheet.totals.rclTotal, 1000),
+    `(${rclIsNetSheet.totals.netTotal} / ${rclIsNetSheet.totals.rclTotal})`);
+
   // ===== 1. 需求規格 4 個 CASE =====
   console.log('--- 1. 需求規格 CASE 1~4 ---');
 
   // CASE 1：1 ULD 裝 1 MAWB
   const case1 = uldComputeUnit({
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568,
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453,
     items: [{ mawb: '160-00000001', pcs: 10, declared_weight: 2438, is_squeeze: true }]
   });
-  check('1.1 CASE1 目標淨重 = 2568 − 115 = 2453', near(case1.targetNet, 2453), `(${case1.targetNet})`);
+  check('1.1 CASE1 目標淨重 = RCL 2453（Tare 115 不扣）', near(case1.targetNet, 2453), `(${case1.targetNet})`);
   check('1.2 CASE1 夾重後 MAWB = 2453', near(case1.items[0].final, 2453), `(${case1.items[0].final})`);
   check('1.3 CASE1 磅差 = +15', near(case1.diff, 15), `(${case1.diff})`);
   check('1.4 CASE1 無檢核問題', case1.issues.length === 0, JSON.stringify(codes(case1)));
 
   // CASE 2：1 ULD 裝 2 MAWB，指定 MAWB a 夾重
   const case2 = uldComputeUnit({
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568, pcs: 13,
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453, pcs: 13,
     items: [
       { mawb: '160-00000002', pcs: 10, declared_weight: 2138, is_squeeze: true },
       { mawb: '160-00000003', pcs: 3, declared_weight: 300, is_squeeze: false }
@@ -56,24 +77,24 @@ function codes(result) {
   });
   check('2.1 CASE2 夾重 MAWB a = 2153', near(findItem(case2, '160-00000002').final, 2153));
   check('2.2 CASE2 未夾重 MAWB b = 300（不變）', near(findItem(case2, '160-00000003').final, 300));
-  check('2.3 CASE2 板內合計 = 2453（= RCL − Tare）', near(case2.finalSum, 2453), `(${case2.finalSum})`);
+  check('2.3 CASE2 板內合計 = 2453（= RCL 淨重）', near(case2.finalSum, 2453), `(${case2.finalSum})`);
 
   // CASE 3：2 ULD 裝 1 MAWB（交板，同一 MAWB 分兩板）
   const case3Sheet = uldComputeSheet({
     round_px: 1, round_b: 1, tail_mode: 'adjust_largest',
     ulds: [
       {
-        uid: 'a', kind: 'ULD', uld_number: 'PMC0001XX', tare_weight: 115, rcl_gross_weight: 2300, pcs: 20,
+        uid: 'a', kind: 'ULD', uld_number: 'PMC0001XX', tare_weight: 115, rcl_gross_weight: 2185, pcs: 20,
         items: [{ mawb: '160-00000004', pcs: 20, declared_weight: 2185, is_squeeze: true }]
       },
       {
-        uid: 'b', kind: 'ULD', uld_number: 'PMC0002XX', tare_weight: 112, rcl_gross_weight: 2000, pcs: 18,
+        uid: 'b', kind: 'ULD', uld_number: 'PMC0002XX', tare_weight: 112, rcl_gross_weight: 1888, pcs: 18,
         items: [{ mawb: '160-00000004', pcs: 18, declared_weight: 1865, is_squeeze: true }]
       }
     ]
   });
-  check('3.1 CASE3 板 a 淨重 = 2300 − 115 = 2185', near(case3Sheet.units[0].calc.finalSum, 2185));
-  check('3.2 CASE3 板 b 淨重 = 2000 − 112 = 1888', near(case3Sheet.units[1].calc.finalSum, 1888));
+  check('3.1 CASE3 板 a 淨重 = RCL 2185（Tare 115 不扣）', near(case3Sheet.units[0].calc.finalSum, 2185));
+  check('3.2 CASE3 板 b 淨重 = RCL 1888（Tare 112 不扣）', near(case3Sheet.units[1].calc.finalSum, 1888));
   check('3.3 CASE3 MAWB 合計 = 4073', near(case3Sheet.mawbs[0].final, 4073), `(${case3Sheet.mawbs[0].final})`);
   check('3.4 CASE3 原申報 4050 → 差 +23', near(case3Sheet.mawbs[0].diff, 23));
 
@@ -82,14 +103,14 @@ function codes(result) {
     round_px: 1, round_b: 1,
     ulds: [
       {
-        uid: 'a', kind: 'ULD', uld_number: 'PMC0003XX', tare_weight: 115, rcl_gross_weight: 540, pcs: 8,
+        uid: 'a', kind: 'ULD', uld_number: 'PMC0003XX', tare_weight: 115, rcl_gross_weight: 425, pcs: 8,
         items: [
           { mawb: '160-00000005', pcs: 5, declared_weight: 300, is_squeeze: false },
           { mawb: '160-00000006', pcs: 3, declared_weight: 125, is_squeeze: true }
         ]
       },
       {
-        uid: 'b', kind: 'ULD', uld_number: 'PMC0004XX', tare_weight: 112, rcl_gross_weight: 1000, pcs: 3,
+        uid: 'b', kind: 'ULD', uld_number: 'PMC0004XX', tare_weight: 112, rcl_gross_weight: 888, pcs: 3,
         items: [{ mawb: '160-00000006', pcs: 3, declared_weight: 888, is_squeeze: true }]
       }
     ]
@@ -105,7 +126,7 @@ function codes(result) {
   // ===== 2. 多票按比例夾重（新規則）=====
   console.log('\n--- 2. 多票按比例夾重 ---');
   const multi = uldComputeUnit({
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568, pcs: 13, squeeze_mode: 'weight',
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453, pcs: 13, squeeze_mode: 'weight',
     items: [
       { mawb: '160-00000011', pcs: 10, declared_weight: 2138, is_squeeze: true },
       { mawb: '160-00000012', pcs: 3, declared_weight: 300, is_squeeze: true }
@@ -120,7 +141,7 @@ function codes(result) {
   check('5.5 合計 = 目標淨重 2453', near(multi.finalSum, 2453), `(${multi.finalSum})`);
 
   const byPcs = uldComputeUnit({
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568, pcs: 13, squeeze_mode: 'pcs',
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453, pcs: 13, squeeze_mode: 'pcs',
     items: [
       { mawb: 'A', pcs: 12, declared_weight: 2138, is_squeeze: true },
       { mawb: 'B', pcs: 1, declared_weight: 300, is_squeeze: true }
@@ -190,7 +211,7 @@ function codes(result) {
   // ===== 4. 尾差處理模式 =====
   console.log('\n--- 4. 尾差處理 ---');
   const unitTail = {
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568,
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453,
     items: [
       { mawb: 'A', pcs: 10, declared_weight: 2138, is_squeeze: true },
       { mawb: 'B', pcs: 3, declared_weight: 300, is_squeeze: true }
@@ -208,7 +229,7 @@ function codes(result) {
   // ===== 5. 檢核 =====
   console.log('\n--- 5. 檢核 ---');
   const noSqueeze = uldComputeUnit({
-    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2568,
+    kind: 'ULD', tare_weight: 115, rcl_gross_weight: 2453,
     items: [{ mawb: 'A', pcs: 1, declared_weight: 2000, is_squeeze: false }]
   });
   check('11.1 有磅差但未勾夾重 → NO_SQUEEZE（error）',
@@ -329,9 +350,9 @@ function codes(result) {
   check('12.1 彙總 MAWB 數 = 2（CASE4）', case4Sheet.mawbs.length === 2);
   check('12.2 板數 = 2、散貨數 = 0',
     case4Sheet.totals.unitCount === 2 && case4Sheet.totals.bulkCount === 0);
-  check('12.3 RCL 總重 = 1540', near(case4Sheet.totals.rclTotal, 1540), `(${case4Sheet.totals.rclTotal})`);
+  check('12.3 RCL（淨）總計 = 1313', near(case4Sheet.totals.rclTotal, 1313), `(${case4Sheet.totals.rclTotal})`);
   check('12.4 Tare 總重 = 227', near(case4Sheet.totals.tareTotal, 227), `(${case4Sheet.totals.tareTotal})`);
-  check('12.5 淨重總計 = 1313', near(case4Sheet.totals.netTotal, 1313), `(${case4Sheet.totals.netTotal})`);
+  check('12.5 夾重後總計 = 1313', near(case4Sheet.totals.netTotal, 1313), `(${case4Sheet.totals.netTotal})`);
   check('12.6 磅差總計 = 0', near(case4Sheet.totals.diffTotal, 0), `(${case4Sheet.totals.diffTotal})`);
   check('12.7 CASE3 全表無 error', case3Sheet.totals.hasError === false);
 
@@ -382,14 +403,14 @@ function codes(result) {
     round_px: 1, round_b: 1, tail_mode: 'adjust_largest',
     ulds: [
       {
-        uid: 'a', kind: 'ULD', uld_number: 'PMC0003XX', tare_weight: 115, rcl_gross_weight: 540,
+        uid: 'a', kind: 'ULD', uld_number: 'PMC0003XX', tare_weight: 115, rcl_gross_weight: 425,
         items: [
           { mawb: '160-00000005', mawb_record_id: 11, pcs: 5, declared_weight: 300, is_squeeze: false },
           { mawb: '160-00000006', mawb_record_id: 12, pcs: 3, declared_weight: 125, is_squeeze: true }
         ]
       },
       {
-        uid: 'b', kind: 'ULD', uld_number: 'PMC0004XX', tare_weight: 112, rcl_gross_weight: 1000,
+        uid: 'b', kind: 'ULD', uld_number: 'PMC0004XX', tare_weight: 112, rcl_gross_weight: 888,
         items: [{ mawb: '160-00000006', mawb_record_id: 12, pcs: 3, declared_weight: 888, is_squeeze: true }]
       }
     ]
@@ -539,6 +560,70 @@ function codes(result) {
         ]
       }]
     }).units[0].calc.items[0].ratio - 0.9) < 1e-9);
+
+  // ===== 18. 方案 B：MAWB 申報列 → 各板重量分配 =====
+  console.log('\n--- 18. MAWB 申報列重量分配（方案 B）---');
+  const {
+    uldAllocateByPcs, uldApplyMawbAllocation
+  } = calc;
+
+  const allocEven = uldAllocateByPcs(1000, [{ pcs: 3 }, { pcs: 1 }]);
+  check('18.1 依件數分重量（3:1 → 750／250），合計 = 申報重量',
+    near(allocEven[0], 750) && near(allocEven[1], 250));
+
+  const allocOdd = uldAllocateByPcs(1000, [{ pcs: 1 }, { pcs: 1 }, { pcs: 1 }]);
+  check('18.2 除不盡時尾差給第一筆，合計仍等於申報重量',
+    near(allocOdd.reduce((sum, v) => sum + v, 0), 1000) && near(allocOdd[0], 333.334, 1e-3),
+    JSON.stringify(allocOdd));
+
+  const allocNoPcs = uldAllocateByPcs(500, [{ pcs: 0 }, { pcs: 0 }]);
+  check('18.3 件數都是 0 → 平均分（250／250）', near(allocNoPcs[0], 250) && near(allocNoPcs[1], 250));
+
+  const allocOne = uldAllocateByPcs(1400, [{ pcs: 10 }]);
+  check('18.4 一票只在一板 → 整票重量都在那一板（1400）', near(allocOne[0], 1400));
+
+  const allocSheet = {
+    mawbs: [{ mawb: '160-00000101', declared_weight: 1000, auto_alloc: 1 }],
+    ulds: [
+      { uid: 'a', items: [{ mawb: '160-00000101', pcs: 3, declared_weight: 0 }] },
+      { uid: 'b', items: [{ mawb: '160-00000101', pcs: 1, declared_weight: 0 }] }
+    ]
+  };
+  const allocResult = uldApplyMawbAllocation(allocSheet);
+  check('18.5 申報列套回各板（3 件 750／1 件 250，共改 2 筆）',
+    near(allocSheet.ulds[0].items[0].declared_weight, 750) &&
+    near(allocSheet.ulds[1].items[0].declared_weight, 250) && allocResult.changed === 2);
+
+  const manualSheet = {
+    mawbs: [{ mawb: '160-00000102', declared_weight: 2000, auto_alloc: 0 }],
+    ulds: [{ uid: 'a', items: [{ mawb: '160-00000102', pcs: 5, declared_weight: 125 }] }]
+  };
+  uldApplyMawbAllocation(manualSheet);
+  check('18.6 auto_alloc = 0 的列不改各板重量（舊資料安全）',
+    near(manualSheet.ulds[0].items[0].declared_weight, 125));
+
+  const orphanSheet = {
+    mawbs: [],
+    ulds: [{ uid: 'a', items: [{ mawb: '160-00000103', pcs: 5, declared_weight: 300 }] }]
+  };
+  uldApplyMawbAllocation(orphanSheet);
+  check('18.7 沒有申報列時不改任何明細重量', near(orphanSheet.ulds[0].items[0].declared_weight, 300));
+
+  // 分配 → 夾重：單板整票重量都在該板，夾重後合計 = RCL 淨重
+  const allocSqueezeSheet = {
+    round_px: 1, round_b: 1, tail_mode: 'adjust_largest',
+    mawbs: [{ mawb: '160-00000104', declared_weight: 1400, auto_alloc: 1 }],
+    ulds: [{
+      uid: 'a', kind: 'ULD', tare_weight: 100, rcl_gross_weight: 1250,
+      items: [{ mawb: '160-00000104', pcs: 10, declared_weight: 0, is_squeeze: true }]
+    }]
+  };
+  uldApplyMawbAllocation(allocSqueezeSheet);
+  const allocSqueezeComputed = uldComputeSheet(allocSqueezeSheet);
+  check('18.8 分配後再夾重：申報 1400 → 最終 = RCL 淨重 1250',
+    near(allocSqueezeSheet.ulds[0].items[0].declared_weight, 1400) &&
+    near(allocSqueezeComputed.units[0].calc.finalSum, 1250),
+    String(allocSqueezeComputed.units[0].calc.finalSum));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
   process.exitCode = failCount === 0 ? 0 : 1;

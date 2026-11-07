@@ -2,26 +2,59 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/6 下午6:23:36
+> 最後更新：2026/11/7 下午4:22:06
 
 ## 🔄 Git 變更狀態
 
 ```
+M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
+M WORKSPACE_STATE.md
+M data/templates/shipper-role-summary-2026.xlsx
+M db/database.js
+M docs/design/uld-weight-phase2-handoff.md
+M docs/design/uld-weight-remaining-work.md
+M docs/design/uld-weight-system.md
+M package.json
+M public/css/uld-weight.css
+M public/css/xls-booking.css
+M public/index.html
+M public/js/main.js
+M public/js/uld-weight.js
+M public/js/uldweight/calc.js
+M public/js/uldweight/paste-parse.js
+M public/js/uldweight/rcl-parse.js
+M public/js/uldweight/render.js
+M public/js/uldweight/state.js
+M public/js/uldweight/version-diff.js
+M public/js/xls-booking-state.js
+M public/sli-eli-layout.html
+M routes/uld-weight.js
+M scripts/test-uld-weight-api.js
+M scripts/test-uld-weight-calc.js
+M scripts/test-uld-weight-frontend.js
+M scripts/uld-weight-report-pdf.js
+?? public/css/topbar.css
+?? public/js/topbar.js
+?? public/js/uldweight/sheet-grid.js
+?? scripts/test-topbar-behavior.js
+?? scripts/test-topbar.js
+?? scripts/uld-weight-grid-preview.js
 ```
 
-## 📁 檔案清單（共 246 個檔案）
+## 📁 檔案清單（共 252 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（86.2 KB）
+- `CLAUDE.md`（93.8 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（35.0 KB）
+- `PROJECT_MAP.md`（36.3 KB）
 - `README.md`（24.6 KB）
-- `WORKSPACE_STATE.md`（111.9 KB）
-- `package.json`（1.1 KB）
+- `WORKSPACE_STATE.md`（121.5 KB）
+- `package.json`（1.3 KB）
 - `server.js`（6.8 KB）
 
 ### data/templates
@@ -97,7 +130,7 @@ M FILE_INVENTORY.md
 
 ### db
 
-- `db/database.js`（18.8 KB）
+- `db/database.js`（19.9 KB）
 - `db/db-dump.sql`（150.9 KB）
 
 ### docs
@@ -107,17 +140,17 @@ M FILE_INVENTORY.md
 ### docs/design
 
 - `docs/design/order-system-design.md`（9.6 KB）
-- `docs/design/uld-weight-phase2-handoff.md`（43.8 KB）
-- `docs/design/uld-weight-remaining-work.md`（45.5 KB）
-- `docs/design/uld-weight-system.md`（24.2 KB）
+- `docs/design/uld-weight-phase2-handoff.md`（43.9 KB）
+- `docs/design/uld-weight-remaining-work.md`（46.6 KB）
+- `docs/design/uld-weight-system.md`（28.9 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
 ### public
 
-- `public/index.html`（33.8 KB）
+- `public/index.html`（36.4 KB）
 - `public/login.html`（8.5 KB）
-- `public/sli-eli-layout.html`（6.2 KB）
+- `public/sli-eli-layout.html`（8.5 KB）
 - `public/users.html`（31.5 KB）
 
 ### public/css
@@ -131,8 +164,9 @@ M FILE_INVENTORY.md
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/uld-weight.css`（30.9 KB）
-- `public/css/xls-booking.css`（20.8 KB）
+- `public/css/topbar.css`（12.0 KB）
+- `public/css/uld-weight.css`（42.1 KB）
+- `public/css/xls-booking.css`（21.2 KB）
 
 ### public/css/utils
 
@@ -149,7 +183,7 @@ M FILE_INVENTORY.md
 - `public/js/contours.js`（20.3 KB）
 - `public/js/dbviewer.js`（42.7 KB）
 - `public/js/loadsim.js`（69.4 KB）
-- `public/js/main.js`（14.3 KB）
+- `public/js/main.js`（14.6 KB）
 - `public/js/orders.js`（418 B）
 - `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
@@ -157,12 +191,13 @@ M FILE_INVENTORY.md
 - `public/js/sli-eli-layout-main.js`（10.9 KB）
 - `public/js/sli-eli-layout-state.js`（10.7 KB）
 - `public/js/theme.js`（5.2 KB）
-- `public/js/uld-weight.js`（51.3 KB）
+- `public/js/topbar.js`（13.9 KB）
+- `public/js/uld-weight.js`（64.3 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
 - `public/js/xls-booking-preview.js`（16.2 KB）
 - `public/js/xls-booking-standard.js`（25.1 KB）
-- `public/js/xls-booking-state.js`（7.5 KB）
+- `public/js/xls-booking-state.js`（7.9 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.4 KB）
 
@@ -219,14 +254,15 @@ M FILE_INVENTORY.md
 
 - `public/js/uldweight/api.js`（6.1 KB）
 - `public/js/uldweight/booking-search.js`（8.2 KB）
-- `public/js/uldweight/calc.js`（26.2 KB）
+- `public/js/uldweight/calc.js`（29.4 KB）
 - `public/js/uldweight/mawb-format.js`（3.6 KB）
-- `public/js/uldweight/paste-parse.js`（2.8 KB）
+- `public/js/uldweight/paste-parse.js`（3.4 KB）
 - `public/js/uldweight/rcl-import.js`（2.6 KB）
-- `public/js/uldweight/rcl-parse.js`（6.7 KB）
-- `public/js/uldweight/render.js`（40.9 KB）
-- `public/js/uldweight/state.js`（9.0 KB）
-- `public/js/uldweight/version-diff.js`（9.1 KB）
+- `public/js/uldweight/rcl-parse.js`（6.8 KB）
+- `public/js/uldweight/render.js`（44.3 KB）
+- `public/js/uldweight/sheet-grid.js`（23.2 KB）
+- `public/js/uldweight/state.js`（14.1 KB）
+- `public/js/uldweight/version-diff.js`（11.0 KB）
 
 ### public/js/utils
 
@@ -246,7 +282,7 @@ M FILE_INVENTORY.md
 - `routes/dbviewer.js`（11.4 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
-- `routes/uld-weight.js`（62.6 KB）
+- `routes/uld-weight.js`（70.3 KB）
 - `routes/xls-booking-helpers.js`（5.6 KB）
 - `routes/xls-booking-layout.js`（23.8 KB）
 - `routes/xls-booking.js`（15.1 KB）
@@ -304,16 +340,19 @@ M FILE_INVENTORY.md
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
 - `scripts/test-sli-generate.py`（3.1 KB）
-- `scripts/test-uld-weight-api.js`（53.1 KB）
-- `scripts/test-uld-weight-calc.js`（28.7 KB）
-- `scripts/test-uld-weight-frontend.js`（57.8 KB）
+- `scripts/test-topbar-behavior.js`（10.8 KB）
+- `scripts/test-topbar.js`（8.9 KB）
+- `scripts/test-uld-weight-api.js`（61.0 KB）
+- `scripts/test-uld-weight-calc.js`（33.2 KB）
+- `scripts/test-uld-weight-frontend.js`（72.6 KB）
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
-- `scripts/uld-weight-report-pdf.js`（27.2 KB）
+- `scripts/uld-weight-grid-preview.js`（5.5 KB）
+- `scripts/uld-weight-report-pdf.js`（27.3 KB）
 - `scripts/xls-cnee.js`（4.5 KB）
 - `scripts/xls-exceljs-guard.js`（3.4 KB）
 - `scripts/xls-report.js`（8.9 KB）

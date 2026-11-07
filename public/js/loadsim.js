@@ -13,8 +13,16 @@ import {
   loadsimState, loadsimLoadStored, loadsimSave, loadsimOnChange, loadsimCreateItemsBatch, loadsimUpdateCargo,
   loadsimPendingItems, loadsimPlacedItems, loadsimBoardItems, loadsimSelect,
   loadsimDeleteItem, loadsimDeleteItems, loadsimUnplaceItem, loadsimClearAll, loadsimEmit,
-  loadsimGetItem, loadsimPlaceItem
+  loadsimGetItem, loadsimPlaceItem, loadsimSnapshot, loadsimApplySnapshot, loadsimPushHistory
 } from './loadsim/state.js';
+import {
+  loadsimLocalPlans, loadsimLocalSavePlan, loadsimLocalGetPlan, loadsimLocalRenamePlan,
+  loadsimLocalDeletePlan, loadsimPlanSummary, loadsimPlanDefaultName, loadsimPlanMetaText,
+  loadsimNormalizePlanName, loadsimBuildExportFile, loadsimParseImport, loadsimFetchSession,
+  loadsimCanUseCloud, loadsimCloudList, loadsimCloudGet, loadsimCloudSave, loadsimCloudRename,
+  loadsimCloudDelete, LOADSIM_PLAN_NAME_MAX
+} from './loadsim/plans.js';
+
 import {
   loadsimDraw, loadsimHitTest, loadsimSetViewMode, loadsimGetViewMode, loadsimResetView,
   loadsimIsFrameSettling
@@ -176,6 +184,8 @@ export function setupLoadsimSection() {
     viewButtons: root.querySelectorAll('.loadsim-view-btn'),
     plateButtons: root.querySelectorAll('.loadsim-plate-btn'),
     btnResetView: document.getElementById('loadsim-btn-reset-view'),
+    btnPlanSave: document.getElementById('loadsim-btn-plan-save'),
+    btnPlanOpen: document.getElementById('loadsim-btn-plan-open'),
     itemLines: document.getElementById('loadsim-item-lines'),
     hint: document.getElementById('loadsim-hint')
   };
@@ -495,6 +505,10 @@ function wireToolbar() {
       scheduleRender();
     });
   }
+
+  // 存檔 / 載入（本機 ＋ 雲端 ＋ JSON）
+  if (els.btnPlanSave) els.btnPlanSave.addEventListener('click', openSavePlanModal);
+  if (els.btnPlanOpen) els.btnPlanOpen.addEventListener('click', openPlanListModal);
 }
 
 // 視圖切換：3D（預設）↔ 2D 剖面
@@ -1740,6 +1754,371 @@ function resetSpecOverride(modal) {
   refreshUi();
   scheduleRender();
   showToast('已還原內建規格', 'ok');
+}
+
+// ===== 存檔 / 載入（本機 / 雲端 / JSON 檔）=====
+// 雲端存檔需要 admin / staff 登入；模擬裝板本身仍免登入（只影響「存到雲端」這個動作）。
+const planSession = { user: null, checked: false };
+
+// 取得（並快取）登入者：force=true 表示每次重新問 /api/auth/me
+async function ensurePlanSession(force) {
+  if (planSession.checked && !force) return planSession.user;
+  const user = await loadsimFetchSession();
+  planSession.user = user;
+  planSession.checked = true;
+  return user;
+}
+
+// 把一份 snapshot 套回畫面（載入本機 / 雲端 / 匯入 JSON 共用）
+function applyPlanSnapshot(snapshot, label) {
+  loadsimPushHistory(); // 先記住載入前的樣子 → Ctrl+Z 可以復原
+  if (!loadsimApplySnapshot(snapshot)) {
+    showToast('存檔內容無法讀取');
+    return false;
+  }
+  if (!LOADSIM_ULD_SPECS.some(spec => spec.code === loadsimState.uldCode)) {
+    loadsimState.uldCode = LOADSIM_ULD_SPECS[0].code;
+  }
+  // 單位、板底按鈕與輸入框 step 都要跟著換（refreshUi 不會處理這兩組）
+  els.unitButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.unit === loadsimState.unit));
+  applyUnitLabels();
+  syncPlateButtons();
+  buildUldSelect();
+  loadsimSave();
+  refreshUi();
+  scheduleRender();
+  showToast(`${label ? `「${label}」` : ''}已載入 ${loadsimState.items.length} 件（${loadsimState.uldCode}）；Ctrl+Z 可復原`, 'ok');
+  return true;
+}
+
+// 「💾 存檔」：填名稱 → 存到本機 / 雲端
+function openSavePlanModal() {
+  if (typeof openModal !== 'function') {
+    showToast('這個瀏覽器無法開啟存檔視窗');
+    return;
+  }
+  const snapshot = loadsimSnapshot();
+  const body = document.createElement('div');
+  body.className = 'loadsim-plan-form';
+  body.innerHTML = `
+    <label class="loadsim-plan-field">
+      <span>名稱</span>
+      <input id="loadsim-plan-name" type="text" maxlength="${LOADSIM_PLAN_NAME_MAX}"
+        value="${esc(loadsimPlanDefaultName(snapshot))}" placeholder="例如 11/07 CX1234 板 A" />
+    </label>
+    <p class="loadsim-modal-note">存檔內容：板型、板底（厚／薄）、單位、貨物尺寸・重量・擺位・旋轉、檢查選項與板型設定覆蓋值（重量／利用率載入後重算）。</p>
+    <p class="loadsim-modal-note" id="loadsim-plan-cloud-note">雲端存檔：檢查登入狀態…</p>`;
+
+  const modal = openModal({
+    title: '💾 儲存這塊板',
+    body,
+    actions: [
+      { label: '存到本機', className: 'pill btn-primary', onClick: () => savePlanLocally(modal, body) },
+      { label: '存到雲端', className: 'pill', onClick: () => savePlanToCloud(modal, body) },
+      { label: '取消', className: 'pill' }
+    ],
+    className: 'loadsim-modal loadsim-modal-plan'
+  });
+
+  // actions 的按鈕順序固定（存到本機／存到雲端／取消）→ 未登入時把雲端那顆鎖住
+  const cloudBtn = modal && modal.card && typeof modal.card.querySelectorAll === 'function'
+    ? modal.card.querySelectorAll('.app-modal-actions .pill')[1]
+    : null;
+
+  ensurePlanSession(true).then((user) => {
+    const note = body.querySelector('#loadsim-plan-cloud-note');
+    const allowed = loadsimCanUseCloud(user);
+    if (note) {
+      note.textContent = allowed
+        ? `雲端存檔：已登入（${user.display_name || user.user_id}）→ 換電腦或用同事帳號也載入得到。`
+        : '雲端存檔：需以 admin / staff 登入（「存到本機」不需要登入）。';
+    }
+    if (cloudBtn) {
+      cloudBtn.disabled = !allowed;
+      cloudBtn.title = allowed ? '存到伺服器（跨電腦）' : '需登入 admin / staff';
+    }
+  }).catch(() => {});
+}
+
+function readPlanNameInput(body) {
+  const input = body && typeof body.querySelector === 'function' ? body.querySelector('#loadsim-plan-name') : null;
+  return loadsimNormalizePlanName(input ? input.value : '');
+}
+
+function savePlanLocally(modal, body) {
+  const name = readPlanNameInput(body);
+  if (!name) {
+    showToast('請先輸入存檔名稱');
+    return;
+  }
+  const saved = loadsimLocalSavePlan(name, loadsimSnapshot());
+  if (!saved) {
+    showToast('本機存檔失敗（瀏覽器儲存空間可能已滿）');
+    return;
+  }
+  if (modal && modal.close) modal.close();
+  showToast(`已存到本機：${name}`, 'ok');
+}
+
+async function savePlanToCloud(modal, body) {
+  const name = readPlanNameInput(body);
+  if (!name) {
+    showToast('請先輸入存檔名稱');
+    return;
+  }
+  const user = await ensurePlanSession();
+  if (!loadsimCanUseCloud(user)) {
+    showToast('雲端存檔需以 admin / staff 登入');
+    return;
+  }
+  const snapshot = loadsimSnapshot();
+  try {
+    await loadsimCloudSave({ name, snapshot, summary: loadsimPlanSummary(snapshot) });
+    if (modal && modal.close) modal.close();
+    showToast(`已存到雲端：${name}`, 'ok');
+  } catch (err) {
+    showToast(`雲端存檔失敗：${err.message}`);
+  }
+}
+
+// ===== 存檔清單（本機 / 雲端）=====
+function planRowHtml(scope, plan) {
+  const name = esc(plan.name || '未命名');
+  const meta = esc(loadsimPlanMetaText(plan));
+  return `
+    <div class="loadsim-plan-row" data-plan-scope="${scope}" data-plan-id="${Number(plan.id) || 0}">
+      <div class="loadsim-plan-main">
+        <strong title="${name}">${name}</strong>
+        <small>${meta}</small>
+      </div>
+      <div class="loadsim-plan-row-actions">
+        <button type="button" class="pill loadsim-plan-btn" data-plan-act="load">載入</button>
+        <button type="button" class="pill loadsim-plan-btn" data-plan-act="rename">改名</button>
+        <button type="button" class="pill loadsim-plan-btn" data-plan-act="delete">刪除</button>
+      </div>
+    </div>`;
+}
+
+function planEmptyHtml(text) {
+  return `<div class="loadsim-plan-empty">${esc(text)}</div>`;
+}
+
+function renderLocalPlanList(body) {
+  const box = body.querySelector('#loadsim-plan-local');
+  if (!box) return;
+  const plans = loadsimLocalPlans();
+  box.innerHTML = plans.length
+    ? plans.map(plan => planRowHtml('local', plan)).join('')
+    : planEmptyHtml('還沒有本機存檔：按工具列「💾 存檔」→「存到本機」。');
+}
+
+function renderCloudPlanList(body, user) {
+  const box = body.querySelector('#loadsim-plan-cloud');
+  if (!box) return;
+  if (!loadsimCanUseCloud(user)) {
+    box.innerHTML = planEmptyHtml(user
+      ? '雲端存檔只開放 admin / staff。'
+      : '未登入：以 admin / staff 登入後，存到雲端的板就能跨電腦／同事共用。');
+    return;
+  }
+  loadsimCloudList().then((plans) => {
+    if (!box || box.isConnected === false) return; // modal 已關閉
+    box.innerHTML = plans.length
+      ? plans.map(plan => planRowHtml('cloud', plan)).join('')
+      : planEmptyHtml('雲端還沒有存檔。');
+  }).catch((err) => {
+    box.innerHTML = planEmptyHtml(`讀取雲端存檔失敗：${err.message}`);
+  });
+}
+
+// 「📂 我的存檔」：清單 ＋ 匯出 / 匯入
+function openPlanListModal() {
+  if (typeof openModal !== 'function') {
+    showToast('這個瀏覽器無法開啟存檔清單');
+    return;
+  }
+  const body = document.createElement('div');
+  body.className = 'loadsim-plan-manager';
+  body.innerHTML = `
+    <div class="loadsim-plan-tools">
+      <button type="button" class="pill" data-plan-act="export"><i class="fa-solid fa-download"></i> 匯出目前這塊板</button>
+      <button type="button" class="pill" data-plan-act="import"><i class="fa-solid fa-upload"></i> 匯入 JSON</button>
+      <input type="file" id="loadsim-plan-file" accept="application/json,.json" hidden />
+    </div>
+    <h4 class="loadsim-plan-title">本機存檔 <small>存在這台電腦的瀏覽器（免登入）</small></h4>
+    <div class="loadsim-plan-list" id="loadsim-plan-local"></div>
+    <h4 class="loadsim-plan-title">雲端存檔 <small>admin / staff 登入後可跨電腦使用</small></h4>
+    <div class="loadsim-plan-list" id="loadsim-plan-cloud"></div>`;
+
+  const modal = openModal({
+    title: '📂 我的存檔',
+    body,
+    actions: [{ label: '關閉', className: 'pill' }],
+    className: 'loadsim-modal loadsim-modal-plan'
+  });
+
+  renderLocalPlanList(body);
+  ensurePlanSession(true)
+    .then(user => renderCloudPlanList(body, user))
+    .catch(() => renderCloudPlanList(body, null));
+
+  const fileInput = body.querySelector('#loadsim-plan-file');
+  if (fileInput) fileInput.addEventListener('change', () => importPlanFile(fileInput, modal));
+
+  body.addEventListener('click', (ev) => {
+    const target = ev.target;
+    const btn = target && typeof target.closest === 'function' ? target.closest('[data-plan-act]') : null;
+    if (!btn) return;
+    const act = btn.dataset ? btn.dataset.planAct : '';
+    if (act === 'export') { exportCurrentPlan(); return; }
+    if (act === 'import') { if (fileInput) fileInput.click(); return; }
+
+    const row = typeof btn.closest === 'function' ? btn.closest('[data-plan-scope]') : null;
+    const scope = row && row.dataset ? row.dataset.planScope : '';
+    const id = row && row.dataset ? Number(row.dataset.planId) : 0;
+    if (!id) return;
+    if (act === 'load') loadPlanById(scope, id, modal, body);
+    else if (act === 'rename') renamePlan(scope, id, body);
+    else if (act === 'delete') deletePlan(scope, id, body);
+  });
+
+  return modal;
+}
+
+// ===== 載入 / 改名 / 刪除 / 匯出 / 匯入 =====
+async function loadPlanById(scope, id, modal, body) {
+  let snapshot = null;
+  let name = '';
+  try {
+    if (scope === 'cloud') {
+      const row = await loadsimCloudGet(id);
+      snapshot = row && row.snapshot;
+      name = (row && row.name) || '';
+    } else {
+      const plan = loadsimLocalGetPlan(id);
+      snapshot = plan && plan.snapshot;
+      name = (plan && plan.name) || '';
+    }
+  } catch (err) {
+    showToast(`讀取存檔失敗：${err.message}`);
+    return;
+  }
+  if (!snapshot) {
+    showToast('找不到這份存檔');
+    return;
+  }
+  if (loadsimState.items.length && typeof confirm === 'function' &&
+    !confirm(`載入「${name}」會取代目前這塊板（載入後可按 Ctrl+Z 復原），繼續？`)) return;
+  if (modal && modal.close) modal.close();
+  applyPlanSnapshot(snapshot, name);
+}
+
+function askPlanName(current) {
+  if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+    return window.prompt('新的名稱', current || '');
+  }
+  return null;
+}
+
+async function renamePlan(scope, id, body) {
+  try {
+    let current = '';
+    if (scope === 'cloud') {
+      const plans = await loadsimCloudList();
+      const plan = plans.find(row => Number(row.id) === Number(id));
+      current = plan ? plan.name : '';
+    } else {
+      const plan = loadsimLocalGetPlan(id);
+      current = plan ? plan.name : '';
+    }
+    const next = askPlanName(current);
+    if (next === null) return;
+    const name = loadsimNormalizePlanName(next);
+    if (!name) {
+      showToast('名稱不能空白');
+      return;
+    }
+    if (scope === 'cloud') {
+      await loadsimCloudRename(id, name);
+      renderCloudPlanList(body, planSession.user);
+    } else {
+      loadsimLocalRenamePlan(id, name);
+      renderLocalPlanList(body);
+    }
+    showToast(`已改名：${name}`, 'ok');
+  } catch (err) {
+    showToast(`改名失敗：${err.message}`);
+  }
+}
+
+async function deletePlan(scope, id, body) {
+  const label = scope === 'cloud' ? '雲端' : '本機';
+  if (typeof confirm === 'function' && !confirm(`刪除這份${label}存檔？（無法復原）`)) return;
+  try {
+    if (scope === 'cloud') {
+      await loadsimCloudDelete(id);
+      renderCloudPlanList(body, planSession.user);
+    } else {
+      loadsimLocalDeletePlan(id);
+      renderLocalPlanList(body);
+    }
+    showToast('已刪除存檔', 'ok');
+  } catch (err) {
+    showToast(`刪除失敗：${err.message}`);
+  }
+}
+
+// 匯出目前這塊板 → 下載 JSON（可備份、可傳給同事）
+function exportCurrentPlan() {
+  const snapshot = loadsimSnapshot();
+  const file = loadsimBuildExportFile(loadsimPlanDefaultName(snapshot), snapshot);
+  try {
+    const blob = new Blob([JSON.stringify(file.payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast(`已匯出 ${file.fileName}`, 'ok');
+  } catch (err) {
+    showToast(`匯出失敗：${err.message}`);
+  }
+}
+
+// 匯入 JSON → 直接套回畫面（會先問是否覆蓋目前這塊板）
+function importPlanFile(fileInput, modal) {
+  const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+  if (!file) return;
+  const reset = () => { try { fileInput.value = ''; } catch (e) { /* ignore */ } };
+  const applyText = (text) => {
+    let parsed = null;
+    try {
+      parsed = loadsimParseImport(text);
+    } catch (err) {
+      showToast(err.message);
+      return;
+    }
+    if (loadsimState.items.length && typeof confirm === 'function' &&
+      !confirm(`匯入「${parsed.name}」會取代目前這塊板（可用 Ctrl+Z 復原），繼續？`)) return;
+    if (modal && modal.close) modal.close();
+    applyPlanSnapshot(parsed.snapshot, parsed.name);
+  };
+
+  if (typeof file.text === 'function') {
+    file.text()
+      .then(applyText)
+      .catch(() => showToast('讀取檔案失敗'))
+      .then(reset, reset);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => applyText(String(reader.result || ''));
+  reader.onerror = () => showToast('讀取檔案失敗');
+  reader.readAsText(file);
+  reset();
 }
 
 // ===== 掛載到 window（供 main.js 呼叫，與 pallet.js 同一種模式）=====

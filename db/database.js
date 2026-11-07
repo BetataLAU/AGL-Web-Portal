@@ -446,6 +446,32 @@ db.serialize(() => {
     'CREATE INDEX IF NOT EXISTS idx_uld_weight_versions_sheet ON uld_weight_versions(sheet_id, version_no)'
   );
 
+  // ===== 模擬裝板系統：雲端存檔（2026-11）=====
+  // 模擬裝板本身是「免登入」的純前端工具；這張表只存使用者按下「存到雲端」的板。
+  // snapshot 存整份 JSON（板型／板底／單位／貨物擺位／檢查選項…），與 uld_weight_versions 同一個思路：
+  // 前端格式改了不用改資料表；其他欄位只是給清單顯示用的彙總（可由 snapshot 重算）。
+  // saved_at 存「前端送來的 ISO 時間」（使用者當地時間），清單直接顯示，避免 UTC 時差。
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loadsim_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      uld_code TEXT,
+      plate_type TEXT,
+      item_count INTEGER DEFAULT 0,
+      board_count INTEGER DEFAULT 0,
+      total_kg REAL DEFAULT 0,
+      gross_kg REAL DEFAULT 0,
+      utilization_pct REAL DEFAULT 0,
+      saved_at TEXT,
+      snapshot TEXT,
+      created_by TEXT,
+      updated_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_loadsim_plans_saved ON loadsim_plans(saved_at DESC)');
+
   // uld_weight_sheets 表相容性：補上「磅差警示門檻」（W5）與「比例上下限」（R2）；
   // 既有 DB 用 ALTER TABLE 補，新 DB 由上面 CREATE TABLE 就有
   initTasks.push(new Promise((resolve) => {

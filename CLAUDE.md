@@ -71,7 +71,8 @@
   - **內容不會滑到工作列底下（關鍵）**：`body.has-topbar .app-layout { margin-top: var(--topbar-h); height: calc(100vh - var(--topbar-h)) }`（`--topbar-h: 56px`，另補 `100dvh`）。用 `margin-top`＋高度而**不是** `padding-top`：padding 屬於捲動內容，往下捲會跟著捲走，內容仍會鑽到固定工作列底下並從半透明 bar 透出文字；改成 margin 後捲動容器上緣＝工作列下緣，怎麼捲都不會重疊。
 - **工作列右側工具**：（1）功能搜尋 `#topbar-search-input`：輸入即過濾目錄並展開抽屜（`Ctrl/Cmd+K` 聚焦、`Enter` 跳到第一個符合項目；無結果顯示 `.nav-empty`；`display:none` 的無權限項目不列入過濾）；（2）主題循環切換 light→dark→ocean（有 `theme.js` 時走 `applyTheme()`，沒有時直接改 `data-theme` 並寫入 `localStorage['site-theme']`）；（3）全螢幕；（4）回到頁頂；（5）香港時間（`Asia/Hong_Kong`，每 20 秒對時）。
 - **目前位置**：`main.js` 的 `showSection()` 會呼叫 `window.topbarSetSection(sectionId)` 更新 `#topbar-crumb-text`（沒有工作列的頁面不會有此函式，故有 `typeof` 檢查）。
-- **滿版對齊與 sticky 偏移（2026-11-07 修正）**：內容區變寬後，`public/css/xls-booking.css` 原本 `.xls-card { max-width: min(1200px, 100%) }` 會讓卡片右側留一大片空白、和滿版的 `.xls-step-nav` 不齊 → 改為 `max-width: none`（日後若要限制閱讀寬度，步驟列與卡片要**一起**限制）。頁面層級的 sticky（`.xls-step-nav`）在 `body.has-topbar` 下為 `top: 8px`（捲動容器上緣就是工作列下緣，所以視覺上緊貼工作列下面）並改為不透明底色，避免下方卡片文字透出疊字；`xlsStickyNavClearance()` 改成讀 `getComputedStyle(nav).top` 動態計算，不再硬編碼 10px。`.topbar` 左右 padding 也改成與 `.main-content` 一致（桌面 24px、≤900px 16px），內容邊界才會齊一。
+- **滿版對齊與 sticky 偏移（2026-11-07 修正）**：內容區變寬後，`public/css/xls-booking.css` 原本 `.xls-card { max-width: min(1200px, 100%) }` 會讓卡片右側留一大片空白、和滿版的 `.xls-step-nav` 不齊 → 改為 `max-width: none`（日後若要限制閱讀寬度，步驟列與卡片要**一起**限制）。`.topbar` 左右 padding 也改成與 `.main-content` 一致（桌面 24px、≤900px 16px），內容邊界才會齊一。
+- **① ② ③ ④ 步驟列釘在工作列下方（2026-11-07 修正，取代純 CSS sticky）**：只用 `position: sticky` 會因「捲動容器改用 margin-top 讓位／區塊進場動畫的 transform／瀏覽器差異」而出現**被工作列蓋住一大半**或**黏到很下面**。現在改由 `public/js/xls-booking-state.js` 的 `xlsUpdateStepNavPin()` 量測 `#section-xls-booking` 位置後 `position: fixed` 釘住（`top = 工作列高 + --xls-step-nav-gap`，左右對齊區塊），並插入 `.xls-step-nav-spacer` 補回原佔高度（避免內容上移被蓋住）；判斷式**只看 section 幾何**（不看 nav 自己）→ 不會 fixed/sticky 互相回饋而抖動。CSS 的 sticky 只當沒有 JS 時的後備。另外 `body.has-topbar #section-xls-booking.section-enter` 的進場動畫改成**只淡入**（`xls-section-fade-in`），因為 `transform` 會讓 `position: fixed` 子元素以該區塊為座標系而暫時跑到錯的位置。間隙只有一個來源：`--xls-step-nav-gap`（`topbar.css :root`），JS 與 `xlsStickyNavClearance()` 都讀它；`@media print` 會還原成 `static`。
 - **新增工作列功能**：`index.html`／`sli-eli-layout.html` 的 `.topbar-right` 加按鈕 → `topbar.js` 的 `setupTopbar()` 內加一個 `setupXxx()`（沿用 `byId()`），並在 `scripts/test-topbar.js` 補一條驗收。
 - **測試**：`npm run test:topbar` ＝ `node scripts/test-topbar.js`（HTML／CSS／JS 靜態檢查 37 項）＋ `node scripts/test-topbar-behavior.js`（以 DOM stub 載入 `topbar.js`，驗證開合／自動收合／ESC／搜尋過濾／主題循環 25 項）。另有 `node scripts/test-nav-hierarchy.js`、`node scripts/test-nav-order-frontend.js` 確保目錄層級與拖曳排序未被破壞。
 
@@ -108,6 +109,7 @@
 | `/api/pallet` | `routes/pallet.js` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders（admin+staff） |
 | `/api/uld-weight` | `routes/uld-weight.js` | ULD 夾重系統：bookings（打板計劃帶入）/ sheets CRUD / duplicate / lock / apply（回寫 Booking）/ sync-bookings（補建 Booking，預設 dry_run）/ versions（歷史版本／異動比對）/ import-rcl（RCL 磅單）/ report.pdf（單張 A4 PDF）/ loading-sheet.pdf（單板 Loading Sheet，A4／MAWB·DEST·PCS·WT）/ batch-pdf（多張打包 ZIP，admin+staff，見下） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
+| `/api/loadsim` | `routes/loadsim.js` | 模擬裝板「雲端存檔」：plans CRUD（snapshot JSON ＋ 件數／重量／利用率彙總；admin+staff。模擬裝板本身免登入，存本機不需要這支 API） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
 ## 登入系統（routes/auth/）
@@ -182,7 +184,9 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**② 預覽表格兩列表頭（sticky，2026-11-07 修正）**：預覽表 `thead` 有兩列（上＝欄位標籤＋Excel 欄字母／下＝原始欄名），兩列 `th` 都是 `position: sticky`。若兩列都寫 `top: 0`，往下捲時**第 2 列會整片蓋在第 1 列上**（看起來像「吃掉一行」）。現在 `public/css/xls-booking.css` 以 `.xls-preview-table thead tr:nth-child(1) th { top: 0; z-index: 4 }` 與 `tr:nth-child(2) th { top: var(--xls-head-h, 0px); z-index: 3 }` 分層；第 1 列高度不固定（標籤換行）→ 由 `public/js/xls-booking-preview.js` 的 `xlsSyncStickyHeadHeight()`（在 `renderPreviewPanel()` 面板顯示後、`resize`／`orientationchange`、`document.fonts.ready` 時）量測寫入 `--xls-head-h`。③ 標準化表格只有一列 thead，函式會移除變數維持 `top:0`。**不要改回兩列都 `top:0`**。
+
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-preview-head.js`（② 兩列表頭 sticky 不重疊：CSS 分層／JS 量測／單列表不受影響，含 vm stub 執行期檢查）、`scripts/test-xls-step-nav.js`（① ② ③ ④ 步驟列釘在工作列下方：CSS 間隙變數／spacer／列印還原 + vm 行為：捲過釘住、捲回還原、非 active／無工作列不釘、scroll-margin 計算）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
@@ -377,10 +381,11 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
   量測注意：① 首次呼叫含 JIT，單次 `console.time` 不可信，要看 median；② 本工具只量 calc，DOM 更新（500 列 `textContent`）不在內，要用 Chrome DevTools Performance 才看得到；③ PowerShell 會把 node 的 `MODULE_TYPELESS_PACKAGE_JSON` stderr 警告顯示成 `exit code 1`，腳本其實成功。
 - **進度**：Phase 1 ＋ W1～W5 ＋ **R1（server 端 PDF）／R2（比例上下限）／R3（明細 diff 更新）／R4（seed 競態）** ＋ **V2（批次 PDF ZIP）／V1（補建 Booking Record）／V3（歷史版本）** 全部完成（V1／V2／V3 為 2026-11-06）；**已無必辦項**，剩下的是選用（V4 大表節流，實測卡頓才做）與 D3／D5／D6 待決。**未完成工作清單與新對話提示詞見 `docs/design/uld-weight-remaining-work.md`**（歷程與陷阱見 `docs/design/uld-weight-phase2-handoff.md`）。
 
-## 模擬裝板系統（public/js/loadsim/，純前端）
+## 模擬裝板系統（public/js/loadsim/；模擬免登入、存檔分本機／雲端）
 
 - **入口**：`public/index.html` 的 `#section-loadsim`＋`public/js/loadsim.js`（`type="module"`，`window.setupLoadsimSection` 由 `main.js` 的 `DOMContentLoaded` 呼叫，**免登入**）
-- **模組**：`loadsim/units.js`（cm↔inch，內部一律 cm；**cm 顯示取整數、inch 1 位小數**）、`geometry.js`（6 方向／AABB 重疊／輪廓半平面＋凹多邊形／支撐／自動疊放高度）、`uld-specs.js`（26 個 **HACTL** 板型規格＋覆寫）、`state.js`（貨物清單／localStorage／Undo）、`weight.js`（重量與利用率）、`autoplace.js`（自動放置）、`colors.js`（主題色／rgba／明暗）、`render3d.js`（**3D 主視圖**：自行透視投影＋背面剔除＋由遠到近）、`render.js`（2D 剖面視圖＋視圖分派 facade）、`drag.js`（Pointer Events／視角旋轉／縮放）
+- **模組**：`loadsim/units.js`（cm↔inch，內部一律 cm；**cm 顯示取整數、inch 1 位小數**）、`geometry.js`（6 方向／AABB 重疊／輪廓半平面＋凹多邊形／支撐／自動疊放高度）、`uld-specs.js`（26 個 **HACTL** 板型規格＋覆寫）、`state.js`（貨物清單／localStorage／Undo／**快照 `loadsimSnapshot()`＋`loadsimApplySnapshot()`**）、`plans.js`（**存檔：本機多份／雲端 API／匯出・匯入 JSON**）、`weight.js`（重量與利用率）、`autoplace.js`（自動放置）、`colors.js`（主題色／rgba／明暗）、`render3d.js`（**3D 主視圖**：自行透視投影＋背面剔除＋由遠到近）、`render.js`（2D 剖面視圖＋視圖分派 facade）、`drag.js`（Pointer Events／視角旋轉／縮放）
+- **存檔 / 載入（2026-11）**：工具列「💾 存檔」＝填名稱後「存到本機」（`localStorage['loadsim-plans-v1']`，可命名多份、上限 30 份、同名覆蓋、免登入）或「存到雲端」（`/api/loadsim/plans`，**admin / staff 登入後才能用**，換電腦／同事共用）；「📂 我的存檔」＝本機＋雲端清單（載入／改名／刪除）＋「⬇ 匯出目前這塊板」／「⬆ 匯入 JSON」（帶檔備份、可傳給同事）。三種位置存的是**同一份 snapshot**（`state.loadsimSnapshot()`：`unit / uldCode / plateType / items(尺寸・重量・擺位・旋轉・MAWB) / 檢查選項 / specOverrides / seq / savedAt`；重量・CBM・利用率載入後重算）。載入前會 `loadsimPushHistory()`，所以 **Ctrl+Z 可回到載入前**；`loadsimApplySnapshot()` 會驗證板型、修復缺號／重複的貨物 id、重算 `seq`。板型設定覆蓋值（`specOverrides`）一定要一起存，否則載入後板型尺寸會跑掉
 - **視圖**：預設 **3D**（`render3d.js`，Canvas 2D 自行投影、無 Three.js）；可切「2D 剖面」＝俯視圖（寬 Z × 長 X）＋前視圖（寬 Z × 高 Y）
 - **3D 互動**：拖曳貨物＝水平面移動並**自動疊在下方最高的合格支撐面**；拖到板後方的**暫存區**＝暫時移出板外（`staged`，不計重量、不做輪廓／重疊判定）；空白處／右鍵拖曳＝轉視角（yaw/pitch）；滾輪＝縮放 0.55–3×；雙擊或 `R`＝6 方向旋轉；選取後 ↑↓←→＝往**螢幕方向**移動（3D 依目前視角換算，見下方「方向鍵微調」）；`Del`＝移出；`Ctrl+Z`＝復原
 - **上貨支撐面積（2026-10，預設 ≥ 50%）**：上層貨物底面必須有 **≥ `supportMinPct`%**（畫面「上貨需壓在下方貨物 ▢% 面積」可調 0–100，存 localStorage）落在下層貨物頂面，才算「有支撐」。`geometry.loadsimSupportRatio()` 用「邊界切格」算多個支撐物的**聯集**面積（重疊的支撐物不會重複計算）；`loadsimEvaluatePlacement` 回傳 `supportRatio/supportMin`，不足時的訊息是「下方支撐面積只有 xx%（需 ≥ yy%）」。`loadsimSupportHeight(ext, others, minRatio)` 也只在**合格的那一層**停下（不合格就落地面），避免「疊上去又被彈回」。
@@ -426,7 +431,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
   - **pointermove 合併**：`drag.js` 以 rAF 合併指標事件（每幀最多處理一次），放開前 `flushMove()` 套用最後位置，避免高刷新率裝置重複做吸附／合法性判定
   - **診斷 HUD**：網址加 `?loadsim-debug=1`（或 `localStorage.setItem('loadsim-debug','1')`）會在畫布右下角顯示「FPS／繪製毫秒／件數」，用來分辨是「FPS 低」還是「畫面在抖」
   - 畫布尺寸由 `ResizeObserver` 快取（不再每幀 `getBoundingClientRect()`）、tooltip 走 rAF 節流且內容沒變不重建 DOM
-- **測試**：`npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（幾何/重量/單位 **136 項**）＋`node scripts/test-loadsim-frontend.js`（DOM stub **153 項**，含 3D 投影／命中／視角／縮放、方向鍵螢幕方向、畫布高度與捲動無關）。Node 會出現 `MODULE_TYPELESS_PACKAGE_JSON` 警告屬正常（專案 package.json 非 ESM）
+- **測試**：`npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（幾何/重量/單位 **136 項**）＋`node scripts/test-loadsim-frontend.js`（DOM stub **159 項**，含 3D 投影／命中／視角／縮放、方向鍵螢幕方向、畫布高度與捲動無關、存檔 modal 與「存到本機」）＋`node scripts/test-loadsim-plans.js`（存檔模組 **48 項**：快照還原、本機多份／同名覆蓋／30 份上限／空間不足、匯出匯入 JSON、雲端 API 呼叫、HTML・CSS・路由・資料表靜態檢查）；另 `npm run test:loadsim-api`（`scripts/test-loadsim-api.js`：自帶伺服器＋暫存 DB，驗 401／403／422／404、CRUD、彙總與審計日誌）。Node 會出現 `MODULE_TYPELESS_PACKAGE_JSON` 警告屬正常（專案 package.json 非 ESM）
 - **注意**：`loadsim.js` 的模組層有 `window.setupLoadsimSection` 與 `MutationObserver`，Node 測試需先 stub `window`/`document`/`canvas`（見 `scripts/test-loadsim-frontend.js`）
 
 ## 資料表（db/database.js）
@@ -445,8 +450,9 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `spl_codes` / `remark_templates` | 打板 SPL 代碼與備註範本 |
 | `uld_weight_sheets` / `uld_weight_ulds` / `uld_weight_items` | ULD 夾重表／收貨單位（ULD 或散貨）／明細（每板 × 每 MAWB 的重量分攤） |
 | `uld_weight_versions` | ULD 夾重表歷史版本（V3：`sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；每張表保留最近 30 版） |
+| `loadsim_plans` | 模擬裝板雲端存檔（`name, uld_code, plate_type, item_count, board_count, total_kg, gross_kg, utilization_pct, saved_at, snapshot(JSON), created_by/updated_by`；模擬裝板本身免登入，這張表只給「存到雲端」用） |
 
-> 共 **16 張表**（`db/database.js` 建表；16 張都有 `id … AUTOINCREMENT`）。
+> 共 **17 張表**（`db/database.js` 建表；17 張都有 `id … AUTOINCREMENT`）。
 > REMARK：舊 `messages`（GuestBook/Forum）**已完全清除（2026-11-06）**：建表移除、本機 DB 已無此表，
 > `routes/dbviewer.js` 的 `READONLY_COLUMNS`、`public/js/dbviewer.js` 的中文標籤（`messages` 與 3 個孤兒欄位
 > `user_name`／`title`／`parent_id`）皆已刪除。僅 `public/css/components.css` 的 `.forum-*`／`.guestbook-form`
@@ -456,7 +462,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 - **改訂單功能**：後端改 `routes/orders/`，前端改 `public/js/orders.js` + `public/css/orders.css`
 - **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
-- **改模擬裝板**：前端改 `public/js/loadsim/*` + `public/css/loadsim.css`；板型尺寸/收角改 `loadsim/uld-specs.js`（無後端、無資料表）
+- **改模擬裝板**：前端改 `public/js/loadsim/*` + `public/css/loadsim.css`；板型尺寸/收角改 `loadsim/uld-specs.js`；存檔（本機／雲端／JSON）改 `loadsim/plans.js` + `loadsim/state.js`（快照）＋後端 `routes/loadsim.js`／`loadsim_plans` 表
 - **改網站內容**：`public/index.html`
 - **改頂部工作列／目錄抽屜**：`public/css/topbar.css` + `public/js/topbar.js`（只影響 `body.has-topbar` 的頁面；目錄的 DOM 仍由 `index.html` 的 `.sidebar` 決定，別把 `.nav-empty` 之類的非 `.nav-item` 放進 `<nav class="sidebar-nav">`）
 - **改主題**：`public/css/base.css`（主題變數）+ `public/js/theme.js`

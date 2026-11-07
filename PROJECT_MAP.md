@@ -95,7 +95,7 @@
 | `js/dbviewer.js` | 資料庫檢視器邏輯 |
 | `js/main.js` | 共用工具與初始化（`showSection()` 會呼叫 `topbarSetSection()` 同步工作列位置） |
 | `js/topbar.js` | 頂部工作列：☰ 開關目錄抽屜（游標離開自動收合）、目前位置、功能搜尋（過濾目錄）、主題循環、全螢幕、回到頁頂、HKT 時鐘 |
-| `js/xls-booking-state.js` | XLS Booking：常數/狀態/工具/上傳拖曳/初始化（第一個載入） |
+| `js/xls-booking-state.js` | XLS Booking：常數/狀態/工具/上傳拖曳/初始化（第一個載入）；**①②③④ 步驟列釘在工作列下方**（`xlsUpdateStepNavPin()`：fixed＋佔位，取代純 CSS sticky） |
 | `js/xls-booking-upload.js` | XLS Booking：上傳與檔案列表 |
 | `js/xls-booking-preview.js` | XLS Booking：自動偵測欄位、預覽面板、欄位指派 |
 | `js/xls-booking-grid.js` | XLS Booking：預覽表格編輯（雙擊/右鍵/復原重做） |
@@ -124,7 +124,7 @@
 | `js/pallet/` | api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters |
 | `css/pallet.css` | 打板計劃樣式 |
 | `js/loadsim.js` | **模擬裝板系統**進入點（工具列／貨物表單／待裝清單／摘要／板型設定） |
-| `js/loadsim/` | units（cm↔inch，cm 整數顯示）/ geometry（6 方向・重疊・輪廓・支撐・自動疊放・可移動範圍 ±40cm・出界界線）/ uld-specs（板型規格庫）/ state（localStorage＋Undo）/ weight（重量／CBM）/ autoplace / colors / **render3d（3D 主視圖・出界引線・hover 邊長）** / render（2D 剖面＋視圖分派）/ drag（Pointer Events・視角・縮放・方向鍵微調） |
+| `js/loadsim/` | units（cm↔inch，cm 整數顯示）/ geometry（6 方向・重疊・輪廓・支撐・自動疊放・可移動範圍 ±40cm・出界界線）/ uld-specs（板型規格庫）/ state（localStorage＋Undo＋**快照 / 還原**）/ **plans（存檔：本機多份・雲端 API・匯出／匯入 JSON）** / weight（重量／CBM）/ autoplace / colors / **render3d（3D 主視圖・出界引線・hover 邊長）** / render（2D 剖面＋視圖分派）/ drag（Pointer Events・視角・縮放・方向鍵微調） |
 | `css/loadsim.css` | 模擬裝板樣式 |
 | `js/uld-weight.js` | **ULD 夾重系統**進入點（清單／編輯、事件委派、列印、PDF 下載（單張／批次 ZIP）、Excel／摘要匯出、`setupUldWeightSection`） |
 | `js/uldweight/calc.js` | **夾重計算核心**（純函式 ESM，前後端共用：多票按比例、**比例上下限 clamp**、取整 0.5/1.0、尾差、檢核、依件數拆分） |
@@ -238,14 +238,16 @@ created_at, updated_at
 
 ---
 
-## 3.7 模擬裝板系統（純前端，無 API、無資料表）
+## 3.7 模擬裝板系統（前端模擬 ＋ `/api/loadsim` 雲端存檔）
 
-**用途**：裝板前先模擬「貨物擺進某個板型（Contour / ULD）」是否裝得下、是否超出輪廓、是否超重。
+**用途**：裝板前先模擬「貨物擺進某個板型（Contour / ULD）」是否裝得下、是否超出輪廓、是否超重；排好的板可以**存檔**（本機／雲端／JSON）日後拿出來繼續操作。
 
 | 項目 | 說明 |
 |------|------|
-| 入口 | `public/index.html` 的 `#section-loadsim`（側欄「模擬裝板系統」，**免登入**） |
+| 入口 | `public/index.html` 的 `#section-loadsim`（側欄「模擬裝板系統」，**免登入**；只有「存到雲端」需要 admin / staff 登入） |
 | 前端 | `public/js/loadsim.js` + `public/js/loadsim/*` + `public/css/loadsim.css` |
+| 後端 | `routes/loadsim.js`（`/api/loadsim/plans` CRUD，`requireRole('admin','staff')`）＋ `loadsim_plans` 表（`saved_at`、`snapshot` JSON、件數／重量／利用率彙總） |
+| 存檔 | 工具列「💾 存檔」（本機 `localStorage['loadsim-plans-v1']`／雲端）、「📂 我的存檔」（清單：載入／改名／刪除 ＋ 匯出／匯入 JSON）。三種位置都存同一份 **snapshot**（板型／板底／單位／貨物尺寸・重量・擺位・旋轉・MAWB／檢查選項／`specOverrides`／`seq`／`savedAt`）；重量・CBM・利用率載入後重算。載入前會 push Undo 歷史（**Ctrl+Z 可回到載入前**），`loadsimApplySnapshot()` 會驗證板型、修復缺號／重複 id、重算 `seq`。本機上限 30 份、同名覆蓋；雲端存檔大小上限 2 MB |
 | 視圖 | 預設 **3D**（自行透視投影＋背面剔除＋由遠到近，無 Three.js）；可切「2D 剖面」＝俯視圖（寬 Z × 長 X）＋前視圖（寬 Z × 高 Y） |
 | 單位 | 內部一律 cm 浮點；畫面 **cm 取整數**、inch 1 位小數；重量固定 kg（1 位小數） |
 | 板型 | `js/loadsim/uld-specs.js` 內建 26 個，**全部依 HACTL 規格圖**（Q7-00 / Q7-02 / Q7-04 / Q3-00 / Q9-01 / Q6-00 / A4-00 / A2-00 / H2-00 / H3-00 / H4-00 / W2-00 / W2-03 / ZA / ZB / ZC / **A1 / A3 / XJ / ZJ / ZQ / ZR / Z2 / Z3 / Z4 / Z5**），尺寸取自 `public/image/HACTL_contour_spec` 圖上的英吋標註（1" = 2.54cm）；`CX_Contour` 的圖只當交叉驗證（ZA/ZB/ZC 的頂面長度）暫不採用 |
@@ -261,9 +263,9 @@ created_at, updated_at
 | 暫存區 | **三個**虛線空地（貼地）：**① 板後方**（`baseL` + 30cm 起、深 130cm、寬同板寬）、**② 板前方**（板寬/2 + 30cm 起、深 110cm、長同板長）、**③ ①×② 延伸的重疊角落**（x 同 ①、z 同 ②）。貨物中心落進去＝`staged`（不算在板上、不計重量、不做輪廓／重疊／支撐／ring 判定，3D/2D 都用虛線灰框畫並標「暫存區①②③」）；`geometry.loadsimStageRects()/loadsimStageAt()/loadsimStageMaxExtent()` 是唯一來源 |
 | 板底 ring track | 板底四邊的 ring track，**最底層（貼地）不可壓上去，第二層以上不受限**。**與「超出輪廓」同一套處理**：預設允許但標紅（紅色斜線＋`ring +xx cm` 標籤＋閃爍）＋摘要警示＋明細列「出界」欄 `ring +xx`，**嚴格模式才真的擋下**。**薄板**（預設）四邊內縮 2.5"／3" → 內側 120"×90"；**厚板** 3.5"／4" → 118"×88"；工具列「板底 薄板／厚板」切換（`state.plateType`）。`geometry.loadsimRingRect()` 算內框 → `spec.ringRect`、`loadsimRingHitRects()` 算被壓到的帶狀區，`loadsimEvaluatePlacement()` 回 `onRing/ringBlocked`；3D/2D 都畫出琥珀色帶＋內框虛線＋「第一層可裝」尺寸，摘要也列一行 |
 | 貨物明細 | 畫布下方的 `#loadsim-item-lines`：每件一行（`#id`／名稱／**MAWB**／尺寸／**CBM**／重量／**出界量**／狀態）。CBM＝單件 長×寬×高（`weight.loadsimItemCbm()`，cm³÷10⁶，顯示 3 位小數、可排序）。同一個 MAWB 有多種尺寸時，第一列是 **parent**（顯示 MAWB，右端有 🗑 刪除整個 MAWB），其餘是 **child**（名稱前 `↳` 縮排）；表頭每欄都有 FontAwesome 排序圖示（`fa-sort`／`fa-sort-up`／`fa-sort-down`，升降冪切換、同一個 MAWB 不會被拆開）；列尾 `✕` 刪除單筆尺寸。**點一行 → 該筆（或整個 MAWB）載入 ① 表單修改**，也在畫布上閃爍 1.8 秒 |
-| 暫存 | `localStorage['loadsim-state-v1']`（單位／板型／貨物／板型覆寫），免登入、無 DB |
+| 暫存 | `localStorage['loadsim-state-v1']`（單位／板型／貨物／板型覆寫，開頁自動還原）；另有多份存檔見上方「存檔」（`loadsim-plans-v1` 本機＋`loadsim_plans` 雲端） |
 | 刪除／微調 | 明細列刪除後，上方貨物會「物理地」落下（`loadsim/settle.js`，只往下掉、由低到高重算）；選取貨物後方向鍵 ↑↓←→ 移動 **1 個顯示單位**（cm 1cm／inch 2.54cm）：**2D 剖面**固定俯視圖方向（↑ +X／↓ −X／← −Z／→ +Z），**3D 依目前視角**把「螢幕上／右」投影到板面（轉過視角後 ↑ 仍是螢幕往上、→ 仍是螢幕往右），可移動範圍與滑鼠拖曳相同（`geometry.loadsimClampToMoveArea()`：板面 ∪ 輪廓 ±40cm，可以騎出板邊／輪廓），重疊或嚴格模式出界會提示不動 |
-| 測試 | `npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（136 項）＋`node scripts/test-loadsim-frontend.js`（153 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊、3D 螢幕方向）、表單修改與選項開關、畫布高度與捲動無關） |
+| 測試 | `npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（136 項）＋`node scripts/test-loadsim-frontend.js`（159 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊、3D 螢幕方向）、表單修改與選項開關、畫布高度與捲動無關、存檔 modal 與存到本機）＋`node scripts/test-loadsim-plans.js`（48 項：快照還原、本機存檔／改名／刪除／上限／空間不足、匯出匯入、雲端 API 呼叫、靜態檢查）；`npm run test:loadsim-api`（31 項：401／403／422／404、CRUD、彙總、審計日誌） |
 
 ---
 ## 3.8 ULD 夾重系統（routes/uld-weight.js + public/js/uldweight/）

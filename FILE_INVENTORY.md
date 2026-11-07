@@ -2,7 +2,7 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/7 下午4:22:06
+> 最後更新：2026/11/7 下午5:07:27
 
 ## 🔄 Git 變更狀態
 
@@ -10,58 +10,49 @@
 M CLAUDE.md
 M FILE_INVENTORY.md
 M PROJECT_MAP.md
+M README.md
 M WORKSPACE_STATE.md
 M data/templates/shipper-role-summary-2026.xlsx
 M db/database.js
-M docs/design/uld-weight-phase2-handoff.md
-M docs/design/uld-weight-remaining-work.md
-M docs/design/uld-weight-system.md
 M package.json
-M public/css/uld-weight.css
+M public/css/loadsim.css
+M public/css/topbar.css
 M public/css/xls-booking.css
 M public/index.html
-M public/js/main.js
-M public/js/uld-weight.js
-M public/js/uldweight/calc.js
-M public/js/uldweight/paste-parse.js
-M public/js/uldweight/rcl-parse.js
-M public/js/uldweight/render.js
-M public/js/uldweight/state.js
-M public/js/uldweight/version-diff.js
+M public/js/loadsim.js
+M public/js/loadsim/state.js
+M public/js/xls-booking-preview.js
 M public/js/xls-booking-state.js
-M public/sli-eli-layout.html
-M routes/uld-weight.js
-M scripts/test-uld-weight-api.js
-M scripts/test-uld-weight-calc.js
-M scripts/test-uld-weight-frontend.js
-M scripts/uld-weight-report-pdf.js
-?? public/css/topbar.css
-?? public/js/topbar.js
-?? public/js/uldweight/sheet-grid.js
-?? scripts/test-topbar-behavior.js
-?? scripts/test-topbar.js
-?? scripts/uld-weight-grid-preview.js
+M scripts/test-loadsim-frontend.js
+M scripts/test-topbar.js
+M server.js
+?? public/js/loadsim/plans.js
+?? routes/loadsim.js
+?? scripts/test-loadsim-api.js
+?? scripts/test-loadsim-plans.js
+?? scripts/test-xls-preview-head.js
+?? scripts/test-xls-step-nav.js
 ```
 
-## 📁 檔案清單（共 252 個檔案）
+## 📁 檔案清單（共 258 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitignore`（642 B）
-- `CLAUDE.md`（93.8 KB）
+- `CLAUDE.md`（97.9 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（36.3 KB）
-- `README.md`（24.6 KB）
-- `WORKSPACE_STATE.md`（121.5 KB）
-- `package.json`（1.3 KB）
-- `server.js`（6.8 KB）
+- `PROJECT_MAP.md`（37.9 KB）
+- `README.md`（25.2 KB）
+- `WORKSPACE_STATE.md`（127.9 KB）
+- `package.json`（1.4 KB）
+- `server.js`（7.1 KB）
 
 ### data/templates
 
 - `data/templates/cainiao-sli-eli-template.xlsm`（214.7 KB）
 - `data/templates/cainiao-sli-eli-template.xlsx`（93.7 KB）
-- `data/templates/shipper-role-summary-2026.xlsx`（652.3 KB）
+- `data/templates/shipper-role-summary-2026.xlsx`（654.2 KB）
 - `data/templates/sli-eli-blank-meta.json`（1.2 KB）
 - `data/templates/sli-eli-blank.pdf`（114.0 KB）
 - `data/templates/sli-eli-fieldmap.default.json`（13.7 KB）
@@ -130,8 +121,8 @@ M scripts/uld-weight-report-pdf.js
 
 ### db
 
-- `db/database.js`（19.9 KB）
-- `db/db-dump.sql`（150.9 KB）
+- `db/database.js`（21.1 KB）
+- `db/db-dump.sql`（159.6 KB）
 
 ### docs
 
@@ -148,7 +139,7 @@ M scripts/uld-weight-report-pdf.js
 
 ### public
 
-- `public/index.html`（36.4 KB）
+- `public/index.html`（36.9 KB）
 - `public/login.html`（8.5 KB）
 - `public/sli-eli-layout.html`（8.5 KB）
 - `public/users.html`（31.5 KB）
@@ -160,13 +151,13 @@ M scripts/uld-weight-report-pdf.js
 - `public/css/components.css`（7.4 KB）
 - `public/css/dbviewer.css`（15.6 KB）
 - `public/css/layout.css`（18.6 KB）
-- `public/css/loadsim.css`（24.2 KB）
+- `public/css/loadsim.css`（26.4 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
-- `public/css/topbar.css`（12.0 KB）
+- `public/css/topbar.css`（12.9 KB）
 - `public/css/uld-weight.css`（42.1 KB）
-- `public/css/xls-booking.css`（21.2 KB）
+- `public/css/xls-booking.css`（22.7 KB）
 
 ### public/css/utils
 
@@ -182,7 +173,7 @@ M scripts/uld-weight-report-pdf.js
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（20.3 KB）
 - `public/js/dbviewer.js`（42.7 KB）
-- `public/js/loadsim.js`（69.4 KB）
+- `public/js/loadsim.js`（84.0 KB）
 - `public/js/main.js`（14.6 KB）
 - `public/js/orders.js`（418 B）
 - `public/js/pallet.js`（6.1 KB）
@@ -195,9 +186,9 @@ M scripts/uld-weight-report-pdf.js
 - `public/js/uld-weight.js`（64.3 KB）
 - `public/js/xls-booking-assign.js`（3.0 KB）
 - `public/js/xls-booking-grid.js`（8.6 KB）
-- `public/js/xls-booking-preview.js`（16.2 KB）
+- `public/js/xls-booking-preview.js`（18.3 KB）
 - `public/js/xls-booking-standard.js`（25.1 KB）
-- `public/js/xls-booking-state.js`（7.9 KB）
+- `public/js/xls-booking-state.js`（12.8 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.4 KB）
 
@@ -207,10 +198,11 @@ M scripts/uld-weight-report-pdf.js
 - `public/js/loadsim/colors.js`（2.0 KB）
 - `public/js/loadsim/drag.js`（25.7 KB）
 - `public/js/loadsim/geometry.js`（28.3 KB）
+- `public/js/loadsim/plans.js`（12.5 KB）
 - `public/js/loadsim/render.js`（33.4 KB）
 - `public/js/loadsim/render3d.js`（48.5 KB）
 - `public/js/loadsim/settle.js`（2.7 KB）
-- `public/js/loadsim/state.js`（13.3 KB）
+- `public/js/loadsim/state.js`（15.1 KB）
 - `public/js/loadsim/uld-specs.js`（27.3 KB）
 - `public/js/loadsim/units.js`（2.9 KB）
 - `public/js/loadsim/weight.js`（3.5 KB）
@@ -280,6 +272,7 @@ M scripts/uld-weight-report-pdf.js
 
 - `routes/contours.js`（3.4 KB）
 - `routes/dbviewer.js`（11.4 KB）
+- `routes/loadsim.js`（10.8 KB）
 - `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/uld-weight.js`（70.3 KB）
@@ -327,8 +320,10 @@ M scripts/uld-weight-report-pdf.js
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
-- `scripts/test-loadsim-frontend.js`（81.7 KB）
+- `scripts/test-loadsim-api.js`（12.0 KB）
+- `scripts/test-loadsim-frontend.js`（84.6 KB）
 - `scripts/test-loadsim-geometry.js`（37.0 KB）
+- `scripts/test-loadsim-plans.js`（15.9 KB）
 - `scripts/test-login-lockout.js`（3.4 KB）
 - `scripts/test-nav-hierarchy.js`（7.5 KB）
 - `scripts/test-nav-order-frontend.js`（6.8 KB）
@@ -348,8 +343,10 @@ M scripts/uld-weight-report-pdf.js
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）
+- `scripts/test-xls-preview-head.js`（5.4 KB）
 - `scripts/test-xls-standard-cols.js`（10.5 KB）
 - `scripts/test-xls-standard-fields.js`（13.0 KB）
+- `scripts/test-xls-step-nav.js`（8.8 KB）
 - `scripts/test-zip-naming.js`（5.5 KB）
 - `scripts/uld-weight-grid-preview.js`（5.5 KB）
 - `scripts/uld-weight-report-pdf.js`（27.3 KB）

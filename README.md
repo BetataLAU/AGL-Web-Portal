@@ -205,7 +205,7 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - 計劃卡（`/plans`）：新增 / 修改 / 刪除 / 複製、項目排序（拖曳）、可 `POST /plans/sync-orders` 由訂單同步資料
 - 前端：`public/index.html` 的「打板計劃」區塊、`public/js/pallet/`、`public/css/pallet.css`
 
-## 📦 模擬裝板系統（`#section-loadsim`，免登入）
+## 📦 模擬裝板系統（`#section-loadsim`，模擬免登入；存檔分本機／雲端）
 
 裝板前先在瀏覽器模擬「貨物放進哪個板型（Contour / ULD）」，確認裝得下、沒有超出輪廓、沒有超重。
 
@@ -215,7 +215,8 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - 每件貨物可 6 個方向 90° 旋轉（`R` 或雙擊）、不可重疊、不可懸空；hover 顯示當前方向的長闊高；長度 cm 以整數顯示、inch 1 位小數
 - 超出輪廓以紅色半透明體積標示並顯示超出量（cm 整數）；總重（貨重＋板重）超過上限會即時警示
 - 純前端：狀態存 `localStorage`，換頁 / 重新整理後仍保留
-- 檔案：`public/js/loadsim.js` + `public/js/loadsim/*`、`public/css/loadsim.css`
+- **存檔（2026-11）**：工具列「💾 存檔」把排好的板存到**本機**（`localStorage`，可命名多份、上限 30 份、免登入）或**雲端**（`/api/loadsim`，admin / staff 登入後才能用，換電腦也載入得到）；「📂 我的存檔」可載入 / 改名 / 刪除，也能「⬇ 匯出目前這塊板 / ⬆ 匯入 JSON」帶檔備份或傳給同事。載入後按 `Ctrl+Z` 可回到載入前的樣子
+- 檔案：`public/js/loadsim.js` + `public/js/loadsim/*`（存檔邏輯在 `loadsim/plans.js`）、`public/css/loadsim.css`；雲端存檔後端：`routes/loadsim.js`（`loadsim_plans` 表）
 
 ## ⚖️ ULD 夾重系統（`/api/uld-weight`，admin/staff）
 

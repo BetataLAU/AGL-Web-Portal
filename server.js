@@ -55,6 +55,7 @@ const usersRouter = require('./routes/auth/users-router');
 const palletRouter = require('./routes/pallet');
 const xlsBookingRouter = require('./routes/xls-booking');
 const uldWeightRouter = require('./routes/uld-weight');
+const loadsimRouter = require('./routes/loadsim');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -118,6 +119,8 @@ app.use('/api/orders', requireAuth, ordersRouter);
 app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
 // ULD 夾重系統：僅限 admin / staff（與打板計劃同一批操作人員）
 app.use('/api/uld-weight', requireRole('admin', 'staff'), uldWeightRouter);
+// 模擬裝板的「雲端存檔」：僅限 admin / staff（模擬裝板本身免登入，存在本機不需要這支 API）
+app.use('/api/loadsim', requireRole('admin', 'staff'), loadsimRouter);
 // Shipper Role Project（空運單據工具）：登入即可使用
 app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）

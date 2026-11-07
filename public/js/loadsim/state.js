@@ -67,6 +67,9 @@ export function loadsimUndo() {
   try {
     loadsimState.items = JSON.parse(snapshot);
     loadsimState.selectedId = null;
+    // 復原後可能回到「id 比 seq 還大」的清單（例如剛載入過別份存檔）→ 重算 seq，避免新增貨物撞 id
+    const maxId = loadsimState.items.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
+    loadsimState.seq = Math.max(loadsimState.seq, maxId + 1);
     loadsimSave();
     loadsimEmit();
     return true;
@@ -76,26 +79,39 @@ export function loadsimUndo() {
   }
 }
 
-// ===== localStorage 存取 =====
+// ===== 快照（自動暫存 / 本機存檔 / 匯出 JSON / 雲端存檔共用同一份格式）=====
+// 只存「輸入值」：板型、板底、單位、貨物（尺寸／重量／擺位／旋轉）、檢查選項、板型覆蓋值。
+// 重量／CBM／利用率都是算出來的，不存 → 載入後用同一套公式重算，避免公式改版後對不上。
+export const LOADSIM_SNAPSHOT_VERSION = 1;
+
+export function loadsimSnapshot(extra) {
+  const snapshot = {
+    app: 'agl-loadsim',
+    version: LOADSIM_SNAPSHOT_VERSION,
+    savedAt: new Date().toISOString(),
+    unit: loadsimState.unit,
+    uldCode: loadsimState.uldCode,
+    plateType: loadsimState.plateType,
+    // 深拷貝：存檔後繼續操作不會污染已存的那一份
+    items: JSON.parse(JSON.stringify(loadsimState.items)),
+    allowOverhang: loadsimState.allowOverhang,
+    requireSupport: loadsimState.requireSupport,
+    supportMinPct: loadsimState.supportMinPct,
+    supportAreaEnabled: loadsimState.supportAreaEnabled,
+    itemMaxKg: loadsimState.itemMaxKg,
+    itemMaxEnabled: loadsimState.itemMaxEnabled,
+    specOverrides: JSON.parse(JSON.stringify(loadsimState.specOverrides || {})),
+    seq: loadsimState.seq
+  };
+  return extra && typeof extra === 'object' ? Object.assign(snapshot, extra) : snapshot;
+}
+
+// ===== localStorage 存取（單一份「上次的樣子」，開頁自動還原）=====
 export function loadsimSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      const payload = {
-        unit: loadsimState.unit,
-        uldCode: loadsimState.uldCode,
-        plateType: loadsimState.plateType,
-        items: loadsimState.items,
-        allowOverhang: loadsimState.allowOverhang,
-        requireSupport: loadsimState.requireSupport,
-        supportMinPct: loadsimState.supportMinPct,
-        supportAreaEnabled: loadsimState.supportAreaEnabled,
-        itemMaxKg: loadsimState.itemMaxKg,
-        itemMaxEnabled: loadsimState.itemMaxEnabled,
-        specOverrides: loadsimState.specOverrides,
-        seq: loadsimState.seq
-      };
-      localStorage.setItem(LOADSIM_STORAGE_KEY, JSON.stringify(payload));
+      localStorage.setItem(LOADSIM_STORAGE_KEY, JSON.stringify(loadsimSnapshot()));
     } catch (err) {
       console.warn('[loadsim] 無法暫存狀態:', err);
     }
@@ -128,14 +144,9 @@ function sanitizeItem(raw) {
   };
 }
 
-// 讀取上次狀態（回傳是否有還原）
-export function loadsimLoadStored() {
-  let raw = null;
-  try { raw = localStorage.getItem(LOADSIM_STORAGE_KEY); } catch (e) { raw = null; }
-  if (!raw) return false;
-
-  let data;
-  try { data = JSON.parse(raw); } catch (e) { return false; }
+// 套用快照（本機存檔 / 雲端存檔 / 匯入 JSON / 上次暫存都走這裡）
+// 回傳是否有還原；壞資料一律略過，不讓整份存檔失敗
+export function loadsimApplySnapshot(data) {
   if (!data || typeof data !== 'object') return false;
 
   if (data.unit === 'in' || data.unit === 'cm') loadsimState.unit = data.unit;
@@ -155,9 +166,36 @@ export function loadsimLoadStored() {
   if (Array.isArray(data.items)) {
     loadsimState.items = data.items.map(sanitizeItem).filter(Boolean);
   }
-  const maxId = loadsimState.items.reduce((max, it) => Math.max(max, Number(it.id) || 0), 0);
+
+  // id 修復：匯入的檔案可能缺 id 或重複（例：手改 JSON）→ 重新配號，
+  // 否則拖曳／刪除／明細列會抓到錯的貨物
+  const used = new Set();
+  let nextId = 1;
+  loadsimState.items.forEach((item) => {
+    let id = Number(item.id) || 0;
+    if (id <= 0 || used.has(id)) {
+      while (used.has(nextId)) nextId += 1;
+      id = nextId;
+      item.id = id;
+    }
+    used.add(id);
+  });
+
+  const maxId = loadsimState.items.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
   loadsimState.seq = Math.max(loadsimState.seq, maxId + 1);
+  loadsimState.selectedId = null;
   return true;
+}
+
+// 讀取上次狀態（回傳是否有還原）
+export function loadsimLoadStored() {
+  let raw = null;
+  try { raw = localStorage.getItem(LOADSIM_STORAGE_KEY); } catch (e) { raw = null; }
+  if (!raw) return false;
+
+  let data;
+  try { data = JSON.parse(raw); } catch (e) { return false; }
+  return loadsimApplySnapshot(data);
 }
 
 // ===== 貨物操作 =====

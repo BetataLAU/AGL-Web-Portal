@@ -115,7 +115,8 @@ function getEl(id, tag = 'div') {
   'loadsim-summary-top', 'loadsim-item-lines', 'loadsim-dim-rows', 'loadsim-item-mawb',
   'loadsim-btn-image', 'loadsim-btn-spec', 'loadsim-btn-clear', 'loadsim-strict-overhang',
   'loadsim-require-support', 'loadsim-support-min', 'loadsim-item-max', 'loadsim-btn-reset-view', 'loadsim-hint',
-  'loadsim-support-area-enabled', 'loadsim-item-max-enabled', 'loadsim-btn-cancel-edit', 'loadsim-edit-hint'
+  'loadsim-support-area-enabled', 'loadsim-item-max-enabled', 'loadsim-btn-cancel-edit', 'loadsim-edit-hint',
+  'loadsim-btn-plan-save', 'loadsim-btn-plan-open'
 ].forEach(id => getEl(id));
 
 getEl('loadsim-uld-select', 'input');
@@ -1498,6 +1499,59 @@ function submitItemForm() {
     ({ left: 0, top: 0, width: 900, height: 600, right: 900, bottom: 600 });
   stage.parentElement = null;
   root.classList.remove('active');
+
+  // ===== 33. 存檔 / 載入 UI（工具列按鈕 → modal → 存到本機）=====
+  // openModal 在瀏覽器是 public/js/utils/modal.js 的全域函式；這裡用 stub 記錄呼叫內容。
+  const planNameInput = new FakeEl('loadsim-plan-name', 'input');
+  planNameInput.value = 'UI 測試板';
+  const originalCreateElement = globalThis.document.createElement;
+  globalThis.document.createElement = tag => {
+    const el = new FakeEl('created', tag);
+    // 存檔 modal 會用 body.querySelector('#loadsim-plan-name') 讀名稱
+    el.querySelector = sel => (sel === '#loadsim-plan-name' ? planNameInput : null);
+    return el;
+  };
+  let lastModalConfig = null;
+  globalThis.openModal = config => {
+    lastModalConfig = config;
+    return { card: new FakeEl('modal-card'), close() {} };
+  };
+  const savedPlans = () => {
+    const raw = globalThis.localStorage.getItem('loadsim-plans-v1');
+    return raw ? JSON.parse(raw) : [];
+  };
+
+  // 先確定板上有貨（前面的測試可能已清空）→ 存檔內容才有東西可驗證
+  stateModule.loadsimCreateItems({ dims: { l: 60, w: 50, h: 40 }, weight: 100, qty: 2 });
+  check('33.0 先產生 2 件貨物（存檔前）', state.items.length >= 2, `${state.items.length} 件`);
+
+  getEl('loadsim-btn-plan-save').fire('click', {});
+  check('33.1 點「存檔」→ 開啟存檔 modal（存到本機／存到雲端／取消）',
+    !!lastModalConfig && String(lastModalConfig.title).includes('儲存') &&
+    lastModalConfig.actions.length === 3 && lastModalConfig.actions[0].label === '存到本機',
+    lastModalConfig ? lastModalConfig.title : 'no modal');
+
+  lastModalConfig.actions[0].onClick();
+  const storedPlans = savedPlans();
+  check('33.2 按「存到本機」→ localStorage 多一份存檔', storedPlans.length === 1,
+    `${storedPlans.length} 份`);
+  check('33.3 存檔內容＝目前這塊板（名稱 / 件數 / 板型一致）',
+    storedPlans.length === 1 && storedPlans[0].name === 'UI 測試板' &&
+    storedPlans[0].snapshot.items.length === state.items.length &&
+    storedPlans[0].snapshot.uldCode === state.uldCode,
+    storedPlans.length ? `${storedPlans[0].name}/${storedPlans[0].snapshot.items.length} 件` : 'empty');
+  check('33.4 toast 顯示「已存到本機」', getEl('loadsim-toast').textContent.includes('已存到本機'),
+    getEl('loadsim-toast').textContent);
+
+  getEl('loadsim-btn-plan-open').fire('click', {});
+  check('33.5 點「我的存檔」→ 開啟清單 modal',
+    !!lastModalConfig && String(lastModalConfig.title).includes('我的存檔') &&
+    lastModalConfig.actions.length === 1,
+    lastModalConfig ? lastModalConfig.title : 'no modal');
+
+  // 還原 stub，避免影響其他測試
+  globalThis.document.createElement = originalCreateElement;
+  globalThis.openModal = undefined;
 
   console.log(`\n===== 完成：PASS ${passCount} / FAIL ${failCount} =====`);
   if (failCount > 0) process.exitCode = 1;

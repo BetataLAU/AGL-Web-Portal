@@ -1,6 +1,6 @@
 // ===== ULD 夾重系統：CHARTER LOADING SHEET（載荷表＝Excel 式矩陣「編輯」畫面，方案 B）=====
 // 版面照業界包機載荷表：
-//   ㈠ 左邊一票一列（SEQ／MAWB／DEST／申報 PCS·WT／W/H or Booking／自動／夾重／MAWB 上數）
+//   ㈠ 左邊一票一列（SEQ／MAWB／DEST／申報 PCS·WT／W/H or Booking／自動／夾重／上數）
 //   ㈡ 右邊一板一組欄（01/A、02/B…；每組 PCS＝這票在該板的件數、WT＝該板拿到的重量）
 //   ㈢ 底部各板合計＋PLAN TTL／RCL TTL／DIFF（單位 K）
 //
@@ -8,8 +8,10 @@
 //   - **申報來源在表級**：`sheet.mawbs`（= DB `uld_weight_mawbs`），一票一列，存 MAWB／DEST／
 //     申報件數／申報重量／W/H／auto_alloc／is_squeeze。
 //   - **各板只填件數**（item.pcs）；重量由 `calc.uldApplyMawbAllocation()` 依件數分到各板
-//     （Σ 一定等於該票申報重量）。所以右邊的 WT 是**算出來的**，不能直接改。
-//   - `auto_alloc = 0` 的列（舊資料自動長出來的）保留各板原本填的重量，不重算。
+//     （Σ 一定等於該票申報重量）。
+//   - **各板 WT 可直接打字**（2026-11-09）：打完之後這一列變成手動分配（auto_alloc = 0），
+//     打的那一板固定、剩下的申報重量依件數分給其他板（`state.uldSetCellWeight()`）。
+//   - `auto_alloc = 0` 的列（手動／舊資料）保留各板原本填的重量，不重算；把「自動」勾回來才會重分。
 //
 // 這一支只負責「畫」與「局部更新」；事件綁定在 uld-weight.js（root 委派）。
 // 顏色照圖：紅字＝夾重（該格重量有參與夾重）、橙字＝wt 有差（上數 ≠ 申報）。
@@ -53,6 +55,11 @@ function unitHeadLabel(unit) {
 // 輸入框的值：0 顯示空白（Excel 手感；不要一進來就是一堆 0）
 function inputValue(value) {
   const n = uldNum(value);
+  return n === 0 ? '' : String(n);
+}
+// 重量輸入框的值：同樣 0 顯示空白，但最多留 1 位小數（506.5）
+function numText(value) {
+  const n = Math.round(uldNum(value) * 10) / 10;
   return n === 0 ? '' : String(n);
 }
 
@@ -171,7 +178,12 @@ export function uldGridSortRows(rows) {
 }
 
 
-// ===== 載荷表 HTML（可編輯：左邊申報列、右邊各板件數）=====
+// ===== 載荷表 HTML（可編輯：左邊申報列、右邊各板件數＋重量）=====
+// 2026-11-09 重新設計（簡潔版）：
+//   ① 左邊固定欄從 11 欄收到 10 欄（「上數 PCS／WT」合併成一格「上數」）
+//   ② 各板的 WT 從「唯讀數字」改成**可直接打字的輸入框**（keyboard 手改重量）
+//      → 打字＝鎖住這一板，剩下的申報重量依件數分給其他板（規則在 state.uldSetCellWeight）
+//   ③ 板頭（01/A、02/B…）可以按住 ⠿ 往左右拖曳換板序
 export function uldGridHtml(computed, sheet, ui = {}) {
   const model = uldGridModel(computed, sheet);
   const rows = ui.gridSortMawb ? uldGridSortRows(model.rows) : model.rows;
@@ -179,17 +191,19 @@ export function uldGridHtml(computed, sheet, ui = {}) {
   const locked = !!(sheet && sheet.status === 'locked');
   const dis = locked ? ' disabled' : '';
   const unitCols = units.length * 2;
-  // 固定左欄 11 欄：SEQ／MAWB／DEST／PCS／WT／W-H／自動／夾重／上數 PCS／上數 WT／操作
-  const LEFT_COLS = 11;
+  // 固定左欄 10 欄：SEQ／MAWB／DEST／PCS／WT／W-H／自動／夾重／上數／操作
+  const LEFT_COLS = 10;
   const meta = [sheet && sheet.flight_no, sheet && sheet.flight_date, sheet && sheet.terminal]
     .filter(Boolean).join(' · ');
   const titleMeta = [sheet && sheet.sheet_no, meta].filter(Boolean).join(' · ');
   const sign = value => (Number(value) > 0 ? '+' : '');
+  const dragHint = locked ? '' : '｜按住 ⠿ 往左右拖曳可換板序';
 
   const headUnits = units.map((unit, idx) => `
         <th colspan="2" class="uldw-grid-auto uldw-grid-unit-th${unit.kind === 'BULK' ? ' is-bulk' : ''}"
-          title="${esc(unitHeadLabel(unit))}（第 ${idx + 1} 板）">
-          <span class="uldw-grid-code">${esc(uldGridUnitCode(idx))}</span>
+          data-col-unit="${esc(unit.uid)}" draggable="${locked ? 'false' : 'true'}"
+          title="${esc(unitHeadLabel(unit))}（第 ${idx + 1} 板）${dragHint}">
+          <span class="uldw-grid-code"><span class="uldw-grid-grip" aria-hidden="true">⠿</span>${esc(uldGridUnitCode(idx))}</span>
           <span class="uldw-grid-uld">${esc(unitHeadLabel(unit))}</span>
         </th>`).join('');
 
@@ -200,13 +214,21 @@ export function uldGridHtml(computed, sheet, ui = {}) {
     const cells = units.map((unit, unitIdx) => {
       const cell = row.cells[unit.uid];
       const pcsValue = cell ? inputValue(cell.pcs) : '';
+      // WT 輸入框顯示的是「申報（分到這一板）的重量」；夾重後的重量在 title 裡
+      const wtValue = cell ? numText(cell.declared) : '';
       const wtClass = !cell
         ? ' is-empty'
         : (cell.squeeze ? ' is-squeeze' : (Math.abs(cell.wt - cell.declared) > 1e-9 ? ' is-diff' : ''));
-      return `<td class="uldw-grid-cell-pcs"><input type="number" min="0" step="1" class="uldw-grid-input"
+      const wtTitle = cell
+        ? `申報 ${kg1(cell.declared)}${Math.abs(cell.wt - cell.declared) > 1e-9 ? ` → 夾重後 ${kg1(cell.wt)}` : ''}`
+        : '';
+      return `<td class="uldw-grid-cell-pcs"><input type="number" min="0" step="1" class="uldw-grid-input uldw-grid-input-pcs"
           data-cell-unit="${esc(unit.uid)}" data-cell-field="pcs" value="${esc(pcsValue)}"${dis}${ro}
           placeholder="0" aria-label="${esc(uldGridUnitCode(unitIdx))} 件數"></td>`
-        + `<td class="uldw-grid-num${wtClass}"><span data-calc-cell="wt" data-cell-unit="${esc(unit.uid)}">${cell ? kg1(cell.wt) : '0.0'}</span></td>`;
+        + `<td class="uldw-grid-num uldw-grid-cell-wt${wtClass}"><input type="number" min="0" step="0.1"
+          class="uldw-grid-input uldw-grid-input-wt" data-cell-unit="${esc(unit.uid)}" data-cell-field="wt"
+          value="${esc(wtValue)}" title="${esc(wtTitle)}" placeholder="0"
+          aria-label="${esc(uldGridUnitCode(unitIdx))} 重量"${dis}${ro}></td>`;
     }).join('');
     const upWtClass = row.squeeze ? ' is-squeeze' : (row.changed ? ' is-diff' : '');
     return `
@@ -223,12 +245,12 @@ export function uldGridHtml(computed, sheet, ui = {}) {
           <td class="uldw-grid-wh"><input type="text" class="uldw-grid-input uldw-grid-input-wh"
             data-row-field="wh_ref" value="${esc(row.whRef)}" autocomplete="off" spellcheck="false"${dis}${ro}></td>
           <td class="uldw-grid-flag"><input type="checkbox" data-row-field="auto_alloc"
-            ${row.autoAlloc ? 'checked' : ''}${dis}${roChk} title="勾選＝依件數自動把申報重量分到各板（取消＝保留各板原本重量）"
+            ${row.autoAlloc ? 'checked' : ''}${dis}${roChk} title="勾選＝依件數自動把申報重量分到各板（取消＝保留各板手動填的重量）"
             aria-label="自動分配重量"></td>
           <td class="uldw-grid-flag"><input type="checkbox" data-row-field="is_squeeze"
             ${row.squeeze ? 'checked' : ''}${dis}${roChk} title="勾選＝這票參與夾重（紅字）" aria-label="夾重"></td>
-          <td class="uldw-grid-num"><span data-calc-row="upPcs">${pcs0(row.upPcs)}</span></td>
-          <td class="uldw-grid-num${upWtClass}"><span data-calc-row="upWt">${kg1(row.upWt)}</span></td>
+          <td class="uldw-grid-num uldw-grid-alloc${upWtClass}" title="這票在各板已分配的件數／重量（夾重後）">
+            <span data-calc-row="upPcs">${pcs0(row.upPcs)}</span><i class="uldw-grid-alloc-sep">｜</i><span data-calc-row="upWt">${kg1(row.upWt)}</span></td>
           ${cells}
           <td class="uldw-grid-row-x"><button type="button" class="uldw-grid-x" data-action="grid-del-row"
             data-row-uid="${esc(row.uid)}"${dis}${roChk} title="刪除這一票（連同各板的件數）">✕</button></td>
@@ -253,7 +275,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
             <col class="uldw-grid-col-seq"><col class="uldw-grid-col-mawb"><col class="uldw-grid-col-dest">
             <col class="uldw-grid-col-pcs"><col class="uldw-grid-col-wt"><col class="uldw-grid-col-wh">
             <col class="uldw-grid-col-flag"><col class="uldw-grid-col-flag">
-            <col class="uldw-grid-col-pcs"><col class="uldw-grid-col-wt">
+            <col class="uldw-grid-col-alloc">
             ${units.map(() => '<col class="uldw-grid-col-pcs"><col class="uldw-grid-col-wt">').join('')}
             <col class="uldw-grid-col-x">
           </colgroup>
@@ -265,15 +287,14 @@ export function uldGridHtml(computed, sheet, ui = {}) {
               <th rowspan="2" class="uldw-grid-manual">PCS</th>
               <th rowspan="2" class="uldw-grid-manual">WT</th>
               <th rowspan="2" class="uldw-grid-wh uldw-grid-manual" title="W/H 單號或打板計劃 Booking（#id）">W/H or Booking</th>
-              <th rowspan="2" class="uldw-grid-manual" title="自動分配重量：依各板件數把申報重量分下去（Σ = 申報 WT）">自動</th>
+              <th rowspan="2" class="uldw-grid-manual" title="自動分配重量：依各板件數把申報重量分下去（Σ = 申報 WT）；手動改過任一板重量後會自動取消勾選">自動</th>
               <th rowspan="2" class="uldw-grid-manual" title="勾選＝這票參與夾重（紅字）">夾重</th>
-              <th colspan="2" class="uldw-grid-auto">MAWB 上數</th>
+              <th rowspan="2" class="uldw-grid-auto" title="這票在各板已分配的件數｜重量（夾重後）">上數</th>
               ${headUnits}
               <th rowspan="2" class="uldw-grid-x"></th>
             </tr>
             <tr class="uldw-grid-sub">
-              <th class="uldw-grid-auto">PCS</th><th class="uldw-grid-auto">WT</th>
-              ${units.map(() => '<th class="uldw-grid-auto" title="這票在這一板的件數（重量依件數自動分）">PCS</th><th class="uldw-grid-auto">WT</th>').join('')}
+              ${units.map(() => '<th class="uldw-grid-auto" title="這票在這一板的件數">PCS</th><th class="uldw-grid-auto" title="這票在這一板的重量（可直接打字改；按 Enter 下一列）">WT</th>').join('')}
             </tr>
           </thead>
           <tbody>
@@ -284,43 +305,38 @@ export function uldGridHtml(computed, sheet, ui = {}) {
                 <input type="text" id="uldw-grid-new-mawb" class="uldw-grid-input uldw-grid-new-mawb"
                   placeholder="輸入 MAWB# 後按 Enter 新增一票" autocomplete="off" spellcheck="false"${dis}>
                 <button type="button" class="uldw-grid-btn" data-action="grid-add-row"${dis}>＋ 列</button>
-                <span class="uldw-grid-hint-inline">申報 PCS／WT 在左邊；右邊每一板只填件數，重量自動分。</span>
+                <span class="uldw-grid-hint-inline">左邊申報 PCS／WT；右邊每板填件數與重量。WT 直接打字＝固定這一板，其餘依件數分。</span>
               </td>
             </tr>
           </tbody>
           <tfoot>
             <tr class="uldw-grid-total">
               <td colspan="8">板合計（PCS／WT）</td>
-              <td class="uldw-grid-num"><span data-calc-grand="pcs">${pcs0(model.pcsTotal)}</span></td>
-              <td class="uldw-grid-num"><span data-calc-grand="wt">${kg1(model.loadedWt)}</span></td>
+              <td class="uldw-grid-num uldw-grid-alloc">
+                <span data-calc-grand="pcs">${pcs0(model.pcsTotal)}</span><i class="uldw-grid-alloc-sep">｜</i><span data-calc-grand="wt">${kg1(model.loadedWt)}</span></td>
               ${unitTotalCells}
               <td></td>
             </tr>
             <tr class="uldw-grid-total">
               <td colspan="8">RCL（淨）／ 磅差</td>
               <td class="uldw-grid-num">-</td>
-              <td class="uldw-grid-num">-</td>
               ${unitRclCells}
               <td></td>
             </tr>
             <tr class="uldw-grid-plan">
-              <td colspan="4" class="uldw-grid-label">PLAN TTL</td>
+              <td colspan="8" class="uldw-grid-label">PLAN TTL</td>
               <td class="uldw-grid-num"><span data-calc-plan="planWt">${kg1(model.planWt)}</span></td>
-              <td></td><td></td><td></td><td></td>
-              <td class="uldw-grid-num"><span data-calc-plan="loadedWt">${kg1(model.loadedWt)}</span></td>
               <td colspan="${unitCols + 1}"></td>
             </tr>
             <tr class="uldw-grid-plan">
-              <td colspan="4" class="uldw-grid-label">RCL TTL</td>
+              <td colspan="8" class="uldw-grid-label">RCL TTL</td>
               <td class="uldw-grid-num"><span data-calc-plan="rclTotal">${kg1(model.rclTotal)}</span></td>
-              <td></td><td></td><td></td><td></td><td></td>
               <td colspan="${unitCols + 1}"></td>
             </tr>
             <tr class="uldw-grid-plan">
-              <td colspan="4" class="uldw-grid-label">DIFF</td>
+              <td colspan="8" class="uldw-grid-label">DIFF</td>
               <td class="uldw-grid-num${Math.abs(model.planDiff) > 1e-9 ? ' is-diff' : ''}" data-calc-plan-cell="diff">
                 <span data-calc-plan="planDiff">${sign(model.planDiff)}${kg1(model.planDiff)}</span></td>
-              <td></td><td></td><td></td><td></td><td></td>
               <td colspan="${unitCols + 1}"></td>
             </tr>
           </tfoot>
@@ -341,17 +357,16 @@ export function uldGridHtml(computed, sheet, ui = {}) {
       <div class="uldw-grid-tools">
         <button type="button" class="uldw-grid-btn" data-action="grid-add-row"${dis}
           title="新增一票 MAWB（也可以在最下面那列輸入 MAWB# 後按 Enter）">＋ 列</button>
-        <span class="uldw-grid-sep"></span>
-        <button type="button" class="uldw-grid-btn" data-action="add-uld"${dis}>＋ ULD</button>
+        <button type="button" class="uldw-grid-btn" data-action="add-uld"${dis}
+          title="新增一塊 ULD 板（板資料在「▤ 卡片檢視」填）">＋ ULD</button>
         <button type="button" class="uldw-grid-btn" data-action="add-bulk"${dis}>＋ 散貨</button>
         <button type="button" class="uldw-grid-btn" data-action="import-rcl"${dis}
           title="從貨站 RCL 磅單（Excel／CSV）匯入 ULD、Tare、RCL 淨重（WT）與件數">⇪ 匯入 RCL</button>
-        <span class="uldw-grid-sep"></span>
+        <span class="uldw-grid-spacer"></span>
         <button type="button" class="uldw-grid-btn" data-action="grid-check-mawb"${dis}
           title="把全部 MAWB# 檢查一遍：合格的格式化成 000-0000 0000，不合格的列出來（不改值）">Check &amp; format MAWB#</button>
         <button type="button" class="uldw-grid-btn${ui.gridSortMawb ? ' is-on' : ''}" data-action="grid-sort"
           title="只改顯示順序（不寫回資料）：依 MAWB# 排序">Sort by MAWB#</button>
-        <span class="uldw-grid-spacer"></span>
         <button type="button" class="uldw-grid-btn" data-action="view-cards"
           title="切到卡片檢視（板資料：ULD#／Contour／Tare／RCL（淨）／LIH／Pre-decl、夾重方式）">▤ 卡片檢視</button>
       </div>
@@ -361,7 +376,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
         <span class="uldw-grid-legend-item is-auto">會自動計</span>
         <span class="uldw-grid-legend-item is-squeeze">紅字=夾重</span>
         <span class="uldw-grid-legend-item is-diff">橙字=wt有差</span>
-        <span class="uldw-grid-hint">左邊申報 PCS／WT 自己入；右邊每板只入 PCS，WT 會依件數自動分（Σ = 申報 WT）。板資料（ULD#／Tare／RCL）在「▤ 卡片檢視」。</span>
+        <span class="uldw-grid-hint">WT 直接打字改（Enter 下一列、Tab 下一格）；改過就固定那一板，其餘依件數分剩下的重量。板資料（ULD#／Tare／RCL）在「▤ 卡片檢視」。</span>
       </div>
 
       ${table}
@@ -375,11 +390,13 @@ export function uldGridHtml(computed, sheet, ui = {}) {
 
 // ===== 局部更新（輸入時只改數字與顏色，不重畫 → 游標不會跳）=====
 // computed：uldComputed() 的最新結果（呼叫端已重算）；sheet：目前編輯狀態
+// 各板 WT 是輸入框 → 更新 value 時要跳過「使用者正在打字的那一格」（否則游標會跳）
 export function refreshGridComputed(root, computed, sheet) {
   if (!root || !root.querySelectorAll) return;
   const model = uldGridModel(computed, sheet);
   const rows = new Map(model.rows.map(row => [row.uid, row]));
   const unitTotals = new Map(model.unitTotals.map(total => [total.uid, total]));
+  const activeEl = (typeof document !== 'undefined' && document) ? document.activeElement : null;
 
   root.querySelectorAll('tr[data-row-uid]').forEach(tr => {
     const row = rows.get(tr.dataset.rowUid);
@@ -396,24 +413,20 @@ export function refreshGridComputed(root, computed, sheet) {
       }
     }
     model.unitTotals.forEach(total => {
-      const span = tr.querySelector(`[data-calc-cell="wt"][data-cell-unit="${total.uid}"]`);
-      if (!span) return;
+      const input = tr.querySelector(`input[data-cell-field="wt"][data-cell-unit="${total.uid}"]`);
       const cell = row.cells[total.uid];
-      const td = span.closest ? span.closest('td') : null;
-      if (!cell) {
-        span.textContent = '0.0';
-        if (td && td.classList) {
-          td.classList.remove('is-squeeze');
-          td.classList.remove('is-diff');
-          td.classList.add('is-empty');
-        }
-        return;
+      const td = input && input.closest ? input.closest('td') : null;
+      if (input) {
+        const next = cell ? numText(cell.declared) : '';
+        if (activeEl !== input && input.value !== next) input.value = next;
+        input.title = cell
+          ? `申報 ${kg1(cell.declared)}${Math.abs(cell.wt - cell.declared) > 1e-9 ? ` → 夾重後 ${kg1(cell.wt)}` : ''}`
+          : '';
       }
-      span.textContent = kg1(cell.wt);
       if (td && td.classList) {
-        td.classList.toggle('is-squeeze', !!cell.squeeze);
-        td.classList.toggle('is-diff', !cell.squeeze && Math.abs(cell.wt - cell.declared) > 1e-9);
-        td.classList.remove('is-empty');
+        td.classList.toggle('is-squeeze', !!(cell && cell.squeeze));
+        td.classList.toggle('is-diff', !!(cell && !cell.squeeze && Math.abs(cell.wt - cell.declared) > 1e-9));
+        td.classList.toggle('is-empty', !cell);
       }
     });
   });
@@ -440,7 +453,6 @@ export function refreshGridComputed(root, computed, sheet) {
   setText('[data-calc-grand="pcs"]', pcs0(model.pcsTotal));
   setText('[data-calc-grand="wt"]', kg1(model.loadedWt));
   setText('[data-calc-plan="planWt"]', kg1(model.planWt));
-  setText('[data-calc-plan="loadedWt"]', kg1(model.loadedWt));
   setText('[data-calc-plan="rclTotal"]', kg1(model.rclTotal));
   setText('[data-calc-plan="planDiff"]', `${model.planDiff > 0 ? '+' : ''}${kg1(model.planDiff)}`);
   const planDiffCell = root.querySelector('[data-calc-plan-cell="diff"]');

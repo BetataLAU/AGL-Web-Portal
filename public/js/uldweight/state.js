@@ -2,7 +2,7 @@
 // 一張夾重表 = { 表頭欄位..., ulds: [ { uid, items: [ { uid, ... } ] } ] }
 // uid 只用在前端（DB id 可能重複出現於不同單位，故統一用 uid 定位）
 import {
-  uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey, uldApplyMawbAllocation
+  uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey, uldApplyMawbAllocation, uldAllocateWithFixed
 } from './calc.js';
 
 export const uldWeightState = {
@@ -290,6 +290,53 @@ export function uldEnsureItem(unitUid, row, values = {}) {
     unit.items.push(item);
   }
   return item;
+}
+
+// ===== 載荷表：直接打某一板的重量（keyboard 手改重量）=====
+// 行為（改之前先看，這是「自動 ↔ 手動」的分界）：
+//   1. 只改「這一板」的重量 → 這一列立刻變成**手動分配**（auto_alloc = 0，畫面上的「自動」勾選會取消）
+//   2. 剩下的申報重量（申報 WT − 這一板）依件數分給這票其他板（Σ 仍等於申報 WT）
+//   3. 打超過申報 WT → 夾到申報 WT（回 clamped = true，由呼叫端提示），避免把其他板清成 0
+//   4. 申報 WT 還是 0（還沒填）→ 直接把申報 WT 設成打進來的值
+//   5. 這一板本來沒有明細 → 自動建立（件數 0）
+// 回傳 { ok, reason?, clamped, declared, fixed, weights, cells }
+export function uldSetCellWeight(rowUid, unitUid, value) {
+  const sheet = uldWeightState.current;
+  if (!sheet || !Array.isArray(sheet.ulds)) return { ok: false, reason: 'no-sheet' };
+  const row = uldFindMawb(rowUid);
+  if (!row) return { ok: false, reason: 'no-row' };
+  const key = uldMawbKey(row.mawb);
+  if (!key) return { ok: false, reason: 'no-mawb' };
+
+  // 這一票在「各板」的明細（依板序排列；沒有明細的板＝這一票不在那塊板上）
+  const targets = [];
+  sheet.ulds.forEach(unit => {
+    const item = (unit.items || []).find(it => uldMawbKey(it.mawb) === key);
+    if (item) targets.push({ unitUid: unit.uid, item, pcs: uldNum(item.pcs) });
+  });
+  let fixedIndex = targets.findIndex(t => t.unitUid === unitUid);
+  if (fixedIndex < 0) {
+    // 這一板還沒有這票 → 先建明細（件數 0），再分配重量
+    const item = uldEnsureItem(unitUid, row);
+    if (!item) return { ok: false, reason: 'no-unit' };
+    targets.push({ unitUid, item, pcs: uldNum(item.pcs) });
+    fixedIndex = targets.length - 1;
+  }
+
+  const typed = Math.max(0, uldNum(value));
+  let declared = uldNum(row.declared_weight);
+  if (declared <= 0) {
+    // 還沒填申報 WT → 用打進來的重量當整票申報重量
+    row.declared_weight = typed;
+    declared = typed;
+  }
+  const clamped = typed > declared + 1e-9;
+  const fixed = clamped ? declared : typed;
+  const weights = uldAllocateWithFixed(declared, targets.map(t => ({ pcs: t.pcs })), fixedIndex, fixed);
+  targets.forEach((t, i) => { t.item.declared_weight = weights[i]; });
+  row.auto_alloc = 0;
+  uldMarkDirty();
+  return { ok: true, clamped, declared, fixed, weights, cells: targets.length };
 }
 
 // 改申報列的 MAWB／DEST 時，把它所有板的明細一起改（MAWB 改名、Port 跟 DEST）

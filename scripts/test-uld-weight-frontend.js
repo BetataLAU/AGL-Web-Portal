@@ -1078,8 +1078,8 @@ function apiDetail() {
     ['要自己入', '會自動計', '紅字=夾重', '橙字=wt有差'].every(t => gridHtml.includes(t)));
   check('22.8 三顆按鈕：Clear Content／Check & format MAWB#／Sort by MAWB#',
     ['grid-clear', 'grid-check-mawb', 'grid-sort'].every(a => gridHtml.includes(`data-action="${a}"`)));
-  check('22.9 表頭：SEQ／MAWB／DEST／PCS／WT／W/H or Booking／MAWB 上數＋01/A、02/B',
-    ['>SEQ<', '>MAWB<', '>DEST<', '>PCS<', '>WT<', 'W/H or Booking', 'MAWB 上數', '>01/A<', '>02/B<']
+  check('22.9 表頭：SEQ／MAWB／DEST／PCS／WT／W/H or Booking／上數＋01/A、02/B',
+    ['>SEQ<', '>MAWB<', '>DEST<', '>PCS<', '>WT<', 'W/H or Booking', '>上數<', '>01/A<', '>02/B<']
       .every(t => gridHtml.includes(t)));
   check('22.10 板頭顯示 ULD#／Contour（PMC0003XX/ZQ）', gridHtml.includes('PMC0003XX/ZQ'));
   check('22.11 底部有 PLAN TTL／RCL TTL／DIFF',
@@ -1087,7 +1087,8 @@ function apiDetail() {
   check('22.11b 底部標籤是 RCL（淨）（RCL wt = 淨重）',
     gridHtml.includes('RCL（淨）／ 磅差'));
   check('22.12 夾重格標紅（is-squeeze）、有 wt 有差（is-diff）的樣式',
-    gridHtml.includes('uldw-grid-num is-squeeze') && /\.uldw-grid-num\.is-diff\s*\{[^}]*color/.test(cssText));
+    /class="uldw-grid-num[^"]*is-squeeze"/.test(gridHtml) &&
+    /\.uldw-grid-num\.is-diff\s*\{[^}]*color/.test(cssText));
   check('22.13 載荷表是唯讀矩陣（沒有明細輸入框）＋有「▤ 卡片編輯」切換',
     !gridHtml.includes('data-item-field="mawb"') && gridHtml.includes('data-action="view-cards"'));
   check('22.14 預設版面是載荷表（state.ui.view）',
@@ -1189,8 +1190,9 @@ function apiDetail() {
     gridBHtml.includes('data-action="grid-add-row"') &&
     gridBHtml.includes('data-action="grid-del-row"'),
     'data-row-field／data-cell-field／grid-add-row／grid-del-row');
-  check('23.5 右邊 WT 是算出來的（不是輸入框）',
-    /<span data-calc-cell="wt" data-cell-unit="u11">/.test(gridBHtml));
+  check('23.5 右邊 WT 是可打字的輸入框（keyboard 手改重量）',
+    /data-cell-unit="u11" data-cell-field="wt"/.test(gridBHtml) &&
+    /class="uldw-grid-input uldw-grid-input-wt"/.test(gridBHtml));
 
   // 各板件數 → 自動建立明細
   const rowA = state.uldWeightState.current.mawbs[0];
@@ -1274,6 +1276,113 @@ function apiDetail() {
     /onRootFocusIn/.test(entryText) && /function addMawbRow/.test(entryText) &&
     /function deleteMawbRow/.test(entryText) &&
     /addEventListener\('focusin', onRootFocusIn\)/.test(entryText));
+
+  // ===== 24. 載荷表：鍵盤手改重量 ＋ 板欄左右拖曳（2026-11-09 重新設計）=====
+  console.log('\n--- 24. 載荷表：鍵盤手改重量／板欄左右拖曳 ---');
+  function detailWeightEdit() {
+    const detail = apiDetail();
+    detail.mawb_rows = [
+      { id: 91, seq: 0, mawb: '160-00000005', dest: 'HKG', pcs: 5, declared_weight: 1000, wh_ref: '', auto_alloc: 1, is_squeeze: 0 },
+      { id: 92, seq: 1, mawb: '160-00000006', dest: 'TPE', pcs: 6, declared_weight: 1013, wh_ref: '', auto_alloc: 1, is_squeeze: 1 }
+    ];
+    return detail;
+  }
+  state.uldWeightState.current = state.uldSheetFromApi(detailWeightEdit());
+  state.uldWeightState.ui = {
+    view: 'grid', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null
+  };
+  const gridW = makeRoot();
+  render.renderEditor(gridW);
+  const gridWHtml = gridW.innerHTML;
+  check('24.1 每板都有 PCS／WT 兩個輸入框（2 列 × 2 板 = 4 格）',
+    (gridWHtml.match(/data-cell-field="pcs"/g) || []).length === 4 &&
+    (gridWHtml.match(/data-cell-field="wt"/g) || []).length === 4,
+    `${(gridWHtml.match(/data-cell-field="pcs"/g) || []).length}／${(gridWHtml.match(/data-cell-field="wt"/g) || []).length}`);
+  check('24.2 板頭可以左右拖曳（data-col-unit／draggable／⠿ 把手）',
+    /data-col-unit="u11" draggable="true"/.test(gridWHtml) &&
+    /data-col-unit="u12" draggable="true"/.test(gridWHtml) &&
+    gridWHtml.includes('uldw-grid-grip') && gridWHtml.includes('>上數<'));
+
+  // 手改重量：固定這一板、剩下的申報重量依件數分給其他板
+  const rowW = state.uldWeightState.current.mawbs.find(row => row.mawb === '160-00000006');
+  const editW = state.uldSetCellWeight(rowW.uid, 'u11', 300);
+  const unitW1 = state.uldWeightState.current.ulds[0].items.find(it => it.mawb === '160-00000006');
+  const unitW2 = state.uldWeightState.current.ulds[1].items.find(it => it.mawb === '160-00000006');
+  check('24.3 手改第 1 板 300 → 第 2 板拿剩下的 713（合計仍 = 申報 1013）',
+    editW.ok && Math.abs(unitW1.declared_weight - 300) < 1e-6 &&
+    Math.abs(unitW2.declared_weight - 713) < 1e-6,
+    `${unitW1.declared_weight}／${unitW2.declared_weight}`);
+  check('24.4 手改重量後這一列變成手動分配（auto_alloc = 0）',
+    Number(rowW.auto_alloc) === 0 && editW.clamped === false);
+
+  const editOver = state.uldSetCellWeight(rowW.uid, 'u12', 5000);
+  const unitW1b = state.uldWeightState.current.ulds[0].items.find(it => it.mawb === '160-00000006');
+  check('24.5 打超過申報 WT → 夾到 1013（clamped）且其他板歸 0（不會出現負數）',
+    editOver.clamped === true && Math.abs(editOver.fixed - 1013) < 1e-6 &&
+    Math.abs(unitW1b.declared_weight) < 1e-6,
+    JSON.stringify(editOver.weights));
+
+  // 勾回「自動」→ 依件數重分（手動填的被蓋掉）
+  rowW.auto_alloc = 1;
+  const recomputedW = state.uldComputed();
+  const autoW1 = recomputedW.units[0].calc.items.find(it => it.mawb === '160-00000006');
+  const autoW2 = recomputedW.units[1].calc.items.find(it => it.mawb === '160-00000006');
+  check('24.6 勾回「自動」→ 依件數重新分配（506.5／506.5）',
+    Math.abs(autoW1.declared - 506.5) < 1e-6 && Math.abs(autoW2.declared - 506.5) < 1e-6,
+    `${autoW1.declared}／${autoW2.declared}`);
+
+  // 板序左右搬（拖曳板頭 → uldMoveUnit；存檔會寫回 seq）
+  const moved = state.uldMoveUnit('u12', 'u11', false);
+  check('24.7 板欄可以左右搬（拖曳板頭 → uldMoveUnit 換欄序）',
+    moved && state.uldWeightState.current.ulds[0].uid === 'u12');
+  state.uldMoveUnit('u12', 'u11', true);
+
+  // 存檔 payload 保留手動標記與各板重量
+  state.uldSetCellWeight(state.uldWeightState.current.mawbs.find(r => r.mawb === '160-00000006').uid, 'u11', 250);
+  const payloadW = state.uldSheetPayload(state.uldWeightState.current);
+  const payloadRowW = payloadW.mawb_rows.find(row => row.mawb === '160-00000006');
+  const payloadItemsW = payloadW.ulds.reduce((all, unit) => all.concat(unit.items), [])
+    .filter(it => it.mawb === '160-00000006');
+  check('24.8 存檔 payload 帶 auto_alloc = 0 與手改後的各板重量（Σ = 1013）',
+    payloadRowW.auto_alloc === 0 &&
+    Math.abs(payloadItemsW.reduce((sum, it) => sum + it.declared_weight, 0) - 1013) < 1e-6 &&
+    payloadItemsW.some(it => Math.abs(it.declared_weight - 250) < 1e-6),
+    JSON.stringify(payloadItemsW.map(it => it.declared_weight)));
+
+  // 鎖定：板頭不可拖、WT 不可改
+  state.uldWeightState.current.status = 'locked';
+  const lockedWRoot = makeRoot();
+  render.renderEditor(lockedWRoot);
+  check('24.9 鎖定時板頭 draggable="false"、WT 輸入框 disabled',
+    /data-col-unit="u11" draggable="false"/.test(lockedWRoot.innerHTML) &&
+    (lockedWRoot.innerHTML.match(/data-cell-field="wt"[\s\S]{0,320}?disabled/g) || []).length === 4);
+  state.uldWeightState.current.status = 'draft';
+
+  // 入口：鍵盤導覽＋重量輸入的處理
+  check('24.10 入口有鍵盤導覽（gridFocusSelector／moveGridFocus／Shift+Enter 上移）',
+    /function gridFocusSelector/.test(entryText) && /function moveGridFocus/.test(entryText) &&
+    /event\.shiftKey \? -1 : 1/.test(entryText));
+  check('24.11 入口有「各板 WT 直接打字」路徑（applyCellWeight → uldSetCellWeight）',
+    /function applyCellWeight/.test(entryText) &&
+    /uldSetCellWeight\(/.test(entryText) &&
+    /dataset\.cellField === 'wt'/.test(entryText));
+  check('24.12 入口的拖曳支援板欄（dragKind = grid-col／clientX／data-col-unit）',
+    /dragKind = 'grid-col'/.test(entryText) && /event\.clientX/.test(entryText) &&
+    /closest\('\[data-col-unit\]'\)/.test(entryText) &&
+    /uldMoveUnit\(from, targetUid, after\)/.test(entryText));
+  check('24.13 數字格一進來就全選（打字＝覆蓋）',
+    /function selectInputText/.test(entryText) && /target\.type === 'number'/.test(entryText));
+  check('24.14 CSS：板頭 grab 游標／插入位置藍線／WT 輸入框底線／輸入列高亮',
+    /\.uldw-grid-unit-th\[draggable="true"\]\s*\{\s*cursor:\s*grab/.test(cssText) &&
+    /\.uldw-grid-unit-th\.is-drop-before\s*\{[^}]*box-shadow/.test(cssText) &&
+    /\.uldw-grid-input-wt\s*\{[^}]*border-bottom-color/.test(cssText) &&
+    /\.uldw-grid-table tbody tr:focus-within td\s*\{/.test(cssText));
+  check('24.15 列印時不印拖曳把手（⠿）',
+    /@media print[\s\S]*\.uldw-grid-grip \{ display: none !important; \}/.test(cssText));
+  check('24.16 卡片檢視也能左右拖（cardDropSide 依位移較大的軸判斷）',
+    /function cardDropSide/.test(entryText) && /is-drop-left/.test(entryText) &&
+    /\.uldw-unit\.is-drop-left\s*\{/.test(cssText));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

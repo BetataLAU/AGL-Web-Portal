@@ -215,7 +215,7 @@ export function renderEditor(root) {
   refreshComputed(root);
   // 「新增 MAWB」列：MAWB 輸入框接上打板計劃 Booking Record 的輸入即篩選
   // （選到後自動帶入件數／重量／Port 與 mawb_record_id；手動輸入仍可用）
-  // 載荷表是唯讀矩陣（沒有輸入框），不用綁。
+  // 載荷表沒有「新增 MAWB」列（新票在最下面那格輸入，或按「＋ 列」），所以不用綁。
   if (!viewIsGrid) wireBookingPickers(root);
 }
 

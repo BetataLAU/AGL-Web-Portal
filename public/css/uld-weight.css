@@ -909,10 +909,12 @@
 .uldw-legend-sq[data-tone="squeeze"] { background: #dc2626; }
 .uldw-legend-sq[data-tone="changed"] { background: #b45309; }
 
-/* 拖曳中的視覺回饋 */
+/* 拖曳中的視覺回饋（卡片是網格排列 → 上下／左右都可以拖） */
 .uldw-unit.is-dragging { opacity: 0.45; }
 .uldw-unit.is-drop-before { box-shadow: 0 -2px 0 0 var(--primary) inset; }
 .uldw-unit.is-drop-after { box-shadow: 0 2px 0 0 var(--primary) inset; }
+.uldw-unit.is-drop-left { box-shadow: -2px 0 0 0 var(--primary) inset; }
+.uldw-unit.is-drop-right { box-shadow: 2px 0 0 0 var(--primary) inset; }
 
 /* 代號類欄位一律顯示大寫（實際值在輸入時也會轉大寫，存檔前 payload 再保險一次） */
 input[data-unit-field="uld_number"],
@@ -1011,10 +1013,11 @@ input[data-draft="port"] { text-transform: uppercase; }
   }
 }
 
-/* ===== CHARTER LOADING SHEET（載荷表：Excel 式矩陣檢視，2026-11-07）=====
+/* ===== CHARTER LOADING SHEET（載荷表：Excel 式矩陣檢視，2026-11-07／2026-11-09 重畫）=====
    照業界包機載荷表的長相：左邊一票一列（SEQ／MAWB／DEST／申報 PCS·WT／W/H or Booking／上數），
    右邊一板一組欄（01/A、02/B…，每組 PCS／WT），底部各板合計＋PLAN TTL／RCL TTL／DIFF。
-   **唯讀**（新增／修改仍在「▤ 卡片編輯」），所以沒有輸入框樣式要顧。
+   **可編輯**：申報列的欄位、各板 PCS 與 WT 都是輸入框（WT 可直接打字改重量）。
+   板頭（01/A）可以左右拖曳換板序（dragstart／drop 在 uld-weight.js）。
    顏色照圖：紅字＝夾重、橙字＝wt 有差（上數 ≠ 申報）。 */
 .uldw-grid { display: flex; flex-direction: column; gap: 8px; }
 
@@ -1108,6 +1111,21 @@ input[data-draft="port"] { text-transform: uppercase; }
 .uldw-grid-auto { background: rgba(37, 99, 235, 0.10) !important; }
 .uldw-grid-unit-th { min-width: 88px; }
 .uldw-grid-unit-th.is-bulk { background: rgba(139, 92, 246, 0.16) !important; }
+/* 板頭＝拖曳把手（左右換板序）：可拖時游標 grab，拖曳中半透明，插在哪一邊用藍線標 */
+.uldw-grid-unit-th[draggable="true"] { cursor: grab; }
+.uldw-grid-unit-th[draggable="true"]:active { cursor: grabbing; }
+.uldw-grid-unit-th.is-dragging { opacity: 0.45; }
+.uldw-grid-unit-th.is-drop-before { box-shadow: inset 3px 0 0 0 var(--primary); }
+.uldw-grid-unit-th.is-drop-after { box-shadow: inset -3px 0 0 0 var(--primary); }
+.uldw-grid-grip {
+  display: inline-block;
+  margin-right: 3px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  opacity: 0.65;
+  vertical-align: 1px;
+}
+.uldw-grid-unit-th[draggable="true"]:hover .uldw-grid-grip { opacity: 1; color: var(--primary); }
 .uldw-grid-code { display: block; font-weight: 800; line-height: 1.1; }
 .uldw-grid-uld { display: block; font-size: 0.66rem; font-weight: 600; color: var(--text-muted); }
 
@@ -1139,6 +1157,7 @@ input[data-draft="port"] { text-transform: uppercase; }
 .uldw-grid-col-pcs { width: 46px; }
 .uldw-grid-col-wt { width: 62px; }
 .uldw-grid-col-wh { width: 92px; }
+.uldw-grid-col-alloc { width: 96px; }
 
 .uldw-grid-num { text-align: right; }
 .uldw-grid-seq { text-align: center; color: var(--text-muted); font-weight: 700; }
@@ -1157,6 +1176,15 @@ input[data-draft="port"] { text-transform: uppercase; }
   border-top: 2px solid var(--border-color);
 }
 .uldw-grid-plan .uldw-grid-label { text-align: right; letter-spacing: 0.04em; }
+/* PLAN／RCL／DIFF 三列只有「標籤＋一個數字」有內容 → 右邊補滿的空白格不要畫線（看起來才不會像斷掉） */
+.uldw-grid-table tfoot tr.uldw-grid-plan td {
+  border-bottom: none;
+  background: var(--sidebar-bg);
+}
+.uldw-grid-table tfoot tr.uldw-grid-plan td[colspan]:last-child {
+  border-top-color: transparent;
+  background: transparent;
+}
 
 .uldw-grid-no-rows,
 .uldw-grid-empty {
@@ -1191,6 +1219,40 @@ input[data-draft="port"] { text-transform: uppercase; }
 .uldw-grid-input-mawb { text-align: left; text-transform: uppercase; font-weight: 700; }
 .uldw-grid-input-dest { text-align: center; text-transform: uppercase; }
 .uldw-grid-input-wh { text-align: left; }
+/* 各板的 WT 輸入框：看起來像「可以改的數字」（底線提示），聚焦時才給完整框線 */
+.uldw-grid-input-wt {
+  border-bottom-color: var(--border-color);
+  border-radius: 0;
+  font-weight: 700;
+}
+.uldw-grid-input-wt:focus {
+  border-radius: 4px;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface-glow);
+}
+.uldw-grid-cell-wt.is-squeeze .uldw-grid-input-wt { color: #dc2626; }
+.uldw-grid-cell-wt.is-diff .uldw-grid-input-wt { color: #d97706; }
+.uldw-grid-cell-wt.is-empty .uldw-grid-input-wt { color: var(--text-muted); }
+/* 「上數」欄：件數｜重量 合併成一格，數字靠右 */
+.uldw-grid-alloc { white-space: nowrap; }
+.uldw-grid-alloc .uldw-grid-alloc-sep {
+  margin: 0 2px;
+  color: var(--text-muted);
+  font-style: normal;
+  opacity: 0.7;
+}
+/* 斑馬紋（橫向掃視長表用）：底色要是不透明的，sticky 欄才不會透出後面的內容 */
+.uldw-grid-table tbody tr:nth-child(even) td {
+  background: linear-gradient(rgba(37, 99, 235, 0.035), rgba(37, 99, 235, 0.035)), var(--card-bg);
+}
+.uldw-grid-table tbody tr:hover td {
+  background: linear-gradient(rgba(37, 99, 235, 0.07), rgba(37, 99, 235, 0.07)), var(--sidebar-bg);
+}
+/* 正在輸入的那一格：整列淡淡的藍底，長表也不會看錯列 */
+.uldw-grid-table tbody tr:focus-within td {
+  background: linear-gradient(rgba(37, 99, 235, 0.10), rgba(37, 99, 235, 0.10)), var(--card-bg);
+}
+.uldw-grid-table tbody tr:focus-within .uldw-grid-seq { color: var(--primary); }
 .uldw-grid-new-mawb {
   width: 190px;
   text-align: left;
@@ -1299,11 +1361,17 @@ input[data-draft="port"] { text-transform: uppercase; }
   .uldw-grid-table tr { break-inside: avoid; }
   .uldw-grid-table thead th { font-size: 6.5pt; }
   .uldw-grid-uld { font-size: 6pt; color: #333 !important; }
+  /* 紙本不需要拖曳把手與「｜」分隔符 */
+  .uldw-grid-grip { display: none !important; }
+  .uldw-grid-alloc-sep { opacity: 0.5; }
   .uldw-grid-manual { background: #fdf3c8 !important; }
   .uldw-grid-auto { background: #e6eefb !important; }
   /* 紙本仍要分辨紅／橙（不要被上面的黑字規則蓋掉） */
   .uldw-grid-num.is-squeeze { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; font-weight: 800; }
   .uldw-grid-num.is-diff { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; font-weight: 700; }
+  /* 各板 WT 是 input（不是 span）→ 顏色要另外指定，否則被上面的 `.uldw-grid-input { color:#000 }` 蓋掉 */
+  .uldw-grid-cell-wt.is-squeeze .uldw-grid-input-wt { color: #b91c1c !important; -webkit-text-fill-color: #b91c1c !important; font-weight: 800; }
+  .uldw-grid-cell-wt.is-diff .uldw-grid-input-wt { color: #b45309 !important; -webkit-text-fill-color: #b45309 !important; font-weight: 700; }
   .uldw-grid-num.is-empty { color: #999 !important; -webkit-text-fill-color: #999 !important; }
 }
 

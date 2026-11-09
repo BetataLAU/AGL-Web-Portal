@@ -301,7 +301,7 @@ created_at, updated_at
 - 儲存策略（R3）：以 **id 做 diff 更新**（UPDATE／INSERT／DELETE；前端 payload 帶 `id`、新列 `null`；沒帶 id 的舊 payload 會整批重建）；**申報列同理**（`mawb_rows`），沒帶 `mawb_rows` 的舊 payload 保留 DB 既有列（相容）
 - 重量分配（方案 B）：`calc.uldAllocateByPcs()`／`calc.uldApplyMawbAllocation()` 依各板件數把申報 WT 分下去（Σ = 申報 WT）；`auto_alloc = 0` 的列保留各板自填重量（舊資料自動長出的列預設 0）
 - 前端：`#section-uld-weight` + `public/js/uld-weight.js` + `public/js/uldweight/{state,render,sheet-grid,api,booking-search}.js` + `public/css/uld-weight.css`
-  - 編輯畫面兩種版面（`state.ui.view`，預設 `grid`）：**載荷表**（CHARTER LOADING SHEET，**可編輯**：左邊申報列 MAWB／DEST／PCS／WT／W-H／自動／夾重；右邊每板只填件數、重量自動分；底部 PLAN/RCL/DIFF）／**卡片**（板資料：ULD#／Contour／Tare／RCL Gross／LIH／Pre-decl；MAWB 與申報 WT 唯讀）
+  - 編輯畫面兩種版面（`state.ui.view`，預設 `grid`）：**載荷表**（CHARTER LOADING SHEET，**可編輯**：左邊申報列 MAWB／DEST／PCS／WT／W-H／自動／夾重／上數；右邊每板 PCS 與 **WT 都可直接打字**（2026-11-09：打完＝固定那一板、其餘依件數分剩下的申報 WT，該列轉手動）；**板頭可直接左右拖曳換板序**；Enter／Shift+Enter 上下換列；底部 PLAN/RCL/DIFF）／**卡片**（板資料：ULD#／Contour／Tare／RCL Gross／LIH／Pre-decl；MAWB 與申報 WT 唯讀）
   - 「新增 MAWB」列的 MAWB 欄＝**輸入即篩選**打板計劃 Booking Record（選到後帶入件數／重量／Port＋`mawb_record_id`；手動輸入仍可用；`renderEditor()` 尾端 `wireBookingPickers()` 每次重畫重綁）
   - 鎖定後才有「套用到 Booking」按鈕（W2）：`calc.uldBookingTotals()` 彙總後回寫 `mawb_records.gross_weight`，跳出 applied／skipped／conflicts 報告
   - 「⇪ 匯入 RCL」（W3）：上傳磅單 → 面板（表頭列／4 個欄位對應／可勾選單位／略過原因）→ 加入草稿單位（Pre-decl 預設 P）→ 按「儲存」；`rcl-parse.js` 前後端共用

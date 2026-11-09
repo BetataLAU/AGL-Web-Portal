@@ -192,11 +192,16 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 - 側欄：`模擬裝板系統` 之後 → **ULD 夾重系統**（`#section-uld-weight`，admin/staff，鎖頭樣式同打板計劃）
 - 右側版面：**清單**（夾重表列表）↔ **編輯**
   - **編輯有兩種版面**（`state.ui.view`；工具列「▤ 卡片編輯／▦ 載荷表」切換，**預設載荷表**）：
-    - **載荷表（grid，U4＋方案 B，2026-11-07）**：照業界 **CHARTER LOADING SHEET** 的 Excel 版面，**可直接編輯**。
-      一票一列（申報列 `uld_weight_mawbs`）：`SEQ／MAWB／DEST／申報 PCS／申報 WT／W/H or Booking／自動／夾重／MAWB 上數（Σ final）`；
-      一板一組欄（`01/A`、`02/B`…，板頭顯示 `ULD#/Contour`）：每組 `PCS`（**手動填入這票在該板的件數**）＋`WT`（**算出來的**）；
+    - **載荷表（grid，U4＋方案 B，2026-11-07；2026-11-09 重畫）**：照業界 **CHARTER LOADING SHEET** 的 Excel 版面，**可直接編輯**。
+      一票一列（申報列 `uld_weight_mawbs`）：`SEQ／MAWB／DEST／申報 PCS／申報 WT／W/H or Booking／自動／夾重／上數（件數｜重量）`；
+      一板一組欄（`01/A`、`02/B`…，板頭顯示 `ULD#/Contour`）：每組 `PCS`（**手動填入這票在該板的件數**）＋`WT`（**可直接打字**）；
       重量分配：`calc.uldApplyMawbAllocation()` 依件數把申報 WT 分到各板（Σ = 申報 WT，尾差給件數最多的板）；
       列上的「自動」取消（`auto_alloc = 0`）→ 保留各板自填重量（舊資料自動長出的列預設就是 0，升級不會偷改重量）。
+      **手改單板重量（2026-11-09）**：在任一板 WT 直接打字 → `state.uldSetCellWeight()` → `calc.uldAllocateWithFixed()`
+      固定這一板、剩下的申報 WT 依件數分給同票其他板（Σ 仍等於申報 WT），該列同時轉為手動（`auto_alloc = 0`）；
+      打超過申報 WT 會夾到申報 WT 並提示；要恢復自動就把「自動」勾回來。鍵盤：**Enter＝下一列、Shift+Enter＝上一列**、
+      Tab＝下一格（`moveGridFocus()`），數字格聚焦即全選（打字＝覆蓋）。**板欄左右拖曳**：按住板頭 `⠿` 往左右拖即可換板序
+      （`dragKind = 'grid-col'`，比 `clientX` 決定插在前／後；改的是 `seq`，存檔才寫回；鎖定時不可拖）。
       顏色：**紅字＝夾重**（`item.is_squeeze`）、**橙字＝wt 有差**（上數 − 申報 > 0.5kg）、標頭「要自己入」黃底／「會自動計」藍底；
       底部：各板 `板合計（PCS／WT）`、`RCL（淨）／ 磅差`、`PLAN TTL`（Σ 申報）／`RCL TTL`／`DIFF`（**K**）。
       操作：最下面一列輸入 MAWB# 按 Enter＝新增一票、`＋ 列`、每列 `✕` 刪除（連同各板件數）、
@@ -266,10 +271,10 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 
 | 檔案 | 說明 |
 |---|---|
-| `public/js/uldweight/calc.js` | **計算核心**（前後端共用，純函式；含 `uldBookingTotals()`：W2 回寫 Booking Record 的彙總、`uldApplyRatioClamp()`：R2 比例上下限、**`uldAllocateByPcs()`／`uldApplyMawbAllocation()`：方案 B 申報重量→各板分配**） |
-| `public/js/uldweight/state.js` | 前端狀態、API↔編輯狀態轉換、拆分、payload 帶 DB `id`（R3） |
+| `public/js/uldweight/calc.js` | **計算核心**（前後端共用，純函式；含 `uldBookingTotals()`：W2 回寫 Booking Record 的彙總、`uldApplyRatioClamp()`：R2 比例上下限、**`uldAllocateByPcs()`／`uldApplyMawbAllocation()`：方案 B 申報重量→各板分配**、**`uldAllocateWithFixed()`：2026-11-09 手動指定單板重量（其餘依件數分剩下的）**） |
+| `public/js/uldweight/state.js` | 前端狀態、API↔編輯狀態轉換、拆分、payload 帶 DB `id`（R3）、**`uldSetCellWeight()`（載荷表 WT 直接打字：固定那一板＋其餘依件數分＋轉手動）** |
 | `public/js/uldweight/render.js` | 清單／編輯畫面渲染 + 局部更新（`ui.view === 'grid'` 時改呼叫 `sheet-grid.js`） |
-| `public/js/uldweight/sheet-grid.js` | **U4 載荷表（CHARTER LOADING SHEET）／方案 B**：`uldGridModel()`（純函式：申報列 × 一板一組欄、上數／PLAN／RCL／DIFF）、`uldGridHtml()`（可編輯矩陣：申報列輸入、各板件數、自動／夾重、紅橙字、底部合計）、`uldGridSortRows()`（只排顯示順序）、`refreshGridComputed()`（輸入時只更新數字與顏色，不重畫） |
+| `public/js/uldweight/sheet-grid.js` | **U4 載荷表（CHARTER LOADING SHEET）／方案 B**：`uldGridModel()`（純函式：申報列 × 一板一組欄、上數／PLAN／RCL／DIFF）、`uldGridHtml()`（可編輯矩陣：申報列輸入、各板 PCS＋**可打字的 WT**、自動／夾重、**可拖曳的板頭**、紅橙字、底部合計）、`uldGridSortRows()`（只排顯示順序）、`refreshGridComputed()`（輸入時只更新數字與顏色，不重畫；**跳過正在打字的那一格**） |
 | `scripts/uld-weight-grid-preview.js` | **U4 版面預覽**：用假資料（5 票 × 3 板）產出 `data/work/uldw-grid-preview.html`，免登入／免伺服器即可目視檢查載荷表版面（`npm run preview:uldweight`） |
 | `public/js/uldweight/booking-search.js` | **W1**：打板計劃 Booking Record 的輸入即篩選／自動帶入（`wireBookingPickers`） |
 | `public/js/uldweight/rcl-parse.js` | **W3**：RCL 磅單解析純函式（**前後端共用**：表頭偵測、欄位對應、列驗證／略過規則） |
@@ -292,7 +297,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 node scripts/test-uld-weight-calc.js      # 109 項（含 §18 申報列重量分配）
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
 node scripts/test-uld-weight-mawb.js      # 33 項（MAWB 11 位／航空公司補 0／mod 7 檢查碼／格式化）
-node scripts/test-uld-weight-frontend.js  # 200 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI、§22 載荷表、§23 方案 B 申報列）
+node scripts/test-uld-weight-frontend.js  # 221 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI、§22 載荷表、§23 方案 B 申報列、§24 鍵盤手改重量／板欄拖曳）
 node scripts/uld-weight-grid-preview.js   # U4：產出載荷表預覽（data/work/uldw-grid-preview.html）
 node scripts/test-uld-weight-api.js       # API 端對端（會自己啟伺服器，port 3157；含 U3 Loading Sheet、B1～B11 申報列）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）

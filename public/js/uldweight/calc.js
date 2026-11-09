@@ -660,6 +660,54 @@ export function uldAllocateByPcs(totalWeight, cells) {
   return out;
 }
 
+// ===== 手動指定某一板的重量（載荷表 WT 直接打字）=====
+// 規則：指定的那一板拿 fixedWeight，**剩下的申報重量依件數分給其他板**（Σ 仍等於申報重量）。
+//   - fixedWeight 會被夾在 [0, totalWeight]（單板重量不可能超過整票申報重量）
+//   - 其他板的件數全是 0 → 平均分（避免 0/0）
+//   - 只有一板 → 整票都在這一板（等於沒有其他板可以分）
+// 回傳與 cells 同長度的重量陣列（索引對齊 cells）
+export function uldAllocateWithFixed(totalWeight, cells, fixedIndex, fixedWeight) {
+  const list = Array.isArray(cells) ? cells : [];
+  const count = list.length;
+  const idx = Math.trunc(Number(fixedIndex));
+  if (!count || !Number.isFinite(idx) || idx < 0 || idx >= count) {
+    return uldAllocateByPcs(totalWeight, list);
+  }
+  const total = Math.max(0, uldNum(totalWeight));
+  const fixed = Math.min(total, Math.max(0, uldNum(fixedWeight)));
+  const out = new Array(count).fill(0);
+  out[idx] = fixed;
+
+  const others = [];
+  for (let i = 0; i < count; i += 1) if (i !== idx) others.push(i);
+  // 只有一板 → 整票重量都在這一板
+  if (!others.length) {
+    out[idx] = total;
+    return out;
+  }
+
+  const restTotal = Number((total - fixed).toFixed(3));
+  const pcsList = others.map(i => Math.max(0, uldNum(list[i] && list[i].pcs)));
+  const pcsTotal = pcsList.reduce((sum, v) => sum + v, 0);
+  const bases = pcsTotal > 0 ? pcsList : others.map(() => 1);
+  const baseTotal = pcsTotal > 0 ? pcsTotal : others.length;
+
+  let assigned = 0;
+  others.forEach((i, k) => {
+    const value = Number(((bases[k] / baseTotal) * restTotal).toFixed(3));
+    out[i] = value;
+    assigned += value;
+  });
+  const diff = Number((restTotal - assigned).toFixed(3));
+  if (Math.abs(diff) > 1e-9) {
+    // 尾差給件數最多的一板（與 uldAllocateByPcs 同一個規則）
+    let maxK = 0;
+    bases.forEach((v, k) => { if (v > bases[maxK]) maxK = k; });
+    out[others[maxK]] = Math.max(0, Number((out[others[maxK]] + diff).toFixed(3)));
+  }
+  return out;
+}
+
 // 把整張表的「申報列」套回各板明細（就地修改 item.declared_weight）
 // 規則：
 //   1. 只有 `auto_alloc !== 0` 的列會依件數重算（手動分配的舊資料 auto_alloc = 0，重量不動）

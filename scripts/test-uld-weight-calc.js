@@ -625,6 +625,32 @@ function codes(result) {
     near(allocSqueezeComputed.units[0].calc.finalSum, 1250),
     String(allocSqueezeComputed.units[0].calc.finalSum));
 
+  // ===== 19. 手動指定單板重量（載荷表 WT 直接打字）=====
+  console.log('\n--- 19. 手動指定單板重量（uldAllocateWithFixed）---');
+  const fixed3 = calc.uldAllocateWithFixed(2000, [{ pcs: 3 }, { pcs: 3 }, { pcs: 2 }], 0, 1000);
+  check('19.1 指定第 1 板 1000 → 其餘 1000 依件數（3:2）分 600／400',
+    near(fixed3[0], 1000) && near(fixed3[1], 600) && near(fixed3[2], 400),
+    JSON.stringify(fixed3));
+  check('19.2 分配後合計仍等於申報重量（2000）',
+    near(fixed3.reduce((sum, v) => sum + v, 0), 2000));
+
+  const fixedOver = calc.uldAllocateWithFixed(1013, [{ pcs: 3 }, { pcs: 3 }], 1, 5000);
+  check('19.3 打的重量超過申報 WT → 夾到申報 WT（其他板不吃負數）',
+    near(fixedOver[1], 1013) && near(fixedOver[0], 0), JSON.stringify(fixedOver));
+
+  const fixedZeroPcs = calc.uldAllocateWithFixed(900, [{ pcs: 0 }, { pcs: 0 }, { pcs: 0 }], 0, 300);
+  check('19.4 其他板都沒件數 → 剩下的平均分（300／300）',
+    near(fixedZeroPcs[0], 300) && near(fixedZeroPcs[1], 300) && near(fixedZeroPcs[2], 300),
+    JSON.stringify(fixedZeroPcs));
+
+  const fixedSingle = calc.uldAllocateWithFixed(1400, [{ pcs: 10 }], 0, 500);
+  check('19.5 一票只在一板 → 整票重量都在那一板（500 被夾成 1400）',
+    near(fixedSingle[0], 1400), JSON.stringify(fixedSingle));
+
+  const fixedBad = calc.uldAllocateWithFixed(800, [{ pcs: 1 }, { pcs: 1 }], 9, 400);
+  check('19.6 索引超出範圍 → 退回原本的依件數分配（400／400）',
+    near(fixedBad[0], 400) && near(fixedBad[1], 400), JSON.stringify(fixedBad));
+
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
   process.exitCode = failCount === 0 ? 0 : 1;
 })();

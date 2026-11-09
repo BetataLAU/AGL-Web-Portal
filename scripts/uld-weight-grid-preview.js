@@ -93,23 +93,32 @@ function demoDetail() {
   const root = makeRoot();
   render.renderEditor(root);
   const html = root.innerHTML;
-  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'uld-weight.css'), 'utf8');
+  const cssDir = path.join(__dirname, '..', 'public', 'css');
+  const css = fs.readFileSync(path.join(cssDir, 'uld-weight.css'), 'utf8');
+  // 預覽用：一併載入 base.css（主題變數）＋ components.css（按鈕／卡片），畫面才跟實際站上一致
+  const baseCss = fs.existsSync(path.join(cssDir, 'base.css'))
+    ? fs.readFileSync(path.join(cssDir, 'base.css'), 'utf8') : '';
+  const compCss = fs.existsSync(path.join(cssDir, 'components.css'))
+    ? fs.readFileSync(path.join(cssDir, 'components.css'), 'utf8') : '';
 
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(
     OUT,
     `<!doctype html><meta charset="utf-8"><title>ULD 載荷表預覽</title>
-<style>${css}
-body { padding: 16px; background: #eef2f7; }
+<style>${baseCss}
+${compCss}
+${css}
+body { padding: 16px; background: var(--app-bg, #eef2f7); }
 </style>${html}`,
     'utf8'
   );
 
   const rows = (html.match(/<tr data-row-uid=/g) || []).length;
   const units = (html.match(/uldw-grid-unit-th/g) || []).length;
-  const totals = [...html.matchAll(/<td colspan="4" class="uldw-grid-label">([A-Z ]+)<\/td>\s*<td[^>]*>\s*<span[^>]*>([^<]+)<\/span>/g)]
+  const wtInputs = (html.match(/data-cell-field="wt"/g) || []).length;
+  const totals = [...html.matchAll(/<td colspan="\d+" class="uldw-grid-label">([A-Z ]+)<\/td>\s*<td[^>]*>\s*<span[^>]*>([^<]+)<\/span>/g)]
     .map(m => `${m[1]}=${m[2]}`).join('  ');
   console.log('載荷表預覽已產生：', OUT);
-  console.log(`MAWB 列 ${rows} ｜ 板欄 ${units} ｜ 紅字(is-squeeze) ${(html.match(/is-squeeze/g) || []).length} ｜ 橙字(is-diff) ${(html.match(/is-diff/g) || []).length}`);
+  console.log(`MAWB 列 ${rows} ｜ 板欄 ${units} ｜ 可打字的 WT 格 ${wtInputs} ｜ 紅字(is-squeeze) ${(html.match(/is-squeeze/g) || []).length} ｜ 橙字(is-diff) ${(html.match(/is-diff/g) || []).length}`);
   console.log('底部：', totals);
 })();

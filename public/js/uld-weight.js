@@ -7,7 +7,7 @@ import {
 import {
   uldWeightState, uldSheetFromApi, uldSheetPayload, uldNewUnit, uldNewItem, uldNewMawb,
   uldFindUnit, uldFindMawb, uldRowItems, uldEnsureItem, uldSyncRowToItems, uldRemoveMawbRow,
-  uldSetRowSqueeze, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, ULD_MAX_UNITS
+  uldSetRowSqueeze, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, uldSetCellWeight, ULD_MAX_UNITS
 } from './uldweight/state.js';
 import { renderList, renderEditor, refreshComputed, refreshRclImport, refreshVersions } from './uldweight/render.js';
 import { resetBookingCache } from './uldweight/booking-search.js';
@@ -530,6 +530,42 @@ function upperIfNeeded(field, list, value) {
   return list.includes(field) ? String(value == null ? '' : value).toUpperCase() : value;
 }
 
+// 重量輸入框的顯示值：0 → 空白、最多 1 位小數（與 sheet-grid.js 的 numText 同一規則）
+function kgInput(value) {
+  const n = Math.round(uldNum(value) * 10) / 10;
+  return n === 0 ? '' : String(n);
+}
+
+// ===== 載荷表：直接打某一板的重量（keyboard 手改重量）=====
+//   - 打字／失焦都會走這裡（normalize = true 時順便把輸入框格式化成 1 位小數）
+//   - 第一次改 → 這一列從「自動」變「手動」（自動勾選取消，畫面上同步取消，不重畫）
+//   - 打超過申報 WT → 夾到申報 WT 並提示（避免把其他板清成 0）
+function applyCellWeight(target, row, normalize) {
+  const s = state();
+  if (!s.current || s.current.status === 'locked' || !row) return null;
+  const wasAuto = Number(row.auto_alloc) !== 0;
+  const result = uldSetCellWeight(row.uid, target.dataset.cellUnit, target.value);
+  if (!result.ok) {
+    if (result.reason === 'no-mawb') toast('這一列還沒有 MAWB#：先填 MAWB 再填重量');
+    return null;
+  }
+  if (result.clamped) {
+    target.value = kgInput(result.fixed);
+    toast(`單板重量不可超過申報 WT ${uldFmtKg(result.declared)}（已夾到上限）`);
+  } else if (normalize) {
+    target.value = kgInput(result.fixed);
+  }
+  // 「自動」勾選取消 → 只改勾選框（重畫會讓焦點跑掉）
+  const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
+  const autoBox = tr ? tr.querySelector('[data-row-field="auto_alloc"]') : null;
+  if (autoBox && autoBox.checked) autoBox.checked = false;
+  if (wasAuto && result.cells > 1) {
+    toast('已改為手動分配：這一板固定，其餘依件數分剩下的重量');
+  }
+  refreshComputed(rootEl);
+  return result;
+}
+
 // 文字／數字輸入：只更新狀態 + 局部重算（不重畫 → 不會失去焦點）
 function onRootInput(event) {
   const target = event.target;
@@ -578,6 +614,11 @@ function onRootInput(event) {
     item.pcs = Math.max(0, Math.round(uldNum(target.value)));
     uldMarkDirty();
     refreshComputed(rootEl);
+    return;
+  }
+  // 各板 WT 直接打字（keyboard 手改重量）：固定這一板、其餘依件數分剩下的申報重量
+  if (gridRow && target.dataset.cellField === 'wt') {
+    applyCellWeight(target, gridRow, false);
     return;
   }
 
@@ -650,6 +691,8 @@ function onRootChange(event) {
     const field = target.dataset.rowField;
     if (field === 'auto_alloc') {
       chgRow.auto_alloc = target.checked ? 1 : 0;
+      // 勾回「自動」＝各板重量依件數重分（手動填的會被蓋掉，先講清楚）
+      if (target.checked) toast('已改回自動分配：依件數重新分申報重量');
     } else if (field === 'is_squeeze') {
       uldSetRowSqueeze(chgRow, target.checked);
     } else if (field === 'mawb' && target.type !== 'checkbox') {
@@ -674,6 +717,11 @@ function onRootChange(event) {
     if (item) item.pcs = Math.max(0, Math.round(uldNum(target.value)));
     uldMarkDirty();
     refreshComputed(rootEl);
+    return;
+  }
+  // 各板 WT：失焦時把輸入框格式化成 1 位小數（值本身在 input 事件就寫回 state）
+  if (chgRow && target.dataset.cellField === 'wt') {
+    applyCellWeight(target, chgRow, true);
     return;
   }
 
@@ -954,10 +1002,28 @@ function deleteMawbRow(rowUid) {
 // 記錄「進欄位前的 MAWB」：改名時才能把各板明細一起改到新號碼
 function onRootFocusIn(event) {
   const target = event.target;
-  if (!target || !target.dataset || target.dataset.rowField !== 'mawb') return;
-  const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
-  const row = tr ? uldFindMawb(tr.dataset.rowUid) : null;
-  if (row) target.dataset.prevMawb = row.mawb || '';
+  if (!target || !target.dataset) return;
+  if (target.dataset.rowField === 'mawb') {
+    const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
+    const row = tr ? uldFindMawb(tr.dataset.rowUid) : null;
+    if (row) target.dataset.prevMawb = row.mawb || '';
+    return;
+  }
+  // 數字格（申報／各板的 PCS、WT）：一進來就全選 → 直接打字＝覆蓋，不用先刪舊值
+  if (target.type === 'number' && (target.dataset.cellField || target.dataset.rowField)) {
+    selectInputText(target);
+  }
+}
+
+function selectInputText(el) {
+  if (!el || !el.select) return;
+  const apply = () => {
+    if (typeof document !== 'undefined' && document && document.activeElement && document.activeElement !== el) return;
+    try { el.select(); } catch (err) { /* number input 在部分瀏覽器不支援 select */ }
+  };
+  apply();
+  // 滑鼠點進來時 click 會把游標放到點的位置 → 下一個 tick 再全選一次（Excel 手感）
+  if (typeof setTimeout === 'function') setTimeout(apply, 0);
 }
 
 // ===== U2：貼上多列（Excel／booking list → 一次建立多票）=====
@@ -1064,6 +1130,47 @@ async function pasteItems(uid) {
   }
 }
 
+// ===== 載荷表：Enter／Shift+Enter 在同一欄上下移動（Excel 手感）=====
+// 回傳「同一欄」的選擇器：各板格＝data-cell-field＋data-cell-unit；申報列＝data-row-field
+function gridFocusSelector(el) {
+  const ds = (el && el.dataset) || {};
+  if (ds.cellField && ds.cellUnit) {
+    return `[data-cell-field="${ds.cellField}"][data-cell-unit="${ds.cellUnit}"]`;
+  }
+  if (ds.rowField && el.type !== 'checkbox') return `[data-row-field="${ds.rowField}"]`;
+  return '';
+}
+
+function moveGridFocus(el, dir) {
+  if (!rootEl || !rootEl.querySelectorAll) return false;
+  const selector = gridFocusSelector(el);
+  if (!selector) return false;
+  const tr = el.closest ? el.closest('tr[data-row-uid]') : null;
+  if (!tr) return false;
+  const trs = Array.from(rootEl.querySelectorAll('.uldw-grid-table tbody tr[data-row-uid]'));
+  const idx = trs.indexOf(tr);
+  if (idx < 0) return false;
+  const nextTr = trs[idx + dir];
+  if (!nextTr) {
+    // 最後一列再往下 → 跳到最下面「輸入 MAWB# 後按 Enter 新增一票」那格
+    if (dir > 0) {
+      const addInput = rootEl.querySelector('#uldw-grid-new-mawb');
+      if (addInput && addInput.focus) {
+        addInput.focus();
+        return true;
+      }
+    }
+    return false;
+  }
+  const nextInput = nextTr.querySelector(selector);
+  if (!nextInput || !nextInput.focus) return false;
+  nextInput.focus();
+  if (nextInput.select) {
+    try { nextInput.select(); } catch (err) { /* number input 在部分瀏覽器不支援 select */ }
+  }
+  return true;
+}
+
 // ===== U2：Enter 直接加入（不用再按「加入」）＋ Esc 關閉選單 =====
 function onRootKeydown(event) {
   const target = event.target;
@@ -1084,15 +1191,9 @@ function onRootKeydown(event) {
     addMawbRow(value);
     return;
   }
-  // 申報列的 MAWB：Enter 跳到「申報件數」
-  if (target.dataset.rowField === 'mawb') {
-    const tr = target.closest ? target.closest('tr[data-row-uid]') : null;
-    const pcsInput = tr ? tr.querySelector('[data-row-field="pcs"]') : null;
-    if (pcsInput && pcsInput.focus && event.preventDefault) {
-      event.preventDefault();
-      pcsInput.focus();
-      if (pcsInput.select) pcsInput.select();
-    }
+  // 載荷表：Enter／Shift+Enter＝同一欄的下一列／上一列（Excel 手感，連續打重量最快）
+  if (target.dataset.rowField || target.dataset.cellField) {
+    if (moveGridFocus(target, event.shiftKey ? -1 : 1) && event.preventDefault) event.preventDefault();
     return;
   }
   if (!target.dataset.draft) return;
@@ -1148,8 +1249,11 @@ function printUnit(uid) {
   setTimeout(cleanup, 30000); // 保險：部分瀏覽器不會觸發 afterprint
 }
 
-// ===== U2：拖曳排序（只改顯示順序；不影響計算）=====
+// ===== U2：拖曳排序（只改順序；不影響計算）=====
+//   dragKind = 'unit-card'：卡片檢視上下拖（把手 ⠿）
+//   dragKind = 'grid-col' ：載荷表板欄左右拖（欄頭 01/A、02/B… 直接拖；比左右中点決定插在前／後）
 let dragUid = null;
+let dragKind = '';
 
 function onRootPointerDown(event) {
   const handle = event.target && event.target.closest ? event.target.closest('[data-drag-handle]') : null;
@@ -1159,8 +1263,24 @@ function onRootPointerDown(event) {
 }
 
 function onRootDragStart(event) {
+  const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
+  const s = state();
+  if (th && s.current && s.current.status !== 'locked') {
+    dragKind = 'grid-col';
+    dragUid = th.dataset.colUnit || null;
+    if (!dragUid) return;
+    if (event.dataTransfer) {
+      try {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', dragUid);
+      } catch (e) { /* ignore */ }
+    }
+    if (th.classList) th.classList.add('is-dragging');
+    return;
+  }
   const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
   if (!card) return;
+  dragKind = 'unit-card';
   dragUid = card.dataset.uid || null;
   if (!dragUid) return;
   if (event.dataTransfer) {
@@ -1174,26 +1294,66 @@ function onRootDragStart(event) {
 
 function onRootDragOver(event) {
   if (!dragUid) return;
+  if (dragKind === 'grid-col') {
+    const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
+    if (!th) return;
+    if (event.preventDefault) event.preventDefault();
+    const rect = th.getBoundingClientRect ? th.getBoundingClientRect() : null;
+    const after = rect ? (event.clientX - rect.left) > (rect.width / 2) : false;
+    if (th.classList) {
+      th.classList.toggle('is-drop-after', after);
+      th.classList.toggle('is-drop-before', !after);
+    }
+    return;
+  }
   const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
   if (!card) return;
   if (event.preventDefault) event.preventDefault();
-  const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : null;
-  const after = rect ? (event.clientY - rect.top) > (rect.height / 2) : false;
+  const side = cardDropSide(card, event);
   if (card.classList) {
-    card.classList.toggle('is-drop-after', after);
-    card.classList.toggle('is-drop-before', !after);
+    card.classList.toggle('is-drop-before', side.axis === 'y' && !side.after);
+    card.classList.toggle('is-drop-after', side.axis === 'y' && side.after);
+    card.classList.toggle('is-drop-left', side.axis === 'x' && !side.after);
+    card.classList.toggle('is-drop-right', side.axis === 'x' && side.after);
   }
 }
 
+// 卡片是網格排列（一列多張）：左右移得比上下多 → 用水平判斷（可以左右換位），否則照原本上下判斷
+function cardDropSide(card, event) {
+  const rect = card && card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+  if (!rect) return { after: false, axis: 'y' };
+  const dx = (event.clientX || 0) - (rect.left + rect.width / 2);
+  const dy = (event.clientY || 0) - (rect.top + rect.height / 2);
+  const axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+  return { after: axis === 'x' ? dx > 0 : dy > 0, axis };
+}
+
 function onRootDrop(event) {
+  if (dragKind === 'grid-col') {
+    const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
+    if (!th || !dragUid) return;
+    if (event.preventDefault) event.preventDefault();
+    const rect = th.getBoundingClientRect ? th.getBoundingClientRect() : null;
+    const after = rect ? (event.clientX - rect.left) > (rect.width / 2) : false;
+    const targetUid = th.dataset.colUnit;
+    const from = dragUid;
+    dragUid = null;
+    dragKind = '';
+    if (from && targetUid && from !== targetUid && uldMoveUnit(from, targetUid, after)) {
+      uldMarkDirty();
+      render();
+      toast('已調整板序（欄位順序就是列印順序；記得儲存）');
+    }
+    return;
+  }
   const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
   if (!card || !dragUid) return;
   if (event.preventDefault) event.preventDefault();
-  const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : null;
-  const after = rect ? (event.clientY - rect.top) > (rect.height / 2) : false;
+  const after = cardDropSide(card, event).after;
   const targetUid = card.dataset.uid;
   const from = dragUid;
   dragUid = null;
+  dragKind = '';
   if (from && targetUid && from !== targetUid && uldMoveUnit(from, targetUid, after)) {
     uldMarkDirty();
     render();
@@ -1203,6 +1363,7 @@ function onRootDrop(event) {
 
 function onRootDragEnd() {
   dragUid = null;
+  dragKind = '';
   if (!rootEl || !rootEl.querySelectorAll) return;
   rootEl.querySelectorAll('.uldw-unit').forEach(card => {
     card.draggable = false;
@@ -1210,6 +1371,16 @@ function onRootDragEnd() {
       card.classList.remove('is-dragging');
       card.classList.remove('is-drop-before');
       card.classList.remove('is-drop-after');
+      card.classList.remove('is-drop-left');
+      card.classList.remove('is-drop-right');
+    }
+  });
+  // 載荷表的板欄（板頭可拖；dragstart 時只加 class，draggable 由 markup 控制）
+  rootEl.querySelectorAll('[data-col-unit]').forEach(th => {
+    if (th.classList) {
+      th.classList.remove('is-dragging');
+      th.classList.remove('is-drop-before');
+      th.classList.remove('is-drop-after');
     }
   });
 }

@@ -208,8 +208,10 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
       `Clear Content`（清空全部申報列與明細，表頭與板資料保留、不自動存檔）、`Check & format MAWB#`（批次格式化＋列不合格）、
       `Sort by MAWB#`（**只改顯示順序**，不寫回資料）。資料一律由 `uldComputeSheet()` 轉出（`public/js/uldweight/sheet-grid.js` 的
       `uldGridModel()`／`uldGridHtml()`／`uldGridSortRows()`／`refreshGridComputed()`），**不另寫算法**。
-      卡片檢視（`▤ 卡片檢視`）改板資料（ULD#／Contour／Tare／RCL（淨）／LIH／Pre-decl／夾重方式）；卡片裡的 MAWB／申報 WT 唯讀
-      （由申報列管），只有 `auto_alloc = 0` 的列可以直接改重量。
+      卡片檢視（`▤ 卡片檢視`）改板資料（ULD#／Contour／Tare／RCL（淨）／LIH／Pre-decl／夾重方式）；卡片裡的 MAWB 唯讀（由申報列管），
+      **WT（kg）可直接打字**（2026-11-11）：輸入框不再 `readonly`、也隱藏上下箭頭；打字走 `state.uldSetCellWeight()`，
+      固定這一板、剩下的申報 WT 依件數分給同票其他板（Σ 不變），該列轉手動（`auto_alloc = 0`），
+      其他板的輸入框同步更新（跳過正在打字的那一格）；打超過申報 WT 夾到上限並提示。
     - **卡片（cards）**：原本的收貨單位卡片＋MAWB 彙總＋檢核（新增／修改明細、夾重勾選、比例、LIH 都在這裡）。
   - 表頭：**常駐 5 欄**（日期／貨站／航班／航班日期／經手人）＋備註；**B 取整／尾差／磅差警示 %／kg／比例下限 %／上限 %** 收在「⚙ 進階」內（預設收起，值照常送出、列印時自動展開）
   - ① 收貨單位卡（**網格排列、可拖曳調整板序**；板序代號 `01/A`、`02/B`…`41/AO`）：

@@ -456,6 +456,642 @@
 [data-theme="dark"] .uldw-issue-warn { color: #fcd34d; }
 [data-theme="dark"] .uldw-ok { color: #86efac; }
 
+/* ===== 新 UI：LOT 列表（動態搜尋＋LOT 卡片）===== */
+.uldw-lot-list { display: flex; flex-direction: column; gap: 12px; }
+.uldw-lot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.uldw-search {
+  position: relative;
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+}
+.uldw-search > i {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+.uldw-search input {
+  width: 100%;
+  padding: 9px 120px 9px 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.84rem;
+}
+.uldw-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--surface-glow);
+}
+.uldw-search-hint {
+  position: absolute;
+  right: 14px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.uldw-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--sidebar-bg);
+}
+.uldw-seg-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.uldw-seg-btn:hover { color: var(--primary); }
+.uldw-seg-btn.is-active { background: var(--primary); color: #fff; }
+.uldw-batch-all { display: inline-flex; align-items: center; gap: 4px; font-size: 0.76rem; color: var(--text-muted); cursor: pointer; }
+.uldw-lot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.uldw-lot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.uldw-lot:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+.uldw-lot.is-batch-selected { border-color: var(--primary); background: rgba(37, 99, 235, 0.06); }
+.uldw-lot-head { display: flex; align-items: center; gap: 8px; }
+.uldw-lot-pick input { width: 15px; height: 15px; cursor: pointer; }
+.uldw-lot-title { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.uldw-lot-title b { font-size: 0.9rem; color: var(--text-main); letter-spacing: 0.02em; }
+.uldw-lot-actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.uldw-lot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+.uldw-lot-stats {
+  display: flex;
+  gap: 14px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+  font-size: 0.78rem;
+}
+.uldw-lot-stats span { display: inline-flex; align-items: baseline; gap: 4px; }
+.uldw-lot-stats em { font-style: normal; font-size: 0.68rem; color: var(--text-muted); }
+.uldw-lot-stats b { font-variant-numeric: tabular-nums; color: var(--text-main); }
+.uldw-lot-stats .is-warn b { color: #d97706; }
+
+
+/* ===== 新 UI：建檔頁兩個 division（① MAWB LIST／② ULD LIST）===== */
+.uldw-workbench { display: flex; flex-direction: column; gap: 14px; }
+.uldw-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+.uldw-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.uldw-panel-title { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.uldw-panel-title b { letter-spacing: 0.03em; }
+.uldw-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: var(--primary-gradient);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.uldw-panel-count { font-size: 0.72rem; color: var(--text-muted); }
+.uldw-panel-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+
+/* ① MAWB LIST：Excel 式格線（可直接從 xls 複製整塊貼上） */
+.uldw-mawb-wrap {
+  max-height: 46vh;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.uldw-mawb-table {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.uldw-mawb-col-seq { width: 38px; }
+.uldw-mawb-col-mawb { width: 190px; }
+.uldw-mawb-col-dest { width: 84px; }
+.uldw-mawb-col-pcs { width: 80px; }
+.uldw-mawb-col-wt { width: 110px; }
+.uldw-mawb-col-assign { width: 96px; }
+.uldw-mawb-col-flag { width: 88px; }
+.uldw-mawb-col-final { width: 104px; }
+.uldw-mawb-col-x { width: 38px; }
+.uldw-mawb-table th,
+.uldw-mawb-table td {
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.uldw-mawb-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0 7px;
+  background: var(--sidebar-bg);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  text-align: left;
+}
+.uldw-mawb-table tbody td { background: var(--card-bg); }
+.uldw-mawb-table tbody tr:hover td { background: var(--sidebar-bg); }
+.uldw-mawb-table td:focus-within {
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--primary);
+  background: var(--input-bg);
+}
+.uldw-mawb-seq { text-align: center; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.uldw-mawb-input,
+.uldw-mawb-dest,
+.uldw-mawb-pcs,
+.uldw-mawb-wt {
+  display: block;
+  width: 100%;
+  height: 28px;
+  padding: 2px 7px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+.uldw-mawb-input { font-weight: 700; text-transform: uppercase; }
+.uldw-mawb-dest { text-align: center; text-transform: uppercase; }
+.uldw-mawb-pcs { text-align: right; }
+.uldw-mawb-wt { text-align: right; }
+.uldw-mawb-input:focus,
+.uldw-mawb-dest:focus,
+.uldw-mawb-pcs:focus,
+.uldw-mawb-wt:focus { outline: none; background: var(--input-bg); }
+.uldw-mawb-input.is-invalid,
+.uldw-mawb-input[data-mawb-invalid="1"] {
+  background: rgba(220, 38, 38, 0.10);
+  color: #b91c1c;
+  box-shadow: inset 0 0 0 2px #dc2626;
+}
+.uldw-mawb-table tr.is-squeeze .uldw-mawb-input { color: #dc2626; }
+/* 欄頭與內文對齊：DEST 置中、PCS／WT／最終 靠右 */
+.uldw-mawb-th-dest { text-align: center !important; }
+.uldw-mawb-th-pcs,
+.uldw-mawb-th-wt,
+.uldw-mawb-th-final { text-align: right !important; }
+.uldw-mawb-th-assign,
+.uldw-mawb-th-flag { text-align: center !important; }
+.uldw-mawb-assign { white-space: nowrap; font-size: 0.74rem; text-align: center; }
+.uldw-mawb-assign em { font-style: normal; color: #d97706; }
+.uldw-mawb-assign .is-warn { color: #d97706; font-weight: 700; }
+.uldw-mawb-flag {
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+.uldw-mawb-flag label { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; }
+.uldw-mawb-flag input { width: 14px; height: 14px; padding: 0; margin: 0; }
+.uldw-mawb-final { text-align: right; padding-right: 7px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.uldw-mawb-x { text-align: center; }
+.uldw-mawb-addbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+}
+.uldw-mawb-new {
+  flex: 1 1 220px;
+  min-width: 180px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.uldw-mawb-new:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--surface-glow); }
+.uldw-mawb-addhint { font-size: 0.68rem; color: var(--text-muted); }
+
+/* 「允許使用 0.5 kg」開關（重量單位一律 kg；未勾選＝只整數） */
+.uldw-half-kg { min-width: 170px; }
+.uldw-half-kg input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.uldw-half-kg-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.uldw-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.uldw-icon-btn:hover:not(:disabled) { background: var(--sidebar-bg); color: var(--primary); }
+.uldw-icon-btn-danger:hover:not(:disabled) { color: #dc2626; background: rgba(220, 38, 38, 0.08); }
+.uldw-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* LIH 狀態 chips（NIL／3481／3091；3481 與 3091 可同時亮） */
+.uldw-lih { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.uldw-lih-field { display: flex; flex-direction: column; gap: 4px; }
+.uldw-unit-lih-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.uldw-lih-label { font-size: 0.68rem; color: var(--text-muted); }
+.uldw-lih-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.uldw-lih-chip:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.uldw-lih-chip.is-on { color: #fff; border-color: transparent; background: var(--primary); }
+.uldw-lih-chip[data-lih="UN3481"].is-on { background: #d97706; }
+.uldw-lih-chip[data-lih="UN3091"].is-on { background: #7c3aed; }
+.uldw-lih-chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+
+/* ===== 新 UI：③ 合併／分配（MAWB 池 × ULD 分欄；可拖曳）===== */
+.uldw-merge { gap: 10px; }
+.uldw-merge-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--border-color);
+  background: var(--sidebar-bg);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.uldw-merge-hint b { color: var(--text-main); }
+.uldw-merge-progress { margin-left: auto; font-weight: 700; color: var(--primary); }
+.uldw-merge-board {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.uldw-merge-pool {
+  position: sticky;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+.uldw-merge-pool-head,
+.uldw-merge-col-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+.uldw-merge-pool-head { padding-bottom: 6px; border-bottom: 1px solid var(--border-color); }
+.uldw-merge-pool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 62vh;
+  overflow: auto;
+  padding-right: 2px;
+}
+.uldw-mawb-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  text-align: left;
+  cursor: grab;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.uldw-mawb-chip:hover { border-color: var(--primary); }
+.uldw-mawb-chip.is-picked { border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+.uldw-mawb-chip.is-done { opacity: 0.55; }
+.uldw-mawb-chip.is-invalid { border-color: #dc2626; background: rgba(220, 38, 38, 0.07); }
+.uldw-mawb-chip.is-dragging { opacity: 0.45; }
+.uldw-chip-seq {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.uldw-chip-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.uldw-chip-main b { font-size: 0.78rem; letter-spacing: 0.02em; }
+.uldw-chip-main small { font-size: 0.68rem; color: var(--text-muted); }
+.uldw-chip-state {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #d97706;
+  white-space: nowrap;
+}
+.uldw-mawb-chip.is-done .uldw-chip-state { color: #16a34a; }
+.uldw-merge-pool-foot { padding-top: 6px; border-top: 1px solid var(--border-color); }
+.uldw-merge-canvas {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+}
+.uldw-merge-tip { font-size: 0.68rem; color: var(--text-muted); }
+.uldw-merge-units {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scroll-snap-type: x proximity;
+}
+.uldw-merge-unit {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  background: var(--card-bg);
+  scroll-snap-align: start;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.uldw-merge-unit:hover { border-color: var(--primary); }
+.uldw-merge-unit.is-dragging { opacity: 0.45; }
+.uldw-merge-unit.is-drop-target {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--surface-glow);
+  background: rgba(37, 99, 235, 0.06);
+}
+.uldw-merge-unit.is-drop-before { box-shadow: -4px 0 0 0 var(--primary); }
+.uldw-merge-unit.is-drop-after { box-shadow: 4px 0 0 0 var(--primary); }
+.uldw-merge-unit-head { display: flex; align-items: center; gap: 4px; cursor: grab; }
+.uldw-merge-move { display: inline-flex; align-items: center; gap: 1px; }
+.uldw-merge-code { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); }
+.uldw-merge-uld {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+
+.uldw-merge-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.uldw-merge-fields label { display: flex; flex-direction: column; gap: 2px; }
+.uldw-merge-fields label:nth-child(3) { grid-column: span 2; }
+.uldw-merge-fields input {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+.uldw-merge-fields input[type="number"] { text-transform: none; text-align: right; }
+.uldw-merge-lih { display: flex; align-items: center; gap: 6px; }
+.uldw-merge-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); }
+.uldw-merge-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 56px;
+  padding: 4px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+}
+.uldw-merge-empty { padding: 12px 6px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
+.uldw-merge-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--card-bg);
+  cursor: grab;
+}
+.uldw-merge-item.is-dragging { opacity: 0.45; }
+.uldw-merge-handle { font-size: 0.7rem; }
+.uldw-merge-mawb {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.uldw-merge-mawb.is-invalid { color: #dc2626; text-decoration: underline wavy; }
+.uldw-merge-pcs {
+  width: 44px;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.7rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.uldw-merge-pcs:hover:not(:disabled) { border-color: var(--border-color); }
+.uldw-merge-pcs:focus { outline: none; border-color: var(--primary); background: var(--input-bg); }
+.uldw-merge-wt {
+  min-width: 46px;
+  text-align: right;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.uldw-merge-unit-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-color);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.uldw-merge-unit-foot b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.uldw-merge-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--sidebar-bg);
+  font-size: 0.8rem;
+}
+.uldw-merge-totals span { display: inline-flex; align-items: baseline; gap: 4px; }
+.uldw-merge-totals em { font-style: normal; font-size: 0.68rem; color: var(--text-muted); }
+.uldw-merge-totals b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.uldw-merge-totals .is-warn b { color: #d97706; }
+.uldw-merge-no-unit { width: 100%; }
+
+@media (max-width: 900px) {
+  .uldw-merge-board { grid-template-columns: 1fr; }
+  .uldw-merge-pool { position: static; }
+  .uldw-merge-pool-list { max-height: 30vh; }
+  .uldw-merge-unit { flex-basis: 260px; }
+}
+
+/* 列印：合併／MAWB 操作不要印（紙本只留表頭、ULD 與明細） */
+@media print {
+  .uldw-panel-actions,
+  .uldw-mawb-addbar,
+  .uldw-merge-hint,
+  .uldw-merge-board,
+  .uldw-merge-totals,
+  .uldw-merge-pool { display: none !important; }
+  .uldw-panel { border: none; padding: 0; background: #fff !important; }
+  .uldw-icon-btn { display: none !important; }
+  .uldw-half-kg,
+  .uldw-mawb-addbar,
+  .uldw-mawb-flag input { display: none !important; }
+  .uldw-mawb-wrap {
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+  }
+  .uldw-mawb-table th,
+  .uldw-mawb-table td {
+    position: static !important;
+    border-color: #555 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+  .uldw-mawb-table input {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    background: transparent !important;
+  }
+  .uldw-lih-chip {
+    border: 1px solid #555 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    padding: 0 4px !important;
+  }
+  .uldw-lih-chip.is-on { font-weight: 800; }
+}
+
+
 /* ===== 列印／另存 PDF（W4）=====
    只靠 @media print，不動畫面；草稿與鎖定都能列印。
    只留：表頭（表號／日期／貨站／航班／經手人／備註）＋每板「RCL − Tare = 淨重」
@@ -875,6 +1511,17 @@
 .uldw-input-pcs { width: 64px; min-width: 64px; text-align: right; }
 .uldw-input-wt { width: 84px; min-width: 84px; text-align: right; }
 .uldw-input-ratio { width: 58px; min-width: 58px; text-align: right; }
+
+/* 明細表數字框（PCS／WT）直接打字即可：隱藏上下箭頭（spinner 會蓋住數字、也不好微調） */
+.uldw-items input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.uldw-items input[type="number"]::-webkit-outer-spin-button,
+.uldw-items input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 
 /* MAWB 檢查碼不符 → 紅框提示（只提示，不擋存檔） */
 .uldw-items input[data-mawb-invalid="1"] {

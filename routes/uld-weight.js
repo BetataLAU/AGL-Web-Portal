@@ -23,7 +23,14 @@ const versionReady = import(pathToFileURL(path.join(__dirname, '..', 'public', '
 const SHEET_NO_PREFIX = 'WGT-';
 const TERMINALS = ['HACTL', 'AAT', 'CPSL'];
 const PREDECL_TYPES = ['P', 'X', 'B'];
-const LIH_TYPES = ['N', 'UN3481', 'UN3091'];
+// 新 UI：LIH 可多選（3481 與 3091 可同時存在），DB 仍存單欄，組合值用 `+`：
+//   `N`／`UN3481`／`UN3091`／`UN3481+UN3091`
+const LIH_CODES = ['UN3481', 'UN3091'];
+function lihValue(value) {
+  const raw = str(value, 40).toUpperCase();
+  const picked = LIH_CODES.filter(code => raw.includes(code));
+  return picked.length ? picked.join('+') : 'N';
+}
 const SQUEEZE_MODES = ['weight', 'pcs', 'equal', 'manual'];
 const TAIL_MODES = ['adjust_largest', 'equal', 'none'];
 
@@ -79,6 +86,15 @@ function pickLower(value, list, fallback) {
   return list.includes(s) ? s : fallback;
 }
 
+// 新 UI：單位一律 kg。allow_half_kg = 0 → 所有重量只以整數運算（0.5 會被四捨五入）
+function halfKgOf(value) {
+  return (value === true || Number(value) === 1) ? 1 : 0;
+}
+function weightValue(value, allowHalf) {
+  const n = Math.max(0, num(value));
+  return allowHalf ? Math.round(n * 2) / 2 : Math.round(n);
+}
+
 // 產生夾重表編號 WGT-YYYYMMDD-XX
 async function generateSheetNo() {
   const now = new Date();
@@ -100,13 +116,17 @@ async function generateSheetNo() {
 
 // 表頭正規化
 function normalizeHeader(body = {}) {
+  const allowHalf = halfKgOf(body.allow_half_kg);
   return {
     sheet_date: str(body.sheet_date, 20) || new Date().toISOString().slice(0, 10),
     terminal: pickUpper(body.terminal, TERMINALS, 'CPSL'),
     flight_no: str(body.flight_no, 30).toUpperCase(),
     flight_date: str(body.flight_date, 20),
     round_px: num(body.round_px) > 0 ? num(body.round_px) : 1,
-    round_b: num(body.round_b) > 0 ? num(body.round_b) : 1,
+    // 允許 0.5kg 時，B 散貨若沒指定就用 0.5；否則一律 1.0
+    round_b: num(body.round_b) > 0 ? num(body.round_b) : (allowHalf ? 0.5 : 1),
+    // 新 UI：允許使用 0.5kg（0 = 所有重量只以整數運算）
+    allow_half_kg: allowHalf,
     tail_mode: pickLower(body.tail_mode, TAIL_MODES, 'adjust_largest'),
     // W5：磅差警示門檻（%／kg 需「同時」超過才提示 DIFF_TOO_BIG）；0 或未填 → 回預設 2% / 100kg
     diff_warn_pct: num(body.diff_warn_pct) > 0 ? Math.min(num(body.diff_warn_pct), 100) : 2,
@@ -119,8 +139,8 @@ function normalizeHeader(body = {}) {
   };
 }
 
-// 收貨單位 + 明細正規化
-function normalizeUnit(raw = {}, idx = 0) {
+// 收貨單位 + 明細正規化（allowHalf = 0 → 重量四捨五入成整數）
+function normalizeUnit(raw = {}, idx = 0, allowHalf = 0) {
   const kind = str(raw.kind, 10).toUpperCase() === 'BULK' ? 'BULK' : 'ULD';
   const items = (Array.isArray(raw.items) ? raw.items : []).slice(0, 300).map((it, i) => ({
     // R3：明細 diff 更新用（前端帶回既有列的 id；null／不存在＝新增）
@@ -130,10 +150,10 @@ function normalizeUnit(raw = {}, idx = 0) {
     mawb_record_id: it.mawb_record_id ? (Number(it.mawb_record_id) || null) : null,
     port: str(it.port, 20).toUpperCase(),
     pcs: intNum(it.pcs),
-    declared_weight: Math.max(0, num(it.declared_weight)),
+    declared_weight: weightValue(it.declared_weight, allowHalf),
     is_squeeze: it.is_squeeze ? 1 : 0,
     squeeze_ratio: (it.squeeze_ratio == null || it.squeeze_ratio === '') ? null : Math.max(0, num(it.squeeze_ratio)),
-    lih_type: pickUpper(it.lih_type, LIH_TYPES, 'N')
+    lih_type: lihValue(it.lih_type)
   }));
   return {
     // R3：收貨單位的既有 DB id（null＝新增）
@@ -146,11 +166,11 @@ function normalizeUnit(raw = {}, idx = 0) {
     contour_code: kind === 'BULK' ? '' : str(raw.contour_code, 12).toUpperCase(),
     port: str(raw.port, 20).toUpperCase(),
     pcs: intNum(raw.pcs),
-    tare_weight: kind === 'BULK' ? 0 : num(raw.tare_weight),
+    tare_weight: kind === 'BULK' ? 0 : weightValue(raw.tare_weight, allowHalf),
     // RCL WT＝貨站磅單的淨重（＝目標淨重，不再扣 Tare）；欄位名沿用 rcl_gross_weight 以免 DB 遷移
-    rcl_gross_weight: Math.max(0, num(raw.rcl_gross_weight)),
-    material_weight: Math.max(0, num(raw.material_weight)),
-    lih_type: pickUpper(raw.lih_type, LIH_TYPES, 'N'),
+    rcl_gross_weight: weightValue(raw.rcl_gross_weight, allowHalf),
+    material_weight: weightValue(raw.material_weight, allowHalf),
+    lih_type: lihValue(raw.lih_type),
     predecl_type: pickUpper(raw.predecl_type, PREDECL_TYPES, kind === 'BULK' ? 'B' : 'P'),
     squeeze_mode: pickLower(raw.squeeze_mode, SQUEEZE_MODES, 'weight'),
     items
@@ -159,7 +179,7 @@ function normalizeUnit(raw = {}, idx = 0) {
 
 // ===== 方案 B：MAWB 申報列（載荷表左邊那一欄）=====
 // 一票一列；各板只填件數，重量由 calc.uldApplyMawbAllocation() 依件數分下去。
-function normalizeMawbRow(raw = {}, idx = 0) {
+function normalizeMawbRow(raw = {}, idx = 0, allowHalf = 0) {
   return {
     // 與收貨單位／明細相同的 diff 更新規則：帶回既有 id → UPDATE；null → INSERT
     id: raw.id ? (Number(raw.id) || null) : null,
@@ -168,7 +188,7 @@ function normalizeMawbRow(raw = {}, idx = 0) {
     mawb_record_id: raw.mawb_record_id ? (Number(raw.mawb_record_id) || null) : null,
     dest: str(raw.dest != null ? raw.dest : raw.port, 20).toUpperCase(),
     pcs: intNum(raw.pcs),
-    declared_weight: Math.max(0, num(raw.declared_weight)),
+    declared_weight: weightValue(raw.declared_weight, allowHalf),
     // W/H or Booking：自由文字（可能是 W/H 單號或備註，不轉大寫）
     wh_ref: str(raw.wh_ref, 60),
     // 0 = 保留各板自填重量（舊資料）；其餘一律視為 1＝依件數自動分配
@@ -222,13 +242,16 @@ function synthesizeMawbRows(units) {
 }
 
 function normalizeSheetPayload(body = {}) {
-  const ulds = (Array.isArray(body.ulds) ? body.ulds : []).slice(0, 100).map(normalizeUnit);
+  const header = normalizeHeader(body);
+  const allowHalf = halfKgOf(header.allow_half_kg);
+  const ulds = (Array.isArray(body.ulds) ? body.ulds : []).slice(0, 100)
+    .map((unit, idx) => normalizeUnit(unit, idx, allowHalf));
   // 方案 B：MAWB 申報列。**沒帶 `mawb_rows` 這個欄位＝舊格式**（保留 DB 既有列不動；
   // DB 也沒有列時才用明細彙總自動長出來，auto_alloc = 0 以保留原本各板重量）
   const mawbRows = Array.isArray(body.mawb_rows)
-    ? body.mawb_rows.slice(0, 1000).map(normalizeMawbRow)
+    ? body.mawb_rows.slice(0, 1000).map((row, idx) => normalizeMawbRow(row, idx, allowHalf))
     : null;
-  return { header: normalizeHeader(body), ulds, mawbRows };
+  return { header, ulds, mawbRows };
 }
 
 
@@ -256,6 +279,7 @@ function serializeSheetRow(row) {
     flight_date: row.flight_date || '',
     round_px: num(row.round_px) > 0 ? num(row.round_px) : 1,
     round_b: num(row.round_b) > 0 ? num(row.round_b) : 1,
+    allow_half_kg: halfKgOf(row.allow_half_kg),
     tail_mode: row.tail_mode || 'adjust_largest',
     diff_warn_pct: num(row.diff_warn_pct) > 0 ? num(row.diff_warn_pct) : 2,
     diff_warn_kg: num(row.diff_warn_kg) > 0 ? num(row.diff_warn_kg) : 100,
@@ -314,6 +338,7 @@ async function loadSheetDetail(id) {
   const sheetLike = {
     round_px: sheet.round_px,
     round_b: sheet.round_b,
+    allow_half_kg: halfKgOf(sheet.allow_half_kg),
     tail_mode: sheet.tail_mode,
     diff_warn_pct: sheet.diff_warn_pct,
     diff_warn_kg: sheet.diff_warn_kg,
@@ -361,6 +386,7 @@ function buildSnapshot(detail) {
       flight_date: detail.flight_date || '',
       round_px: num(detail.round_px),
       round_b: num(detail.round_b),
+      allow_half_kg: halfKgOf(detail.allow_half_kg),
       tail_mode: detail.tail_mode || '',
       diff_warn_pct: num(detail.diff_warn_pct),
       diff_warn_kg: num(detail.diff_warn_kg),
@@ -541,9 +567,9 @@ router.get('/sheets', async (req, res) => {
       params.push(status);
     }
     if (search) {
-      sql += ' AND (s.sheet_no LIKE ? OR s.flight_no LIKE ? OR s.handler LIKE ? OR s.terminal LIKE ?)';
+      sql += ' AND (s.sheet_no LIKE ? OR s.flight_no LIKE ? OR s.handler LIKE ? OR s.terminal LIKE ? OR s.sheet_date LIKE ?)';
       const like = `%${search}%`;
-      params.push(like, like, like, like);
+      params.push(like, like, like, like, like);
     }
     sql += ' ORDER BY s.id DESC LIMIT 200';
     const rows = await dbAll(sql, params);
@@ -561,12 +587,12 @@ router.post('/sheets', async (req, res) => {
     const user = (req.session && req.session.user) || {};
     const result = await dbRun(
       `INSERT INTO uld_weight_sheets
-        (sheet_no, sheet_date, terminal, flight_no, flight_date, round_px, round_b, tail_mode,
+        (sheet_no, sheet_date, terminal, flight_no, flight_date, round_px, round_b, allow_half_kg, tail_mode,
          diff_warn_pct, diff_warn_kg, clamp_min_pct, clamp_max_pct, handler, remark, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
       [
         sheetNo, header.sheet_date, header.terminal, header.flight_no, header.flight_date,
-        header.round_px, header.round_b, header.tail_mode,
+        header.round_px, header.round_b, header.allow_half_kg, header.tail_mode,
         header.diff_warn_pct, header.diff_warn_kg, header.clamp_min_pct, header.clamp_max_pct,
         header.handler, header.remark,
         user.user_id || null
@@ -670,9 +696,9 @@ router.get('/sheets/batch-pdf', async (req, res) => {
         params.push(status);
       }
       if (search) {
-        sql += ' AND (s.sheet_no LIKE ? OR s.flight_no LIKE ? OR s.handler LIKE ? OR s.terminal LIKE ?)';
+        sql += ' AND (s.sheet_no LIKE ? OR s.flight_no LIKE ? OR s.handler LIKE ? OR s.terminal LIKE ? OR s.sheet_date LIKE ?)';
         const like = `%${search}%`;
-        params.push(like, like, like, like);
+        params.push(like, like, like, like, like);
       }
       sql += ' ORDER BY s.sheet_no ASC, s.id ASC LIMIT ?';
       params.push(BATCH_PDF_LIMIT);
@@ -912,12 +938,17 @@ router.put('/sheets/:id', async (req, res) => {
       mawbRows = existingRows.length ? existingRows.map(serializeMawbRow) : synthesizeMawbRows(payload.ulds);
     }
     // 先依申報列把重量分回各板（只有 auto_alloc 的列會動），再做夾重計算 —— 順序不可顛倒
-    calc.uldApplyMawbAllocation({ mawbs: mawbRows, ulds: payload.ulds });
+    calc.uldApplyMawbAllocation({
+      allow_half_kg: payload.header.allow_half_kg,
+      mawbs: mawbRows,
+      ulds: payload.ulds
+    });
 
     // 先重算一次；語意錯誤（負重 / 未勾夾重 / 目標過小）不允許儲存
     const computed = calc.uldComputeSheet({
       round_px: payload.header.round_px,
       round_b: payload.header.round_b,
+      allow_half_kg: payload.header.allow_half_kg,
       tail_mode: payload.header.tail_mode,
       diff_warn_pct: payload.header.diff_warn_pct,
       diff_warn_kg: payload.header.diff_warn_kg,
@@ -941,14 +972,14 @@ router.put('/sheets/:id', async (req, res) => {
     await dbRun(
       `UPDATE uld_weight_sheets
           SET sheet_date = ?, terminal = ?, flight_no = ?, flight_date = ?,
-              round_px = ?, round_b = ?, tail_mode = ?, diff_warn_pct = ?, diff_warn_kg = ?,
+              round_px = ?, round_b = ?, allow_half_kg = ?, tail_mode = ?, diff_warn_pct = ?, diff_warn_kg = ?,
               clamp_min_pct = ?, clamp_max_pct = ?,
               handler = ?, remark = ?,
               updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`,
       [
         h.sheet_date, h.terminal, h.flight_no, h.flight_date,
-        h.round_px, h.round_b, h.tail_mode, h.diff_warn_pct, h.diff_warn_kg,
+        h.round_px, h.round_b, h.allow_half_kg, h.tail_mode, h.diff_warn_pct, h.diff_warn_kg,
         h.clamp_min_pct, h.clamp_max_pct,
         h.handler, h.remark, id
       ]
@@ -1154,12 +1185,12 @@ router.post('/sheets/:id/duplicate', async (req, res) => {
     const user = (req.session && req.session.user) || {};
     const inserted = await dbRun(
       `INSERT INTO uld_weight_sheets
-        (sheet_no, sheet_date, terminal, flight_no, flight_date, round_px, round_b, tail_mode,
+        (sheet_no, sheet_date, terminal, flight_no, flight_date, round_px, round_b, allow_half_kg, tail_mode,
          diff_warn_pct, diff_warn_kg, clamp_min_pct, clamp_max_pct, handler, remark, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
       [
         sheetNo, src.sheet_date, src.terminal, src.flight_no, src.flight_date,
-        src.round_px, src.round_b, src.tail_mode, src.diff_warn_pct, src.diff_warn_kg,
+        src.round_px, src.round_b, halfKgOf(src.allow_half_kg), src.tail_mode, src.diff_warn_pct, src.diff_warn_kg,
         num(src.clamp_min_pct), num(src.clamp_max_pct),
         src.handler, src.remark, user.user_id || null
       ]

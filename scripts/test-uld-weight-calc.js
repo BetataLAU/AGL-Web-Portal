@@ -236,6 +236,20 @@ function codes(result) {
     codes(noSqueeze).includes('NO_SQUEEZE') && noSqueeze.hasError === true);
   check('11.2 未夾重時重量維持申報值', near(noSqueeze.items[0].final, 2000));
 
+  // 新 UI：ULD WT（RCL）選填 → 0 代表還沒過磅，先不夾重、也不報 NO_SQUEEZE／TARGET_TOO_SMALL
+  const noWeigh = uldComputeUnit({
+    kind: 'ULD', rcl_gross_weight: 0,
+    items: [
+      { mawb: 'A', pcs: 1, declared_weight: 120, is_squeeze: false },
+      { mawb: 'B', pcs: 1, declared_weight: 80, is_squeeze: true }
+    ]
+  });
+  check('11.2b ULD WT 未填（選填）→ 保留申報重量，不報 NO_SQUEEZE／TARGET_TOO_SMALL',
+    noWeigh.hasError === false &&
+    near(noWeigh.items[0].final, 120) && near(noWeigh.items[1].final, 80) &&
+    !codes(noWeigh).includes('NO_SQUEEZE') && !codes(noWeigh).includes('TARGET_TOO_SMALL'),
+    JSON.stringify(codes(noWeigh)));
+
   const negative = uldComputeUnit({
     kind: 'ULD', tare_weight: 0, rcl_gross_weight: 300, squeeze_mode: 'manual',
     items: [

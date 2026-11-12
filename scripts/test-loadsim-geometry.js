@@ -406,12 +406,13 @@ function makeItem(overrides) {
   const keepSlope = specNoRing('Q7-00', { 'Q7-00': { maxGrossKg: 5000 } });
   check('10.4 只改重量 → 保留原收角輪廓', keepSlope.planesZ.length === 5);
 
-  // ===== 21. 暫存區（拖出 Contour 暫放）=====
+  // ===== 21. 暫存區（拖出 Contour 暫放；2026-11 面積加倍）=====
   const stageSpec = specNoRing('Q7-00', null);
   const stage = geometry.loadsimStageRect(stageSpec);
-  check('21.1 暫存區在板後方（x0 = 板長 + 30cm、深度 130cm）',
-    near(stage.x0, stageSpec.baseL + 30, 0.01) && near(stage.x1 - stage.x0, 130, 0.01),
-    `${stage.x0.toFixed(1)}~${stage.x1.toFixed(1)}`);
+  check('21.1 暫存區在板後方（x0 = 板長 + 30cm、深度 260cm＝原本 130cm ×2）',
+    near(stage.x0, stageSpec.baseL + 30, 0.01) &&
+    near(stage.x1 - stage.x0, geometry.LOADSIM_STAGE_DEPTH_CM, 0.01),
+    `${stage.x0.toFixed(1)}~${stage.x1.toFixed(1)}（深 ${(stage.x1 - stage.x0).toFixed(1)}cm）`);
   check('21.2 暫存區寬度同板寬',
     near(stage.z0, -stageSpec.baseW / 2) && near(stage.z1, stageSpec.baseW / 2));
   const stageCenterItem = makeItem({ dims: { l: 60, w: 60, h: 60 }, x: (stage.x0 + stage.x1) / 2 - 30, y: 0, z: -30 });
@@ -427,9 +428,10 @@ function makeItem(overrides) {
 
   // 第二個暫存區（② 板前方 +Z）：板前另有一塊空地可以暫放
   const stage2 = geometry.loadsimStageRect2(stageSpec);
-  check('21.6 第二暫存區在板前方（z0 = 板寬/2 + 30cm、深度 110cm）',
-    near(stage2.z0, stageSpec.baseW / 2 + 30, 0.01) && near(stage2.z1 - stage2.z0, 110, 0.01),
-    `z=${stage2.z0.toFixed(1)}~${stage2.z1.toFixed(1)}`);
+  check('21.6 第二暫存區在板前方（z0 = 板寬/2 + 30cm、深度 220cm＝原本 110cm ×2）',
+    near(stage2.z0, stageSpec.baseW / 2 + 30, 0.01) &&
+    near(stage2.z1 - stage2.z0, geometry.LOADSIM_STAGE2_DEPTH_CM, 0.01),
+    `z=${stage2.z0.toFixed(1)}~${stage2.z1.toFixed(1)}（深 ${(stage2.z1 - stage2.z0).toFixed(1)}cm）`);
   check('21.7 第二暫存區長度同板長、貼地（y = 0）',
     near(stage2.x0, 0, 0.01) && near(stage2.x1, stageSpec.baseL, 0.01) && stage2.y === 0,
     `x=${stage2.x0.toFixed(1)}~${stage2.x1.toFixed(1)}`);
@@ -466,6 +468,24 @@ function makeItem(overrides) {
   check('21.12 可拖曳範圍放寬到兩個暫存區末端（X = 板後 ① 末端、Z = 板前 ② 末端）',
     near(stageMax.x, stage.x1 - 60, 0.01) && near(stageMax.z, stage2.z1 - 60, 0.01),
     `x=${stageMax.x.toFixed(1)} z=${stageMax.z.toFixed(1)}`);
+
+  // 面積加倍（2026-11）：寬度／長度維持同板面，深度 ×2 → ①② 面積都是原本 2 倍
+  const stageArea = (stage.x1 - stage.x0) * (stage.z1 - stage.z0);
+  const stageAreaBefore = geometry.LOADSIM_STAGE_BASE_DEPTH_CM * stageSpec.baseW;
+  check('21.13 暫存區① 面積＝原本 2 倍（板寬 × 260cm）',
+    near(stageArea, stageAreaBefore * geometry.LOADSIM_STAGE_AREA_SCALE, 0.1),
+    `${stageArea.toFixed(0)} / ${stageAreaBefore.toFixed(0)} cm²`);
+  const stage2Area = (stage2.x1 - stage2.x0) * (stage2.z1 - stage2.z0);
+  const stage2AreaBefore = geometry.LOADSIM_STAGE2_BASE_DEPTH_CM * stageSpec.baseL;
+  check('21.14 暫存區② 面積＝原本 2 倍（板長 × 220cm）',
+    near(stage2Area, stage2AreaBefore * geometry.LOADSIM_STAGE_AREA_SCALE, 0.1),
+    `${stage2Area.toFixed(0)} / ${stage2AreaBefore.toFixed(0)} cm²`);
+  // ③ 同時沿用 ① 的 X 深度與 ② 的 Z 深度（兩邊都加倍）→ 面積為原本 4 倍（比需求更大）
+  const stage3Area = (stage3.x1 - stage3.x0) * (stage3.z1 - stage3.z0);
+  const stage3AreaBefore = geometry.LOADSIM_STAGE_BASE_DEPTH_CM * geometry.LOADSIM_STAGE2_BASE_DEPTH_CM;
+  check('21.15 暫存區③＝① 與 ② 的延伸角落（面積隨兩邊加倍 → 原本 4 倍）',
+    near(stage3Area, stage3AreaBefore * geometry.LOADSIM_STAGE_AREA_SCALE * geometry.LOADSIM_STAGE_AREA_SCALE, 0.1),
+    `${stage3Area.toFixed(0)} / ${stage3AreaBefore.toFixed(0)} cm²`);
 
   // ===== 22. 上貨支撐面積比例（預設需 ≥ 50%）=====
   const mk = (x, z, y, l = 100, w = 100) => makeItem({ id: 900 + x + z + y, dims: { l, w, h: 50 }, x, y, z });

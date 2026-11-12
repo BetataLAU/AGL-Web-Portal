@@ -193,6 +193,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
   const unitCols = units.length * 2;
   // 固定左欄 10 欄：SEQ／MAWB／DEST／PCS／WT／W-H／自動／夾重／上數／操作
   const LEFT_COLS = 10;
+  const wStep = Number(sheet && sheet.allow_half_kg) === 1 ? '0.5' : '1';
   const meta = [sheet && sheet.flight_no, sheet && sheet.flight_date, sheet && sheet.terminal]
     .filter(Boolean).join(' · ');
   const titleMeta = [sheet && sheet.sheet_no, meta].filter(Boolean).join(' · ');
@@ -225,7 +226,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
       return `<td class="uldw-grid-cell-pcs"><input type="number" min="0" step="1" class="uldw-grid-input uldw-grid-input-pcs"
           data-cell-unit="${esc(unit.uid)}" data-cell-field="pcs" value="${esc(pcsValue)}"${dis}${ro}
           placeholder="0" aria-label="${esc(uldGridUnitCode(unitIdx))} 件數"></td>`
-        + `<td class="uldw-grid-num uldw-grid-cell-wt${wtClass}"><input type="number" min="0" step="0.1"
+        + `<td class="uldw-grid-num uldw-grid-cell-wt${wtClass}"><input type="number" min="0" step="${wStep}"
           class="uldw-grid-input uldw-grid-input-wt" data-cell-unit="${esc(unit.uid)}" data-cell-field="wt"
           value="${esc(wtValue)}" title="${esc(wtTitle)}" placeholder="0"
           aria-label="${esc(uldGridUnitCode(unitIdx))} 重量"${dis}${ro}></td>`;
@@ -240,7 +241,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
             data-row-field="dest" value="${esc(row.dest)}" placeholder="DEST" autocomplete="off" spellcheck="false"${dis}${ro}></td>
           <td class="uldw-grid-num"><input type="number" min="0" step="1" class="uldw-grid-input uldw-grid-input-num"
             data-row-field="pcs" value="${esc(inputValue(row.pcs))}"${dis}${ro}></td>
-          <td class="uldw-grid-num"><input type="number" min="0" step="0.1" class="uldw-grid-input uldw-grid-input-num"
+          <td class="uldw-grid-num"><input type="number" min="0" step="${wStep}" class="uldw-grid-input uldw-grid-input-num"
             data-row-field="declared_weight" value="${esc(inputValue(row.declaredWeight))}"${dis}${ro}></td>
           <td class="uldw-grid-wh"><input type="text" class="uldw-grid-input uldw-grid-input-wh"
             data-row-field="wh_ref" value="${esc(row.whRef)}" autocomplete="off" spellcheck="false"${dis}${ro}></td>
@@ -285,7 +286,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
               <th rowspan="2" class="uldw-grid-mawb uldw-grid-manual">MAWB</th>
               <th rowspan="2" class="uldw-grid-dest uldw-grid-manual">DEST</th>
               <th rowspan="2" class="uldw-grid-manual">PCS</th>
-              <th rowspan="2" class="uldw-grid-manual">WT</th>
+              <th rowspan="2" class="uldw-grid-manual">WT（kg）</th>
               <th rowspan="2" class="uldw-grid-wh uldw-grid-manual" title="W/H 單號或打板計劃 Booking（#id）">W/H or Booking</th>
               <th rowspan="2" class="uldw-grid-manual" title="自動分配重量：依各板件數把申報重量分下去（Σ = 申報 WT）；手動改過任一板重量後會自動取消勾選">自動</th>
               <th rowspan="2" class="uldw-grid-manual" title="勾選＝這票參與夾重（紅字）">夾重</th>
@@ -294,7 +295,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
               <th rowspan="2" class="uldw-grid-x"></th>
             </tr>
             <tr class="uldw-grid-sub">
-              ${units.map(() => '<th class="uldw-grid-auto" title="這票在這一板的件數">PCS</th><th class="uldw-grid-auto" title="這票在這一板的重量（可直接打字改；按 Enter 下一列）">WT</th>').join('')}
+              ${units.map(() => '<th class="uldw-grid-auto" title="這票在這一板的件數">PCS</th><th class="uldw-grid-auto" title="這票在這一板的重量（kg；可直接打字改；按 Enter 下一列）">WT（kg）</th>').join('')}
             </tr>
           </thead>
           <tbody>

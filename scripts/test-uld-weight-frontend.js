@@ -930,10 +930,10 @@ function apiDetail() {
     paste.uldParsePastedRows('hello\nworld').rows.length === 0 &&
     paste.uldParsePastedRows('hello\nworld').skipped.length === 2);
 
-  // U1：合計列照業界讀法（PLAN TTL／RCL TTL／DIFF，單位 K）
-  check('21.12 合計列顯示 PLAN TTL／RCL TTL／DIFF 且單位是 K',
+  // U1：合計列照業界讀法（PLAN TTL／RCL TTL／DIFF，單位 kg）
+  check('21.12 合計列顯示 PLAN TTL／RCL TTL／DIFF 且單位是 kg',
     renderText.includes('PLAN TTL') && renderText.includes('RCL TTL') &&
-    renderText.includes('>DIFF<') && renderText.includes('</b> K'));
+    renderText.includes('>DIFF<') && renderText.includes('</b> kg'));
 
   // U1：色碼（紅＝夾重、橙＝WT 已改）
   check('21.13 CSS 有色碼：夾重紅、WT 已改橙',
@@ -1078,8 +1078,8 @@ function apiDetail() {
     ['要自己入', '會自動計', '紅字=夾重', '橙字=wt有差'].every(t => gridHtml.includes(t)));
   check('22.8 三顆按鈕：Clear Content／Check & format MAWB#／Sort by MAWB#',
     ['grid-clear', 'grid-check-mawb', 'grid-sort'].every(a => gridHtml.includes(`data-action="${a}"`)));
-  check('22.9 表頭：SEQ／MAWB／DEST／PCS／WT／W/H or Booking／上數＋01/A、02/B',
-    ['>SEQ<', '>MAWB<', '>DEST<', '>PCS<', '>WT<', 'W/H or Booking', '>上數<', '>01/A<', '>02/B<']
+  check('22.9 表頭：SEQ／MAWB／DEST／PCS／WT（kg）／W/H or Booking／上數＋01/A、02/B',
+    ['>SEQ<', '>MAWB<', '>DEST<', '>PCS<', '>WT（kg）<', 'W/H or Booking', '>上數<', '>01/A<', '>02/B<']
       .every(t => gridHtml.includes(t)));
   check('22.10 板頭顯示 ULD#／Contour（PMC0003XX/ZQ）', gridHtml.includes('PMC0003XX/ZQ'));
   check('22.11 底部有 PLAN TTL／RCL TTL／DIFF',
@@ -1091,8 +1091,8 @@ function apiDetail() {
     /\.uldw-grid-num\.is-diff\s*\{[^}]*color/.test(cssText));
   check('22.13 載荷表是唯讀矩陣（沒有明細輸入框）＋有「▤ 卡片編輯」切換',
     !gridHtml.includes('data-item-field="mawb"') && gridHtml.includes('data-action="view-cards"'));
-  check('22.14 預設版面是載荷表（state.ui.view）',
-    /view: 'grid'/.test(stateText) && /gridSortMawb/.test(stateText));
+  check('22.14 預設版面是 ①② 建檔頁（state.ui.step=build、view=cards）',
+    /step: 'build'/.test(stateText) && /view: 'cards'/.test(stateText) && /gridSortMawb/.test(stateText));
 
   // 卡片檢視仍可用（切回 cards 就回到原本的收貨單位卡片）
   state.uldWeightState.ui.view = 'cards';
@@ -1164,8 +1164,9 @@ function apiDetail() {
   const computedRows = state.uldComputed();
   const cellB1 = computedRows.units[0].calc.items.find(it => it.mawb === '160-00000006');
   const cellB2 = computedRows.units[1].calc.items.find(it => it.mawb === '160-00000006');
-  check('23.2 申報重量依件數分到各板（3 件／3 件 → 506.5／506.5）',
-    Math.abs(cellB1.declared - 506.5) < 1e-6 && Math.abs(cellB2.declared - 506.5) < 1e-6,
+  check('23.2 申報重量依件數分到各板（allow_half_kg=0 → 整數 507／506，合計 1013）',
+    Math.abs((cellB1.declared + cellB2.declared) - 1013) < 1e-6 &&
+    Number.isInteger(cellB1.declared) && Number.isInteger(cellB2.declared),
     JSON.stringify([cellB1.declared, cellB2.declared]));
 
   state.uldWeightState.ui = {
@@ -1328,8 +1329,9 @@ function apiDetail() {
   const recomputedW = state.uldComputed();
   const autoW1 = recomputedW.units[0].calc.items.find(it => it.mawb === '160-00000006');
   const autoW2 = recomputedW.units[1].calc.items.find(it => it.mawb === '160-00000006');
-  check('24.6 勾回「自動」→ 依件數重新分配（506.5／506.5）',
-    Math.abs(autoW1.declared - 506.5) < 1e-6 && Math.abs(autoW2.declared - 506.5) < 1e-6,
+  check('24.6 勾回「自動」→ 依件數重新分配（整數，合計 1013）',
+    Math.abs((autoW1.declared + autoW2.declared) - 1013) < 1e-6 &&
+    Number.isInteger(autoW1.declared) && Number.isInteger(autoW2.declared),
     `${autoW1.declared}／${autoW2.declared}`);
 
   // 板序左右搬（拖曳板頭 → uldMoveUnit；存檔會寫回 seq）
@@ -1383,6 +1385,189 @@ function apiDetail() {
   check('24.16 卡片檢視也能左右拖（cardDropSide 依位移較大的軸判斷）',
     /function cardDropSide/.test(entryText) && /is-drop-left/.test(entryText) &&
     /\.uldw-unit\.is-drop-left\s*\{/.test(cssText));
+
+  // ===== 25. 新 UI：LOT 列表／① MAWB LIST／② ULD LIST／③ 合併 =====
+  console.log('\n--- 25. 新 UI：LOT／MAWB LIST／ULD LIST／合併 ---');
+
+  // LOT 列表：動態搜尋＋狀態 chips＋LOT 卡片
+  state.uldWeightState.view = 'list';
+  state.uldWeightState.sheets = [{
+    id: 7, sheet_no: 'WGT-20261105-01', sheet_date: '2026-11-05', terminal: 'CPSL',
+    flight_no: 'CX1234', uld_count: 2, bulk_count: 0, rcl_total: 1540, net_total: 1313,
+    diff_total: 0, status: 'draft'
+  }];
+  state.uldWeightState.listFilter = { search: '', status: '' };
+  const lotRoot = makeRoot();
+  render.renderList(lotRoot);
+  check('25.1 LOT 列表有動態搜尋／狀態 chips／LOT 卡片',
+    lotRoot.innerHTML.includes('uldw-search') &&
+    lotRoot.innerHTML.includes('id="uldw-list-search"') &&
+    lotRoot.innerHTML.includes('data-action="list-status"') &&
+    lotRoot.innerHTML.includes('uldw-lot'));
+  check('25.2 LOT 卡片保留開啟／複製／刪除', ['open', 'duplicate', 'delete']
+    .every(action => lotRoot.innerHTML.includes(`data-action="${action}"`)));
+
+  // 建檔頁：① MAWB LIST ＋ ② ULD LIST（同一頁兩個 division）
+  state.uldWeightState.view = 'editor';
+  state.uldWeightState.current = state.uldSheetFromApi(detailWithRows());
+  state.uldWeightState.ui = {
+    step: 'build', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const buildRoot = makeRoot();
+  render.renderEditor(buildRoot);
+  const buildHtml = buildRoot.innerHTML;
+  check('25.3 建檔頁有 ① MAWB LIST／② ULD LIST 兩個 division',
+    buildHtml.includes('MAWB LIST') && buildHtml.includes('ULD LIST') &&
+    buildHtml.includes('uldw-mawb-panel') && buildHtml.includes('uldw-uld-panel'));
+  check('25.4 MAWB LIST 欄位：MAWB#／DEST／PCS／WT＋加入列',
+    ['data-row-field="mawb"', 'data-row-field="dest"', 'data-row-field="pcs"',
+      'data-row-field="declared_weight"', 'id="uldw-mawb-new"', 'data-action="mawb-add"']
+      .every(text => buildHtml.includes(text)));
+  check('25.5 建檔頁有「③ 合併／分配」入口', buildHtml.includes('data-action="open-merge"'));
+  check('25.6 ULD 的 LIH 是 chips（NIL／3481／3091 可多選）',
+    buildHtml.includes('data-action="toggle-lih"') && buildHtml.includes('data-lih="UN3481"') &&
+    buildHtml.includes('data-lih="UN3091"') && buildHtml.includes('>NIL<'));
+  check('25.7 MAWB 檢查碼不合格會標紅（data-mawb-invalid）',
+    /data-mawb-invalid="1"/.test(buildHtml));
+
+  // LIH 組合值（3481 與 3091 可同時存在）
+  check('25.8 LIH 可組合 UN3481+UN3091（存檔值固定順序）',
+    calc.uldLihValue(['UN3481', 'UN3091']) === 'UN3481+UN3091' &&
+    calc.uldLihCodes('UN3481+UN3091').length === 2 &&
+    calc.uldLihToggle('UN3481', 'UN3091') === 'UN3481+UN3091' &&
+    calc.uldLihToggle('UN3481+UN3091', 'UN3481') === 'UN3091');
+  const comboLih = calc.uldComputeUnit({
+    kind: 'ULD', tare_weight: 0, rcl_gross_weight: 100, lih_type: 'UN3481+UN3091',
+    items: [{ mawb: '160-00000001', pcs: 1, declared_weight: 100, is_squeeze: true, lih_type: 'UN3091' }]
+  });
+  check('25.9 板 LIH 是組合時，票只標其中一種不會誤報 LIH_UN_CODE_MISMATCH',
+    !comboLih.issues.some(issue => issue.code.startsWith('LIH_')),
+    JSON.stringify(comboLih.issues.map(issue => issue.code)));
+
+  // 合併：把 MAWB 指派到 ULD（預設帶未分配件數）
+  const assignRow = state.uldNewMawb({ mawb: '160-00000006', dest: 'TPE', pcs: 10, declared_weight: 600 });
+  const assignU1 = state.uldNewUnit('ULD'); assignU1.uid = 'm1'; assignU1.uld_number = 'PMC0001';
+  assignU1.items = [state.uldNewItem({ mawb: '160-00000006', port: 'TPE', pcs: 4, declared_weight: 240 })];
+  const assignU2 = state.uldNewUnit('ULD'); assignU2.uid = 'm2'; assignU2.uld_number = 'PMC0002';
+  state.uldWeightState.current = {
+    id: 99, sheet_no: 'WGT-NEW', sheet_date: '2026-11-11', terminal: 'CPSL',
+    flight_no: '', flight_date: '', round_px: 1, round_b: 1, tail_mode: 'adjust_largest',
+    diff_warn_pct: 2, diff_warn_kg: 100, clamp_min_pct: 0, clamp_max_pct: 0,
+    handler: '', remark: '', status: 'draft',
+    mawbs: [assignRow], ulds: [assignU1, assignU2]
+  };
+  const assignResult = state.uldAssignMawbToUnit(assignRow.uid, 'm2');
+  check('25.10 拖到 ULD → 自動帶入未分配件數（10 − 4 = 6）',
+    assignResult.ok && assignResult.pcs === 6 && assignResult.remaining === 0 &&
+    (assignU2.items || []).some(item => calc.uldMawbKey(item.mawb) === calc.uldMawbKey(assignRow.mawb)));
+  const moveSourceItem = assignU2.items.find(item => calc.uldMawbKey(item.mawb) === calc.uldMawbKey(assignRow.mawb));
+  const assignU3 = state.uldNewUnit('ULD'); assignU3.uid = 'm3'; assignU3.uld_number = 'PMC0003';
+  state.uldWeightState.current.ulds.push(assignU3);
+  const moveResult = state.uldMoveItemToUnit('m2', moveSourceItem.uid, 'm3');
+  check('25.11 明細可搬到另一個 ULD（原板移除、目標板新增）',
+    moveResult.ok && !(assignU2.items || []).some(item => item.uid === moveSourceItem.uid) &&
+    (assignU3.items || []).some(item => item.uid === moveSourceItem.uid));
+
+  // 合併頁渲染
+  state.uldWeightState.ui = {
+    step: 'merge', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const mergeRoot = makeRoot();
+  render.renderEditor(mergeRoot);
+  const mergeHtml = mergeRoot.innerHTML;
+  check('25.12 合併頁有 MAWB 池＋可拖曳 ULD 分欄（含左右移位按鈕）',
+    mergeHtml.includes('uldw-merge-board') && mergeHtml.includes('data-mawb-chip') &&
+    mergeHtml.includes('data-merge-unit') && /data-merge-unit="1"[^>]*draggable="true"/.test(mergeHtml) &&
+    mergeHtml.includes('data-action="merge-unit-left"') && mergeHtml.includes('data-action="merge-unit-right"'));
+  check('25.13 合併頁入口支援 MAWB／明細／ULD 三種拖曳',
+    /dragKind = 'merge-mawb'/.test(entryText) &&
+    /dragKind = 'merge-item'/.test(entryText) &&
+    /dragKind = 'merge-unit'/.test(entryText) &&
+    /uldMoveUnit\(from, targetUid, after\)/.test(entryText));
+  check('25.14 CSS：合併看板／MAWB chip／放置目標樣式',
+    cssText.includes('.uldw-merge-board') && cssText.includes('.uldw-mawb-chip') &&
+    cssText.includes('.uldw-merge-unit.is-drop-target') && cssText.includes('.uldw-lih-chip'));
+
+  // ===== 26. 重量單位 kg／允許 0.5kg／MAWB LIST Excel 式格線 =====
+  console.log('\n--- 26. 重量 kg／0.5kg 開關／Excel 式 MAWB 格線 ---');
+  check('26.1 header 有「允許使用 0.5 kg」開關', buildHtml.includes('data-header="allow_half_kg"') &&
+    buildHtml.includes('允許使用 0.5 kg'));
+  check('26.2 未勾選時重量 step=1（只整數）、勾選時 step=0.5', (() => {
+    const sheet = state.uldWeightState.current;
+    const old = sheet.allow_half_kg;
+    const oldStep = state.uldWeightState.ui.step;
+    state.uldWeightState.ui.step = 'build';
+    state.uldWeightState.ui.view = 'cards';
+    sheet.allow_half_kg = 0;
+    const intRoot = makeRoot();
+    render.renderEditor(intRoot);
+    const intHtml = intRoot.innerHTML;
+    sheet.allow_half_kg = 1;
+    const halfRoot = makeRoot();
+    render.renderEditor(halfRoot);
+    const halfHtml = halfRoot.innerHTML;
+    sheet.allow_half_kg = old;
+    state.uldWeightState.ui.step = oldStep;
+    return intHtml.includes('data-row-field="declared_weight"') && intHtml.includes('step="1"') &&
+      halfHtml.includes('step="0.5"') && halfHtml.includes('checked');
+  })());
+  check('26.3 合計／摘要單位一律 kg（不再用 K）',
+    renderText.includes('</b> kg') && !renderText.includes('</b> K'));
+  check('26.4 MAWB LIST 是 Excel 式格線（colgroup＋固定欄寬＋儲存格框線）',
+    buildHtml.includes('<colgroup>') && buildHtml.includes('uldw-mawb-col-mawb') &&
+    buildHtml.includes('uldw-mawb-th-dest') && buildHtml.includes('uldw-mawb-th-wt'));
+  check('26.5 欄頭與內文對齊（DEST 置中、PCS／WT／最終 靠右）',
+    /\.uldw-mawb-th-dest\s*\{[^}]*text-align:\s*center/.test(cssText) &&
+    /\.uldw-mawb-th-pcs,[\s\S]*?text-align:\s*right/.test(cssText) &&
+    /\.uldw-mawb-table td:focus-within\s*\{[^}]*box-shadow/.test(cssText));
+  check('26.6 MAWB 格線可從 Excel 整塊貼上（Tab／換行 → 填入目前列）',
+    /function pasteMawbGrid/.test(entryText) && /function applyMawbGridRows/.test(entryText) &&
+    /closest\('#uldw-mawb-panel'\)/.test(entryText) &&
+    /includes\('\\t'\)/.test(entryText) && /applyMawbGridRows/.test(entryText));
+  const intOnly = calc.uldComputeUnit({
+    kind: 'ULD', rcl_gross_weight: 800.3,
+    items: [{ mawb: '160-00000001', pcs: 1, declared_weight: 800.3, is_squeeze: true }]
+  }, { allowHalfKg: false });
+  const halfKg = calc.uldComputeUnit({
+    kind: 'ULD', rcl_gross_weight: 800.3,
+    items: [{ mawb: '160-00000001', pcs: 1, declared_weight: 800.3, is_squeeze: true }]
+  }, { allowHalfKg: true });
+  check('26.7 未允許 0.5kg → 夾重後只以整數運算（801）',
+    intOnly.roundInc === 1 && Math.abs(intOnly.items[0].final - 801) < 1e-9,
+    JSON.stringify([intOnly.roundInc, intOnly.items[0].final]));
+  check('26.8 允許 0.5kg → 夾重後可用 0.5（800.5）',
+    halfKg.roundInc === 0.5 && Math.abs(halfKg.items[0].final - 800.5) < 1e-9,
+    JSON.stringify([halfKg.roundInc, halfKg.items[0].final]));
+
+  // ===== 2026-11-11：卡片明細 WT 直接打字（不用上下箭頭微調）=====
+  const wtTags = buildHtml.match(/<input type="number"[^>]*class="uldw-input uldw-input-wt"[^>]*>/g) || [];
+  check('26.9 卡片明細 WT 不再唯讀、帶 data-item-weight（可直接打字）',
+    wtTags.length > 0 && wtTags.every(tag => tag.includes('data-item-weight="1"') && !tag.includes('readonly')),
+    `${wtTags.length} 個 WT 輸入框`);
+  check('26.10 卡片 WT 打字帶申報列 uid（走 uldSetCellWeight：固定這一板、其餘依件數重分）',
+    /data-item-weight="1" data-weight-row="/.test(buildHtml) &&
+    /function applyItemWeight/.test(entryText) &&
+    /uldSetCellWeight\(row\.uid, unit\.uid, target\.value\)/.test(entryText) &&
+    /applyItemWeight\(target, false\)/.test(entryText) &&
+    /applyItemWeight\(target, true\)/.test(entryText));
+  check('26.11 CSS：明細數字框隱藏上下箭頭（純打字）',
+    /\.uldw-items input\[type="number"\]\s*\{[^}]*appearance:\s*textfield/.test(cssText) &&
+    /::-webkit-inner-spin-button[^{]*\{[^}]*-webkit-appearance:\s*none/.test(cssText));
+  // 前面 §25 借用 current 測合併頁，這裡換回有兩塊板＋申報列的資料
+  state.uldWeightState.current = state.uldSheetFromApi(detailWithRows());
+  const typedRow = state.uldWeightState.current.mawbs.find(row => row.mawb === '160-00000006');
+  const typedResult = state.uldSetCellWeight(typedRow.uid, 'u11', 600);
+  const typedSum = state.uldWeightState.current.ulds
+    .flatMap(unit => unit.items)
+    .filter(it => it.mawb === '160-00000006')
+    .reduce((sum, it) => sum + Number(it.declared_weight || 0), 0);
+  check('26.12 卡片 WT 打 600 → 這一板 600、其他板補 413（Σ 仍 1013、該列轉手動）',
+    typedResult.ok && Math.abs(typedSum - 1013) < 1e-9 &&
+    Number(typedRow.auto_alloc) === 0 &&
+    Number(state.uldWeightState.current.ulds[0].items.find(it => it.mawb === '160-00000006').declared_weight) === 600,
+    JSON.stringify({ sum: typedSum, auto: typedRow.auto_alloc }));
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 

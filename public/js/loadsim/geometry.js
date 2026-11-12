@@ -578,14 +578,23 @@ export function loadsimClampToMoveArea(item, spec, margin = LOADSIM_MOVE_MARGIN_
 
 // ===== 暫存區（把貨物暫時拖出 Contour 放著）=====
 // 三個暫存區（都貼地 y = 0）：
-//   ① 板子「後方（+X）」：x = baseL + gap 起、深度 130cm、寬度同板寬
-//   ② 板子「前方（+Z，靠觀察者）」：z = baseW/2 + gap 起、深度 110cm、長度同板長
+//   ① 板子「後方（+X）」：x = baseL + gap 起、深度 260cm、寬度同板寬
+//   ② 板子「前方（+Z，靠觀察者）」：z = baseW/2 + gap 起、深度 220cm、長度同板長
 //   ③ ① 與 ② 的延伸重疊角落（板後 × 板前的斜角空地）：x、z 各自從兩區起點開始
 // 貨物拖進任一個 → item.staged = true（不在板上：不計重量、不做輪廓／重疊／ring 判定）。
-export const LOADSIM_STAGE_GAP_CM = 30;     // ① 與板子（輪廓）之間的間隔
-export const LOADSIM_STAGE_DEPTH_CM = 130;  // ① 暫存區深度（沿 X）
-export const LOADSIM_STAGE2_GAP_CM = 30;    // ② 與板子（輪廓）之間的間隔
-export const LOADSIM_STAGE2_DEPTH_CM = 110; // ② 暫存區深度（沿 Z）
+//
+// 面積（2026-11 依需求「3 個暫存區面積增加一倍」）：
+//   寬度／長度維持「同板面」（否則 ① 會壓到 ②），所以面積加倍＝深度 ×2。
+//   ① = 板寬 × 260cm、② = 板長 × 220cm（都是原面積的 2 倍）；
+//   ③ 同時沿用 ① 的 X 深度與 ② 的 Z 深度（兩邊都加倍）→ 面積為原本的 4 倍。
+//   要再調整大小只改 LOADSIM_STAGE_AREA_SCALE 即可（1 = 還原原本尺寸）。
+export const LOADSIM_STAGE_GAP_CM = 30;          // ① 與板子（輪廓）之間的間隔
+export const LOADSIM_STAGE_BASE_DEPTH_CM = 130;  // ① 原始深度（沿 X）
+export const LOADSIM_STAGE2_GAP_CM = 30;         // ② 與板子（輪廓）之間的間隔
+export const LOADSIM_STAGE2_BASE_DEPTH_CM = 110; // ② 原始深度（沿 Z）
+export const LOADSIM_STAGE_AREA_SCALE = 2;       // 面積倍率（2 = 面積增加一倍）
+export const LOADSIM_STAGE_DEPTH_CM = LOADSIM_STAGE_BASE_DEPTH_CM * LOADSIM_STAGE_AREA_SCALE;   // ① 暫存區深度（沿 X）＝260
+export const LOADSIM_STAGE2_DEPTH_CM = LOADSIM_STAGE2_BASE_DEPTH_CM * LOADSIM_STAGE_AREA_SCALE; // ② 暫存區深度（沿 Z）＝220
 
 export function loadsimStageRect(spec) {
   const x0 = spec.baseL + LOADSIM_STAGE_GAP_CM;

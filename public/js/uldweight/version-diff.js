@@ -12,6 +12,7 @@ const HEADER_FIELDS = [
   { field: 'handler', label: '經手人' },
   { field: 'remark', label: '備註' },
   { field: 'round_b', label: 'B 取整', numeric: true },
+  { field: 'allow_half_kg', label: '允許 0.5kg', numeric: true },
   { field: 'tail_mode', label: '尾差' },
   { field: 'diff_warn_pct', label: '磅差警示 %', numeric: true },
   { field: 'diff_warn_kg', label: '磅差警示 kg', numeric: true },

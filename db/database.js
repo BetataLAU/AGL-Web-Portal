@@ -339,6 +339,8 @@ db.serialize(() => {
       flight_date TEXT,
       round_px REAL DEFAULT 1,
       round_b REAL DEFAULT 1,
+      -- 新 UI：允許使用 0.5kg（1 = 可 0.5；0 = 所有重量只以整數運算）
+      allow_half_kg INTEGER DEFAULT 0,
       tail_mode TEXT DEFAULT 'adjust_largest',
       diff_warn_pct REAL DEFAULT 2,
       diff_warn_kg REAL DEFAULT 100,
@@ -485,7 +487,9 @@ db.serialize(() => {
         { name: 'diff_warn_pct', def: 'REAL DEFAULT 2' },
         { name: 'diff_warn_kg', def: 'REAL DEFAULT 100' },
         { name: 'clamp_min_pct', def: 'REAL DEFAULT 0' },
-        { name: 'clamp_max_pct', def: 'REAL DEFAULT 0' }
+        { name: 'clamp_max_pct', def: 'REAL DEFAULT 0' },
+        // 2026-11-11：允許使用 0.5kg（0 = 全部以整數運算）
+        { name: 'allow_half_kg', def: 'INTEGER DEFAULT 0' }
       ].filter(col => !sheetColumns.includes(col.name));
       if (!missing.length) return resolve();
       let pending = missing.length;

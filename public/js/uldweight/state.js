@@ -2,7 +2,8 @@
 // 一張夾重表 = { 表頭欄位..., ulds: [ { uid, items: [ { uid, ... } ] } ] }
 // uid 只用在前端（DB id 可能重複出現於不同單位，故統一用 uid 定位）
 import {
-  uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey, uldApplyMawbAllocation, uldAllocateWithFixed
+  uldComputeSheet, uldSplitByPcs, uldNum, uldMawbKey, uldApplyMawbAllocation, uldAllocateWithFixed,
+  uldLihCodes, uldLihToggle
 } from './calc.js';
 
 export const uldWeightState = {
@@ -21,21 +22,25 @@ export const uldWeightState = {
   versions: { open: false, loading: false, list: [], error: '' },
   versionDiff: null,   // V3：目前顯示的版本比對結果（null = 沒有在比對）
   // U1／U2：畫面上的「顯示狀態」（不進 payload、不影響計算）
-  //   view       ：編輯畫面用哪一種版面（grid＝CHARTER LOADING SHEET 載荷表／cards＝收貨單位卡片）
+  //   step       ：編輯流程（build＝① MAWB LIST／② ULD LIST 建檔頁；merge＝③ 合併／分配頁）
+  //   view       ：建檔頁版面（cards＝直覺清單／grid＝CHARTER LOADING SHEET 載荷表）
   //   gridSortMawb：載荷表是否依 MAWB# 排序（只影響顯示，不寫回資料）
   //   more     ：「⋯ 更多」動作選單是否展開
   //   advanced ：「⚙ 進階」表頭欄位（B 取整／尾差／磅差門檻／比例上下限）是否展開
   //   expanded  ：哪些收貨單位卡片展開次要欄位（{ [uid]: true }）
   //   allCompact：卡片太多時全部收合（只留摘要）
   //   printUnit ：只印這一張卡（列印時用；null = 印全部）
+  //   mergePick ：合併頁目前點選的 MAWB 申報列（uid；null = 沒有）
   ui: {
-    view: 'grid',
+    step: 'build',
+    view: 'cards',
     gridSortMawb: false,
     more: false,
     advanced: false,
     expanded: {},
     expandAll: false,
-    printUnit: null
+    printUnit: null,
+    mergePick: null
   }
 };
 
@@ -123,9 +128,19 @@ export function uldNewMawb(values = {}) {
   };
 }
 
+// 新 UI：重量一律 kg；allow_half_kg = 0 → 只以整數運算（0.5 會四捨五入）
+function sheetAllowsHalf(sheet) {
+  return Number(sheet && sheet.allow_half_kg) === 1;
+}
+function roundWeight(value, allowHalf) {
+  const n = Math.max(0, uldNum(value));
+  return allowHalf ? Math.round(n * 2) / 2 : Math.round(n);
+}
+
 // API 回傳的明細 → 編輯用狀態
 export function uldSheetFromApi(detail) {
   if (!detail) return null;
+  const allowHalf = sheetAllowsHalf(detail);
   return {
     id: detail.id,
     sheet_no: detail.sheet_no,
@@ -135,6 +150,8 @@ export function uldSheetFromApi(detail) {
     flight_date: detail.flight_date || '',
     round_px: detail.round_px || 1,
     round_b: detail.round_b || 1,
+    // 新 UI：允許使用 0.5kg（0 = 全部整數）
+    allow_half_kg: allowHalf ? 1 : 0,
     tail_mode: detail.tail_mode || 'adjust_largest',
     // W5：磅差警示門檻（% 與 kg 需「同時」超過才提示）；舊資料／未設定 → 2% / 100kg
     diff_warn_pct: detail.diff_warn_pct == null || uldNum(detail.diff_warn_pct) <= 0 ? 2 : uldNum(detail.diff_warn_pct),
@@ -149,15 +166,20 @@ export function uldSheetFromApi(detail) {
     mawbs: (detail.mawb_rows || []).map(row => ({
       ...row,
       uid: uldTempId('m'),
+      declared_weight: roundWeight(row.declared_weight, allowHalf),
       is_squeeze: !!row.is_squeeze,
       auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1
     })),
     ulds: (detail.ulds || []).map(unit => ({
       ...unit,
       uid: unit.uid || `u${unit.id}`,
+      tare_weight: roundWeight(unit.tare_weight, allowHalf),
+      rcl_gross_weight: roundWeight(unit.rcl_gross_weight, allowHalf),
+      material_weight: roundWeight(unit.material_weight, allowHalf),
       items: (unit.items || []).map(item => ({
         ...item,
         uid: uldTempId('i'),
+        declared_weight: roundWeight(item.declared_weight, allowHalf),
         is_squeeze: !!item.is_squeeze,
         squeeze_ratio: item.squeeze_ratio == null ? null : uldNum(item.squeeze_ratio)
       })),
@@ -176,6 +198,7 @@ export function uldSheetPayload(sheet) {
   // 方案 B：先把申報列的重量依件數分回各板（auto_alloc），再組 payload，
   // 確保「存進 DB 的重量」與「畫面／載荷表算的」完全一致。
   uldApplyMawbAllocation(sheet);
+  const allowHalf = sheetAllowsHalf(sheet);
   return {
     sheet_date: sheet.sheet_date,
     terminal: sheet.terminal,
@@ -183,6 +206,8 @@ export function uldSheetPayload(sheet) {
     flight_date: sheet.flight_date,
     round_px: uldNum(sheet.round_px) || 1,
     round_b: uldNum(sheet.round_b) || 1,
+    // 新 UI：允許使用 0.5kg（0 = 全部整數）
+    allow_half_kg: allowHalf ? 1 : 0,
     tail_mode: sheet.tail_mode,
     diff_warn_pct: uldNum(sheet.diff_warn_pct) > 0 ? uldNum(sheet.diff_warn_pct) : 2,
     diff_warn_kg: uldNum(sheet.diff_warn_kg) > 0 ? uldNum(sheet.diff_warn_kg) : 100,
@@ -198,7 +223,7 @@ export function uldSheetPayload(sheet) {
       mawb_record_id: row.mawb_record_id || null,
       dest: upperText(row.dest),
       pcs: uldNum(row.pcs),
-      declared_weight: uldNum(row.declared_weight),
+      declared_weight: roundWeight(row.declared_weight, allowHalf),
       wh_ref: row.wh_ref || '',
       auto_alloc: Number(row.auto_alloc) === 0 ? 0 : 1,
       is_squeeze: row.is_squeeze ? 1 : 0
@@ -213,9 +238,9 @@ export function uldSheetPayload(sheet) {
       contour_code: upperText(unit.contour_code),
       port: upperText(unit.port),
       pcs: uldNum(unit.pcs),
-      tare_weight: uldNum(unit.tare_weight),
-      rcl_gross_weight: uldNum(unit.rcl_gross_weight),
-      material_weight: uldNum(unit.material_weight),
+      tare_weight: roundWeight(unit.tare_weight, allowHalf),
+      rcl_gross_weight: roundWeight(unit.rcl_gross_weight, allowHalf),
+      material_weight: roundWeight(unit.material_weight, allowHalf),
       lih_type: unit.lih_type,
       predecl_type: unit.predecl_type,
       squeeze_mode: unit.squeeze_mode,
@@ -226,7 +251,7 @@ export function uldSheetPayload(sheet) {
         mawb_record_id: item.mawb_record_id || null,
         port: upperText(item.port),
         pcs: uldNum(item.pcs),
-        declared_weight: uldNum(item.declared_weight),
+        declared_weight: roundWeight(item.declared_weight, allowHalf),
         is_squeeze: item.is_squeeze ? 1 : 0,
         squeeze_ratio: item.squeeze_ratio,
         lih_type: item.lih_type
@@ -292,7 +317,98 @@ export function uldEnsureItem(unitUid, row, values = {}) {
   return item;
 }
 
-// ===== 載荷表：直接打某一板的重量（keyboard 手改重量）=====
+// ===== 新 UI：ULD LIST 的 LIH 狀態（NIL／3481／3091 可多選）=====
+export function uldUnitLihCodes(unit) {
+  return uldLihCodes(unit && unit.lih_type);
+}
+
+// 切換一張 ULD 的 LIH；`NIL` ＝ 清空（存回 `N`）
+export function uldToggleUnitLih(unit, code) {
+  if (!unit) return 'N';
+  const next = uldLihToggle(unit.lih_type, code);
+  unit.lih_type = next;
+  return next;
+}
+
+// 一票 MAWB 目前被分到哪些板（回傳 item 清單）
+export function uldMawbLinks(row) {
+  const sheet = uldWeightState.current;
+  if (!sheet || !row) return [];
+  const key = uldMawbKey(row.mawb);
+  if (!key) return [];
+  const links = [];
+  (sheet.ulds || []).forEach(unit => {
+    (unit.items || []).forEach(item => {
+      if (uldMawbKey(item.mawb) === key) links.push({ unit, item });
+    });
+  });
+  return links;
+}
+
+// 一票 MAWB 已分配的件數（各板 items 的 pcs 合計）
+export function uldMawbAssignedPcs(row) {
+  return uldMawbLinks(row).reduce((sum, link) => sum + Math.max(0, uldNum(link.item.pcs)), 0);
+}
+
+// ===== 新 UI：合併頁（MAWB LIST × ULD LIST）=====
+// 把一票 MAWB 指派到某個 ULD：
+//   - 這一板已經有同一票 → 不重複加（回 exists）
+//   - pcs 沒指定 → 帶入「還沒分配的件數」（申報 PCS − 各板已分件數）
+//   - 重量沿用申報列（auto_alloc 會依件數自動分）
+export function uldAssignMawbToUnit(rowUid, unitUid, pcs = null) {
+  const sheet = uldWeightState.current;
+  if (!sheet) return { ok: false, reason: 'no-sheet' };
+  const row = uldFindMawb(rowUid);
+  const unit = uldFindUnit(unitUid);
+  if (!row || !unit) return { ok: false, reason: 'missing' };
+  const key = uldMawbKey(row.mawb);
+  if (!key) return { ok: false, reason: 'no-mawb' };
+  if ((unit.items || []).some(item => uldMawbKey(item.mawb) === key)) {
+    return { ok: false, reason: 'exists', unit, row };
+  }
+  const assigned = uldMawbAssignedPcs(row);
+  const remaining = Math.max(0, uldNum(row.pcs) - assigned);
+  const value = pcs == null
+    ? (remaining > 0 ? remaining : 0)
+    : Math.max(0, Math.round(uldNum(pcs)));
+  // 從合併頁指派＝用件數自動分重量（舊資料 auto_alloc = 0 會讓新明細重量停在 0）
+  if (Number(row.auto_alloc) === 0) row.auto_alloc = 1;
+  const item = uldEnsureItem(unitUid, row, {
+    pcs: value,
+    declared_weight: 0, // 由申報列依件數分配
+    is_squeeze: !!row.is_squeeze,
+    // 新 UI：LIH 是 ULD 的狀態；只有單一 UN 時順便帶到新明細（組合值留給使用者自己標）
+    lih_type: uldLihCodes(unit.lih_type).length === 1 ? uldLihCodes(unit.lih_type)[0] : 'N'
+  });
+  if (!item) return { ok: false, reason: 'failed' };
+  return { ok: true, item, unit, row, pcs: value, remaining: Math.max(0, remaining - value) };
+}
+
+// 把某板的明細搬到另一個 ULD（合併頁拖曳用）
+// 目標板已有同一票 → 不搬（避免重複列；回 exists）
+export function uldMoveItemToUnit(fromUnitUid, itemUid, toUnitUid) {
+  const sheet = uldWeightState.current;
+  if (!sheet) return { ok: false, reason: 'no-sheet' };
+  if (!fromUnitUid || !toUnitUid || fromUnitUid === toUnitUid) return { ok: false, reason: 'same' };
+  const from = uldFindUnit(fromUnitUid);
+  const to = uldFindUnit(toUnitUid);
+  if (!from || !to) return { ok: false, reason: 'missing' };
+  const item = (from.items || []).find(it => it.uid === itemUid);
+  if (!item) return { ok: false, reason: 'no-item' };
+  const key = uldMawbKey(item.mawb);
+  if (!key) return { ok: false, reason: 'no-mawb' };
+  if ((to.items || []).some(it => uldMawbKey(it.mawb) === key)) {
+    return { ok: false, reason: 'exists', item, unit: to };
+  }
+  if (!Array.isArray(to.items)) to.items = [];
+  to.items.push(item);
+  from.items = (from.items || []).filter(it => it.uid !== itemUid);
+  // 跨板搬移＝先刪後插（後端 diff 更新會用新板的 uld_id 重新 INSERT）
+  item.id = null;
+  return { ok: true, item, from, to };
+}
+
+
 // 行為（改之前先看，這是「自動 ↔ 手動」的分界）：
 //   1. 只改「這一板」的重量 → 這一列立刻變成**手動分配**（auto_alloc = 0，畫面上的「自動」勾選會取消）
 //   2. 剩下的申報重量（申報 WT − 這一板）依件數分給這票其他板（Σ 仍等於申報 WT）
@@ -332,7 +448,8 @@ export function uldSetCellWeight(rowUid, unitUid, value) {
   }
   const clamped = typed > declared + 1e-9;
   const fixed = clamped ? declared : typed;
-  const weights = uldAllocateWithFixed(declared, targets.map(t => ({ pcs: t.pcs })), fixedIndex, fixed);
+  const inc = sheetAllowsHalf(sheet) ? 0.5 : 1;
+  const weights = uldAllocateWithFixed(declared, targets.map(t => ({ pcs: t.pcs })), fixedIndex, fixed, inc);
   targets.forEach((t, i) => { t.item.declared_weight = weights[i]; });
   row.auto_alloc = 0;
   uldMarkDirty();
@@ -418,7 +535,8 @@ export function uldSplitMawb(unitUid, itemUid, totalWeight) {
   });
   if (!targets.length) return { count: 0 };
 
-  const inc = uldNum(sheet.round_px) > 0 ? uldNum(sheet.round_px) : 1;
+  // 新 UI：允許 0.5kg 時拆分單位 0.5，否則整數
+  const inc = sheetAllowsHalf(sheet) ? 0.5 : 1;
   const weights = uldSplitByPcs(totalWeight, targets.map(t => ({ pcs: uldNum(t.item.pcs) })), inc);
   targets.forEach((t, idx) => { t.item.declared_weight = weights[idx]; });
   uldMarkDirty();

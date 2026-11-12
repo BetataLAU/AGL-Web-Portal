@@ -7,7 +7,8 @@ import {
 import {
   uldWeightState, uldSheetFromApi, uldSheetPayload, uldNewUnit, uldNewItem, uldNewMawb,
   uldFindUnit, uldFindMawb, uldRowItems, uldEnsureItem, uldSyncRowToItems, uldRemoveMawbRow,
-  uldSetRowSqueeze, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, uldSetCellWeight, ULD_MAX_UNITS
+  uldSetRowSqueeze, uldMarkDirty, uldSplitMawb, uldComputed, uldMoveUnit, uldSetCellWeight, ULD_MAX_UNITS,
+  uldToggleUnitLih, uldAssignMawbToUnit, uldMoveItemToUnit
 } from './uldweight/state.js';
 import { renderList, renderEditor, refreshComputed, refreshRclImport, refreshVersions } from './uldweight/render.js';
 import { resetBookingCache } from './uldweight/booking-search.js';
@@ -102,9 +103,34 @@ async function backToList() {
   await loadList();
 }
 
+// MAWB# 驗證：回傳格式／檢查碼不合格的清單（存檔前提示用；既有／特殊資料仍可存）
+function invalidMawbs(sheet) {
+  const seen = new Set();
+  const out = [];
+  const push = (raw) => {
+    const value = String(raw || '').trim();
+    if (!value) return;
+    const key = uldMawbKey(value);
+    if (!key || seen.has(key)) return;
+    const check = uldValidateMawb(value);
+    if (check.ok) return;
+    seen.add(key);
+    out.push(`${value}：${check.message || '格式不正確'}`);
+  };
+  (sheet.mawbs || []).forEach(row => push(row.mawb));
+  (sheet.ulds || []).forEach(unit => (unit.items || []).forEach(item => push(item.mawb)));
+  return out;
+}
+
 async function saveCurrent() {
   const s = state();
   if (!s.current) return;
+  const bad = invalidMawbs(s.current);
+  if (bad.length) {
+    const list = bad.slice(0, 12).map(text => `・${text}`).join('\n');
+    const more = bad.length > 12 ? `\n…另有 ${bad.length - 12} 筆` : '';
+    if (!confirm(`有 ${bad.length} 筆 MAWB# 格式／檢查碼不正確：\n\n${list}${more}\n\n仍要儲存嗎？（建議先用「✓ 檢查碼」修正）`)) return;
+  }
   const computed = uldComputed();
   if (computed.totals.hasError) {
     const first = computed.issues.find(i => i.level === 'error');
@@ -349,17 +375,19 @@ function resetVersionsState() {
 }
 
 // U1／U2：切換夾重表時把「顯示狀態」歸零（不要沿用上一張的展開／選單狀態）
-// 新版預設用「載荷表」（CHARTER LOADING SHEET）版面；要看／改卡片再按「▤ 卡片編輯」。
+// 新版預設用「① MAWB LIST／② ULD LIST」建檔頁；要看載荷表再按「▦ 載荷表」。
 function resetUiState() {
   const s = state();
   s.ui = {
-    view: 'grid',
+    step: 'build',
+    view: 'cards',
     gridSortMawb: false,
     more: false,
     advanced: false,
     expanded: {},
     expandAll: false,
-    printUnit: null
+    printUnit: null,
+    mergePick: null
   };
 }
 
@@ -506,12 +534,12 @@ function scheduleListReload() {
 }
 
 function unitOfElement(el) {
-  const card = el.closest('.uldw-unit');
+  const card = el.closest('.uldw-unit, [data-merge-unit]');
   return card ? uldFindUnit(card.dataset.uid) : null;
 }
 
 function itemOfElement(el, unit) {
-  const row = el.closest('tr[data-item-uid]');
+  const row = el.closest('tr[data-item-uid], [data-merge-item]');
   if (!row || !unit) return null;
   return (unit.items || []).find(it => it.uid === row.dataset.itemUid) || null;
 }
@@ -530,11 +558,54 @@ function upperIfNeeded(field, list, value) {
   return list.includes(field) ? String(value == null ? '' : value).toUpperCase() : value;
 }
 
-// 重量輸入框的顯示值：0 → 空白、最多 1 位小數（與 sheet-grid.js 的 numText 同一規則）
+// MAWB 欄位失焦／貼上後的即時驗證標記（不合格 → 紅框＋title；不擋既有資料）
+function paintMawbValidation(input, value) {
+  const check = uldValidateMawb(value);
+  const bad = !check.ok && !check.empty;
+  if (!input) return check;
+  if (bad) {
+    input.dataset.mawbInvalid = '1';
+    if (input.classList) input.classList.add('is-invalid');
+    input.title = uldMawbIssueText(check);
+  } else {
+    delete input.dataset.mawbInvalid;
+    if (input.classList) input.classList.remove('is-invalid');
+    input.title = '';
+  }
+  return check;
+}
+
+// 重量輸入框的顯示值：0 → 空白；允許 0.5kg 時可 0.5，否則整數
 function kgInput(value) {
-  const n = Math.round(uldNum(value) * 10) / 10;
+  const n = weightInputNumber(value);
   return n === 0 ? '' : String(n);
 }
+
+// 目前表是否允許 0.5kg（0 = 只整數）
+function allowHalfKg() {
+  return Number(state().current && state().current.allow_half_kg) === 1;
+}
+
+// 依目前設定把重量收斂到 0.5 或整數
+function weightInputNumber(value) {
+  const n = Math.max(0, uldNum(value));
+  return allowHalfKg() ? Math.round(n * 2) / 2 : Math.round(n);
+}
+
+// 切換「允許使用 0.5kg」時，把所有重量欄位一起收斂（避免畫面顯示 0.5 但實際算整數）
+function normalizeSheetWeights(sheet) {
+  if (!sheet) return;
+  const fix = weightInputNumber;
+  (sheet.mawbs || []).forEach(row => { row.declared_weight = fix(row.declared_weight); });
+  (sheet.ulds || []).forEach(unit => {
+    unit.tare_weight = fix(unit.tare_weight);
+    unit.rcl_gross_weight = fix(unit.rcl_gross_weight);
+    unit.material_weight = fix(unit.material_weight);
+    (unit.items || []).forEach(item => { item.declared_weight = fix(item.declared_weight); });
+  });
+}
+
+const WEIGHT_FIELDS = ['declared_weight', 'tare_weight', 'rcl_gross_weight', 'material_weight'];
 
 // ===== 載荷表：直接打某一板的重量（keyboard 手改重量）=====
 //   - 打字／失焦都會走這裡（normalize = true 時順便把輸入框格式化成 1 位小數）
@@ -566,14 +637,62 @@ function applyCellWeight(target, row, normalize) {
   return result;
 }
 
+// ===== ULD LIST 卡片：明細 WT 直接打字（2026-11-11）=====
+//   與載荷表同一套規則（`state.uldSetCellWeight()`）：
+//   ① 打字的那一板固定 ② 剩下的申報 WT 依件數分給同票其他板（Σ 仍等於申報 WT）
+//   ③ 該列轉為手動分配（`auto_alloc = 0`）④ 打超過申報 WT 夾到上限並提示
+//   normalize = true（change／失焦）時順便把輸入框格式化成 kg 顯示值。
+//   沒有申報列（舊資料）→ 只改這一板的重量。
+function applyItemWeight(target, normalize) {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return null;
+  const unit = unitOfElement(target);
+  if (!unit) return null;
+  const row = target.dataset.weightRow ? uldFindMawb(target.dataset.weightRow) : null;
+  if (!row) {
+    const item = itemOfElement(target, unit);
+    if (!item) return null;
+    // 舊資料（沒有申報列）→ 只改這一板的重量；輸入中不覆寫輸入框（避免打「12.5」被中途改成 12）
+    item.declared_weight = Math.max(0, uldNum(target.value));
+    if (normalize) target.value = kgInput(weightInputNumber(item.declared_weight));
+    uldMarkDirty();
+    refreshComputed(rootEl);
+    return { ok: true, fixed: item.declared_weight, cells: 1 };
+  }
+  const wasAuto = Number(row.auto_alloc) !== 0;
+  const result = uldSetCellWeight(row.uid, unit.uid, target.value);
+  if (!result.ok) {
+    if (result.reason === 'no-mawb') toast('這一列還沒有 MAWB#：先填 MAWB 再填重量');
+    return null;
+  }
+  if (result.clamped) {
+    target.value = kgInput(result.fixed);
+    toast(`單板重量不可超過申報 WT ${uldFmtKg(result.declared)}（已夾到上限）`);
+  } else if (normalize) {
+    target.value = kgInput(result.fixed);
+  }
+  if (wasAuto && result.cells > 1) {
+    toast('已改為手動分配：這一板固定，其餘依件數分剩下的重量');
+  }
+  refreshComputed(rootEl);
+  return result;
+}
+
 // 文字／數字輸入：只更新狀態 + 局部重算（不重畫 → 不會失去焦點）
 function onRootInput(event) {
   const target = event.target;
   if (!target || !target.dataset) return;
   if (target.tagName === 'SELECT' || target.type === 'checkbox') return;
-  // 清單頁搜尋框（不需要 current sheet）
+  // 清單頁搜尋框（不需要 current sheet）：先即時（本機）篩選，再由 300ms debounce 打 API
   if (target.id === 'uldw-list-search') {
     state().listFilter.search = target.value;
+    const caret = typeof target.selectionStart === 'number' ? target.selectionStart : target.value.length;
+    if (rootEl) renderList(rootEl);
+    const searchEl = rootEl && rootEl.querySelector('#uldw-list-search');
+    if (searchEl && searchEl.focus) {
+      searchEl.focus();
+      try { searchEl.setSelectionRange(caret, caret); } catch (err) { /* ignore */ }
+    }
     scheduleListReload();
     return;
   }
@@ -625,6 +744,12 @@ function onRootInput(event) {
   const unit = unitOfElement(target);
   if (!unit) return;
 
+  // ULD LIST 卡片明細 WT 直接打字（固定這一板、其餘依件數重分）
+  if (target.dataset.itemWeight) {
+    applyItemWeight(target, false);
+    return;
+  }
+
   if (target.dataset.unitField) {
     const field = target.dataset.unitField;
     unit[field] = NUMERIC_UNIT_FIELDS.includes(field)
@@ -656,12 +781,6 @@ function onRootInput(event) {
 function onRootChange(event) {
   const target = event.target;
   if (!target || !target.dataset) return;
-  // 清單頁狀態篩選
-  if (target.id === 'uldw-list-status') {
-    state().listFilter.status = target.value;
-    loadList();
-    return;
-  }
   // V2：清單頁批次勾選（checkbox 走 change；只更新勾選狀態，不重畫清單）
   if (target.id === 'uldw-batch-all') { toggleBatchAll(target.checked); return; }
   if (target.dataset.batchId != null) { toggleBatchId(Number(target.dataset.batchId)); return; }
@@ -678,7 +797,21 @@ function onRootChange(event) {
   // 原則：change 只寫回 state 並做局部重算；唯一例外是「夾重方式→手動 %」需要長出比例輸入框。
   if (target.dataset.header) {
     const field = target.dataset.header;
-    s.current[field] = NUMERIC_HEADER_FIELDS.includes(field) ? uldNum(target.value) : target.value;
+    if (target.type === 'checkbox') {
+      s.current[field] = target.checked ? 1 : 0;
+      // 「允許使用 0.5kg」：切換時把所有重量一起收斂（未勾選＝整數）
+      if (field === 'allow_half_kg') {
+        if (target.checked && !(uldNum(s.current.round_b) > 0 && uldNum(s.current.round_b) < 1)) {
+          s.current.round_b = 0.5; // 允許 0.5 時，B 散貨預設也用 0.5（可到進階改回 1.0）
+        }
+        normalizeSheetWeights(s.current);
+        uldMarkDirty();
+        render();
+        return;
+      }
+    } else {
+      s.current[field] = NUMERIC_HEADER_FIELDS.includes(field) ? uldNum(target.value) : target.value;
+    }
     uldMarkDirty();
     refreshComputed(rootEl);
     return;
@@ -705,8 +838,11 @@ function onRootChange(event) {
         uldSyncRowToItems(chgRow, uldMawbKey(prevMawb));
       }
       target.dataset.prevMawb = chgRow.mawb;
+      paintMawbValidation(target, chgRow.mawb);
     } else if (field === 'dest') {
       target.value = String(chgRow.dest || '').toUpperCase();
+    } else if (WEIGHT_FIELDS.includes(field) && target.type !== 'checkbox') {
+      target.value = kgInput(chgRow[field]);
     }
     uldMarkDirty();
     refreshComputed(rootEl);
@@ -728,11 +864,21 @@ function onRootChange(event) {
   const unit = unitOfElement(target);
   if (!unit) return;
 
+  // ULD LIST 卡片明細 WT 失焦 → 值本身在 input 事件就寫回 state，這裡只做格式化
+  if (target.dataset.itemWeight) {
+    applyItemWeight(target, true);
+    return;
+  }
+
   if (target.dataset.unitField) {
     const field = target.dataset.unitField;
     unit[field] = NUMERIC_UNIT_FIELDS.includes(field)
       ? uldNum(target.value)
       : upperIfNeeded(field, UPPER_UNIT_FIELDS, target.value);
+    if (WEIGHT_FIELDS.includes(field)) {
+      unit[field] = weightInputNumber(unit[field]);
+      target.value = kgInput(unit[field]);
+    }
     uldMarkDirty();
     if (field === 'squeeze_mode') render(); // 手動 % 會多出比例輸入欄
     else refreshComputed(rootEl);
@@ -746,9 +892,14 @@ function onRootChange(event) {
     if (field === 'mawb' && target.type !== 'checkbox') {
       const formatted = uldFormatMawb(target.value);
       if (formatted && formatted !== target.value) target.value = formatted;
+      paintMawbValidation(target, formatted || target.value);
     }
     const raw = target.type === 'checkbox' ? target.checked : target.value;
     item[field] = target.type === 'checkbox' ? raw : upperIfNeeded(field, UPPER_ITEM_FIELDS, raw);
+    if (WEIGHT_FIELDS.includes(field) && target.type !== 'checkbox') {
+      item[field] = weightInputNumber(item[field]);
+      target.value = kgInput(item[field]);
+    }
     uldMarkDirty();
     refreshComputed(rootEl);
     return;
@@ -763,6 +914,10 @@ function onRootChange(event) {
       if (formatted && formatted !== value) target.value = formatted;
       value = formatted;
     }
+    if (field === 'declared_weight') {
+      value = kgInput(weightInputNumber(value));
+      target.value = value;
+    }
     unit.draft[field] = upperIfNeeded(field, UPPER_DRAFT_FIELDS, value);
   }
 }
@@ -775,10 +930,24 @@ function onRootClick(event) {
     case 'open': openSheet(Number(btn.dataset.id)); break;
     case 'duplicate': duplicateRow(Number(btn.dataset.id)); break;
     case 'delete': deleteRow(Number(btn.dataset.id)); break;
+    case 'list-status': setListStatus(btn.dataset.status || ''); break;
     case 'back': backToList(); break;
     case 'save': saveCurrent(); break;
     case 'lock': lockCurrent(true); break;
     case 'unlock': lockCurrent(false); break;
+    // 新 UI：③ 合併／分配頁（獨立頁面）＋ ① MAWB LIST
+    case 'open-merge': openMerge(); break;
+    case 'close-merge': closeMerge(); break;
+    case 'pick-mawb': pickMawb(btn.dataset.rowUid); break;
+    case 'clear-pick': clearMawbPick(); break;
+    case 'assign-picked': assignPickedMawb(btn.dataset.uid); break;
+    case 'toggle-lih': toggleUnitLih(btn.dataset.uid, btn.dataset.lih); break;
+    case 'merge-remove-item': removeItem(btn.dataset.uid, btn.dataset.itemUid); break;
+    case 'merge-unit-left': moveMergeUnit(btn.dataset.uid, -1); break;
+    case 'merge-unit-right': moveMergeUnit(btn.dataset.uid, 1); break;
+    case 'focus-mawb-add': focusMawbAdd(); break;
+    case 'mawb-add': addMawbFromPanel(); break;
+    case 'paste-mawbs': pasteMawbRows(); break;
     case 'apply': applyToBookings(); break;
     case 'sync-bookings': syncBookings(); break;
     case 'versions': openVersions(); break;
@@ -824,10 +993,12 @@ function onRootClick(event) {
 function uiState() {
   const s = state();
   if (!s.ui) s.ui = {
-    view: 'grid', gridSortMawb: false, more: false, advanced: false,
-    expanded: {}, expandAll: false, printUnit: null
+    step: 'build', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
   };
   if (s.ui.expandAll === undefined) s.ui.expandAll = false;
+  if (s.ui.step !== 'merge') s.ui.step = 'build';
+  if (s.ui.mergePick === undefined) s.ui.mergePick = null;
   return s.ui;
 }
 
@@ -958,6 +1129,171 @@ function clearSheetContent() {
   toast('已清空明細（尚未儲存）');
 }
 
+// ===== 新 UI：LOT 列表狀態篩選 =====
+function setListStatus(status) {
+  const s = state();
+  s.listFilter = s.listFilter || { search: '', status: '' };
+  s.listFilter.status = status === 'draft' || status === 'locked' ? status : '';
+  loadList();
+}
+
+// ===== 新 UI：③ 合併／分配頁 =====
+function openMerge() {
+  const s = state();
+  if (!s.current) return;
+  s.ui = s.ui || {};
+  s.ui.step = 'merge';
+  s.ui.mergePick = null;
+  render();
+  if (!(s.current.ulds || []).length) {
+    toast('目前沒有 ULD：先按「＋ ULD」再加入 MAWB');
+  } else if (!(s.current.mawbs || []).length) {
+    toast('MAWB LIST 還是空的：先回 ① 新增 MAWB');
+  }
+}
+
+function closeMerge() {
+  const s = state();
+  s.ui = s.ui || {};
+  s.ui.step = 'build';
+  s.ui.mergePick = null;
+  render();
+}
+
+// 點一張 MAWB 票（再點一次取消）：之後可按 ULD 的「＋ 加入」或直接拖曳
+function pickMawb(rowUid) {
+  if (!rowUid) return;
+  const s = state();
+  s.ui = s.ui || {};
+  s.ui.mergePick = s.ui.mergePick === rowUid ? null : rowUid;
+  render();
+}
+
+function clearMawbPick() {
+  const s = state();
+  s.ui = s.ui || {};
+  s.ui.mergePick = null;
+  render();
+}
+
+// 把目前點選的 MAWB 加到指定 ULD（件數預設＝還沒分配的件數）
+function assignPickedMawb(unitUid) {
+  const s = state();
+  const rowUid = s.ui && s.ui.mergePick;
+  if (!rowUid) { toast('先在左邊點一票 MAWB'); return; }
+  const row = uldFindMawb(rowUid);
+  const result = uldAssignMawbToUnit(rowUid, unitUid);
+  if (!result.ok) {
+    if (result.reason === 'exists') alert(`這一板已經有「${row ? row.mawb : ''}」，請直接改它的件數。`);
+    else if (result.reason === 'no-mawb') alert('這一票還沒有 MAWB#，請先回 ① 補上。');
+    else alert('無法加入，請重新整理後再試。');
+    return;
+  }
+  uldMarkDirty();
+  s.ui.mergePick = null;
+  render();
+  const unitLabel = result.unit.uld_number || result.unit.bulk_ref || 'ULD';
+  toast(`已把 ${row.mawb} 加到 ${unitLabel}（${result.pcs} 件）${result.remaining > 0 ? `，還有 ${result.remaining} 件未分配` : ''}`);
+}
+
+// ULD 的 LIH 狀態（NIL／3481／3091；3481 與 3091 可同時亮）
+function toggleUnitLih(uid, code) {
+  const s = state();
+  const unit = uldFindUnit(uid);
+  if (!unit || !s.current || s.current.status === 'locked') return;
+  uldToggleUnitLih(unit, code);
+  uldMarkDirty();
+  render();
+}
+
+// 合併頁：ULD 卡片左右移位（觸控／鍵盤也能用；拖曳照樣可用）
+function moveMergeUnit(uid, delta) {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return;
+  const list = s.current.ulds || [];
+  const index = list.findIndex(unit => unit.uid === uid);
+  const target = list[index + delta];
+  if (!target) return;
+  if (uldMoveUnit(uid, target.uid, delta > 0)) {
+    uldMarkDirty();
+    render();
+  }
+}
+
+function focusMawbAdd() {
+  const input = rootEl && rootEl.querySelector('#uldw-mawb-new');
+  if (input && input.focus) input.focus();
+}
+
+function addMawbFromPanel() {
+  const input = rootEl && rootEl.querySelector('#uldw-mawb-new');
+  if (!input) return;
+  const value = input.value;
+  input.value = '';
+  addMawbRow(value);
+  focusMawbAdd();
+}
+
+// ① MAWB LIST：貼上多列（只建立主檔，不分配到板；到 ③ 再拖）
+async function pasteMawbRows() {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return;
+  let text = '';
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText();
+  } catch (err) {
+    text = '';
+  }
+  if (!text) {
+    if (typeof window.prompt !== 'function') return;
+    text = window.prompt('貼上 MAWB 清單（MAWB／DEST／PCS／WT，Tab 分隔）', '') || '';
+  }
+  if (!text.trim()) return;
+  const parsed = uldParsePastedRows(text);
+  const rows = parsed.rows || [];
+  if (!rows.length) {
+    alert('貼上的內容看不出 MAWB#。\n請從 Excel 複製「MAWB／DEST／PCS／WT」四欄（Tab 分隔），或至少 MAWB 一欄。');
+    return;
+  }
+  s.current.mawbs = s.current.mawbs || [];
+  const existing = new Set(s.current.mawbs.map(row => uldMawbKey(row.mawb)).filter(Boolean));
+  const invalid = [];
+  let added = 0;
+  let duplicated = 0;
+  rows.forEach(raw => {
+    const check = uldValidateMawb(raw.mawb);
+    if (!check.ok) {
+      invalid.push(`${raw.mawb}　（${check.message || '格式不正確'}）`);
+      return;
+    }
+    const mawb = check.formatted;
+    const key = uldMawbKey(mawb);
+    if (!key) return;
+    if (existing.has(key)) { duplicated += 1; return; }
+    existing.add(key);
+    s.current.mawbs.push(uldNewMawb({
+      mawb,
+      dest: String(raw.port || '').toUpperCase(),
+      pcs: Math.max(0, Math.round(uldNum(raw.pcs))),
+      declared_weight: weightInputNumber(raw.weight)
+    }));
+    added += 1;
+  });
+  if (!added) {
+    alert(`沒有可加入的票（重複 ${duplicated} 列、格式不符 ${invalid.length} 列）。`
+      + (invalid.length ? `\n\n格式不符：\n${invalid.slice(0, 8).join('\n')}${invalid.length > 8 ? '\n…' : ''}` : ''));
+    return;
+  }
+  uldMarkDirty();
+  render();
+  const lines = [`已加入 ${added} 票到 MAWB LIST${duplicated ? `（略過重複 ${duplicated} 票）` : ''}`];
+  if (invalid.length) {
+    lines.push(`略過 ${invalid.length} 票（MAWB 格式／檢查碼不符）：\n${invalid.slice(0, 8).join('\n')}${invalid.length > 8 ? '\n…' : ''}`);
+  }
+  lines.push('下一步：按「③ 合併／分配」把票拖到各 ULD。');
+  alert(lines.join('\n\n'));
+}
+
 // 新增一票申報列（載荷表「＋ 列」／最下面那列按 Enter）
 function addMawbRow(mawb = '') {
   const s = state();
@@ -1009,8 +1345,8 @@ function onRootFocusIn(event) {
     if (row) target.dataset.prevMawb = row.mawb || '';
     return;
   }
-  // 數字格（申報／各板的 PCS、WT）：一進來就全選 → 直接打字＝覆蓋，不用先刪舊值
-  if (target.type === 'number' && (target.dataset.cellField || target.dataset.rowField)) {
+  // 數字格（申報／各板的 PCS、WT、卡片明細 WT）：一進來就全選 → 直接打字＝覆蓋，不用先刪舊值
+  if (target.type === 'number' && (target.dataset.cellField || target.dataset.rowField || target.dataset.itemField)) {
     selectInputText(target);
   }
 }
@@ -1024,6 +1360,14 @@ function selectInputText(el) {
   apply();
   // 滑鼠點進來時 click 會把游標放到點的位置 → 下一個 tick 再全選一次（Excel 手感）
   if (typeof setTimeout === 'function') setTimeout(apply, 0);
+}
+
+// 新 UI：LIH 主要是 ULD 的狀態；新明細在「單一 UN」時沿用，避免一加票就跳出 LIH 檢核
+function defaultItemLih(unit, fallback = 'N') {
+  const explicit = String(fallback || '').toUpperCase();
+  if (explicit === 'UN3481' || explicit === 'UN3091') return explicit;
+  const raw = String((unit && unit.lih_type) || '').toUpperCase();
+  return (raw === 'UN3481' || raw === 'UN3091') ? raw : 'N';
 }
 
 // ===== U2：貼上多列（Excel／booking list → 一次建立多票）=====
@@ -1055,7 +1399,7 @@ function addPastedRows(uid, text) {
     if (existing.has(key)) { duplicated += 1; return; }
     existing.add(key);
     const pcs = Math.max(0, Math.round(uldNum(row.pcs)));
-    const weight = Math.max(0, uldNum(row.weight));
+    const weight = weightInputNumber(row.weight);
     const dest = String(row.port || '').toUpperCase() || String(unit.port || '').toUpperCase();
     // 方案 B：貼上的每一票都要有「申報列」；重量放列上，各板只記件數
     s.current.mawbs = s.current.mawbs || [];
@@ -1079,7 +1423,7 @@ function addPastedRows(uid, text) {
       pcs,
       declared_weight: 0, // 由申報 WT 依件數分配
       is_squeeze: !!mawbRow.is_squeeze,
-      lih_type: 'N'
+      lih_type: defaultItemLih(unit, 'N')
     }));
     addedKeys.push(key);
     added += 1;
@@ -1183,6 +1527,15 @@ function onRootKeydown(event) {
     return;
   }
   if (event.key !== 'Enter' || !s.current || s.current.status === 'locked') return;
+  // ① MAWB LIST 最下面那格：輸入 MAWB# 按 Enter → 直接新增一票
+  if (target.id === 'uldw-mawb-new') {
+    if (event.preventDefault) event.preventDefault();
+    const value = target.value;
+    target.value = '';
+    addMawbRow(value);
+    focusMawbAdd();
+    return;
+  }
   // 載荷表最下面那列：輸入 MAWB# 按 Enter → 直接新增一票
   if (target.id === 'uldw-grid-new-mawb') {
     if (event.preventDefault) event.preventDefault();
@@ -1202,6 +1555,73 @@ function onRootKeydown(event) {
   if (unit) addItem(unit.uid);
 }
 
+// ===== ① MAWB LIST：Excel 式貼上 =====
+// - 在任一格按 Ctrl+V：Tab／換行分隔的區塊會從「目前這一列」往下填（列不夠自動新增）
+// - 只有單一格（沒有 Tab／換行）→ 交給瀏覽器正常貼上（可貼單一 MAWB）
+function mawbGridStartIndex(target) {
+  const s = state();
+  const rows = (s.current && s.current.mawbs) || [];
+  const tr = target && target.closest ? target.closest('tr[data-row-uid]') : null;
+  if (!tr) return rows.length;
+  const idx = rows.findIndex(row => row.uid === tr.dataset.rowUid);
+  return idx >= 0 ? idx : rows.length;
+}
+
+function applyMawbGridRows(parsedRows, startIndex) {
+  const s = state();
+  if (!s.current || s.current.status === 'locked') return { updated: 0, added: 0, invalid: [] };
+  s.current.mawbs = s.current.mawbs || [];
+  const rows = parsedRows || [];
+  const start = Math.max(0, startIndex == null ? s.current.mawbs.length : startIndex);
+  const invalid = [];
+  let updated = 0;
+  let added = 0;
+  rows.forEach((raw, offset) => {
+    const check = uldValidateMawb(raw.mawb);
+    if (!check.ok) invalid.push(`${raw.mawb}（${check.message || '格式不正確'}）`);
+    const mawb = check.formatted || uldFormatMawb(raw.mawb) || String(raw.mawb || '').trim().toUpperCase();
+    const dest = String(raw.port || '').toUpperCase();
+    const pcs = Math.max(0, Math.round(uldNum(raw.pcs)));
+    const weight = weightInputNumber(raw.weight);
+    const index = start + offset;
+    const row = s.current.mawbs[index];
+    if (row) {
+      const prevKey = uldMawbKey(row.mawb);
+      row.mawb = mawb;
+      if (dest) row.dest = dest;
+      if (pcs > 0) row.pcs = pcs;
+      if (weight > 0) row.declared_weight = weight;
+      row.auto_alloc = row.auto_alloc == null ? 1 : row.auto_alloc;
+      // MAWB／DEST 改了 → 各板明細一起改（否則重量會算在舊號碼上）
+      uldSyncRowToItems(row, prevKey);
+      updated += 1;
+    } else {
+      s.current.mawbs.push(uldNewMawb({
+        mawb, dest, pcs, declared_weight: weight
+      }));
+      added += 1;
+    }
+  });
+  uldMarkDirty();
+  render();
+  return { updated, added, invalid };
+}
+
+function pasteMawbGrid(text, target) {
+  const parsed = uldParsePastedRows(text);
+  const rows = parsed.rows || [];
+  if (!rows.length) {
+    alert('貼上的內容看不出 MAWB#。\n請從 Excel 複製「MAWB／DEST／PCS／WT」四欄（Tab 分隔）。');
+    return;
+  }
+  const result = applyMawbGridRows(rows, mawbGridStartIndex(target));
+  const lines = [`已貼上 ${result.updated + result.added} 列（更新 ${result.updated}／新增 ${result.added}）`];
+  if (result.invalid.length) {
+    lines.push(`其中 ${result.invalid.length} 筆 MAWB# 格式／檢查碼不正確（已標紅）：\n${result.invalid.slice(0, 8).join('\n')}${result.invalid.length > 8 ? '\n…' : ''}`);
+  }
+  toast(lines.join('\n'));
+}
+
 // ===== U2：在卡片內貼上多列 → 自動拆成多票 =====
 // 只攔「MAWB 類」欄位（MAWB# 輸入框／明細列 MAWB／申報列 MAWB），其他欄位照瀏覽器正常貼上。
 // 原因：ULD# 欄（placeholder 就是 PMC12345QR）若也被攔，貼 PMC40026DS 這種 ULD# 會被
@@ -1211,6 +1631,15 @@ function onRootPaste(event) {
   if (!target || !target.dataset) return;
   const s = state();
   if (!s.current || s.current.status === 'locked') return;
+  // ① MAWB LIST：Excel 式貼上（Tab／換行＝整塊貼入；單格照瀏覽器）
+  if (target.closest && target.closest('#uldw-mawb-panel')) {
+    const raw = event.clipboardData ? event.clipboardData.getData('text') : '';
+    const isBlock = raw.includes('\t') || /\r?\n/.test(String(raw).trim());
+    if (!isBlock) return;
+    if (event.preventDefault) event.preventDefault();
+    pasteMawbGrid(raw, target);
+    return;
+  }
   const unit = unitOfElement(target);
   if (!unit) return;
   // 貼在「非輸入欄位」的空白處 → 仍當成「貼 MAWB 清單」的快捷（原有習慣不變）
@@ -1254,6 +1683,9 @@ function printUnit(uid) {
 //   dragKind = 'grid-col' ：載荷表板欄左右拖（欄頭 01/A、02/B… 直接拖；比左右中点決定插在前／後）
 let dragUid = null;
 let dragKind = '';
+let dragRowUid = null;   // ③ 合併頁：正在拖的 MAWB 申報列
+let dragItemUid = null;  // ③ 合併頁：正在拖的分板明細
+let dragFromUnit = null; // ③ 合併頁：明細原本在哪一板
 
 function onRootPointerDown(event) {
   const handle = event.target && event.target.closest ? event.target.closest('[data-drag-handle]') : null;
@@ -1263,8 +1695,56 @@ function onRootPointerDown(event) {
 }
 
 function onRootDragStart(event) {
-  const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
   const s = state();
+  const target = event.target;
+  // ===== ③ 合併／分配：MAWB 票（拖到 ULD）=====
+  const chip = target && target.closest ? target.closest('[data-mawb-chip]') : null;
+  if (chip && s.current && s.current.status !== 'locked') {
+    dragKind = 'merge-mawb';
+    dragRowUid = chip.dataset.rowUid || null;
+    if (!dragRowUid) return;
+    if (event.dataTransfer) {
+      try {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', dragRowUid);
+      } catch (e) { /* ignore */ }
+    }
+    if (chip.classList) chip.classList.add('is-dragging');
+    return;
+  }
+  // ===== ③ 合併／分配：已分到某板的明細（拖到另一個 ULD）=====
+  const mergeItem = target && target.closest ? target.closest('[data-merge-item]') : null;
+  if (mergeItem && s.current && s.current.status !== 'locked') {
+    dragKind = 'merge-item';
+    dragItemUid = mergeItem.dataset.itemUid || null;
+    dragFromUnit = mergeItem.dataset.unitUid || null;
+    if (!dragItemUid || !dragFromUnit) return;
+    if (event.dataTransfer) {
+      try {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', dragItemUid);
+      } catch (e) { /* ignore */ }
+    }
+    if (mergeItem.classList) mergeItem.classList.add('is-dragging');
+    return;
+  }
+  // ===== ③ 合併／分配：ULD 卡片（左右拖曳排序）=====
+  const mergeUnit = target && target.closest ? target.closest('[data-merge-unit]') : null;
+  if (mergeUnit && s.current && s.current.status !== 'locked') {
+    dragKind = 'merge-unit';
+    dragUid = mergeUnit.dataset.uid || null;
+    if (!dragUid) return;
+    if (event.dataTransfer) {
+      try {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', dragUid);
+      } catch (e) { /* ignore */ }
+    }
+    if (mergeUnit.classList) mergeUnit.classList.add('is-dragging');
+    return;
+  }
+  // ===== 載荷表：板欄左右拖（欄頭 01/A、02/B…）=====
+  const th = target && target.closest ? target.closest('[data-col-unit]') : null;
   if (th && s.current && s.current.status !== 'locked') {
     dragKind = 'grid-col';
     dragUid = th.dataset.colUnit || null;
@@ -1278,7 +1758,8 @@ function onRootDragStart(event) {
     if (th.classList) th.classList.add('is-dragging');
     return;
   }
-  const card = event.target && event.target.closest ? event.target.closest('.uldw-unit') : null;
+  // ===== 建檔頁：收貨單位卡片上下／左右拖（把手 ⠿）=====
+  const card = target && target.closest ? target.closest('.uldw-unit') : null;
   if (!card) return;
   dragKind = 'unit-card';
   dragUid = card.dataset.uid || null;
@@ -1293,6 +1774,34 @@ function onRootDragStart(event) {
 }
 
 function onRootDragOver(event) {
+  const targetEl = event.target;
+  // ③ 合併／分配：MAWB／明細 拖到 ULD 上（整張卡片都是放置區）
+  if (dragKind === 'merge-mawb' || dragKind === 'merge-item') {
+    const col = targetEl && targetEl.closest ? targetEl.closest('[data-merge-unit]') : null;
+    if (!col) return;
+    if (event.preventDefault) event.preventDefault();
+    // 只留目前這一欄的放置提示（拖過其他欄時把上一個提示清掉）
+    if (rootEl && rootEl.querySelectorAll) {
+      rootEl.querySelectorAll('[data-merge-unit].is-drop-target').forEach(el => {
+        if (el !== col && el.classList) el.classList.remove('is-drop-target');
+      });
+    }
+    if (col.classList) col.classList.add('is-drop-target');
+    return;
+  }
+  // ③ 合併／分配：ULD 卡片左右排序（以左右中點決定插在前／後）
+  if (dragKind === 'merge-unit') {
+    const col = targetEl && targetEl.closest ? targetEl.closest('[data-merge-unit]') : null;
+    if (!col) return;
+    if (event.preventDefault) event.preventDefault();
+    const rect = col.getBoundingClientRect ? col.getBoundingClientRect() : null;
+    const after = rect ? (event.clientX - rect.left) > (rect.width / 2) : false;
+    if (col.classList) {
+      col.classList.toggle('is-drop-after', after);
+      col.classList.toggle('is-drop-before', !after);
+    }
+    return;
+  }
   if (!dragUid) return;
   if (dragKind === 'grid-col') {
     const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
@@ -1329,6 +1838,66 @@ function cardDropSide(card, event) {
 }
 
 function onRootDrop(event) {
+  // ③ 合併／分配：MAWB → ULD（件數預設＝未分配件數；重量由申報列自動分）
+  if (dragKind === 'merge-mawb') {
+    const col = event.target && event.target.closest ? event.target.closest('[data-merge-unit]') : null;
+    const rowUid = dragRowUid;
+    dragRowUid = null;
+    dragKind = '';
+    if (!col || !rowUid) return;
+    if (event.preventDefault) event.preventDefault();
+    const row = uldFindMawb(rowUid);
+    const result = uldAssignMawbToUnit(rowUid, col.dataset.uid);
+    if (!result.ok) {
+      if (result.reason === 'exists') toast('這一板已經有這票了（直接改件數即可）');
+      else if (result.reason === 'no-mawb') toast('這一票還沒有 MAWB#');
+      return;
+    }
+    const s = state();
+    if (s.ui) s.ui.mergePick = null;
+    uldMarkDirty();
+    render();
+    toast(`已加入 ${row ? row.mawb : ''}（${result.pcs} 件）${result.remaining > 0 ? `，還有 ${result.remaining} 件未分配` : ''}`);
+    return;
+  }
+  // ③ 合併／分配：明細從 A 板搬到 B 板
+  if (dragKind === 'merge-item') {
+    const col = event.target && event.target.closest ? event.target.closest('[data-merge-unit]') : null;
+    const from = dragFromUnit;
+    const itemUid = dragItemUid;
+    dragFromUnit = null;
+    dragItemUid = null;
+    dragKind = '';
+    if (!col || !from || !itemUid) return;
+    if (event.preventDefault) event.preventDefault();
+    const result = uldMoveItemToUnit(from, itemUid, col.dataset.uid);
+    if (!result.ok) {
+      if (result.reason === 'exists') toast('目標板已經有同一票了');
+      return;
+    }
+    uldMarkDirty();
+    render();
+    toast('已搬到另一個 ULD（記得儲存）');
+    return;
+  }
+  // ③ 合併／分配：ULD 卡片左右排序
+  if (dragKind === 'merge-unit') {
+    const col = event.target && event.target.closest ? event.target.closest('[data-merge-unit]') : null;
+    const from = dragUid;
+    dragUid = null;
+    dragKind = '';
+    if (!col || !from) return;
+    if (event.preventDefault) event.preventDefault();
+    const rect = col.getBoundingClientRect ? col.getBoundingClientRect() : null;
+    const after = rect ? (event.clientX - rect.left) > (rect.width / 2) : false;
+    const targetUid = col.dataset.uid;
+    if (from !== targetUid && uldMoveUnit(from, targetUid, after)) {
+      uldMarkDirty();
+      render();
+      toast('已調整板序（左右順序就是列印順序）');
+    }
+    return;
+  }
   if (dragKind === 'grid-col') {
     const th = event.target && event.target.closest ? event.target.closest('[data-col-unit]') : null;
     if (!th || !dragUid) return;
@@ -1364,8 +1933,11 @@ function onRootDrop(event) {
 function onRootDragEnd() {
   dragUid = null;
   dragKind = '';
+  dragRowUid = null;
+  dragItemUid = null;
+  dragFromUnit = null;
   if (!rootEl || !rootEl.querySelectorAll) return;
-  rootEl.querySelectorAll('.uldw-unit').forEach(card => {
+  rootEl.querySelectorAll('.uldw-unit, [data-merge-unit]').forEach(card => {
     card.draggable = false;
     if (card.classList) {
       card.classList.remove('is-dragging');
@@ -1373,7 +1945,11 @@ function onRootDragEnd() {
       card.classList.remove('is-drop-after');
       card.classList.remove('is-drop-left');
       card.classList.remove('is-drop-right');
+      card.classList.remove('is-drop-target');
     }
+  });
+  rootEl.querySelectorAll('[data-mawb-chip], [data-merge-item]').forEach(el => {
+    if (el.classList) el.classList.remove('is-dragging');
   });
   // 載荷表的板欄（板頭可拖；dragstart 時只加 class，draggable 由 markup 控制）
   rootEl.querySelectorAll('[data-col-unit]').forEach(th => {
@@ -1426,6 +2002,12 @@ function printCurrent() {
   if (typeof window.print !== 'function') {
     alert('這個瀏覽器不支援列印（window.print）。');
     return;
+  }
+  // 合併頁的看板不列印 → 先回到 ①② 建檔頁（列印只留表頭、ULD 與明細）
+  if (s.ui && s.ui.step === 'merge') {
+    s.ui.step = 'build';
+    s.ui.mergePick = null;
+    render();
   }
   window.print();
 }
@@ -1739,7 +2321,7 @@ function addItem(uid) {
   s.current.mawbs = s.current.mawbs || [];
   const key = uldMawbKey(mawb);
   const draftPcs = Math.max(0, Math.round(uldNum(draft.pcs)));
-  const draftWeight = Math.max(0, uldNum(draft.declared_weight));
+  const draftWeight = weightInputNumber(draft.declared_weight);
   const draftDest = String(draft.port || '').trim().toUpperCase();
   let row = s.current.mawbs.find(r => uldMawbKey(r.mawb) === key) || null;
   if (!row) {
@@ -1770,7 +2352,7 @@ function addItem(uid) {
     pcs: draftPcs,          // 先在這一板拿全部件數；要拆到別板就在載荷表改
     declared_weight: 0,     // 由申報列的 WT 依件數分配（auto_alloc）
     is_squeeze: !!row.is_squeeze,
-    lih_type: draft.lih_type || 'N'
+    lih_type: defaultItemLih(unit, draft.lih_type || 'N')
   }));
   unit.draft = { mawb: '', mawb_record_id: null, port: '', pcs: '', declared_weight: '', lih_type: 'N' };
   uldMarkDirty();

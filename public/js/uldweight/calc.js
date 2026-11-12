@@ -27,10 +27,56 @@ export const ULD_LIH_TYPES = [
   { code: 'UN3091', label: '3091' }
 ];
 
-// LIH 顯示用短碼（找不到就原樣回傳）
+// 新 UI（ULD LIST）：LIH 改成「狀態標籤」多選，`NIL`／`3481`／`3091` 可任意組合
+// （3481 與 3091 可以同時存在）。DB 仍只存一個 `lih_type` 欄位，組合值用 `+` 串起來：
+//   `N`（＝NIL）、`UN3481`、`UN3091`、`UN3481+UN3091`
+export const ULD_LIH_CODES = ['UN3481', 'UN3091'];
+
+export const ULD_LIH_OPTIONS = [
+  { code: 'N', label: 'NIL', hint: '沒有鋰電池' },
+  { code: 'UN3481', label: '3481', hint: 'UN3481 鋰電池（含設備／同包裝）' },
+  { code: 'UN3091', label: '3091', hint: 'UN3091 鋰電池（含設備／同包裝）' }
+];
+
+// 把 `lih_type` 拆成 UN 編號陣列（`N`／空白／NIL → 空陣列）。
+// 容錯：舊資料可能有 `/`、`,`、空白分隔，一律視為同一個組合。
+export function uldLihCodes(value) {
+  const raw = String(value == null ? '' : value).trim().toUpperCase();
+  if (!raw || raw === 'N' || raw === 'NIL') return [];
+  const parts = raw.split(/[+/,;|\s]+/).filter(Boolean);
+  return ULD_LIH_CODES.filter(code => parts.includes(code));
+}
+
+// 陣列 → 存檔值（固定 UN3481 在前、UN3091 在後；空 → `N`）
+export function uldLihValue(codes) {
+  const list = Array.isArray(codes) ? codes : uldLihCodes(codes);
+  const picked = ULD_LIH_CODES.filter(code => list.includes(code));
+  return picked.length ? picked.join('+') : 'N';
+}
+
+// 加上／移除一個 UN 編號（回傳新的存檔值；`N` = 清空）
+export function uldLihToggle(value, code) {
+  const key = String(code == null ? '' : code).trim().toUpperCase();
+  if (!key || key === 'N' || key === 'NIL') return 'N';
+  const codes = uldLihCodes(value);
+  const next = codes.includes(key) ? codes.filter(c => c !== key) : [...codes, key];
+  return uldLihValue(next);
+}
+
+export function uldLihHas(value, code) {
+  return uldLihCodes(value).includes(String(code || '').toUpperCase());
+}
+
+// LIH 顯示用短碼（找不到就原樣回傳）；組合值顯示 `3481+3091`
 export function uldLihLabel(code) {
   const key = String(code == null ? '' : code).trim().toUpperCase();
   if (!key) return 'N';
+  const codes = uldLihCodes(key);
+  if (codes.length) {
+    return codes
+      .map(c => (ULD_LIH_TYPES.find(t => t.code === c) || {}).label || c)
+      .join('+');
+  }
   const hit = ULD_LIH_TYPES.find(t => t.code === key);
   return hit ? hit.label : key;
 }
@@ -197,9 +243,22 @@ export function uldComputeUnit(unit, options = {}) {
   const tare = kind === 'BULK' ? 0 : uldNum(unit && unit.tare_weight);
   const rclGross = uldNum(unit && unit.rcl_gross_weight);
   const material = uldNum(unit && unit.material_weight);
-  const roundInc = kind === 'BULK'
-    ? (uldNum(options.roundBulk) > 0 ? uldNum(options.roundBulk) : 1)
-    : (uldNum(options.roundBoard) > 0 ? uldNum(options.roundBoard) : 1);
+  // 新 UI：header 的「允許使用 0.5kg」
+  //   allowHalfKg = false（0）→ 所有單位一律整數（1.0）
+  //   allowHalfKg = true（1） → 所有單位可用 0.5
+  //   未帶這個選項（舊資料／舊測試直接呼叫）→ 沿用原本 P/X 整數、B 用 roundBulk
+  const allowHalf = options.allowHalfKg;
+  const hasHalfOption = allowHalf === true || allowHalf === false
+    || allowHalf === 1 || allowHalf === 0 || allowHalf === '1' || allowHalf === '0';
+  const roundInc = hasHalfOption
+    ? ((allowHalf === true || Number(allowHalf) === 1)
+      ? (kind === 'BULK'
+        ? (uldNum(options.roundBulk) > 0 ? uldNum(options.roundBulk) : 0.5)
+        : 0.5)
+      : 1)
+    : (kind === 'BULK'
+      ? (uldNum(options.roundBulk) > 0 ? uldNum(options.roundBulk) : 1)
+      : (uldNum(options.roundBoard) > 0 ? uldNum(options.roundBoard) : 1));
   const tailMode = options.tailMode || 'adjust_largest';
   const squeezeMode = (unit && unit.squeeze_mode) || 'weight';
 
@@ -220,10 +279,13 @@ export function uldComputeUnit(unit, options = {}) {
 
   // RCL 欄 = 貨站磅單的淨重（RCL wt）→ 目標淨重就是 RCL 值。
   // Tare（板重）仍讀進來、仍顯示，但**不再從 RCL 扣除**（2026-11-07 規則變更）。
+  // 新 UI：ULD WT（RCL）是「選填」——還沒過磅（0）時先不夾重，保留申報重量，
+  // 也不檢核磅差（否則新開的 ULD 還沒填 WT 就無法儲存）。
   const targetNet = rclGross;
+  const hasTarget = rclGross > 0;
   const declaredSum = items.reduce((sum, it) => sum + it.declared, 0);
-  const diff = targetNet - declaredSum;
-  const diffPct = targetNet > 0 ? (diff / targetNet) * 100 : 0;
+  const diff = hasTarget ? targetNet - declaredSum : 0;
+  const diffPct = hasTarget && targetNet > 0 ? (diff / targetNet) * 100 : 0;
 
   const issues = [];
   const squeezeItems = items.filter(it => it.squeeze);
@@ -288,7 +350,7 @@ export function uldComputeUnit(unit, options = {}) {
   const targetTicks = roundInc > 0 ? Math.round(uldCeilTo(targetNet, roundInc) / roundInc) : 0;
   const targetSqueezeSum = Number((targetTicks * roundInc - nonSqueezeSum).toFixed(6));
 
-  if (squeezeItems.length) {
+  if (hasTarget && squeezeItems.length) {
     if (targetSqueezeSum < 0) {
       issues.push({ code: 'TARGET_TOO_SMALL', level: 'error', unit: kind });
     } else if (tailMode === 'none') {
@@ -331,7 +393,7 @@ export function uldComputeUnit(unit, options = {}) {
   }
 
   // ===== 4. 檢核 =====
-  if (diff !== 0 && !squeezeItems.length) {
+  if (hasTarget && diff !== 0 && !squeezeItems.length) {
     issues.push({ code: 'NO_SQUEEZE', level: 'error', unit: kind });
   }
   if (items.some(it => it.final < 0)) {
@@ -346,26 +408,31 @@ export function uldComputeUnit(unit, options = {}) {
     });
   }
   // W5：LIH 檢核細分三種情境（舊版只有一個 LIH_MISMATCH，detail 文字不同）
-  const lihItems = items.filter(it => it.lih_type && it.lih_type !== 'N');
-  const unitLih = (unit && unit.lih_type) || 'N';
-  const lihCodes = [...new Set(lihItems.map(it => it.lih_type))];
-  if (lihItems.length && unitLih === 'N') {
-    // ① 票有 UN、單位標 N → 板／散貨的 LIH 欄要補
+  // 新 UI：LIH 是「集合」（NIL／3481／3091，3481 與 3091 可並存）→ 用集合比較：
+  //   ① 票有 UN、單位 NIL            → LIH_UNIT_MISSING
+  //   ② 單位有 UN、票都沒有           → LIH_UNIT_ONLY
+  //   ③ 票的 UN 不在單位的集合裡      → LIH_UN_CODE_MISMATCH
+  const lihItems = items.filter(it => uldLihCodes(it.lih_type).length > 0);
+  const unitLihValue = (unit && unit.lih_type) || 'N';
+  const unitLihCodes = uldLihCodes(unitLihValue);
+  const lihCodes = [...new Set(lihItems.flatMap(it => uldLihCodes(it.lih_type)))];
+  if (lihCodes.length && !unitLihCodes.length) {
+    // ① 票有 UN、單位標 NIL → 板／散貨的 LIH 欄要補
     issues.push({
       code: 'LIH_UNIT_MISSING', level: 'warn', unit: kind,
-      detail: `有 ${lihItems.length} 票載有 ${lihCodes.join('／')}，但收貨單位標示 N`
+      detail: `有 ${lihItems.length} 票載有 ${lihCodes.join('／')}，但收貨單位標示 NIL`
     });
-  } else if (unitLih !== 'N' && !lihItems.length) {
+  } else if (unitLihCodes.length && !lihCodes.length) {
     // ② 單位標 UN、但沒有任何票標 → 只有板有標，票漏填
     issues.push({
       code: 'LIH_UNIT_ONLY', level: 'warn', unit: kind,
-      detail: `收貨單位標示 ${unitLih}，但沒有任何票標示鋰電池`
+      detail: `收貨單位標示 ${uldLihLabel(unitLihValue)}，但沒有任何票標示鋰電池`
     });
-  } else if (lihItems.length && unitLih !== 'N' && lihItems.some(it => it.lih_type !== unitLih)) {
-    // ③ 兩邊都有 UN 但編號不同（例如板 UN3481、票 UN3091）
+  } else if (lihCodes.length && lihCodes.some(code => !unitLihCodes.includes(code))) {
+    // ③ 兩邊都有 UN 但集合不一致（例如板只有 UN3481、票有 UN3091）
     issues.push({
       code: 'LIH_UN_CODE_MISMATCH', level: 'warn', unit: kind,
-      detail: `收貨單位 ${unitLih} ≠ 票 ${lihCodes.join('／')}`
+      detail: `收貨單位 ${uldLihLabel(unitLihValue)} ≠ 票 ${uldLihLabel(lihCodes.join('+'))}`
     });
   }
   const warnPct = uldNum(options.diffWarnPct) > 0 ? uldNum(options.diffWarnPct) : 2;
@@ -399,7 +466,7 @@ export function uldComputeUnit(unit, options = {}) {
     // R2：本次實際套用的比例上下限（%，100 = 該方向不限）
     clampMinPct: Number(((clampInfo.minRatio || 0) * 100).toFixed(2)),
     clampMaxPct: Number(((clampInfo.maxRatio || 1) * 100).toFixed(2)),
-    diffAfterFinal: Number((targetNet - finalSum).toFixed(6)),
+    diffAfterFinal: Number(((hasTarget ? targetNet : finalSum) - finalSum).toFixed(6)),
     finalSum,
     pcsSum,
     items,
@@ -415,6 +482,10 @@ export function uldComputeSheet(sheet, options = {}) {
   const opts = {
     roundBoard: uldNum(src.round_px) > 0 ? uldNum(src.round_px) : 1,
     roundBulk: uldNum(src.round_b) > 0 ? uldNum(src.round_b) : 1,
+    // 新 UI：允許使用 0.5kg（false = 全部整數；undefined = 舊行為）
+    allowHalfKg: (src.allow_half_kg === undefined || src.allow_half_kg === null || src.allow_half_kg === '')
+      ? undefined
+      : (Number(src.allow_half_kg) === 1),
     tailMode: src.tail_mode || 'adjust_largest',
     diffWarnPct: src.diff_warn_pct,
     diffWarnKg: src.diff_warn_kg,
@@ -449,7 +520,11 @@ export function uldComputeSheet(sheet, options = {}) {
       row.squeeze = row.squeeze || it.squeeze;
       if (!row.units.includes(unit.uid)) row.units.push(unit.uid);
       if (it.port && !row.ports.includes(it.port)) row.ports.push(it.port);
-      if (it.lih_type && it.lih_type !== 'N' && !row.lih.includes(it.lih_type)) row.lih.push(it.lih_type);
+      if (uldLihCodes(it.lih_type).length) {
+        uldLihCodes(it.lih_type).forEach(code => {
+          if (!row.lih.includes(code)) row.lih.push(code);
+        });
+      }
       if (it.declared === 0) row.hasZeroSplit = true;
     });
   });
@@ -666,7 +741,7 @@ export function uldAllocateByPcs(totalWeight, cells) {
 //   - 其他板的件數全是 0 → 平均分（避免 0/0）
 //   - 只有一板 → 整票都在這一板（等於沒有其他板可以分）
 // 回傳與 cells 同長度的重量陣列（索引對齊 cells）
-export function uldAllocateWithFixed(totalWeight, cells, fixedIndex, fixedWeight) {
+export function uldAllocateWithFixed(totalWeight, cells, fixedIndex, fixedWeight, inc = 0) {
   const list = Array.isArray(cells) ? cells : [];
   const count = list.length;
   const idx = Math.trunc(Number(fixedIndex));
@@ -674,7 +749,10 @@ export function uldAllocateWithFixed(totalWeight, cells, fixedIndex, fixedWeight
     return uldAllocateByPcs(totalWeight, list);
   }
   const total = Math.max(0, uldNum(totalWeight));
-  const fixed = Math.min(total, Math.max(0, uldNum(fixedWeight)));
+  const step = uldNum(inc) > 0 ? uldNum(inc) : 0;
+  let fixed = Math.min(total, Math.max(0, uldNum(fixedWeight)));
+  // 新 UI：整數／0.5kg 模式 → 手改的那一格也對齊到 step
+  if (step > 0) fixed = Math.min(total, Math.max(0, Math.round(fixed / step) * step));
   const out = new Array(count).fill(0);
   out[idx] = fixed;
 
@@ -686,11 +764,18 @@ export function uldAllocateWithFixed(totalWeight, cells, fixedIndex, fixedWeight
     return out;
   }
 
-  const restTotal = Number((total - fixed).toFixed(3));
+  const restTotal = Number((total - fixed).toFixed(6));
   const pcsList = others.map(i => Math.max(0, uldNum(list[i] && list[i].pcs)));
   const pcsTotal = pcsList.reduce((sum, v) => sum + v, 0);
   const bases = pcsTotal > 0 ? pcsList : others.map(() => 1);
   const baseTotal = pcsTotal > 0 ? pcsTotal : others.length;
+
+  // 有 step → 其餘各板用同一個取整規則分（Σ 仍等於 total − fixed）
+  if (step > 0) {
+    const restWeights = uldSplitByPcs(restTotal, others.map((i, k) => ({ pcs: bases[k] })), step);
+    others.forEach((i, k) => { out[i] = restWeights[k]; });
+    return out;
+  }
 
   let assigned = 0;
   others.forEach((i, k) => {
@@ -736,12 +821,20 @@ export function uldApplyMawbAllocation(sheet) {
   });
 
   let changed = 0;
+  // 新 UI：allow_half_kg = 0 → 分配也用整數（避免 506.5 + 506.5 被各自四捨五入成 507+507）
+  const allow = src.allow_half_kg;
+  const allocInc = (allow === undefined || allow === null || allow === '')
+    ? 0
+    : (Number(allow) === 1 ? 0.5 : 1);
   cellsByKey.forEach((cells, key) => {
     const row = rowByKey.get(key);
     if (!row) return;
     // 手動分配（auto_alloc = 0，例如舊資料自動長出來的列）→ 保留各板原本填的重量
     if (row.auto_alloc === 0 || row.auto_alloc === false) return;
-    const weights = uldAllocateByPcs(row.declared_weight, cells.map(cell => ({ pcs: cell.item.pcs })));
+    const targets = cells.map(cell => ({ pcs: cell.item.pcs }));
+    const weights = allocInc > 0
+      ? uldSplitByPcs(row.declared_weight, targets, allocInc)
+      : uldAllocateByPcs(row.declared_weight, targets);
     cells.forEach((cell, i) => {
       const next = weights[i];
       if (Math.abs(uldNum(cell.item.declared_weight) - next) > 1e-6) changed += 1;

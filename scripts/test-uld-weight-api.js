@@ -984,6 +984,100 @@ const CASE4 = {
     await req('DELETE', `/api/uld-weight/sheets/${dupSheetB.body.data.id}`);
     await req('DELETE', `/api/uld-weight/sheets/${sheetB}`);
 
+    // ---- 新 UI：LIH 可多選（3481 與 3091 並存）----
+    const lihSheet = await req('POST', '/api/uld-weight/sheets', {});
+    const lihSheetId = lihSheet.body.data && lihSheet.body.data.id;
+    const lihPayload = {
+      sheet_date: '2026-11-11',
+      terminal: 'CPSL',
+      flight_no: '',
+      flight_date: '',
+      round_px: 1,
+      round_b: 1,
+      tail_mode: 'adjust_largest',
+      handler: 'lih-test',
+      remark: '',
+      mawb_rows: [
+        { mawb: '160-00000006', dest: 'HKG', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }
+      ],
+      ulds: [{
+        kind: 'ULD', uld_number: 'PMC9999XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
+        tare_weight: 0, rcl_gross_weight: 100, material_weight: 0,
+        lih_type: 'UN3481+UN3091', predecl_type: 'P', squeeze_mode: 'weight',
+        items: [{
+          mawb: '160-00000006', port: 'HKG', pcs: 1, declared_weight: 100,
+          is_squeeze: 0, lih_type: 'UN3091'
+        }]
+      }]
+    };
+    const lihSaved = await req('PUT', `/api/uld-weight/sheets/${lihSheetId}`, lihPayload);
+    check('LIH 可同時存 3481 與 3091（UN3481+UN3091）',
+      lihSaved.status === 200 && lihSaved.body.data.ulds[0].lih_type === 'UN3481+UN3091',
+      lihSaved.status === 200 ? String(lihSaved.body.data.ulds[0].lih_type) : JSON.stringify(lihSaved.body));
+    const lihReread = await req('GET', `/api/uld-weight/sheets/${lihSheetId}`);
+    check('GET 讀回組合 LIH（3481+3091 不會被拆掉）',
+      lihReread.status === 200 && lihReread.body.data.ulds[0].lih_type === 'UN3481+UN3091',
+      lihReread.status === 200 ? String(lihReread.body.data.ulds[0].lih_type) : String(lihReread.status));
+    await req('DELETE', `/api/uld-weight/sheets/${lihSheetId}`);
+
+    // 新 UI：allow_half_kg（0 = 全部整數；1 = 可用 0.5）
+    const halfSheet = await req('POST', '/api/uld-weight/sheets', {});
+    const halfSheetId = halfSheet.body.data && halfSheet.body.data.id;
+    const halfPayload = {
+      sheet_date: '2026-11-11', terminal: 'CPSL', flight_no: '', flight_date: '',
+      round_px: 1, round_b: 1, allow_half_kg: 1, tail_mode: 'adjust_largest',
+      handler: 'half-kg', remark: '',
+      mawb_rows: [{ mawb: '160-00000006', dest: 'TPE', pcs: 1, declared_weight: 800.5, auto_alloc: 0, is_squeeze: 1 }],
+      ulds: [{
+        kind: 'ULD', uld_number: 'PMC7777XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
+        tare_weight: 0, rcl_gross_weight: 800.5, material_weight: 0,
+        lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
+        items: [{ mawb: '160-00000006', port: 'TPE', pcs: 1, declared_weight: 800.5, is_squeeze: 1, lih_type: 'N' }]
+      }]
+    };
+    const halfSaved = await req('PUT', `/api/uld-weight/sheets/${halfSheetId}`, halfPayload);
+    check('allow_half_kg = 1 → 重量可用 0.5（800.5 不被四捨五入）',
+      halfSaved.status === 200 && Number(halfSaved.body.data.allow_half_kg) === 1 &&
+      Number(halfSaved.body.data.ulds[0].items[0].declared_weight) === 800.5 &&
+      Number(halfSaved.body.data.ulds[0].calc.roundInc) === 0.5,
+      halfSaved.status === 200
+        ? JSON.stringify([halfSaved.body.data.allow_half_kg, halfSaved.body.data.ulds[0].items[0].declared_weight, halfSaved.body.data.ulds[0].calc.roundInc])
+        : JSON.stringify(halfSaved.body));
+    const intPayload = JSON.parse(JSON.stringify(halfPayload));
+    intPayload.allow_half_kg = 0;
+    const intSaved = await req('PUT', `/api/uld-weight/sheets/${halfSheetId}`, intPayload);
+    check('allow_half_kg = 0 → 重量只以整數運算（800.5 → 801）',
+      intSaved.status === 200 && Number(intSaved.body.data.allow_half_kg) === 0 &&
+      Number(intSaved.body.data.ulds[0].items[0].declared_weight) === 801 &&
+      Number(intSaved.body.data.ulds[0].calc.roundInc) === 1 &&
+      Number(intSaved.body.data.mawb_rows[0].declared_weight) === 801,
+      intSaved.status === 200
+        ? JSON.stringify([intSaved.body.data.allow_half_kg, intSaved.body.data.ulds[0].items[0].declared_weight, intSaved.body.data.ulds[0].calc.roundInc])
+        : JSON.stringify(intSaved.body));
+    await req('DELETE', `/api/uld-weight/sheets/${halfSheetId}`);
+
+    // ULD WT 選填：0（還沒過磅）也能存，先保留申報重量
+    const optSheet = await req('POST', '/api/uld-weight/sheets', {});
+    const optSheetId = optSheet.body.data && optSheet.body.data.id;
+    const optSaved = await req('PUT', `/api/uld-weight/sheets/${optSheetId}`, {
+      sheet_date: '2026-11-11', terminal: 'CPSL', flight_no: '', flight_date: '',
+      round_px: 1, round_b: 1, tail_mode: 'adjust_largest', handler: 'optional-wt', remark: '',
+      mawb_rows: [{ mawb: '160-00000006', dest: 'TPE', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }],
+      ulds: [{
+        kind: 'ULD', uld_number: 'PMC8888XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
+        tare_weight: 0, rcl_gross_weight: 0, material_weight: 0,
+        lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
+        items: [{ mawb: '160-00000006', port: 'TPE', pcs: 1, declared_weight: 100, is_squeeze: 0, lih_type: 'N' }]
+      }]
+    });
+    check('ULD WT 選填（0）可儲存，先保留申報重量（100）',
+      optSaved.status === 200 && Number(optSaved.body.data.ulds[0].items[0].final_weight) === 100 &&
+      optSaved.body.data.ulds[0].calc && Number(optSaved.body.data.ulds[0].calc.finalSum) === 100,
+      optSaved.status === 200
+        ? JSON.stringify([optSaved.body.data.ulds[0].items[0].final_weight, optSaved.body.data.ulds[0].calc.finalSum])
+        : JSON.stringify(optSaved.body));
+    await req('DELETE', `/api/uld-weight/sheets/${optSheetId}`);
+
     // ---- 刪除 ----
 
 

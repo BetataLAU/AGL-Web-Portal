@@ -531,10 +531,10 @@
           <div class="card-header-flex">
             <div>
               <h2><i class="fa-solid fa-scale-balanced"></i> ULD 夾重系統</h2>
-              <p class="card-desc">輸入貨站 RCL 磅重 → 勾選夾重 MAWB（可多票按比例）→ 自動算回每票最終重量（P/X 交板取整數、B 散貨 0.5／1.0）。預設用「載荷表（CHARTER LOADING SHEET）」矩陣：左邊一票一列輸入申報 PCS／WT、右邊每板只填件數（重量依件數自動分），紅字＝夾重、橙字＝wt 有差；按「▤ 卡片檢視」可看／改板資料（ULD#／Contour／Tare／RCL Gross／LIH）。MAWB 可直接搜尋打板計劃的 Booking Record 帶入件數與重量，也可手動輸入；RCL 磅單（Excel／CSV）可整批匯入 ULD、Tare 與磅重。清單可勾選多張批次下載 PDF（ZIP）；手動輸入的票可用「補建 Booking」反推到打板計劃；「版本」可比較每次異動的差異。</p>
+              <p class="card-desc">進入先看現有 LOT（可即時搜尋）；新增／編輯分成三頁：① MAWB LIST（MAWB#／DEST／PCS／WT，Excel 式格線，可直接從 xls 複製貼上；MAWB# 會驗證檢查碼）＋ ② ULD LIST（ULD#／CONTOUR／ULD DEST／ULD WT kg 選填；每塊 ULD 有自己的 MAWB 清單與 LIH 狀態 NIL／3481／3091，3481 與 3091 可同時存在）→ ③ 合併／分配：把 MAWB 拖到各 ULD，ULD 可左右拖曳調整板序。重量單位一律 kg；可勾選「允許使用 0.5 kg」，未勾選時所有重量只以整數運算。可再接 RCL 磅單、版本比對、列印／PDF 與回寫 Booking。</p>
             </div>
             <div class="uldw-header-actions">
-              <button type="button" class="pill" id="uldw-btn-new"><i class="fa-solid fa-plus"></i> 新增夾重表</button>
+              <button type="button" class="pill" id="uldw-btn-new"><i class="fa-solid fa-plus"></i> 新增 LOT</button>
               <button type="button" class="pill" id="uldw-btn-refresh"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
               <button type="button" class="pill" id="uldw-btn-export" disabled><i class="fa-solid fa-file-excel"></i> 匯出 Excel</button>
               <button type="button" class="pill" id="uldw-btn-copy" disabled><i class="fa-solid fa-copy"></i> 複製摘要</button>

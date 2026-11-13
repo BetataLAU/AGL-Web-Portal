@@ -1569,6 +1569,215 @@ function apiDetail() {
     Number(state.uldWeightState.current.ulds[0].items.find(it => it.mawb === '160-00000006').declared_weight) === 600,
     JSON.stringify({ sum: typedSum, auto: typedRow.auto_alloc }));
 
+  // ===== 27. ③ 合併／分配頁重建（窄版卡片牆／票的 LIH／夾重後重量／分配進度）=====
+  console.log('\n--- 27. ③ 合併／分配頁重建 ---');
+  state.uldWeightState.view = 'editor';
+  state.uldWeightState.current = state.uldSheetFromApi({
+    id: 31, sheet_no: 'WGT-MERGE-01', sheet_date: '2026-11-13', terminal: 'CPSL',
+    flight_no: 'CX88', flight_date: '2026-11-13', round_px: 1, round_b: 1,
+    tail_mode: 'adjust_largest', diff_warn_pct: 2, diff_warn_kg: 100,
+    clamp_min_pct: 0, clamp_max_pct: 0, handler: 'tester', remark: '', status: 'draft', allow_half_kg: 0,
+    mawb_rows: [
+      { id: 1, seq: 0, mawb: '93345460645', dest: 'AMS', pcs: 26, declared_weight: 720, auto_alloc: 1, is_squeeze: 1 },
+      { id: 2, seq: 1, mawb: '93300000000', dest: 'AMS', pcs: 10, declared_weight: 400, auto_alloc: 1, is_squeeze: 0 }
+    ],
+    ulds: [
+      {
+        id: 1, kind: 'ULD', uld_number: 'PMWC11111KZ', contour_code: 'Q7', port: 'AMS',
+        pcs: 26, tare_weight: 110, rcl_gross_weight: 800, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'UN3481',
+        items: [{ id: 1, mawb: '93345460645', port: 'AMS', pcs: 26, declared_weight: 0, is_squeeze: 1, lih_type: 'UN3481' }]
+      },
+      {
+        id: 2, kind: 'ULD', uld_number: 'PMWC22222KZ', contour_code: 'Q7', port: 'AMS',
+        pcs: 10, tare_weight: 110, rcl_gross_weight: 0, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N',
+        items: [{ id: 2, mawb: '93300000000', port: 'AMS', pcs: 10, declared_weight: 0, is_squeeze: 0 }]
+      }
+    ]
+  });
+  state.uldWeightState.ui = {
+    step: 'merge', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const m27Root = makeRoot();
+  render.renderEditor(m27Root);
+  const m27 = m27Root.innerHTML;
+  check('27.1 卡片牆是 grid＋固定窄版（auto-fill minmax(176px,198px)，37 板自動換行）',
+    /\.uldw-merge-units\s*\{[^}]*display:\s*grid/.test(cssText) &&
+    /\.uldw-merge-units\s*\{[^}]*repeat\(auto-fill,\s*minmax\(176px,\s*198px\)\)/.test(cssText) &&
+    /\.uldw-merge-units\s*\{[^}]*justify-content:\s*start/.test(cssText) &&
+    !/minmax\(212px,\s*238px\)/.test(cssText));
+  check('27.2 卡片不再被拉寬（沒有 flex: 0 0 300px／橫向捲動）',
+    !/flex:\s*0 0 300px/.test(cssText) && !/\.uldw-merge-units\s*\{[^}]*overflow-x:\s*auto/.test(cssText));
+  check('27.3 MAWB 票顯示格式化號碼（933-4546 0645）＋ DEST／PCS／kg（不斷行）',
+    m27.includes('933-4546 0645') && m27.includes('AMS ｜ 26 PCS ｜ 720 kg') &&
+    /\.uldw-chip-main small\s*\{[^}]*white-space:\s*nowrap/.test(cssText));
+  check('27.4 MAWB 票有狀態（已分配綠／餘 n 件橙；純文字不加底色）',
+    m27.includes('uldw-chip-state is-done') && m27.includes('>已分配<') &&
+    /\.uldw-chip-state\.is-done\s*\{[^}]*color:\s*#16a34a/.test(cssText) &&
+    /\.uldw-chip-state\.is-todo\s*\{[^}]*color:\s*#d97706/.test(cssText) &&
+    !/\.uldw-chip-state\s*\{[^}]*background:/.test(cssText));
+  check('27.5 每票有 LIH 標籤（3481 橙／NIL 灰框）',
+    m27.includes('uldw-merge-item-lih') && m27.includes('data-lih="UN3481"') &&
+    m27.includes('uldw-merge-item-lih is-nil') &&
+    /\.uldw-merge-item-lih\s*\{[^}]*background:\s*#d97706/.test(cssText));
+  check('27.6 每票顯示「夾重後」重量（720 申報 → RCL 800 → 800 kg）',
+    /data-calc="merge-item-wt"[^>]*title="申報 720 kg → 夾重後 800 kg"[^>]*>800 kg</.test(m27) ||
+    m27.includes('申報 720 kg → 夾重後 800 kg'));
+  check('27.7 卡片有 RCL 淨重一行（窄版不再用三個獨立欄位）',
+    m27.includes('uldw-merge-rcl') && m27.includes('RCL 淨重') &&
+    /\.uldw-merge-rcl\s*\{[^}]*display:\s*flex/.test(cssText));
+  check('27.8 分配進度條：全部票都分完會轉綠（width:100%）',
+    m27.includes('uldw-merge-progress-bar') && /width:100%/.test(m27) &&
+    /class="uldw-merge-progress is-done"/.test(m27) &&
+    /\.uldw-merge-progress\.is-done\s*\{[^}]*color:\s*#16a34a/.test(cssText) &&
+    /\.uldw-merge-progress-bar\s*\{[^}]*height:\s*6px/.test(cssText));
+  check('27.9 全表合計放在 ULD LIST 卡片牆內（#uldw-merge-totals）',
+    /<section class="uldw-merge-canvas">[\s\S]*id="uldw-merge-totals"[\s\S]*<\/section>/.test(m27));
+  check('27.10 在輸入框裡拖曳文字不會拖動卡片（onRootDragStart 守衛）',
+    /closest\('input, textarea, select'\)/.test(entryText));
+  check('27.11 RCL 還沒填的板在 RCL 列標「未過磅」（37 板一眼掃）',
+    m27.includes('uldw-merge-flag') && m27.includes('>未過磅<') &&
+    /class="uldw-merge-rcl"[\s\S]{0,600}?uldw-merge-flag/.test(m27) &&
+    /\.uldw-merge-flag\s*\{[^}]*border-radius:\s*999px/.test(cssText));
+  check('27.12 格子一列一票（件數｜重量｜LIH｜✕；不顯示 MAWB#）',
+    /\.uldw-merge-item\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*34px minmax\(0, 1fr\) auto 14px/.test(cssText) &&
+    !m27.includes('uldw-merge-mawb') && !/\.uldw-merge-mawb\s*\{/.test(cssText));
+  check('27.13 十字高亮：票／格子帶 data-mawb-key，hover 亮整行／整欄（is-xh-row／is-xh-col）',
+    /data-mawb-chip="1"[^>]*data-mawb-key="/.test(m27) &&
+    /class="uldw-mx-cell uldw-merge-item[^"]*"[^>]*data-mawb-key="/.test(m27) &&
+    /function onRootMouseOver/.test(entryText) &&
+    /addEventListener\('mouseover'/.test(entryText) &&
+    /querySelectorAll\('\[data-mawb-key\]'\)/.test(entryText) &&
+    /classList\.toggle\('is-xh-row'/.test(entryText) &&
+    /classList\.toggle\('is-xh-col'/.test(entryText) &&
+    /\.uldw-mx-cell\.is-xh-col/.test(cssText) &&
+    /\.uldw-mx-cell\.is-xh-row/.test(cssText));
+  check('27.14 格子之間是低調分隔線（1px border-bottom）＋左右欄線',
+    /\.uldw-mx-cell\s*\{[^}]*border-bottom:\s*1px solid var\(--border-color\)/.test(cssText) &&
+    /\.uldw-mx-cell\s*\{[^}]*border-left:\s*1px solid var\(--border-color\)/.test(cssText) &&
+    /\.uldw-mx-cell\s*\{[^}]*border-right:\s*1px solid var\(--border-color\)/.test(cssText));
+  // 27.15：矩陣對齊（一列一票；沒上這票的板留白；同一票在各欄同一 grid-row）
+  state.uldWeightState.current = state.uldSheetFromApi({
+    id: 32, sheet_no: 'WGT-ORDER', status: 'draft', allow_half_kg: 0,
+    mawb_rows: [
+      { id: 11, seq: 0, mawb: '93300000000', dest: 'AMS', pcs: 10, declared_weight: 100, auto_alloc: 1, is_squeeze: 1 },
+      { id: 12, seq: 1, mawb: '93345460645', dest: 'AMS', pcs: 20, declared_weight: 200, auto_alloc: 1, is_squeeze: 1 }
+    ],
+    ulds: [
+      {
+        id: 11, kind: 'ULD', uld_number: 'PMC1', rcl_gross_weight: 320, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N',
+        items: [
+          { id: 21, mawb: '93300000000', pcs: 10, declared_weight: 0, is_squeeze: 1 },
+          { id: 22, mawb: '93345460645', pcs: 20, declared_weight: 0, is_squeeze: 1 }
+        ]
+      },
+      {
+        id: 12, kind: 'ULD', uld_number: 'PMC2', rcl_gross_weight: 220, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N',
+        items: [{ id: 23, mawb: '93345460645', pcs: 20, declared_weight: 0, is_squeeze: 1 }]
+      }
+    ]
+  });
+  state.uldWeightState.ui = {
+    step: 'merge', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const orderRoot = makeRoot();
+  render.renderEditor(orderRoot);
+  const orderHtml = orderRoot.innerHTML;
+  const matrixPart = orderHtml.slice(orderHtml.indexOf('uldw-merge-matrix'));
+  check('27.15 矩陣對齊：同一票在每一欄都是同一 grid-row（第 1 票 row 2、第 2 票 row 3）',
+    /data-mawb-chip="1"[^>]*data-mawb-key="93300000000"[^>]*style="grid-row:2;grid-column:1;"/.test(matrixPart) &&
+    /data-mawb-chip="1"[^>]*data-mawb-key="93345460645"[^>]*style="grid-row:3;grid-column:1;"/.test(matrixPart) &&
+    /data-mawb-key="93345460645"[^>]*style="grid-row:3;grid-column:3;"/.test(matrixPart));
+  check('27.16 沒上這票的板留白（空白格仍對齊該列，而且不算錯）',
+    /class="uldw-mx-cell is-empty"[^>]*data-uid="u12"[^>]*data-mawb-key="93300000000"[^>]*style="grid-row:2;grid-column:3;"/.test(matrixPart) &&
+    /data-uid="u12"[^>]*data-item-uid=[^>]*style="grid-row:3;grid-column:3;"/.test(matrixPart) &&
+    !/項錯誤/.test(matrixPart) &&
+    /\.uldw-mx-corner\s*\{[^}]*position:\s*sticky/.test(cssText) &&
+    /\.uldw-merge-matrix \.uldw-mawb-chip\s*\{[^}]*position:\s*sticky/.test(cssText));
+  check('27.17 件數與重量都可直接打字（重量走 data-item-weight → uldSetCellWeight）',
+    /class="uldw-merge-pcs"[^>]*data-item-field="pcs"/.test(m27) &&
+    /class="uldw-merge-wt-input"\s+data-item-field="declared_weight" data-item-weight="1" data-weight-row="/.test(m27) &&
+    /function applyItemWeight/.test(entryText) &&
+    /uldSetCellWeight\(row\.uid, unit\.uid, target\.value\)/.test(entryText));
+  check('27.18 改完同步：左邊狀態／夾重後（tooltip）與其他板的重量輸入都更新',
+    /chip\.querySelector\('\.uldw-chip-main b'\)/.test(renderText) &&
+    /input\[data-item-field="declared_weight"\]/.test(renderText) &&
+    /stateEl\.textContent = pcs <= 0/.test(renderText));
+  check('27.19 有 error／warn 會在合併頁顯示（可收合摘要＋卡片紅框）',
+    m27.includes('id="uldw-merge-issues"') &&
+    !/<details class="uldw-merge-issues"[^>]*\sopen/.test(m27) &&
+    /mergeIssues\.querySelector\('#uldw-merge-issues-list'\)/.test(renderText) &&
+    /mergeIssuesCountsText\(computed\)/.test(renderText) &&
+    /classList\.toggle\('is-error'/.test(renderText) &&
+    /\.uldw-merge-issues\s*\{/.test(cssText));
+  // 有 error 的資料 → 檢核區塊不能 hidden
+  state.uldWeightState.current = state.uldSheetFromApi({
+    id: 33, sheet_no: 'WGT-ERR', status: 'draft', allow_half_kg: 0,
+    mawb_rows: [{ id: 1, seq: 0, mawb: '93300000000', dest: 'AMS', pcs: 10, declared_weight: 400, auto_alloc: 1, is_squeeze: 0 }],
+    ulds: [{
+      id: 1, kind: 'ULD', uld_number: 'PMC9', rcl_gross_weight: 500, predecl_type: 'P',
+      squeeze_mode: 'weight', lih_type: 'N',
+      items: [{ id: 1, mawb: '93300000000', pcs: 10, declared_weight: 0, is_squeeze: 0 }]
+    }]
+  });
+  state.uldWeightState.ui = {
+    step: 'merge', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const errRoot = makeRoot();
+  render.renderEditor(errRoot);
+  const errHtml = errRoot.innerHTML;
+  check('27.20 有 error 時合併頁直接顯示檢核（摘要可點開；未勾選夾重）',
+    /<details class="uldw-merge-issues" id="uldw-merge-issues">/.test(errHtml) &&
+    /<summary id="uldw-merge-issues-summary">/.test(errHtml) &&
+    /class="uldw-mx-head uldw-merge-unit is-error"/.test(errHtml) &&
+    errHtml.includes('項錯誤') &&
+    errHtml.includes('未勾選夾重'));
+  // 一票分多板：chip 顯示「2 板」；沒上這票的板照常空白（不當成錯誤）
+  state.uldWeightState.current = state.uldSheetFromApi({
+    id: 34, sheet_no: 'WGT-SPLIT', status: 'draft', allow_half_kg: 0,
+    mawb_rows: [{ id: 1, seq: 0, mawb: '93300000000', dest: 'AMS', pcs: 100, declared_weight: 1000, auto_alloc: 1, is_squeeze: 1 }],
+    ulds: [
+      {
+        id: 1, kind: 'ULD', uld_number: 'PMC1', rcl_gross_weight: 600, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N',
+        items: [{ id: 1, mawb: '93300000000', pcs: 60, declared_weight: 0, is_squeeze: 1 }]
+      },
+      {
+        id: 2, kind: 'ULD', uld_number: 'PMC2', rcl_gross_weight: 400, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N',
+        items: [{ id: 2, mawb: '93300000000', pcs: 40, declared_weight: 0, is_squeeze: 1 }]
+      },
+      {
+        id: 3, kind: 'ULD', uld_number: 'PMC3', rcl_gross_weight: 0, predecl_type: 'P',
+        squeeze_mode: 'weight', lih_type: 'N', items: []
+      }
+    ]
+  });
+  state.uldWeightState.ui = {
+    step: 'merge', view: 'cards', gridSortMawb: false, more: false, advanced: false,
+    expanded: {}, expandAll: false, printUnit: null, mergePick: null
+  };
+  const splitRoot = makeRoot();
+  render.renderEditor(splitRoot);
+  const splitHtml = splitRoot.innerHTML;
+  check('27.21 一票分多板：兩欄各有一格（板數放 tooltip）；沒上這票的板是空白格（不算錯）',
+    (splitHtml.match(/data-mawb-key="93300000000"/g) || []).length >= 3 &&
+    /uldw-mx-cell is-empty/.test(splitHtml) &&
+    !splitHtml.includes('項錯誤') &&
+    /（分到 2 塊板/.test(splitHtml) &&
+    !/\.uldw-chip-boards/.test(cssText));
+  check('27.22 ULD# 與板號同一行（header 內含 .uldw-merge-uld，字級縮小）',
+    /<header class="uldw-merge-unit-head"[\s\S]*?class="uldw-merge-uld"[\s\S]*?<\/header>/.test(m27) &&
+    /\.uldw-merge-uld\s*\{[^}]*flex:\s*1 1 auto/.test(cssText) &&
+    /\.uldw-merge-tools \.uldw-icon-btn\s*\{[^}]*width:\s*14px/.test(cssText));
+  state.uldWeightState.ui.step = 'build';
+
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);
 
   process.exitCode = failCount === 0 ? 0 : 1;

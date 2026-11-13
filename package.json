@@ -13,6 +13,7 @@
     "test:topbar": "node scripts/test-topbar.js && node scripts/test-topbar-behavior.js",
     "bench:uldweight": "node scripts/bench-uld-weight-calc.js",
     "preview:uldweight": "node scripts/uld-weight-grid-preview.js",
+    "preview:uldweight:merge": "node scripts/uld-weight-merge-preview.js",
     "db:export": "node scripts/db-export.js",
     "db:import": "node scripts/db-import.js",
     "hooks:install": "node scripts/install-hooks.js"

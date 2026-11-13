@@ -278,6 +278,7 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 | `public/js/uldweight/render.js` | 清單／編輯畫面渲染 + 局部更新（`ui.view === 'grid'` 時改呼叫 `sheet-grid.js`） |
 | `public/js/uldweight/sheet-grid.js` | **U4 載荷表（CHARTER LOADING SHEET）／方案 B**：`uldGridModel()`（純函式：申報列 × 一板一組欄、上數／PLAN／RCL／DIFF）、`uldGridHtml()`（可編輯矩陣：申報列輸入、各板 PCS＋**可打字的 WT**、自動／夾重、**可拖曳的板頭**、紅橙字、底部合計）、`uldGridSortRows()`（只排顯示順序）、`refreshGridComputed()`（輸入時只更新數字與顏色，不重畫；**跳過正在打字的那一格**） |
 | `scripts/uld-weight-grid-preview.js` | **U4 版面預覽**：用假資料（5 票 × 3 板）產出 `data/work/uldw-grid-preview.html`，免登入／免伺服器即可目視檢查載荷表版面（`npm run preview:uldweight`） |
+| `scripts/uld-weight-merge-preview.js` | **③ 合併／分配頁版面預覽**：用概念圖假資料（4 票 × 3 板）產出 `data/work/uldw-merge-preview.html`；`--picked` 多產「已點選 MAWB」、`--demo-hover` 產十字高亮示意，並同時產 37 板壓測 `uldw-merge-preview-37.html`（`npm run preview:uldweight:merge`） |
 | `public/js/uldweight/booking-search.js` | **W1**：打板計劃 Booking Record 的輸入即篩選／自動帶入（`wireBookingPickers`） |
 | `public/js/uldweight/rcl-parse.js` | **W3**：RCL 磅單解析純函式（**前後端共用**：表頭偵測、欄位對應、列驗證／略過規則） |
 | `public/js/uldweight/rcl-import.js` | **W3**：選檔、上傳預覽、改欄位後本機重算、勾選列（前端輔助） |
@@ -299,8 +300,9 @@ uld_weight_versions          -- 歷史版本（V3；每次異動留一份快照�
 node scripts/test-uld-weight-calc.js      # 109 項（含 §18 申報列重量分配）
 node scripts/test-uld-weight-rcl.js       # 28 項（磅單解析）
 node scripts/test-uld-weight-mawb.js      # 33 項（MAWB 11 位／航空公司補 0／mod 7 檢查碼／格式化）
-node scripts/test-uld-weight-frontend.js  # 221 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI、§22 載荷表、§23 方案 B 申報列、§24 鍵盤手改重量／板欄拖曳）
+node scripts/test-uld-weight-frontend.js  # 269 項（含 §18 批次勾選、§19 補建 Booking、§20 版本比對、§21 直觀版 UI、§22 載荷表、§23 方案 B 申報列、§24 鍵盤手改重量／板欄拖曳、§27 合併／分配頁重建 22 項）
 node scripts/uld-weight-grid-preview.js   # U4：產出載荷表預覽（data/work/uldw-grid-preview.html）
+node scripts/uld-weight-merge-preview.js --picked --demo-hover  # ③ 合併／分配頁預覽（data/work/uldw-merge-preview*.html；含 37 板壓測）
 node scripts/test-uld-weight-api.js       # API 端對端（會自己啟伺服器，port 3157；含 U3 Loading Sheet、B1～B11 申報列）
 node scripts/test-nav-order-frontend.js   # 側欄排序（新增目錄後必跑）
 node scripts/test-nav-hierarchy.js        # 側欄主/子層級

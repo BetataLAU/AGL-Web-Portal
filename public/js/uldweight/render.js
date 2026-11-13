@@ -10,7 +10,7 @@ import {
 import { wireBookingPickers } from './booking-search.js';
 import { uldGridHtml, refreshGridComputed } from './sheet-grid.js';
 import { rclColumnOptions, rclSkipReasonText, rclWarningText } from './rcl-parse.js';
-import { uldValidateMawb, uldMawbIssueText } from './mawb-format.js';
+import { uldValidateMawb, uldMawbIssueText, uldFormatMawb } from './mawb-format.js';
 
 export function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, m => ({
@@ -410,89 +410,198 @@ function lihChipsHtml(unit, locked) {
 }
 
 // MAWB 池的一張票：可拖曳、也可點選後在 ULD 按「＋ 加入」
-function mawbChipHtml(row, idx, locked, pickUid) {
+// 版面（概念圖）：左序號圓角框 ｜ MAWB（大字）＋DEST／PCS／WT（小字）｜ 右狀態（已分配／餘 n 件）
+// finalKg：夾重後重量（與申報不同時在後面顯示 → xxx kg，改重量後左邊也看得到同步結果）
+function mawbChipHtml(row, idx, locked, pickUid, finalKg, place) {
   const check = uldValidateMawb(row.mawb);
   const bad = !check.ok && !check.empty;
+  const pcs = uldNum(row.pcs);
+  const declared = uldNum(row.declared_weight);
   const assigned = uldMawbAssignedPcs(row);
-  const remaining = Math.max(0, uldNum(row.pcs) - assigned);
-  const done = uldNum(row.pcs) > 0 && remaining === 0;
+  const remaining = Math.max(0, pcs - assigned);
+  const done = pcs > 0 && remaining === 0;
+  const boards = uldMawbLinks(row).length;
+  const stateText = pcs <= 0 ? '未填件數' : (done ? '已分配' : `餘 ${remaining} 件`);
+  const stateTone = pcs <= 0 ? ' is-empty' : (done ? ' is-done' : ' is-todo');
+  const squeezed = finalKg != null && Math.abs(finalKg - declared) > 1e-9;
   return `<button type="button" class="uldw-mawb-chip${bad ? ' is-invalid' : ''}${done ? ' is-done' : ''}${pickUid === row.uid ? ' is-picked' : ''}"
-    data-mawb-chip="1" data-row-uid="${esc(row.uid)}" data-action="pick-mawb"
-    draggable="${locked ? 'false' : 'true'}" title="拖到右邊的 ULD，或點一下再按該 ULD 的「＋ 加入」">
+    data-mawb-chip="1" data-row-uid="${esc(row.uid)}" data-mawb-key="${esc(uldMawbKey(row.mawb))}" data-action="pick-mawb"
+    draggable="${locked ? 'false' : 'true'}" style="${place || ''}" title="拖到右邊的 ULD，或點一下再按該 ULD 的「＋ 加入」">
     <span class="uldw-chip-seq">${String(idx + 1).padStart(2, '0')}</span>
     <span class="uldw-chip-main">
-      <b>${esc(row.mawb || '（未填 MAWB#）')}</b>
-      <small>${esc(row.dest || '—')} ｜ ${uldNum(row.pcs)} PCS ｜ ${uldFmtKg(row.declared_weight)} kg</small>
+      <b title="${esc(`${row.mawb ? uldFormatMawb(row.mawb) : '（未填 MAWB#）'}${boards > 1 ? `（分到 ${boards} 塊板；其他板沒上這票是正常的）` : ''}${squeezed ? ` ｜ 夾重後 ${uldFmtKg(finalKg)} kg` : ''}`)}">${esc(row.mawb ? uldFormatMawb(row.mawb) : '（未填 MAWB#）')}</b>
+      <small title="${esc(`${row.dest || '—'} ｜ ${pcs} PCS ｜ ${uldFmtKg(declared)} kg`)}">${esc(row.dest || '—')} ｜ ${pcs} PCS ｜ ${uldFmtKg(declared)} kg</small>
     </span>
-    <span class="uldw-chip-state">${done ? '已分配' : `${remaining} 件待分`}</span>
+    <span class="uldw-chip-state${stateTone}">${esc(stateText)}</span>
   </button>`;
 }
 
 
-// 合併頁：某一板的其中一票（可拖到其他 ULD；件數可直接改）
-function mergeItemHtml(unit, item, locked) {
+// 合併頁：票的 LIH 小標籤（NIL 灰框／3481 橙／3091 紫；與 ULD 卡片的 chips 同色系）
+function mergeItemLihHtml(item) {
+  const codes = uldLihCodes(item.lih_type);
+  if (!codes.length) return '<span class="uldw-merge-item-lih is-nil" title="沒有鋰電池">NIL</span>';
+  return codes.map(code => {
+    const opt = ULD_LIH_OPTIONS.find(o => o.code === code) || { label: uldLihLabel(code), hint: '' };
+    return `<span class="uldw-merge-item-lih" data-lih="${esc(code)}" title="${esc(opt.hint || opt.label)}">${esc(opt.label)}</span>`;
+  }).join('');
+}
+
+// ===== ③ 合併／分配：矩陣（一列＝一票 MAWB、一欄＝一塊 ULD）=====
+// 同一票在每一欄都落在**同一橫行**（該板沒上這票 → 留白格），左邊 MAWB 欄 sticky，
+// 水平捲動 37 板時仍對得到行；空白格也是拖放目標（可直接拖到那一列的該板）。
+function matrixPlace(rowIndex, colIndex) {
+  return `grid-row:${rowIndex};grid-column:${colIndex};`;
+}
+
+// 每一票 × 每一欄的一格（沒有這票 → 空白格）
+function mergeCellHtml(unit, meta, rowIndex, colIndex, unitResult, locked) {
+  const place = matrixPlace(rowIndex, colIndex);
+  const item = meta.row
+    ? (unit.items || []).find(it => uldMawbKey(it.mawb) === meta.key)
+    : null;
+  if (!item) {
+    return `<div class="uldw-mx-cell is-empty" data-merge-unit="1" data-uid="${esc(unit.uid)}"
+      data-unit-uid="${esc(unit.uid)}" data-mawb-key="${esc(meta.key)}" style="${place}"></div>`;
+  }
   const dis = locked ? ' disabled' : '';
+  const ci = unitResult && unitResult.calc
+    ? (unitResult.calc.items.find(c => c.uid != null && String(c.uid) === String(item.uid)) || null)
+    : null;
+  const declared = ci ? ci.declared : uldNum(item.declared_weight);
+  const final = ci ? ci.final : uldNum(item.declared_weight);
+  const changed = Math.abs(final - declared) > 1e-9;
   const check = uldValidateMawb(item.mawb);
   const bad = !check.ok && !check.empty;
-  return `<div class="uldw-merge-item" data-merge-item="1" data-unit-uid="${esc(unit.uid)}"
-    data-item-uid="${esc(item.uid)}" draggable="${locked ? 'false' : 'true'}" title="可拖到其他 ULD">
-    <span class="uldw-drag uldw-merge-handle" title="拖曳可搬到其他 ULD">⠿</span>
-    <span class="uldw-merge-mawb${bad ? ' is-invalid' : ''}">${esc(item.mawb || '（未填）')}</span>
+  const mawbText = item.mawb ? uldFormatMawb(item.mawb) : '（未填 MAWB#）';
+  const mawbRow = rowForItem(item);
+  const weightAttrs = mawbRow ? ` data-item-weight="1" data-weight-row="${esc(mawbRow.uid)}"` : ' data-item-weight="1"';
+  const title = bad
+    ? `${mawbText}：${uldMawbIssueText(check)}`
+    : `${mawbText} ｜ 申報 ${uldFmtKg(declared)} kg → 夾重後 ${uldFmtKg(final)} kg（拖曳可搬到其他 ULD）`;
+  return `<div class="uldw-mx-cell uldw-merge-item${bad ? ' is-invalid' : ''}${ci && ci.squeeze ? ' is-squeeze' : ''}${changed ? ' is-changed' : ''}"
+    data-merge-unit="1" data-uid="${esc(unit.uid)}" data-unit-uid="${esc(unit.uid)}"
+    data-merge-item="1" data-item-uid="${esc(item.uid)}"
+    data-mawb-key="${esc(meta.key)}" draggable="${locked ? 'false' : 'true'}" title="${esc(title)}" style="${place}">
     <input type="number" class="uldw-merge-pcs" min="0" step="1" data-item-field="pcs"
-      value="${esc(item.pcs)}" title="這一板的件數"${dis}>
-    <span class="uldw-merge-wt" data-calc="merge-item-wt" title="重量（kg）">${uldFmtKg(item.declared_weight)} kg</span>
-    <button type="button" class="uldw-icon-btn uldw-icon-btn-danger" data-action="merge-remove-item"
+      value="${esc(item.pcs)}" title="這一板的件數（重量依件數自動分）" aria-label="${esc(mawbText)} 件數"${dis}>
+    <span class="uldw-merge-wt">
+      <input type="number" min="0" step="${weightStep()}" class="uldw-merge-wt-input"
+        data-item-field="declared_weight"${weightAttrs} value="${esc(declared)}"
+        title="直接輸入這一板的重量（kg）；其餘板會依件數重新分配（Σ = 申報 WT）"
+        aria-label="${esc(mawbText)} 重量（kg）"${dis}>
+      <em>kg</em>
+    </span>
+    ${mergeItemLihHtml(item)}
+    <button type="button" class="uldw-icon-btn uldw-icon-btn-danger uldw-merge-item-del" data-action="merge-remove-item"
       data-uid="${esc(unit.uid)}" data-item-uid="${esc(item.uid)}" title="從這一板移除（MAWB 仍在 LIST）"${dis}>✕</button>
   </div>`;
 }
 
-// 合併頁：一個 ULD 分欄（卡片可左右拖曳排序）
-function mergeUnitHtml(unit, idx, computed, locked, ui) {
+// 不在 MAWB LIST 的孤兒票（只在某塊板出現）：仍給一列，避免「有貨卻看不到」
+function mergeOrphanChipHtml(meta, place) {
+  const text = meta.item && meta.item.mawb ? uldFormatMawb(meta.item.mawb) : '（未填 MAWB#）';
+  return `<div class="uldw-mawb-chip is-orphan" data-mawb-key="${esc(meta.key)}" style="${place}"
+    title="這一票只在板上有、不在 MAWB LIST；建議回 ① 補建">
+    <span class="uldw-chip-seq">··</span>
+    <span class="uldw-chip-main"><b>${esc(text)}</b><small>不在 MAWB LIST</small></span>
+    <span class="uldw-chip-state is-empty">—</span>
+  </div>`;
+}
+
+// 一列：左邊 MAWB ＋ 每一欄的格子
+function mergeMatrixRowHtml(meta, r, units, calcByUid, locked, ui, finalByKey) {
+  const rowIndex = r + 2;
+  const chip = meta.row
+    ? mawbChipHtml(meta.row, meta.seq - 1, locked, ui.mergePick,
+      finalByKey.has(meta.key) ? finalByKey.get(meta.key) : null, matrixPlace(rowIndex, 1))
+    : mergeOrphanChipHtml(meta, matrixPlace(rowIndex, 1));
+  const cells = units.map((unit, i) => mergeCellHtml(
+    unit, meta, rowIndex, i + 2, calcByUid.get(unit.uid), locked
+  )).join('');
+  return `${chip}${cells}`;
+}
+
+// 欄頭：⠿ 01/A [ULD#] ← → ✕（同一行）＋ CONTOUR／DEST＋ RCL 淨重（未過磅）＋ LIH＋「＋ 加入」
+function mergeUnitHeadHtml(unit, idx, unitResult, locked, ui) {
   const dis = locked ? ' disabled' : '';
-  const calc = (computed.units.find(u => u.uid === unit.uid) || {}).calc || null;
+  const calc = unitResult ? unitResult.calc : null;
   const items = unit.items || [];
+  const isBulk = unit.kind === 'BULK';
   const pickedRow = ui.mergePick
     ? (uldWeightState.current.mawbs || []).find(r => r.uid === ui.mergePick)
     : null;
   const already = pickedRow
     ? items.some(it => uldMawbKey(it.mawb) === uldMawbKey(pickedRow.mawb))
     : false;
-  return `<article class="uldw-merge-unit" data-merge-unit="1" data-uid="${esc(unit.uid)}" draggable="${locked ? 'false' : 'true'}">
-    <header class="uldw-merge-unit-head" data-drag-handle title="拖曳可左右調整板序">
+  const pickedRemaining = pickedRow
+    ? Math.max(0, uldNum(pickedRow.pcs) - uldMawbAssignedPcs(pickedRow))
+    : 0;
+  const noRcl = !(uldNum(unit.rcl_gross_weight) > 0);
+  return `<div class="uldw-mx-head uldw-merge-unit${calc && calc.hasError ? ' is-error' : ''}"
+    data-merge-unit="1" data-uid="${esc(unit.uid)}" data-kind="${esc(unit.kind)}"
+    draggable="${locked ? 'false' : 'true'}" style="${matrixPlace(1, idx + 2)}">
+    <header class="uldw-merge-unit-head" data-drag-handle title="拖曳可左右調整板序（順序＝列印順序）">
       <span class="uldw-drag">⠿</span>
       <span class="uldw-merge-code">${unitCode(idx)}</span>
-      <span class="uldw-merge-move">
+      <input type="text" class="uldw-merge-uld" data-unit-field="${isBulk ? 'bulk_ref' : 'uld_number'}"
+        value="${esc(isBulk ? unit.bulk_ref : unit.uld_number)}" placeholder="${isBulk ? '批號／RCL' : 'ULD#'}"
+        autocomplete="off" spellcheck="false"${dis}>
+      <span class="uldw-merge-tools">
         <button type="button" class="uldw-icon-btn" data-action="merge-unit-left" data-uid="${esc(unit.uid)}" title="往左移（板序）"${dis}>←</button>
         <button type="button" class="uldw-icon-btn" data-action="merge-unit-right" data-uid="${esc(unit.uid)}" title="往右移（板序）"${dis}>→</button>
+        <button type="button" class="uldw-icon-btn uldw-icon-btn-danger" data-action="del-unit" data-uid="${esc(unit.uid)}" title="刪除這個 ULD"${dis}>✕</button>
       </span>
-      ${unit.kind === 'BULK'
-        ? `<input type="text" class="uldw-merge-uld" data-unit-field="bulk_ref" value="${esc(unit.bulk_ref)}" placeholder="批號／RCL"${dis}>`
-        : `<input type="text" class="uldw-merge-uld" data-unit-field="uld_number" value="${esc(unit.uld_number)}" placeholder="ULD#"${dis}>`}
-      ${pickedRow ? `<button type="button" class="uldw-btn uldw-btn-sm uldw-btn-primary" data-action="assign-picked"
-        data-uid="${esc(unit.uid)}"${already ? ' disabled' : ''}>${already ? '已在板上' : '＋ 加入'}</button>` : ''}
-      <button type="button" class="uldw-icon-btn uldw-icon-btn-danger" data-action="del-unit" data-uid="${esc(unit.uid)}" title="刪除這個 ULD"${dis}>✕</button>
     </header>
     <div class="uldw-merge-fields">
       <label>CONTOUR<input type="text" data-unit-field="contour_code" value="${esc(unit.contour_code)}" list="uldw-contour-list" placeholder="ZQ" autocomplete="off" spellcheck="false"${dis}></label>
       <label>ULD DEST<input type="text" data-unit-field="port" value="${esc(unit.port)}" placeholder="HKG" autocomplete="off" spellcheck="false"${dis}></label>
-      <label>ULD WT（kg）<input type="number" min="0" step="${weightStep()}" data-unit-field="rcl_gross_weight" value="${esc(unit.rcl_gross_weight)}" placeholder="選填"${dis}></label>
     </div>
+    <label class="uldw-merge-rcl" title="貨站磅單的淨重（kg）；還沒過磅可留白＝先不夾重">
+      <span>RCL 淨重</span>
+      <input type="number" min="0" step="${weightStep()}" data-unit-field="rcl_gross_weight"
+        value="${esc(unit.rcl_gross_weight)}" placeholder="選填"${dis}>
+      <em>kg</em>
+      ${noRcl ? '<span class="uldw-merge-flag" title="還沒填 RCL 淨重：先不夾重（保留申報重量）">未過磅</span>' : ''}
+    </label>
     <div class="uldw-merge-lih">
       <span class="uldw-merge-label">LIH</span>
       ${lihChipsHtml(unit, locked)}
     </div>
-    <div class="uldw-merge-items" data-drop-items="1">
-      ${items.length
-        ? items.map(item => mergeItemHtml(unit, item, locked)).join('')
-        : '<div class="uldw-merge-empty">把左邊 MAWB 拖進來</div>'}
-    </div>
-    <footer class="uldw-merge-unit-foot">
-      <span>${items.length} 票 ｜ ${items.reduce((sum, it) => sum + uldNum(it.pcs), 0)} PCS</span>
-      <span>夾重後 <b>${calc ? uldFmtKg(calc.finalSum) : '0'}</b> kg</span>
-    </footer>
-  </article>`;
+    ${pickedRow
+      ? `<button type="button" class="uldw-btn uldw-btn-sm uldw-btn-primary uldw-merge-assign" data-action="assign-picked"
+          data-uid="${esc(unit.uid)}" title="把左邊選取的 ${esc(uldFormatMawb(pickedRow.mawb) || 'MAWB')} 加到這一板（件數＝未分配件數）"${already ? ' disabled' : ''}>${
+          already ? '已在板上' : `＋ 加入${pickedRemaining > 0 ? `（${pickedRemaining} 件）` : ''}`
+        }</button>`
+      : ''}
+  </div>`;
 }
 
+// 欄底：這一板的票數／PCS／夾重後
+function mergeFootHtml(unit, colIndex, rowIndex, unitResult) {
+  const calc = unitResult ? unitResult.calc : null;
+  return `<div class="uldw-mx-foot${calc && calc.hasError ? ' is-error' : ''}"
+    data-merge-unit="1" data-uid="${esc(unit.uid)}" style="${matrixPlace(rowIndex, colIndex)}">
+    <span>${calc ? `${calc.items.length} 票 ｜ ${calc.pcsSum} PCS` : '0 票'}</span>
+    <span>夾重後 <b>${calc ? uldFmtKg(calc.finalSum) : '0'}</b> kg</span>
+  </div>`;
+}
+
+
+// 合併頁檢核：預設收合，只留一行摘要（37 板時可能有幾十條提醒，不能把版面推走）
+function mergeIssuesCountsText(computed) {
+  const errors = computed.issues.filter(issue => issue.level === 'error').length;
+  const warns = computed.issues.length - errors;
+  return [
+    errors ? `⛔ ${errors} 項錯誤` : '',
+    warns ? `⚠️ ${warns} 項提醒` : ''
+  ].filter(Boolean).join(' ｜ ');
+}
+
+function mergeIssuesHtml(computed) {
+  return `<summary id="uldw-merge-issues-summary"><b>${mergeIssuesCountsText(computed)}</b>（點開看內容）</summary>
+        <div class="uldw-merge-issues-list" id="uldw-merge-issues-list">${issuesHtml(computed)}</div>`;
+}
 
 // ===== ③ 合併／分配（獨立頁面）=====
 function mergeViewHtml(sheet, locked, ui, contourCodes) {
@@ -504,6 +613,29 @@ function mergeViewHtml(sheet, locked, ui, contourCodes) {
   const assignedPcs = rows.reduce(
     (sum, row) => sum + Math.min(uldNum(row.pcs), uldMawbAssignedPcs(row)), 0
   );
+  // 分配進度（概念圖的長條）：全部票都分完會轉綠
+  const assignedPct = totalPcs > 0 ? Math.min(100, Math.round((assignedPcs / totalPcs) * 100)) : 0;
+  const assignedDone = totalPcs > 0 && assignedPcs >= totalPcs;
+  // 左邊 MAWB：夾重後重量（改卡片重量／件數後這裡會同步 → 顯示在 chip 後面的 → xxx kg）
+  const finalByKey = new Map((computed.mawbs || []).map(m => [m.key, m.final]));
+  // 矩陣：一列＝一票 MAWB（依 MAWB LIST 次序）；不在 LIST 的孤兒票接在後面，避免「有貨看不到」
+  const seenKeys = new Set();
+  const matrixRows = [];
+  rows.forEach((row, i) => {
+    const key = uldMawbKey(row.mawb);
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    matrixRows.push({ key, row, seq: i + 1, item: null });
+  });
+  units.forEach(unit => (unit.items || []).forEach(item => {
+    const key = uldMawbKey(item.mawb);
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    matrixRows.push({ key, row: null, seq: 0, item });
+  }));
+  const calcByUid = new Map((computed.units || []).map(u => [u.uid, u]));
+  const footerRow = matrixRows.length + 2; // 1＝欄頭，2..＝資料列，最後＝欄底
+  const gridColumns = `grid-template-columns: 296px${units.length ? ` repeat(${units.length}, 198px)` : ''};`;
   return `
     <div class="uldw-editor uldw-merge${locked ? ' is-locked' : ''}" data-sheet-id="${sheet.id}">
       <div class="uldw-editor-head">
@@ -531,45 +663,48 @@ function mergeViewHtml(sheet, locked, ui, contourCodes) {
       </div>
 
       <div class="uldw-merge-hint">
-        <b>把 MAWB 拖到 ULD</b>（或點 MAWB 再按該板的「＋ 加入」）；ULD 卡片可<b>左右拖曳</b>調整板序。
-        這一頁與 ①② 共用同一份資料，儲存後一起寫回。
-        <span class="uldw-merge-progress">已分件數 ${assignedPcs} / ${totalPcs} PCS</span>
+        <b>把 MAWB 拖到 ULD</b>（或點 MAWB 再按該欄的「＋ 加入」）；<b>左右拖曳欄頭</b>可調整板序（順序＝列印順序）。
+        <span class="uldw-merge-progress${assignedDone ? ' is-done' : ''}">
+          <span class="uldw-merge-progress-bar"><i style="width:${assignedPct}%"></i></span>
+          已分件數 ${assignedPcs} / ${totalPcs} PCS
+        </span>
       </div>
+
+      <details class="uldw-merge-issues" id="uldw-merge-issues"${computed.issues.length ? '' : ' hidden'}>
+        ${mergeIssuesHtml(computed)}
+      </details>
 
       <div class="uldw-merge-board">
-        <aside class="uldw-merge-pool">
-          <div class="uldw-merge-pool-head">
-            <span class="uldw-step-badge">①</span><b>MAWB LIST</b>
-            <span class="uldw-panel-count">${rows.length} 票</span>
-            ${ui.mergePick ? '<button type="button" class="uldw-btn uldw-btn-sm" data-action="clear-pick">取消選取</button>' : ''}
-          </div>
-          <div class="uldw-merge-pool-list">
-            ${rows.length
-              ? rows.map((row, idx) => mawbChipHtml(row, idx, locked, ui.mergePick)).join('')
-              : '<div class="empty-state">MAWB LIST 還是空的，先回上一頁新增 MAWB。</div>'}
-          </div>
-          <div class="uldw-merge-pool-foot">
-            <button type="button" class="uldw-btn uldw-btn-sm" data-action="close-merge"${dis}>← 回 ①② 補資料</button>
-          </div>
-        </aside>
-
-        <div class="uldw-merge-canvas">
+        <section class="uldw-merge-canvas">
           <div class="uldw-merge-col-head">
-            <span class="uldw-step-badge">②</span><b>ULD LIST</b>
+            <span class="uldw-merge-step">②</span><b>ULD LIST</b>
             <span class="uldw-panel-count">${units.length} / ${ULD_MAX_UNITS}</span>
-            <span class="uldw-merge-tip">← 拖曳卡片可左右移位 →</span>
-            <button type="button" class="uldw-btn uldw-btn-sm" data-action="add-uld"${dis}>＋ ULD</button>
+            <span class="uldw-merge-tip">← 拖曳欄頭可左右移位 →</span>
+            <button type="button" class="uldw-btn uldw-btn-sm uldw-btn-primary uldw-merge-add" data-action="add-uld"${dis}>＋ ULD</button>
           </div>
-          <div class="uldw-merge-units">
-            ${units.length
-              ? units.map((unit, idx) => mergeUnitHtml(unit, idx, computed, locked, ui)).join('')
-              : '<div class="empty-state uldw-merge-no-unit">還沒有 ULD，先按「＋ ULD」。</div>'}
+          <div class="uldw-mx-wrap">
+            <div class="uldw-merge-matrix" style="${gridColumns}">
+              <div class="uldw-mx-leftbg" style="grid-row:1 / span ${footerRow};grid-column:1;"></div>
+              <div class="uldw-mx-corner" style="${matrixPlace(1, 1)}">
+                <div class="uldw-merge-pool-head">
+                  <span class="uldw-merge-step">①</span><b>MAWB LIST</b>
+                  <span class="uldw-panel-count">${rows.length} 票</span>
+                  ${ui.mergePick ? '<button type="button" class="uldw-btn uldw-btn-sm uldw-merge-clear" data-action="clear-pick">取消選取</button>' : ''}
+                </div>
+              </div>
+              ${units.map((unit, idx) => mergeUnitHeadHtml(unit, idx, calcByUid.get(unit.uid), locked, ui)).join('')}
+              ${matrixRows.map((meta, r) => mergeMatrixRowHtml(meta, r, units, calcByUid, locked, ui, finalByKey)).join('')}
+              <div class="uldw-mx-poolfoot" style="${matrixPlace(footerRow, 1)}">
+                <button type="button" class="uldw-btn uldw-btn-sm" data-action="close-merge"${dis}>← 回 ①② 補資料</button>
+              </div>
+              ${units.map((unit, i) => mergeFootHtml(unit, i + 2, footerRow, calcByUid.get(unit.uid))).join('')}
+            </div>
+            ${units.length ? '' : '<div class="empty-state uldw-merge-no-unit">還沒有 ULD，先按「＋ ULD」。</div>'}
           </div>
-        </div>
-      </div>
-
-      <div class="uldw-merge-totals" id="uldw-merge-totals">
-        ${mergeTotalsInnerHtml(computed, sheet)}
+          <div class="uldw-merge-totals" id="uldw-merge-totals">
+            ${mergeTotalsInnerHtml(computed, sheet)}
+          </div>
+        </section>
       </div>
       <datalist id="uldw-contour-list">
         ${contourCodes.map(code => `<option value="${esc(code)}"></option>`).join('')}
@@ -1124,23 +1259,83 @@ export function refreshComputed(root) {
     }
   });
 
-  // 新 UI：③ 合併／分配頁（不重畫卡片，只更新每票重量與底部合計）
+  // 新 UI：③ 合併／分配頁（不重畫卡片；更新左邊 MAWB 狀態／夾重後、卡片重量輸入、footer、檢核）
+  const chipTotals = new Map((computed.mawbs || []).map(m => [m.key, m]));
+  Array.from(scope.querySelectorAll('[data-mawb-chip]')).forEach(chip => {
+    const row = uldFindMawb(chip.dataset.rowUid);
+    if (!row) return;
+    const key = uldMawbKey(row.mawb);
+    const pcs = uldNum(row.pcs);
+    const assigned = uldMawbAssignedPcs(row);
+    const remaining = Math.max(0, pcs - assigned);
+    const done = pcs > 0 && remaining === 0;
+    const stateEl = chip.querySelector('.uldw-chip-state');
+    if (stateEl) {
+      stateEl.textContent = pcs <= 0 ? '未填件數' : (done ? '已分配' : `餘 ${remaining} 件`);
+      if (stateEl.classList) {
+        stateEl.classList.toggle('is-done', pcs > 0 && done);
+        stateEl.classList.toggle('is-todo', pcs > 0 && !done);
+        stateEl.classList.toggle('is-empty', pcs <= 0);
+      }
+    }
+    if (chip.classList) chip.classList.toggle('is-done', done);
+    // 板數／夾重後只放在 MAWB 的 tooltip（不放版面，維持「一列一票」的緊湊高度）
+    const mawbEl = chip.querySelector('.uldw-chip-main b');
+    if (mawbEl) {
+      const boards = uldMawbLinks(row).length;
+      const mawbText = row.mawb ? uldFormatMawb(row.mawb) : '（未填 MAWB#）';
+      const total = chipTotals.get(key);
+      const finalText = total && Math.abs(total.final - uldNum(row.declared_weight)) > 1e-9
+        ? ` ｜ 夾重後 ${uldFmtKg(total.final)} kg`
+        : '';
+      mawbEl.title = `${mawbText}${boards > 1 ? `（分到 ${boards} 塊板；其他板沒上這票是正常的）` : ''}${finalText}`;
+    }
+  });
+
   const mergeTotals = scope.querySelector('#uldw-merge-totals');
   if (mergeTotals) mergeTotals.innerHTML = mergeTotalsInnerHtml(computed, sheet);
-  Array.from(scope.querySelectorAll('[data-merge-unit]')).forEach((card, idx) => {
-    const unitResult = computed.units[idx];
+  const mergeIssues = scope.querySelector('#uldw-merge-issues');
+  if (mergeIssues) {
+    const list = mergeIssues.querySelector('#uldw-merge-issues-list');
+    if (list) list.innerHTML = issuesHtml(computed);
+    const summary = mergeIssues.querySelector('#uldw-merge-issues-summary');
+    if (summary) summary.innerHTML = `<b>${mergeIssuesCountsText(computed)}</b>（點開看內容）`;
+    mergeIssues.hidden = computed.issues.length === 0;
+    if (!computed.issues.length) mergeIssues.open = false;
+  }
+  // ③ 合併／分配（矩陣）：每欄的欄頭錯誤、欄底合計、每格的重量與顏色
+  const calcByUid = new Map((computed.units || []).map(u => [u.uid, u]));
+  Array.from(scope.querySelectorAll('.uldw-mx-head')).forEach(head => {
+    const unitResult = calcByUid.get(head.dataset.uid);
+    if (!unitResult) return;
+    if (head.classList) head.classList.toggle('is-error', !!unitResult.calc.hasError);
+  });
+  Array.from(scope.querySelectorAll('.uldw-mx-foot')).forEach(foot => {
+    const unitResult = calcByUid.get(foot.dataset.uid);
     if (!unitResult) return;
     const calc = unitResult.calc;
-    Array.from(card.querySelectorAll('[data-merge-item]')).forEach((el, i) => {
-      const item = calc.items[i];
-      if (!item) return;
-      const wt = el.querySelector('[data-calc="merge-item-wt"]');
-      if (wt) wt.textContent = `${uldFmtKg(item.declared)} kg`;
-    });
-    const foot = card.querySelector('.uldw-merge-unit-foot');
-    if (foot) {
-      foot.innerHTML = `<span>${calc.items.length} 票 ｜ ${calc.pcsSum} PCS</span>`
-        + `<span>夾重後 <b>${uldFmtKg(calc.finalSum)}</b> kg</span>`;
+    foot.innerHTML = `<span>${calc.items.length} 票 ｜ ${calc.pcsSum} PCS</span>`
+      + `<span>夾重後 <b>${uldFmtKg(calc.finalSum)}</b> kg</span>`;
+    if (foot.classList) foot.classList.toggle('is-error', !!calc.hasError);
+  });
+  Array.from(scope.querySelectorAll('.uldw-mx-cell[data-item-uid]')).forEach(cell => {
+    const unitResult = calcByUid.get(cell.dataset.uid);
+    if (!unitResult) return;
+    const calc = unitResult.calc;
+    const itemUid = cell.dataset.itemUid;
+    const item = calc.items.find(ci => ci.uid != null && String(ci.uid) === String(itemUid));
+    if (!item) return;
+    // 重量輸入：這一板固定、其他板依件數重分 → 同步其他輸入框（跳過正在打字的那一個）
+    const wtInput = cell.querySelector('input[data-item-field="declared_weight"]');
+    const typing = typeof document !== 'undefined' && document && document.activeElement === wtInput;
+    if (wtInput && !typing) {
+      const next = String(Math.round(uldNum(item.declared) * 10) / 10);
+      if (wtInput.value !== next) wtInput.value = next;
+    }
+    if (wtInput) wtInput.title = `直接輸入這一板的重量（kg）；夾重後 ${uldFmtKg(item.final)} kg`;
+    if (cell.classList) {
+      cell.classList.toggle('is-squeeze', !!item.squeeze);
+      cell.classList.toggle('is-changed', Math.abs(item.final - item.declared) > 1e-9);
     }
   });
 

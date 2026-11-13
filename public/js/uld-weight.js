@@ -21,6 +21,9 @@ import { uldFmtKg, uldNum, uldMawbKey, uldIssueText, uldLihLabel, uldUnitLabel }
 
 let initialized = false;
 let rootEl = null;
+// ③ 合併／分配：十字高亮的目前狀態（'' = 沒有；render 後會歸零，見 render()）
+let mergeHlKey = '';
+let mergeHlUnit = '';
 
 function state() {
   return uldWeightState;
@@ -41,6 +44,9 @@ function toast(text) {
 // ===== 畫畫面 =====
 function render() {
   if (!rootEl) return;
+  // 合併頁的十字高亮是「額外掛在 DOM 上的 class」，重畫後會被清掉 → 狀態一起歸零
+  mergeHlKey = '';
+  mergeHlUnit = '';
   if (state().view === 'list') renderList(rootEl);
   else renderEditor(rootEl);
   syncHeaderButtons();
@@ -1220,6 +1226,54 @@ function moveMergeUnit(uid, delta) {
   }
 }
 
+// ===== ③ 合併／分配：十字高亮 =====
+// hover 一票（MAWB 池的 chip 或卡片裡的票）→ 亮起「整個 MAWB 行」；
+// hover 一張 ULD（卡片任何位置）→ 亮起「整個 ULD 欄」；兩者交集會更明顯（CSS）。
+function applyMergeHighlight(key, unit) {
+  const nextKey = key || '';
+  const nextUnit = unit || '';
+  if (nextKey === mergeHlKey && nextUnit === mergeHlUnit) return;
+  mergeHlKey = nextKey;
+  mergeHlUnit = nextUnit;
+  if (!rootEl || !rootEl.querySelectorAll) return;
+  rootEl.querySelectorAll('[data-mawb-key]').forEach(el => {
+    const hit = !!nextKey && el.dataset && el.dataset.mawbKey === nextKey;
+    if (el.classList) el.classList.toggle('is-xh-row', hit);
+  });
+  rootEl.querySelectorAll('[data-merge-unit]').forEach(el => {
+    const hit = !!nextUnit && el.dataset && el.dataset.uid === nextUnit;
+    if (el.classList) el.classList.toggle('is-xh-col', hit);
+  });
+}
+
+function clearMergeHighlight() {
+  applyMergeHighlight('', '');
+}
+
+function onRootMouseOver(event) {
+  const target = event.target;
+  if (!target || !target.closest) return;
+  const item = target.closest('[data-merge-item]');
+  const unit = target.closest('[data-merge-unit]');
+  const chip = target.closest('[data-mawb-chip]');
+  // 卡片裡的票 → 行（同一票）＋ 欄（這一板）
+  if (item) {
+    applyMergeHighlight(item.dataset.mawbKey, (unit && unit.dataset.uid) || item.dataset.unitUid);
+    return;
+  }
+  // 左邊的票 → 只亮同一票的所有列（含各卡裡的）
+  if (chip) {
+    applyMergeHighlight(chip.dataset.mawbKey, '');
+    return;
+  }
+  // 卡片其他位置（表頭／欄位／空白）→ 只亮這一欄
+  if (unit) {
+    applyMergeHighlight('', unit.dataset.uid);
+    return;
+  }
+  clearMergeHighlight();
+}
+
 function focusMawbAdd() {
   const input = rootEl && rootEl.querySelector('#uldw-mawb-new');
   if (input && input.focus) input.focus();
@@ -1346,7 +1400,7 @@ function onRootFocusIn(event) {
     return;
   }
   // 數字格（申報／各板的 PCS、WT、卡片明細 WT）：一進來就全選 → 直接打字＝覆蓋，不用先刪舊值
-  if (target.type === 'number' && (target.dataset.cellField || target.dataset.rowField || target.dataset.itemField)) {
+  if (target.type === 'number' && (target.dataset.cellField || target.dataset.rowField || target.dataset.itemField || target.dataset.itemWeight)) {
     selectInputText(target);
   }
 }
@@ -1697,6 +1751,8 @@ function onRootPointerDown(event) {
 function onRootDragStart(event) {
   const s = state();
   const target = event.target;
+  // 在輸入框／下拉裡拖曳文字時不要拖動整張卡片或整票（合併頁窄卡很密，容易誤觸）
+  if (target && target.closest && target.closest('input, textarea, select')) return;
   // ===== ③ 合併／分配：MAWB 票（拖到 ULD）=====
   const chip = target && target.closest ? target.closest('[data-mawb-chip]') : null;
   if (chip && s.current && s.current.status !== 'locked') {
@@ -1728,9 +1784,9 @@ function onRootDragStart(event) {
     if (mergeItem.classList) mergeItem.classList.add('is-dragging');
     return;
   }
-  // ===== ③ 合併／分配：ULD 卡片（左右拖曳排序）=====
+  // ===== ③ 合併／分配：ULD 欄（拖曳欄頭排序；格子不觸發整欄拖曳）=====
   const mergeUnit = target && target.closest ? target.closest('[data-merge-unit]') : null;
-  if (mergeUnit && s.current && s.current.status !== 'locked') {
+  if (mergeUnit && s.current && s.current.status !== 'locked' && target.closest('.uldw-mx-head')) {
     dragKind = 'merge-unit';
     dragUid = mergeUnit.dataset.uid || null;
     if (!dragUid) return;
@@ -1775,12 +1831,13 @@ function onRootDragStart(event) {
 
 function onRootDragOver(event) {
   const targetEl = event.target;
-  // ③ 合併／分配：MAWB／明細 拖到 ULD 上（整張卡片都是放置區）
+  // ③ 合併／分配：MAWB／明細 拖到某一格（整欄都會亮）
   if (dragKind === 'merge-mawb' || dragKind === 'merge-item') {
     const col = targetEl && targetEl.closest ? targetEl.closest('[data-merge-unit]') : null;
     if (!col) return;
     if (event.preventDefault) event.preventDefault();
-    // 只留目前這一欄的放置提示（拖過其他欄時把上一個提示清掉）
+    // 整欄淡藍（欄頭＋所有格子）；目前那一格再加放置框
+    applyMergeHighlight('', col.dataset.uid || '');
     if (rootEl && rootEl.querySelectorAll) {
       rootEl.querySelectorAll('[data-merge-unit].is-drop-target').forEach(el => {
         if (el !== col && el.classList) el.classList.remove('is-drop-target');
@@ -2241,6 +2298,9 @@ export function setupUldWeightSection() {
   rootEl.addEventListener('dragover', onRootDragOver);
   rootEl.addEventListener('drop', onRootDrop);
   rootEl.addEventListener('dragend', onRootDragEnd);
+  // ③ 合併／分配：十字高亮（一票＝一整行、一張 ULD＝一整欄）
+  rootEl.addEventListener('mouseover', onRootMouseOver);
+  rootEl.addEventListener('mouseleave', clearMergeHighlight);
 
   const newBtn = document.getElementById('uldw-btn-new');
   if (newBtn) newBtn.addEventListener('click', createNew);

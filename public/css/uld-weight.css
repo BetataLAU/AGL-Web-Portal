@@ -795,27 +795,47 @@
 .uldw-lih-chip:disabled { opacity: 0.5; cursor: not-allowed; }
 
 
-/* ===== 新 UI：③ 合併／分配（MAWB 池 × ULD 分欄；可拖曳）===== */
+/* ===== 新 UI：③ 合併／分配（左 MAWB 池 × 右 ULD 卡片牆；窄卡可放 41 板）===== */
 .uldw-merge { gap: 10px; }
+
+/* 提示＋分配進度（細長一條，不佔版面） */
 .uldw-merge-hint {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px 8px;
+  padding: 6px 10px;
   border-radius: 10px;
   border: 1px dashed var(--border-color);
   background: var(--sidebar-bg);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--text-muted);
 }
 .uldw-merge-hint b { color: var(--text-main); }
-.uldw-merge-progress { margin-left: auto; font-weight: 700; color: var(--primary); }
+.uldw-merge-progress {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.uldw-merge-progress-bar {
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-color);
+  overflow: hidden;
+}
+.uldw-merge-progress-bar i { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.uldw-merge-progress.is-done { color: #16a34a; }
+.uldw-merge-progress.is-done .uldw-merge-progress-bar i { background: #16a34a; }
+
+/* 版面：左 MAWB 池（sticky）＋ 右 ULD 卡片牆 */
 .uldw-merge-board {
-  display: grid;
-  grid-template-columns: 310px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+  display: block;
 }
 .uldw-merge-pool {
   position: sticky;
@@ -827,16 +847,31 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--card-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 .uldw-merge-pool-head,
 .uldw-merge-col-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 0.86rem;
 }
 .uldw-merge-pool-head { padding-bottom: 6px; border-bottom: 1px solid var(--border-color); }
+/* 步驟圓標（概念圖的藍色圓形 ①②） */
+.uldw-merge-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
 .uldw-merge-pool-list {
   display: flex;
   flex-direction: column;
@@ -845,43 +880,60 @@
   overflow: auto;
   padding-right: 2px;
 }
+/* MAWB 一票（概念圖）：序號細字 ｜ MAWB ＋DEST／PCS／WT（一行，不斷行）｜ 狀態純文字 */
 .uldw-mawb-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border-color);
   border-radius: 9px;
-  background: var(--input-bg);
+  background: var(--card-bg);
   color: var(--text-main);
   text-align: left;
   cursor: grab;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 .uldw-mawb-chip:hover { border-color: var(--primary); }
-.uldw-mawb-chip.is-picked { border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
-.uldw-mawb-chip.is-done { opacity: 0.55; }
+.uldw-mawb-chip.is-picked {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--surface-glow);
+  background: rgba(37, 99, 235, 0.07);
+}
 .uldw-mawb-chip.is-invalid { border-color: #dc2626; background: rgba(220, 38, 38, 0.07); }
 .uldw-mawb-chip.is-dragging { opacity: 0.45; }
+/* 序號：淡灰細字（概念圖沒有方框，避免看起來像輸入框） */
 .uldw-chip-seq {
-  flex: 0 0 auto;
+  flex: 0 0 16px;
+  width: 16px;
+  text-align: left;
   font-size: 0.68rem;
+  font-weight: 700;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .uldw-chip-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
-.uldw-chip-main b { font-size: 0.78rem; letter-spacing: 0.02em; }
-.uldw-chip-main small { font-size: 0.68rem; color: var(--text-muted); }
+.uldw-chip-main b { font-size: 0.8rem; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uldw-chip-main small {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 狀態：純文字（綠＝已分配／橙＝餘 n 件／灰＝未填件數），不加底色 */
 .uldw-chip-state {
   flex: 0 0 auto;
   font-size: 0.66rem;
   font-weight: 700;
-  color: #d97706;
   white-space: nowrap;
 }
-.uldw-mawb-chip.is-done .uldw-chip-state { color: #16a34a; }
+.uldw-chip-state.is-todo { color: #d97706; }
+.uldw-chip-state.is-done { color: #16a34a; }
+.uldw-chip-state.is-empty { color: var(--text-muted); }
 .uldw-merge-pool-foot { padding-top: 6px; border-top: 1px solid var(--border-color); }
+/* 右：ULD 卡片牆（卡片窄、自動換行 → 37 板也塞得下） */
 .uldw-merge-canvas {
   min-width: 0;
   display: flex;
@@ -891,29 +943,116 @@
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: var(--card-bg);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
-.uldw-merge-tip { font-size: 0.68rem; color: var(--text-muted); }
-.uldw-merge-units {
-  display: flex;
+.uldw-merge-tip { font-size: 0.66rem; color: var(--text-muted); }
+.uldw-merge-add { margin-left: auto; }
+
+/* ===== 矩陣：一列＝一票 MAWB、一欄＝一塊 ULD（左欄 sticky、可水平捲動）===== */
+.uldw-mx-wrap {
+  overflow: auto;
+  max-height: 62vh; /* 38 票也不用把頁面拉長；水平捲軸固定在面板底部 */
+  padding-bottom: 4px;
+}
+.uldw-merge-matrix {
+  display: grid;
+  column-gap: 8px;
+  row-gap: 0;
   align-items: stretch;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 2px 2px 8px;
-  scroll-snap-type: x proximity;
+  min-width: max-content;
+}
+/* 左欄底色：sticky 覆蓋整欄（水平捲動時不讓後面的欄透出來） */
+.uldw-mx-leftbg {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border-color);
+  box-shadow: 4px 0 6px -5px rgba(15, 23, 42, 0.25);
+}
+/* 左邊 MAWB 欄：sticky（水平捲動時仍看得到票號／件數／重量） */
+.uldw-mx-corner {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  align-items: flex-end;
+  background: var(--card-bg);
+  padding: 0 2px 4px;
+}
+.uldw-merge-matrix .uldw-mawb-chip {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  align-self: stretch;
+  margin: 2px 2px 2px 0;
+  background: var(--card-bg);
+}
+.uldw-mx-poolfoot {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: var(--card-bg);
+  padding: 6px 2px 0;
+}
+/* 欄頭（沿用 .uldw-merge-unit 的卡片外觀，接上下面格子） */
+.uldw-mx-head {
+  border-bottom: none !important;
+  border-radius: 10px 10px 0 0;
+  align-self: start;
+}
+/* 格子：只有左右／下框線＋卡片底色（空格子也留白，代表這板沒上這票） */
+.uldw-mx-cell {
+  min-height: 34px;
+  border-left: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+/* 欄底（沿用格子的左右框線，收成圓角） */
+.uldw-mx-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-color);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  background: var(--card-bg);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.uldw-mx-foot b { color: var(--text-main); font-weight: 800; }
+.uldw-mx-foot.is-error b { color: #dc2626; }
+/* 拖放提示（拖到某一格） */
+.uldw-mx-cell.is-drop-target { box-shadow: inset 0 0 0 2px var(--primary); }
+.uldw-mx-cell.is-drop-before { box-shadow: inset 3px 0 0 var(--primary); }
+.uldw-mx-cell.is-drop-after { box-shadow: inset -3px 0 0 var(--primary); }
+.uldw-merge-units {
+  display: grid;
+  /* 卡片再收窄 1/6（176～198px）：37～41 板自動換行、不被拉寬 */
+  grid-template-columns: repeat(auto-fill, minmax(176px, 198px));
+  justify-content: start;
+  gap: 8px;
+  align-items: start;
+  padding: 2px;
 }
 .uldw-merge-unit {
-  flex: 0 0 300px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
   border: 1px solid var(--border-color);
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--card-bg);
-  scroll-snap-align: start;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
 .uldw-merge-unit:hover { border-color: var(--primary); }
+.uldw-merge-unit.is-error { border-color: rgba(220, 38, 38, 0.45); }
+.uldw-merge-unit.is-error .uldw-merge-unit-foot b { color: #dc2626; }
 .uldw-merge-unit.is-dragging { opacity: 0.45; }
 .uldw-merge-unit.is-drop-target {
   border-color: var(--primary);
@@ -922,132 +1061,253 @@
 }
 .uldw-merge-unit.is-drop-before { box-shadow: -4px 0 0 0 var(--primary); }
 .uldw-merge-unit.is-drop-after { box-shadow: 4px 0 0 0 var(--primary); }
-.uldw-merge-unit-head { display: flex; align-items: center; gap: 4px; cursor: grab; }
-.uldw-merge-move { display: inline-flex; align-items: center; gap: 1px; }
-.uldw-merge-code { font-size: 0.68rem; font-weight: 800; color: var(--text-muted); }
+.uldw-merge-unit[data-kind="BULK"] { border-style: dashed; }
+.uldw-merge-unit-head { display: flex; align-items: center; gap: 3px; cursor: grab; }
+/* ULD# 與板號同一行（概念圖）：⠿ 01/A [ULD#] ← → ✕ */
+.uldw-merge-tools { flex: 0 0 auto; display: inline-flex; align-items: center; }
+.uldw-merge-tools .uldw-icon-btn { width: 14px; height: 16px; font-size: 0.58rem; }
+/* 未過磅（RCL 還沒填）的板：灰標籤，避免誤以為已夾重 */
+.uldw-merge-flag {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--sidebar-bg);
+  color: var(--text-muted);
+  font-size: 0.55rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.uldw-merge-code { flex: 0 0 auto; font-size: 0.62rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.02em; }
 .uldw-merge-uld {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
-  padding: 4px 6px;
+  width: auto;
+  padding: 2px 4px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--input-bg);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
 }
+.uldw-merge-uld:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
 
 
 .uldw-merge-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 6px;
-  font-size: 0.68rem;
+  gap: 3px 4px;
+  font-size: 0.58rem;
   color: var(--text-muted);
 }
-.uldw-merge-fields label { display: flex; flex-direction: column; gap: 2px; }
-.uldw-merge-fields label:nth-child(3) { grid-column: span 2; }
+.uldw-merge-fields label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .uldw-merge-fields input {
   width: 100%;
-  padding: 3px 6px;
+  padding: 2px 4px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--input-bg);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
 }
 .uldw-merge-fields input[type="number"] { text-transform: none; text-align: right; }
-.uldw-merge-lih { display: flex; align-items: center; gap: 6px; }
-.uldw-merge-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); }
-.uldw-merge-items {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 56px;
-  padding: 4px;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  background: var(--sidebar-bg);
-}
-.uldw-merge-empty { padding: 12px 6px; text-align: center; font-size: 0.7rem; color: var(--text-muted); }
-.uldw-merge-item {
+
+/* RCL 淨重：一行（標籤＋輸入＋kg）→ 比三個獨立欄位省一半高度 */
+.uldw-merge-rcl {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 5px;
-  border: 1px solid var(--border-color);
-  border-radius: 7px;
-  background: var(--card-bg);
-  cursor: grab;
+  font-size: 0.58rem;
+  color: var(--text-muted);
 }
-.uldw-merge-item.is-dragging { opacity: 0.45; }
-.uldw-merge-handle { font-size: 0.7rem; }
-.uldw-merge-mawb {
+.uldw-merge-rcl span { flex: 0 0 auto; font-weight: 700; }
+.uldw-merge-rcl input {
   flex: 1;
   min-width: 0;
+  padding: 2px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
   font-size: 0.7rem;
   font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.uldw-merge-rcl input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+.uldw-merge-rcl em { flex: 0 0 auto; font-style: normal; font-weight: 700; }
+
+.uldw-merge-lih { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.uldw-merge-label { font-size: 0.58rem; font-weight: 700; color: var(--text-muted); }
+.uldw-merge-lih .uldw-lih { gap: 3px; }
+.uldw-merge-lih .uldw-lih-chip { padding: 1px 5px; font-size: 0.58rem; }
+
+/* 點選左邊 MAWB 後才出現的「＋ 加入」（窄卡放得下，不擠 ULD# 欄） */
+.uldw-merge-assign {
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 0.72rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.uldw-merge-mawb.is-invalid { color: #dc2626; text-decoration: underline wavy; }
+.uldw-merge-assign:disabled {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  opacity: 1;
+  cursor: default;
+}
+
+/* 有貨的格子：件數 ｜ 重量（kg，可打字） ｜ LIH ｜ ✕（框線／底色交給 .uldw-mx-cell） */
+.uldw-merge-item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 4px;
+  cursor: grab;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+.uldw-merge-item.is-squeeze { box-shadow: inset 2px 0 0 #dc2626; }
+.uldw-merge-item.is-invalid { box-shadow: inset 2px 0 0 #dc2626; background: rgba(220, 38, 38, 0.05); }
+.uldw-merge-item.is-changed .uldw-merge-wt input { color: #b45309; font-weight: 700; }
+.uldw-merge-item.is-dragging { opacity: 0.45; }
+.uldw-merge-item-del { width: 14px; height: 14px; font-size: 0.56rem; }
 .uldw-merge-pcs {
-  width: 44px;
-  padding: 2px 4px;
-  border: 1px solid transparent;
+  width: 34px;
+  padding: 1px 3px;
+  border: 1px solid var(--border-color);
   border-radius: 5px;
-  background: transparent;
+  background: var(--input-bg);
   color: var(--text-main);
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.66rem;
+  font-weight: 700;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.uldw-merge-pcs:hover:not(:disabled) { border-color: var(--border-color); }
-.uldw-merge-pcs:focus { outline: none; border-color: var(--primary); background: var(--input-bg); }
-.uldw-merge-wt {
-  min-width: 46px;
+.uldw-merge-wt { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.uldw-merge-wt input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 1px 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background: var(--input-bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
   text-align: right;
-  font-size: 0.68rem;
-  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+.uldw-merge-wt em { flex: 0 0 auto; font-style: normal; font-size: 0.55rem; color: var(--text-muted); }
+.uldw-merge-pcs:hover:not(:disabled),
+.uldw-merge-wt input:hover:not(:disabled) { border-color: var(--primary); }
+.uldw-merge-pcs:focus,
+.uldw-merge-wt input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+/* 純打字：隱藏上下箭頭 */
+.uldw-merge-pcs,
+.uldw-merge-wt input { appearance: textfield; -moz-appearance: textfield; }
+.uldw-merge-pcs::-webkit-outer-spin-button,
+.uldw-merge-pcs::-webkit-inner-spin-button,
+.uldw-merge-wt input::-webkit-outer-spin-button,
+.uldw-merge-wt input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* 票的 LIH 標籤（NIL 灰框／3481 橙／3091 紫） */
+.uldw-merge-item-lih {
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff;
+  background: #d97706;
+}
+.uldw-merge-item-lih[data-lih="UN3091"] { background: #7c3aed; }
+.uldw-merge-item-lih.is-nil { color: var(--text-muted); background: transparent; border-color: var(--border-color); }
+
+/* 十字高亮（mouse 在哪一票 → 亮整個 MAWB 行；在哪一欄 → 亮整個 ULD 欄） */
+.uldw-mx-cell.is-xh-row,
+.uldw-mawb-chip.is-xh-row { background: rgba(37, 99, 235, 0.09); }
+.uldw-mawb-chip.is-xh-row { border-color: var(--primary); }
+.uldw-mx-cell.is-xh-col,
+.uldw-mx-foot.is-xh-col,
+.uldw-merge-unit.is-xh-col {
+  border-color: rgba(37, 99, 235, 0.5);
+  background: rgba(37, 99, 235, 0.04);
+}
+.uldw-merge-unit.is-xh-col { box-shadow: 0 0 0 2px var(--surface-glow); }
+.uldw-mx-cell.is-xh-col.is-xh-row { background: rgba(37, 99, 235, 0.16); }
+.uldw-mx-foot.is-xh-col { color: var(--primary); }
+.uldw-merge-unit.is-xh-col .uldw-merge-unit-head { color: var(--primary); }
 .uldw-merge-unit-foot {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   padding-top: 4px;
   border-top: 1px dashed var(--border-color);
-  font-size: 0.68rem;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.uldw-merge-unit-foot b { color: var(--text-main); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* 合併頁檢核：可收合（預設收起，只留一行摘要；37 板時不會把版面推走） */
+.uldw-merge-issues {
+  border: 1px solid var(--border-color);
+  border-left: 3px solid #d97706;
+  border-radius: 10px;
+  padding: 5px 10px;
+  background: var(--sidebar-bg);
+  font-size: 0.72rem;
   color: var(--text-muted);
 }
-.uldw-merge-unit-foot b { color: var(--text-main); font-variant-numeric: tabular-nums; }
+.uldw-merge-issues[hidden] { display: none; }
+.uldw-merge-issues > summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  color: var(--text-main);
+  list-style: none;
+}
+.uldw-merge-issues > summary::-webkit-details-marker { display: none; }
+.uldw-merge-issues > summary::before { content: '▸ '; color: var(--text-muted); }
+.uldw-merge-issues[open] > summary::before { content: '▾ '; }
+.uldw-merge-issues > summary b { color: #b45309; }
+.uldw-merge-issues-list { margin-top: 4px; }
+.uldw-merge-issues-list ul { margin: 0; padding-left: 18px; }
+.uldw-merge-issues-list li { margin: 1px 0; line-height: 1.45; }
+.uldw-merge-issues-list .uldw-issues-empty { border: none; background: transparent; padding: 0; }
 .uldw-merge-totals {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-  padding: 10px 12px;
+  gap: 6px 16px;
+  padding: 8px 10px;
   border: 1px solid var(--border-color);
   border-radius: 10px;
   background: var(--sidebar-bg);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
 }
 .uldw-merge-totals span { display: inline-flex; align-items: baseline; gap: 4px; }
-.uldw-merge-totals em { font-style: normal; font-size: 0.68rem; color: var(--text-muted); }
+.uldw-merge-totals em { font-style: normal; font-size: 0.66rem; color: var(--text-muted); }
 .uldw-merge-totals b { color: var(--text-main); font-variant-numeric: tabular-nums; }
 .uldw-merge-totals .is-warn b { color: #d97706; }
 .uldw-merge-no-unit { width: 100%; }
 
+/* 窄螢幕：左池移到上面；卡片牆照樣自動換行 */
 @media (max-width: 900px) {
   .uldw-merge-board { grid-template-columns: 1fr; }
   .uldw-merge-pool { position: static; }
   .uldw-merge-pool-list { max-height: 30vh; }
-  .uldw-merge-unit { flex-basis: 260px; }
+  .uldw-merge-units { grid-template-columns: repeat(auto-fill, minmax(164px, 198px)); }
 }
 
 /* 列印：合併／MAWB 操作不要印（紙本只留表頭、ULD 與明細） */

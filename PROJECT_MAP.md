@@ -27,6 +27,7 @@
 | `scripts/test-uld-weight-frontend.js` | 夾重前端測試（狀態轉換／渲染／鎖定／邊界／Booking 帶入／套用按鈕／RCL 面板／列印／門檻／上下限／payload id／批次勾選／補建 Booking／版本比對，DOM stub，131 項） |
 | `scripts/test-uld-weight-api.js` | 夾重 API 端對端測試（自帶伺服器＋暫存 DB：權限／CRUD／422／409／`GET /bookings`／`report.pdf`／`batch-pdf` ZIP／`sync-bookings` dry_run／`versions` 清單·diff／上下限／明細 id／fresh DB seed，141 項） |
 | `scripts/bench-uld-weight-calc.js` | **夾重效能量測（V4 決策）**：只呼叫 `calc.uldComputeSheet()` 量單次耗時（暖機＋median／p95；可 `--ulds/--tickets/--rounds/--clamp-min/--clamp-max/--squeeze`）；`npm run bench:uldweight`。2026-11-06 實測 50×10 = 0.62ms → 不需節流 |
+| `scripts/uld-weight-merge-preview.js` | **③ 合併／分配頁版面預覽**：概念圖假資料（4 票 × 3 板）→ `data/work/uldw-merge-preview.html`；`--picked` 多產「已點選 MAWB」、`--demo-hover` 產十字高亮示意，並同時產 37 板壓測 `uldw-merge-preview-37.html`（`npm run preview:uldweight:merge`） |
 | `docs/research/` | 研究抓取產物（`*-latest.txt`，不進版控） |
 | `docs/README.md` | 文件索引與分類規則 |
 | `README.md` | 專案說明、API 清單、常見問題 |

@@ -1776,6 +1776,13 @@ function apiDetail() {
     /<header class="uldw-merge-unit-head"[\s\S]*?class="uldw-merge-uld"[\s\S]*?<\/header>/.test(m27) &&
     /\.uldw-merge-uld\s*\{[^}]*flex:\s*1 1 auto/.test(cssText) &&
     /\.uldw-merge-tools \.uldw-icon-btn\s*\{[^}]*width:\s*14px/.test(cssText));
+  check('27.23 MAWB 票的 MAWB＋DEST／PCS／WT 同一行（過窄時省略號＋tooltip）',
+    /\.uldw-chip-main\s*\{[^}]*flex-direction:\s*row/.test(cssText) &&
+    !/\.uldw-chip-main\s*\{[^}]*flex-direction:\s*column/.test(cssText) &&
+    /\.uldw-chip-main small\s*\{[^}]*text-overflow:\s*ellipsis/.test(cssText));
+  check('27.24 RCL 淨重輸入框隱藏上下箭頭（純鍵盤打字，不用 spinner）',
+    /\.uldw-merge-rcl input\[type="number"\]\s*\{[^}]*appearance:\s*textfield/.test(cssText) &&
+    /\.uldw-merge-rcl input\[type="number"\]::-webkit-(?:outer|inner)-spin-button/.test(cssText));
   state.uldWeightState.ui.step = 'build';
 
   console.log(`\n===== ${failCount === 0 ? '全部通過' : failCount + ' 項失敗'}（PASS ${passCount} / FAIL ${failCount}）=====`);

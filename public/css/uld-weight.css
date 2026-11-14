@@ -913,9 +913,28 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.uldw-chip-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
-.uldw-chip-main b { font-size: 0.8rem; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 一票的內容全部同一行：MAWB＋DEST／PCS／WT（省高度；左欄固定 296px，
+   視窗再窄時只讓右邊那段縮成省略號，MAWB# 一定看得到） */
+.uldw-chip-main {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.uldw-chip-main b {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .uldw-chip-main small {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.67rem;
   color: var(--text-muted);
   white-space: nowrap;
@@ -1141,6 +1160,16 @@
   font-variant-numeric: tabular-nums;
 }
 .uldw-merge-rcl input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+/* RCL 淨重直接打字就好：隱藏上下箭頭（spinner 會蓋住數字、也不好微調） */
+.uldw-merge-rcl input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.uldw-merge-rcl input[type="number"]::-webkit-outer-spin-button,
+.uldw-merge-rcl input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
 .uldw-merge-rcl em { flex: 0 0 auto; font-style: normal; font-weight: 700; }
 
 .uldw-merge-lih { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }

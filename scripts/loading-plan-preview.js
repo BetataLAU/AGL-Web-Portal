@@ -1,5 +1,5 @@
 // ===== 執 PLAN：靜態預覽產生器 =====
-// 用途：不用登入、不用開伺服器，就能把三欄工作台畫成一張 static HTML 目視檢查版面。
+// 用途：不用登入、不用開伺服器，就能把工作台（存貨＋PLANS）畫成一張 static HTML 目視檢查版面。
 // 用法：node scripts/loading-plan-preview.js
 // 輸出：data/work/loading-plan-preview.html（用瀏覽器打開即可；data/work 不進版控）
 const path = require('path');
@@ -25,8 +25,8 @@ function reg(id) {
   if (!registry.has(id)) registry.set(id, fakeNode());
   return registry.get(id);
 }
-['lp-stock-list', 'lp-stock-count', 'lp-stock-summary', 'lp-kpi', 'lp-plan-list',
-  'lp-plans-total', 'lp-plan-count', 'lp-btn-undo', 'lp-conn'].forEach(reg);
+['lp-stock-list', 'lp-stock-count', 'lp-stock-summary', 'lp-plan-list',
+  'lp-plans-total', 'lp-plan-count', 'lp-btn-undo', 'lp-btn-add-selected', 'lp-conn'].forEach(reg);
 
 global.document = {
   getElementById: (id) => (registry.has(id) ? registry.get(id) : null),
@@ -98,7 +98,7 @@ global.window = { addEventListener: noop, innerWidth: 1440, innerHeight: 900 };
   stateMod.setActivePlan(31);
 
   render.renderStock();
-  render.renderKpi();
+  render.renderToolbar();
   render.renderPlans();
 
   const countEl = reg('lp-stock-count');
@@ -109,8 +109,6 @@ global.window = { addEventListener: noop, innerWidth: 1440, innerHeight: 900 };
   html = html
     .replace('<div class="lp-stock-list" id="lp-stock-list"></div>',
       `<div class="lp-stock-list" id="lp-stock-list">${reg('lp-stock-list').innerHTML}</div>`)
-    .replace('<div class="lp-kpi" id="lp-kpi"></div>',
-      `<div class="lp-kpi" id="lp-kpi">${reg('lp-kpi').innerHTML}</div>`)
     .replace('<div class="lp-plan-list" id="lp-plan-list"></div>',
       `<div class="lp-plan-list" id="lp-plan-list">${reg('lp-plan-list').innerHTML}</div>`)
     .replace('<span class="lp-count" id="lp-stock-count"></span>',
@@ -126,13 +124,13 @@ global.window = { addEventListener: noop, innerWidth: 1440, innerHeight: 900 };
   const lpCss = fs.readFileSync(path.join(ROOT, 'public', 'css', 'loading-plan.css'), 'utf8');
 
   const page = `<!doctype html><meta charset="utf-8">
-<title>執 PLAN 三欄工作台（靜態預覽）</title>
+<title>執 PLAN 工作台（靜態預覽）</title>
 <style>${baseCss}
 ${lpCss}
 body { padding: 14px; background: var(--app-bg, #eef2f7); }
 .lp-preview-note { margin: 0 0 10px; font-size: .78rem; color: #64748b; }
 </style>
-<p class="lp-preview-note">靜態預覽（假資料，不會連伺服器）｜左欄＝存貨、中欄＝KPI、右欄＝PLANS；H3 是已收錄板型（綠 TAG）、Q5 未收錄（虛線 TAG）。</p>
+<p class="lp-preview-note">靜態預覽（假資料，不會連伺服器）｜左欄＝存貨、右欄＝PLANS；H3 是已收錄板型（綠 TAG）、Q5 未收錄（虛線 TAG）。</p>
 ${html}`;
 
   fs.mkdirSync(path.dirname(OUT), { recursive: true });

@@ -4,7 +4,7 @@ import {
   state, planById, planLabel, activePlan, itemsOf, flightPlans,
   setActivePlan, toggleExpanded, toggleSelection, clearSelection, selectedIdList, pushUndo, fmt
 } from './state.js';
-import { renderAll, renderStock, renderKpi, renderPlans } from './render.js';
+import { renderAll, renderStock, renderToolbar, renderPlans } from './render.js';
 import { esc, toast, debounce } from './dom.js';
 import { lpVolFromCbm, lpCuftFromCbm } from './calc.js';
 import { lpParseTsv, lpBuildTsv } from './paste.js';
@@ -410,8 +410,9 @@ function openFindBookingModal() {
   return modal;
 }
 
-// ===== Hover：同一票的其他位置 =====
-const placementCache = new Map();
+// ===== Hover：只有「有錯誤」的列才顯示訊息 =====
+// 正常列：只靠 CSS 的 .lp-row:hover highlight，不查位置、不出 tooltip。
+// 有錯誤（缺 MAWB／重複 MAWB／件數未填）：資料由渲染時的 data-hover-error 帶進來。
 let tipEl = null;
 let tipTimer = null;
 let hoverNode = null;
@@ -420,21 +421,12 @@ function hideTip() {
   if (tipEl) { tipEl.remove(); tipEl = null; }
 }
 
-async function showTip(anchor, mawb) {
-  let list = placementCache.get(mawb);
-  if (!list) {
-    try {
-      const res = await lpApi.placements({ mawb });
-      list = res.data || [];
-      placementCache.set(mawb, list);
-    } catch (err) { return; }
-  }
-  if (!list.length || hoverNode !== anchor) return;
+function showTip(anchor, message) {
+  if (hoverNode !== anchor || !message) return;
   hideTip();
   tipEl = document.createElement('div');
   tipEl.className = 'lp-tip';
-  tipEl.innerHTML = `<b>${esc(mawb)}</b><div class="lp-tip-list">${list
-    .map(p => `<div>📍 ${esc(p.label)}${p.section ? ` ｜ #${p.section}` : ''}</div>`).join('')}</div>`;
+  tipEl.innerHTML = `<div class="lp-tip-error" title="${esc(message)}">⚠ ${esc(message)}</div>`;
   document.body.appendChild(tipEl);
   const rect = anchor.getBoundingClientRect();
   const box = tipEl.getBoundingClientRect();
@@ -444,6 +436,11 @@ async function showTip(anchor, mawb) {
   tipEl.style.left = `${Math.max(4, left)}px`;
   tipEl.style.top = `${Math.max(4, top)}px`;
 }
+
+function hoverErrorRow(target) {
+  return target && target.closest ? target.closest('.lp-row[data-hover-error]') : null;
+}
+
 
 // ===== 位置清單（右鍵 → 查看所有位置）=====
 async function showPlacements(mawb) {
@@ -724,7 +721,8 @@ async function onClick(e) {
       case 'print': await printPlans(); return;
       case 'set-view': {
         const p = activePlan();
-        if (p && p.type !== 'stock') await setPlanView(p.id, actionEl.dataset.view);
+        if (!p || p.type === 'stock') { toast('請先點選一張 PLAN 再切換體積顯示', 'warn'); return; }
+        await setPlanView(p.id, actionEl.dataset.view);
         return;
       }
       case 'contour-spec': {
@@ -769,7 +767,7 @@ function onChange(e) {
   toggleSelection(isStock ? 'stock' : 'items', Number(row.dataset.itemId));
   row.classList.toggle('is-selected', box.checked);
   if (isStock) renderStock();
-  renderKpi();
+  renderToolbar();
 }
 
 function onDblClick(e) {
@@ -796,16 +794,22 @@ function onInput(e) {
 }
 
 function onHover(e) {
-  const node = e.target.closest('[data-hover-mawb]');
-  if (!node || node === hoverNode) return;
-  hoverNode = node;
+  const row = hoverErrorRow(e.target);
+  if (!row) {
+    if (hoverNode) { hoverNode = null; clearTimeout(tipTimer); hideTip(); }
+    return;
+  }
+  if (row === hoverNode) return;
+  hoverNode = row;
   clearTimeout(tipTimer);
-  tipTimer = setTimeout(() => showTip(node, node.dataset.hoverMawb), 350);
+  tipTimer = setTimeout(() => showTip(row, row.dataset.hoverError), 200);
 }
 
 function onHoverOut(e) {
-  const node = e.target.closest('[data-hover-mawb]');
-  if (!node) return;
+  const row = hoverErrorRow(e.target);
+  if (!row) return;
+  // 在「同一列」內部移動（例如 MAWB → CLIENT 格子）不算離開，避免 tooltip 閃爍
+  if (hoverErrorRow(e.relatedTarget) === row) return;
   hoverNode = null;
   clearTimeout(tipTimer);
   hideTip();

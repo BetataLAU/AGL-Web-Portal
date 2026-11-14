@@ -1,5 +1,5 @@
 // ===== 執 PLAN（Loading Plan）：入口 =====
-// 三欄工作台：左＝存貨｜中＝KPI＋操作｜右＝PLANS 卡片（展開是明細表）
+// 雙欄工作台：左＝存貨｜右＝PLANS 卡片（展開是明細表）；操作按鈕集中在頂部公用工具列
 // 由 main.js 的 initProtectedSections 呼叫（登入即可用，不設角色限制）
 import { renderLayout } from './loading-plan/render.js';
 import { setupInteractions } from './loading-plan/interactions.js';

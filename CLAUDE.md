@@ -480,7 +480,7 @@ owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Fli
   - `lpContourParse()` 容忍表頭雜訊：`1 X Q5 '新BSA` → Q5、`1 X Q5 / /半板` → Q5、`CO-LOAD` → 空代碼
   - `lpResolveContourCode(code, knownCodes)`：需傳入 `LOADSIM_ULD_SPECS.map(s => s.code)`；**`Q5` 目前不在規格庫**（known=false，UI 顯示「未收錄」TAG）
 - **資料表**：`loading_plans`（一個 Excel 區塊＝一張 flight plan；`type='stock'`＝存貨）、`loading_plan_items`、`loading_plan_events`（SSE 補送）、`loading_plan_presence`
-  - 一票 booking 同時只屬於一個 plan（Move = 改 `plan_id`）；Copy 才寫 `split_of_item_id`（KPI 標「重複 MAWB」）
+  - 一票 booking 同時只屬於一個 plan（Move = 改 `plan_id`）；Copy 會寫 `split_of_item_id`。**重複 MAWB 由後端全域判定**（正規化 MAWB 出現在 >1 筆明細，含跨 PLAN、同 PLAN、存貨）：每一筆都回傳 `duplicate_mawb`＋`duplicate_places`，畫面所有相關列都標色＋hover 顯示「重複 MAWB（也在 …）」
   - `UNIQUE(plan_id, mawb_record_id)`；`mawb_record_id` 允許 NULL（Excel 有「有重量但沒 MAWB」的列，仍要計入 KPI）
   - 已開 `PRAGMA journal_mode = WAL` ＋ `busy_timeout = 5000`（多人同時寫入）
 - **Excel 匯入**：`npm run import:loadingplan`（dry-run）／`...:apply`（寫入）／`--apply --reset`
@@ -488,8 +488,8 @@ owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Fli
   - 「存貨」→ `type='stock'`；**與航班重複的 MAWB 一律從存貨移除**；跨航班重複保留第一處＋列 conflict
   - **VOL 有原值就保留**（Excel 是人手微調），空白才由 CBM 回算 → 這樣 KPI 才與 Excel SUM 完全一致
   - 實跑驗收：13 張 plan／71 筆；`EK9859` = 4,304 / 5,934 / 35.62（＝Excel P19/Q19/R19）；存貨 49 → 移除 29 → 保留 20（有 MAWB 15、無 MAWB 5）
-- **測試**：`npm run test:loadingplan`（`scripts/test-loading-plan-calc.js`，**70 項**：換算往返、逐列捨入、PKGS、planLabel、contour 雜訊、KPI；＋ `scripts/test-loading-plan-frontend.js`，**55 項**：HTML/CSS 掛載點、ESM 模組載入、TAG／明細列／卡片渲染、state、API 路徑）
-  ＋ `npm run test:loadingplan-api`（`scripts/test-loading-plan-api.js`，**54 項**：自帶伺服器＋暫存 DB，驗 401、存貨自動建立、plans CRUD、bulk（cu.ft→CBM）、Move（不是複製）、搬回存貨、PATCH（VOL→CBM）、複製 409、placements 標籤、事件流、刪除保護、422/404、audit）
+- **測試**：`npm run test:loadingplan`（`scripts/test-loading-plan-calc.js`，**70 項**：換算往返、逐列捨入、PKGS、planLabel、contour 雜訊、KPI；＋ `scripts/test-loading-plan-frontend.js`，**107 項**：HTML/CSS 掛載點、ESM 模組載入、TAG／明細列／存貨列／卡片渲染、state、API 路徑）
+  ＋ `npm run test:loadingplan-api`（`scripts/test-loading-plan-api.js`，**73 項**：自帶伺服器＋暫存 DB，驗 401、存貨自動建立、plans CRUD、bulk（cu.ft→CBM）、Move（不是複製）、搬回存貨、PATCH（VOL→CBM）、複製 409、跨 PLAN 重複 MAWB 標記、placements 標籤、事件流、刪除保護、422/404、audit）
 - **API（Phase 1 完成）**：`routes/loading-plan/index.js`，掛在 `/api/loading-plan`（`requireAuth`，不設角色）
   - `GET /plans?type=&search=`｜`GET /plans/:id`｜`POST /plans`｜`PATCH /plans/:id`｜`DELETE /plans/:id`（有明細 409、存貨不可刪）
   - `POST /plans/:id/items`（`mawb_record_ids` 或 `item_ids`；**一票只在一處 → Move**）｜`POST /plans/:id/items/bulk`（貼上，最多 500 列）｜`POST /plans/:id/reorder`
@@ -497,12 +497,13 @@ owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Fli
   - `GET /stock`｜`GET /bookings?search=`（含 `placements`，MAWB 去空白比對）｜`GET /placements?mawb=|mawb_record_id=`｜`GET /plans/:id/events?since=`
 - **UI（Phase 2 完成）**：`public/js/loading-plan.js`（入口）＋ `public/js/loading-plan/{api,state,dom,render,interactions,contour}.js` ＋ `public/css/loading-plan.css`
   - NAV：`#nav-loading-plan` → `#section-loading-plan`（**不顯示鎖頭、不設角色**；由 `main.js` 的 `initProtectedSections` 初始化）
-  - 三欄：左＝存貨（即時過濾、多選）、中＝KPI（G.W／CBM 進度條、超重紅字、`VOL/CBM` ↔ `cu.ft/CBM` 切換）、右＝PLAN 卡片（`Flight / Date / Owner` ＋ day／contour／owner TAG，展開＝明細表）
+  - 雙欄：左＝存貨（即時過濾、多選；**兩行式列：完整 MAWB／客戶名，第二行 DEST／PKGS／G.W／VOL，不用省略號截斷**）、右＝PLAN 卡片（`Flight / Date / Owner` ＋ day／contour／owner TAG，展開＝明細表）；**所有操作按鈕集中在頂部公用工具列**（加入所選／移出到存貨／複製到…／配艙建議／Excel／列印／編輯 PLAN／Undo／重新整理／新 PLAN，另含 `VOL/CBM` ↔ `cu.ft/CBM` 切換）
   - 操作：拖曳（存貨→PLAN、PLAN→PLAN、PLAN→存貨，多選整批）、右鍵（剪下／複製／貼上／移出到存貨／刪除／編輯／查看位置）、雙擊格子就地編輯、`Ctrl+Z` Undo（最多 30 步）、`Delete` 移出
   - **拖曳插入位置**：拖到某一列的**上半／下半** → 插到該列前／後（藍色插入線）；同一張 PLAN 內拖曳＝排序（`public/js/loading-plan/order.js` 的 `lpMoveOrder()` 純函式）；跨 PLAN 先 Move 再 reorder；兩者都可 `Ctrl+Z` 復原
   - **`Ctrl+V` 貼上 Excel**：監聽掛在 `document`（不必先點輸入框），但只在「執 PLAN」區塊可見、沒有 modal、焦點不在輸入框時才攔截
   - 複製規則：`Copy` 走 `/items/:id/copy`（同 plan 有其他 plan 已有同一票 → 409，前端提示改用搬移）；Move 一律 `POST /plans/:id/items`
-  - Hover 一票 → `GET /placements` 顯示「也在 EK9859 / 14NOV / SKY DRAGON」（有快取）
+  - 表頭 G.W／VOL／CBM 與下方數值同為右對齊（`num` class）；明細列 hover 只做底色 highlight
+  - Hover 規則：**正常列不出任何 tooltip**；只有該列有錯誤（缺 MAWB／重複 MAWB／件數未填，`data-hover-error`）才顯示錯誤訊息。**重複 MAWB 是全域判定**：跨 PLAN／同 PLAN 只要同一正規化 MAWB 出現 >1 次，所有相關列都會 `is-dup` 上色（紫字＋⧉）並在 hover 列出其他位置（例如「重複 MAWB（也在 EK9845 / — / SKY DRAGON）」）。要查「同一票的所有位置」也可用右鍵「📍 查看所有位置」
   - Contour TAG：認得 → 綠 chip（點開用 `loadsimGetSpec` 帶尺寸／皮重／上限＋HACTL 圖）；`Q5` 未收錄 → 虛線 chip
   - 預覽：`npm run preview:loadingplan` → `data/work/loading-plan-preview.html`（假資料、免登入，可先看版面）
 - **即時同步（Phase 3 完成）**：`public/js/loading-plan/realtime.js` ＋ `routes/loading-plan/bus.js`
@@ -519,10 +520,10 @@ owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Fli
     - 無標題列 → 用 AGL執PLAN 固定順序（CLIENT, MAWB, HAWB, DEST, PKGS, G.W, VOL, CBM, CARGO RECEIPT, REMARK）
     - 千分位逗號、空白 VOL（不會變 0）、CRLF、空白列都會處理
   - **複製**：`Ctrl+C` 或右鍵「📤 複製到 Excel」→ TSV（含標題列）可直接貼回 Excel；cu.ft 模式輸出 cu.ft 欄
-  - **匯出**：KPI 面板「⬇ Excel」→ 依原 `AGL執PLAN` 版面（表頭／欄位順序／TOTAL SUM 公式／凍結窗格）
-  - **列印**：KPI 面板「🖨 列印」→ 自動展開全部 plan → `window.print()`（`@media print` 只印 PLAN 明細、隱藏勾選欄）
+  - **匯出**：頂部工具列「⬇ Excel」→ 依原 `AGL執PLAN` 版面（表頭／欄位順序／TOTAL SUM 公式／凍結窗格）
+  - **列印**：頂部工具列「🖨 列印」→ 自動展開全部 plan → `window.print()`（`@media print` 只印 PLAN 明細、隱藏勾選欄）
 - **測試（Phase 4）**：`scripts/test-loading-plan-paste.js`（**29 項**：往返、Excel 直貼、標題別名、中文標題、邊界）；API 測試加匯出（Content-Type／PK 檔頭／未登入 401／404）；前端測試加 10 項
-- **一鍵配艙建議（Phase 5 完成）**：`public/js/loading-plan/suggest.js`（純函式）＋ KPI 面板「🧮 配艙建議」
+- **一鍵配艙建議（Phase 5 完成）**：`public/js/loading-plan/suggest.js`（純函式）＋ 頂部工具列「🧮 配艙建議」
   - 流程：輸入上限（G.W／CBM **可只填一個**）→ **TRY 試算**（純前端、不寫 DB）→ 勾選要的票 → 「套用勾選的 n 票」才真的 Move
   - **固定條件**：勾「保留現有明細」＝只補剩餘容量（不動既有明細）；取消勾選＝套用時先把現有明細移回存貨再放新建議
   - 模式：平衡（G.W+CBM）／重量優先／CBM 優先；「同 DEST 優先」（固定明細有 DEST 就沿用，否則每個 DEST 試一次取利用率最高）

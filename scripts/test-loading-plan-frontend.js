@@ -67,11 +67,16 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   // ===== 3. CSS 關鍵樣式 =====
   console.log('--- 3. loading-plan.css ---');
   const css = fs.readFileSync(path.join(ROOT, 'public', 'css', 'loading-plan.css'), 'utf8');
-  ['.lp-layout', '.lp-col-stock', '.lp-kpi', '.lp-plan', '.lp-row', '.lp-context-menu',
+  ['.lp-layout', '.lp-col-stock', '.lp-toolbar', '.lp-plan', '.lp-row', '.lp-context-menu',
     '.lp-tag-contour', '.lp-tag-owner', '.lp-inline-input', '.lp-toast', '@media print',
-    'grid-template-columns: 330px 300px'].forEach((token) => {
+    'grid-template-columns: 330px minmax(0, 1fr)'].forEach((token) => {
     check(`3.x 有 ${token}`, css.includes(token));
   });
+  check('3.11 KPI 欄樣式已移除', !css.includes('.lp-kpi'));
+  check('3.12 存貨列有完整 MAWB／客戶名樣式',
+    ['.lp-stock-row', '.lp-stock-mawb', '.lp-stock-client'].every(token => css.includes(token)));
+  check('3.13 存貨 MAWB 樣式不截斷',
+    /\.lp-stock-mawb \{[^}]*white-space: nowrap/.test(css) && !/\.lp-stock-mawb \{[^}]*text-overflow/.test(css));
 
   // ===== 4. 模組載入（不會碰真 DOM）=====
   console.log('--- 4. ESM 模組 ---');
@@ -111,6 +116,10 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
 
   check('5.7 表頭 VOL 模式', render.rowHead('vol').includes('>VOL<'));
   check('5.8 表頭 cu.ft 模式', render.rowHead('cuft').includes('>cu.ft<'));
+  check('5.8b 表頭 G.W / VOL / CBM 與數值右對齊',
+    /lp-c-gw num/.test(render.rowHead('vol')) &&
+    /lp-c-vol num/.test(render.rowHead('vol')) &&
+    /lp-c-cbm num/.test(render.rowHead('vol')));
 
   const plan = { id: 7, volume_view: 'vol', day_code: 'D7', contour_code: 'H3', owner_company: 'SKY DRAGON' };
   const item = {
@@ -125,7 +134,8 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     row.includes('176-6985 5240') && row.includes('DWC') && row.includes('17+7P'));
   check('5.12 顯示 VOL 與 CBM', row.includes('1,135.00') && row.includes('6.820'));
   check('5.13 DG flag（966）有標示', row.includes('lp-flags') && row.includes('966'));
-  check('5.14 hover 位置屬性', row.includes('data-hover-mawb="176-6985 5240"'));
+  check('5.14 一般列不帶 hover 屬性（只 highlight）',
+    !row.includes('data-hover-mawb') && !row.includes('data-hover-error'));
 
   const cuftRow = render.itemRow(item, { id: 7, volume_view: 'cuft' }, 0, { selectedSet: new Set() });
   check('5.15 cu.ft 模式顯示 240.85', cuftRow.includes('240.85'));
@@ -134,10 +144,28 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     { id: 12, mawb: '', cbm: 1, volume: { cbm: 1, vol: 166.67, cuft: 35.31 } },
     plan, 1, { selectedSet: new Set() }
   );
-  check('5.16 缺 MAWB → 黃字警告', missing.includes('is-warn') && missing.includes('缺 MAWB'));
+  check('5.16 缺 MAWB → 黃字警告＋hover 訊息',
+    missing.includes('is-warn') && missing.includes('缺 MAWB') && missing.includes('data-hover-error="缺 MAWB'));
 
   const dup = render.itemRow(Object.assign({}, item, { split_of_item_id: 5 }), plan, 2, { selectedSet: new Set() });
-  check('5.17 複製的明細有重複標記', dup.includes('is-dup') && dup.includes('lp-dup'));
+  check('5.17 複製的明細有重複標記＋hover 訊息',
+    dup.includes('is-dup') && dup.includes('lp-dup') && dup.includes('data-hover-error="重複 MAWB'));
+
+  const dupAcross = render.itemRow(Object.assign({}, item, {
+    duplicate_mawb: true,
+    duplicate_places: [{ plan_id: 8, item_id: 21, label: 'EK9845 / — / SKY DRAGON' }]
+  }), plan, 3, { selectedSet: new Set() });
+  check('5.17b 跨 PLAN 重複：所有列都標色，hover 列出其他位置',
+    dupAcross.includes('is-dup') && dupAcross.includes('lp-dup') &&
+    dupAcross.includes('重複 MAWB（也在 EK9845 / — / SKY DRAGON）'));
+
+  const dupSamePlan = render.itemRow(Object.assign({}, item, {
+    plan_id: 7,
+    duplicate_mawb: true,
+    duplicate_places: [{ plan_id: 7, item_id: 99, label: 'EK9859 / 14NOV / SKY DRAGON' }]
+  }), plan, 4, { selectedSet: new Set() });
+  check('5.17c 同 PLAN 重複 → 訊息不重複列同一張 PLAN',
+    dupSamePlan.includes('重複 MAWB（同一 PLAN 多筆）'));
 
   const selected = render.itemRow(item, plan, 0, { selectedSet: new Set([11]) });
   check('5.18 已選取 → is-selected + checked',
@@ -155,6 +183,18 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     id: 8, type: 'flight', flight_no: 'EK1', owner_company: 'X', volume_view: 'vol',
     totals: { grossWeight: 9500, maxGrossWeight: 9000, overWeight: 500, gwPct: 105.6, cbm: 1, tickets: 1, pcs: 1 }
   }).includes('is-over'));
+
+  const stockPlan = { id: 30, type: 'stock', volume_view: 'vol' };
+  const srow = render.stockRow(item, stockPlan, 0, { selectedSet: new Set() });
+  check('5.22 存貨列完整顯示 MAWB／客戶名',
+    srow.includes('lp-stock-row') && srow.includes('lp-stock-mawb') && srow.includes('lp-stock-client') &&
+    srow.includes('176-6985 5240') && srow.includes('MAERSK'));
+  check('5.23 存貨列保留拖曳／選取／就地編輯與第二行統計',
+    srow.includes('draggable="true"') && srow.includes('data-plan-id="30"') &&
+    srow.includes('data-action="select-item"') &&
+    ['mawb', 'client', 'dest', 'pkgs_text', 'gross_weight', 'volume_weight']
+      .every(field => srow.includes(`data-field="${field}"`)) &&
+    srow.includes('G.W') && srow.includes('VOL'));
 
   // ===== 6. state 純函式 =====
   console.log('--- 6. state ---');
@@ -202,10 +242,16 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('8.10 applyPresence 可呼叫（不會丟錯）', (() => {
     try { render.applyPresence(); render.updateOnline(); return true; } catch (err) { return false; }
   })());
+  const layoutHtml = render.layoutHtml();
+  check('8.11 layout 已移除 KPI 欄', !layoutHtml.includes('id="lp-kpi"') && !layoutHtml.includes('lp-col-kpi'));
+  check('8.12 操作按鈕移到頂部公用工具列',
+    ['add-selected', 'to-stock', 'copy-selected', 'suggest', 'export-xlsx', 'print', 'edit-plan']
+      .every(action => layoutHtml.includes(`data-action="${action}"`)));
+  check('8.13 hover 只在錯誤列查詢錯誤訊息', interactionsSrc.includes('data-hover-error') && !interactionsSrc.includes('data-hover-mawb'));
 
   // ===== 9. Excel 貼上／匯出／列印 =====
   console.log('--- 9. Excel 整合 ---');
-  const chatKpi = render.renderKpi; // 保持函式存在（下面用字串檢查按鈕）
+  const chatKpi = render.renderToolbar; // 保持函式存在（下面用字串檢查按鈕）
   check('9.1 KPI 有匯出 Excel 按鈕', /data-action="export-xlsx"/.test(
     fs.readFileSync(path.join(ROOT, 'public', 'js', 'loading-plan', 'render.js'), 'utf8')));
   check('9.2 KPI 有列印按鈕', /data-action="print"/.test(
@@ -217,7 +263,7 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('9.7 匯出走 export.xlsx', interactionsSrc.includes('/export.xlsx'));
   check('9.8 列印會先展開全部 plan', /printPlans/.test(interactionsSrc) && /window\.print/.test(interactionsSrc));
   check('9.9 paste.js 可載入', typeof (await import(url('public/js/loading-plan/paste.js'))).lpParseTsv === 'function');
-  check('9.10 KPI 函式仍存在', typeof chatKpi === 'function');
+  check('9.10 工具列狀態函式仍存在', typeof chatKpi === 'function');
 
   // ===== 10. 一鍵配艙建議 =====
   console.log('--- 10. 配艙建議 ---');

@@ -154,9 +154,44 @@ async function nextSortOrder(planId) {
 }
 
 // ===== 序列化明細（附上三種體積表示）=====
-function serializeItem(row, c) {
+// 重複 MAWB 判定是「全域」的：同一正規化 MAWB 只要出現在 >1 筆明細（含存貨、含同一 plan），
+// 每一筆都會標 duplicate_mawb，並帶上其他位置（duplicate_places），前端才能把「所有 PLAN」都標色＋hover。
+async function duplicateMawbMap(c) {
+  const calcMod = c || await calc();
+  const rows = await dbAll(
+    `SELECT i.id AS item_id, i.plan_id, i.mawb,
+            p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company
+       FROM loading_plan_items i
+       JOIN loading_plans p ON p.id = i.plan_id
+      ORDER BY p.sort_order, i.section, i.sort_order, i.id`
+  );
+  const byKey = new Map();
+  rows.forEach((row) => {
+    const key = calcMod.lpNormalizeMawbKey(row.mawb);
+    if (!key) return;
+    const label = row.type === 'stock' ? '存貨' : calcMod.lpPlanLabel(row);
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push({
+      item_id: row.item_id,
+      plan_id: row.plan_id,
+      plan_no: row.plan_no,
+      type: row.type,
+      label
+    });
+  });
+  return byKey;
+}
+
+function serializeItem(row, c, dupMap) {
   if (!row) return null;
-  return Object.assign({}, row, { volume: c.lpItemVolume(row) });
+  const key = c.lpNormalizeMawbKey(row.mawb);
+  const places = key && dupMap ? (dupMap.get(key) || []) : [];
+  const others = places.filter(p => Number(p.item_id) !== Number(row.id));
+  return Object.assign({}, row, {
+    volume: c.lpItemVolume(row),
+    duplicate_mawb: others.length > 0,
+    duplicate_places: others
+  });
 }
 
 async function planRowWithTotals(row) {
@@ -164,7 +199,8 @@ async function planRowWithTotals(row) {
   const items = await dbAll(
     'SELECT * FROM loading_plan_items WHERE plan_id = ? ORDER BY section, sort_order, id', [row.id]
   );
-  return { plan: serializePlan(row, c.lpKpi(items, planLimits(row))), items: items.map(i => serializeItem(i, c)) };
+  const dupMap = await duplicateMawbMap(c);
+  return { plan: serializePlan(row, c.lpKpi(items, planLimits(row))), items: items.map(i => serializeItem(i, c, dupMap)) };
 }
 
 function autoPlanNo(plan, seq) {
@@ -503,7 +539,9 @@ router.patch('/items/:id', handle(async (req, res) => {
   const detail = await planRowWithTotals(plan);
   await logEvent(req, item.plan_id, 'item.patch', { item_id: id, fields: Object.keys(body) });
   writeAuditLog(req, 'loading_plan.item.update', id, `plan ${item.plan_id}`);
-  res.json({ ok: true, data: serializeItem(updated, c), plan: detail.plan });
+  // 重複 MAWB 可能因這次編輯而改變：直接用重算後的明細（含 duplicate_mawb／duplicate_places）
+  const data = detail.items.find(i => Number(i.id) === id) || serializeItem(updated, c);
+  res.json({ ok: true, data, plan: detail.plan });
 }));
 
 // ===== DELETE /items/:id（預設「搬回存貨」；?hard=1 真刪）=====

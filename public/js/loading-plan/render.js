@@ -1,4 +1,4 @@
-// ===== 執 PLAN：畫面渲染（三欄工作台）=====
+// ===== 執 PLAN：畫面渲染（存貨＋PLANS 雙欄工作台）=====
 import { LOADSIM_ULD_SPECS } from '../loadsim/uld-specs.js';
 import { lpResolveContourCode } from './calc.js';
 import { state, planLabel, itemsOf, flightPlans, activePlan, isExpanded, fmt, fmtInt } from './state.js';
@@ -23,7 +23,18 @@ export function layoutHtml() {
       <div class="lp-toolbar-right">
         <span class="lp-online" id="lp-online" title="線上使用者"></span>
         <span class="lp-conn" id="lp-conn" title="即時同步狀態">● 未連線</span>
-        <button type="button" class="lp-btn" data-action="undo" id="lp-btn-undo" title="復原上一個操作 (Ctrl+Z)">↶ Undo</button>
+        <span class="lp-view-toggle">
+          <button type="button" class="lp-link is-on" data-action="set-view" data-view="vol">VOL / CBM</button>
+          <button type="button" class="lp-link" data-action="set-view" data-view="cuft">cu.ft / CBM</button>
+        </span>
+        <button type="button" class="lp-btn" data-action="add-selected" id="lp-btn-add-selected" disabled>▶ 加入所選</button>
+        <button type="button" class="lp-btn" data-action="to-stock" disabled>◀ 移出到存貨</button>
+        <button type="button" class="lp-btn" data-action="copy-selected" disabled>⧉ 複製到…</button>
+        <button type="button" class="lp-btn" data-action="suggest" disabled>🧮 配艙建議</button>
+        <button type="button" class="lp-btn" data-action="export-xlsx" disabled>⬇ Excel</button>
+        <button type="button" class="lp-btn" data-action="print">🖨 列印</button>
+        <button type="button" class="lp-btn" data-action="edit-plan" disabled>✎ 編輯 PLAN</button>
+        <button type="button" class="lp-btn" data-action="undo" id="lp-btn-undo" title="復原上一個操作 (Ctrl+Z)" disabled>↶ Undo</button>
         <button type="button" class="lp-btn" data-action="refresh">⟳ 重新整理</button>
         <button type="button" class="lp-btn lp-btn-primary" data-action="new-plan">＋ 新 PLAN</button>
       </div>
@@ -41,10 +52,6 @@ export function layoutHtml() {
         <div class="lp-stock-list" id="lp-stock-list"></div>
         <footer class="lp-stock-foot" id="lp-stock-summary"></footer>
       </aside>
-
-      <section class="lp-col lp-col-kpi">
-        <div class="lp-kpi" id="lp-kpi"></div>
-      </section>
 
       <section class="lp-col lp-col-plans">
         <header class="lp-col-head">
@@ -102,12 +109,38 @@ export function rowHead(view) {
       <span class="lp-c-client">CLIENT</span>
       <span class="lp-c-dest">DEST</span>
       <span class="lp-c-pkgs">PKGS</span>
-      <span class="lp-c-gw">G.W</span>
-      <span class="lp-c-vol">${view === 'cuft' ? 'cu.ft' : 'VOL'}</span>
-      <span class="lp-c-cbm">CBM</span>
+      <span class="lp-c-gw num">G.W</span>
+      <span class="lp-c-vol num">${view === 'cuft' ? 'cu.ft' : 'VOL'}</span>
+      <span class="lp-c-cbm num">CBM</span>
       <span class="lp-c-tag">TAG</span>
     </div>
   `;
+}
+
+// 列級錯誤（只有這些情況才在 hover 顯示訊息；正常列僅 highlight）
+export function isDuplicateItem(item) {
+  return !!(item && (item.duplicate_mawb || item.split_of_item_id));
+}
+
+export function duplicateMessage(item) {
+  const src = item || {};
+  const places = Array.isArray(src.duplicate_places) ? src.duplicate_places : [];
+  const otherPlans = [...new Set(places
+    .filter(p => p && Number(p.plan_id) !== Number(src.plan_id))
+    .map(p => String(p.label || '').trim())
+    .filter(Boolean))];
+  if (otherPlans.length) return `重複 MAWB（也在 ${otherPlans.join('、')}）`;
+  if (places.length) return '重複 MAWB（同一 PLAN 多筆）';
+  return '重複 MAWB（複製）';
+}
+
+export function itemIssues(item) {
+  const src = item || {};
+  const issues = [];
+  if (!String(src.mawb || '').trim()) issues.push('缺 MAWB');
+  if (isDuplicateItem(src)) issues.push(duplicateMessage(src));
+  if (src.pcs_total === null || src.pcs_total === undefined) issues.push('件數未填');
+  return issues;
 }
 
 export function itemRow(item, plan, index, options = {}) {
@@ -116,15 +149,16 @@ export function itemRow(item, plan, index, options = {}) {
   const volValue = view === 'cuft' ? volume.cuft : volume.vol;
   const selected = (options.selectedSet || state.selectedItems).has(item.id);
   const missingMawb = !String(item.mawb || '').trim();
-  const dup = !!item.split_of_item_id;
+  const dup = isDuplicateItem(item);
+  const issues = itemIssues(item);
   return `
     <div class="lp-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
          draggable="true" data-item-id="${item.id}" data-plan-id="${plan.id}"
-         ${item.mawb ? `data-hover-mawb="${esc(item.mawb)}"` : ''}>
+         ${issues.length ? `data-hover-error="${esc(issues.join(' ｜ '))}"` : ''}>
       <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} /></span>
       <span class="lp-c-idx">${index + 1}</span>
       <span class="lp-c-mawb" data-field="mawb" title="雙擊編輯">
-        ${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? '<span class="lp-dup" title="重複 MAWB（複製）">⧉</span>' : ''}
+        ${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? `<span class="lp-dup" title="${esc(duplicateMessage(item))}">⧉</span>` : ''}
       </span>
       <span class="lp-c-client" data-field="client">${esc(item.client || '')}</span>
       <span class="lp-c-dest" data-field="dest">${esc(item.dest || '')}</span>
@@ -137,110 +171,68 @@ export function itemRow(item, plan, index, options = {}) {
   `;
 }
 
-// ===== KPI 面板 =====
-function bar(label, valueText, pct, over) {
-  const width = pct === null || pct === undefined ? 0 : Math.max(0, Math.min(100, Number(pct)));
-  const cls = over ? ' is-over' : (width >= 90 ? ' is-warn' : '');
+// 存貨列：完整 MAWB／客戶名（窄欄用兩行排版，不截斷）
+export function stockRow(item, plan, index, options = {}) {
+  const view = (plan && plan.volume_view) === 'cuft' ? 'cuft' : 'vol';
+  const volume = item.volume || {};
+  const volValue = view === 'cuft' ? volume.cuft : volume.vol;
+  const selected = (options.selectedSet || state.selectedStock).has(item.id);
+  const missingMawb = !String(item.mawb || '').trim();
+  const dup = isDuplicateItem(item);
+  const issues = itemIssues(item);
+  const client = String(item.client || '').trim();
   return `
-    <div class="lp-bar${cls}">
-      <div class="lp-bar-label"><span>${esc(label)}</span><b>${valueText}</b></div>
-      <div class="lp-bar-track"><i style="width:${width}%"></i></div>
+    <div class="lp-row lp-stock-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
+         draggable="true" data-item-id="${item.id}" data-plan-id="${plan ? plan.id : 0}"
+         ${issues.length ? `data-hover-error="${esc(issues.join(' ｜ '))}"` : ''}>
+      <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} /></span>
+      <span class="lp-c-idx">${index + 1}</span>
+      <div class="lp-stock-body">
+        <div class="lp-stock-line">
+          <span class="lp-stock-mawb" data-field="mawb" title="雙擊編輯">${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? `<span class="lp-dup" title="${esc(duplicateMessage(item))}">⧉</span>` : ''}</span>
+          <span class="lp-stock-client${client ? '' : ' lp-muted'}" data-field="client" title="雙擊編輯">${client ? esc(client) : '—'}</span>
+        </div>
+        <div class="lp-stock-meta">
+          <span data-field="dest"><b>${esc(item.dest || '—')}</b></span>
+          <span data-field="pkgs_text">${pcsText(item)}</span>
+          <span class="num" data-field="gross_weight">G.W ${fmt(item.gross_weight, 2)}</span>
+          <span class="num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${view === 'cuft' ? 'cu.ft' : 'VOL'} ${fmt(volValue, 2)}</span>
+        </div>
+      </div>
     </div>
   `;
 }
 
-function aggregateTotals() {
-  const totals = { tickets: 0, grossWeight: 0, cbm: 0, vol: 0, cuft: 0, pcs: 0, overWeight: 0, overCbm: 0 };
-  flightPlans().forEach((plan) => {
-    const t = plan.totals || {};
-    totals.tickets += Number(t.tickets || 0);
-    totals.grossWeight += Number(t.grossWeight || 0);
-    totals.cbm += Number(t.cbm || 0);
-    totals.vol += Number(t.vol || 0);
-    totals.cuft += Number(t.cuft || 0);
-    totals.pcs += Number(t.pcs || 0);
-    totals.overWeight += Number(t.overWeight || 0);
-    totals.overCbm += Number(t.overCbm || 0);
-  });
-  return totals;
+// ===== 頂部公用工具列（依選取狀態／作用中 PLAN 更新可用性）=====
+function setBtnDisabled(node, disabled) {
+  if (node) node.disabled = !!disabled;
 }
 
-export function renderKpi() {
-  const node = document.getElementById('lp-kpi');
-  if (!node) return;
-  const undoBtn = document.getElementById('lp-btn-undo');
-  if (undoBtn) undoBtn.disabled = state.undoStack.length === 0;
-
+export function renderToolbar() {
+  if (typeof document === 'undefined') return;
   const plan = activePlan();
+  const isFlight = !!plan && plan.type !== 'stock';
   const hasSelection = state.selectedItems.size > 0;
   const hasStockSelection = state.selectedStock.size > 0;
 
-  if (!plan || plan.type === 'stock') {
-    const totals = aggregateTotals();
-    node.innerHTML = `
-      <div class="lp-kpi-head">
-        <div class="lp-kpi-title">全部航班 <span class="lp-count">${flightPlans().length} 張 plan</span></div>
-        <div class="lp-kpi-sub">點一張 PLAN 看 KPI；也可直接把左欄存貨拖到 PLAN</div>
-      </div>
-      <div class="lp-kpi-bars">
-        ${bar('G.W 總計', `${fmt(totals.grossWeight, 0)} kg`, null, false)}
-        ${bar('CBM 總計', `${fmt(totals.cbm, 2)} m³`, null, false)}
-        ${bar('體積重 VOL', `${fmt(totals.vol, 0)} kg`, null, false)}
-      </div>
-      <div class="lp-kpi-meta">${fmtInt(totals.tickets)} 票 ｜ ${fmtInt(totals.pcs)} 件
-        ${totals.overWeight > 0 ? `<span class="lp-warn">⛔ 超重合計 ${fmt(totals.overWeight, 0)} kg</span>` : ''}
-        ${totals.overCbm > 0 ? `<span class="lp-warn">⛔ 超 CBM ${fmt(totals.overCbm, 2)}</span>` : ''}
-      </div>
-      <div class="lp-kpi-actions">
-        <button type="button" class="lp-btn" data-action="add-selected" ${hasStockSelection ? '' : 'disabled'}>▶ 加入所選（${state.selectedStock.size}）</button>
-        <button type="button" class="lp-btn" data-action="undo" ${state.undoStack.length ? '' : 'disabled'}>↶ Undo</button>
-        <button type="button" class="lp-btn lp-btn-primary" data-action="new-plan">＋ 新 PLAN</button>
-      </div>
-      <div class="lp-kpi-hint">💡 拖曳：左欄 → PLAN 卡片；PLAN 明細 → 另一張 PLAN 或存貨</div>
-    `;
-    return;
-  }
+  setBtnDisabled(document.getElementById('lp-btn-undo'), state.undoStack.length === 0);
 
-  const totals = plan.totals || {};
-  const maxGw = totals.maxGrossWeight;
-  const maxCbm = totals.maxCbm;
-  const overWeight = Number(totals.overWeight || 0);
-  const overCbm = Number(totals.overCbm || 0);
-  const view = plan.volume_view === 'cuft' ? 'cuft' : 'vol';
+  const addBtn = document.getElementById('lp-btn-add-selected');
+  setBtnDisabled(addBtn, !(hasSelection || hasStockSelection));
+  if (addBtn && hasStockSelection) addBtn.textContent = `▶ 加入所選（${state.selectedStock.size}）`;
+  else if (addBtn) addBtn.textContent = '▶ 加入所選';
 
-  node.innerHTML = `
-    <div class="lp-kpi-head">
-      <div class="lp-kpi-title">${esc(planLabel(plan))}</div>
-      <div class="lp-kpi-sub">
-        ${dayTag(plan)}${contourTag(plan)}${ownerTag(plan)}
-        <span class="lp-count">${plan.status === 'locked' ? '🔒 已鎖定' : plan.status === 'confirmed' ? '✅ 已確認' : '草稿'}</span>
-      </div>
-    </div>
-    <div class="lp-kpi-bars">
-      ${bar('G.W', `${fmt(totals.grossWeight, 0)}${maxGw ? ` / ${fmt(maxGw, 0)}` : ''} kg`, totals.gwPct, overWeight > 0)}
-      ${bar('CBM', `${fmt(totals.cbm, 2)}${maxCbm ? ` / ${fmt(maxCbm, 2)}` : ''} m³`, totals.cbmPct, overCbm > 0)}
-      ${bar(view === 'cuft' ? 'cu.ft' : 'VOL', view === 'cuft' ? `${fmt(totals.cuft, 0)} cu.ft` : `${fmt(totals.vol, 0)} kg`, null, false)}
-    </div>
-    <div class="lp-kpi-meta">
-      ${fmtInt(totals.tickets)} 票 ｜ ${fmtInt(totals.pcs)} 件
-      ${totals.pcsIncomplete ? `<span class="lp-warn">⚠ ${totals.pcsIncomplete} 票件數未填</span>` : ''}
-      ${totals.missingMawb ? `<span class="lp-warn">⚠ ${totals.missingMawb} 票缺 MAWB</span>` : ''}
-      ${overWeight > 0 ? `<span class="lp-warn">⛔ 超重 ${fmt(overWeight, 2)} kg</span>` : ''}
-      ${overCbm > 0 ? `<span class="lp-warn">⛔ 超 CBM ${fmt(overCbm, 3)}</span>` : ''}
-    </div>
-    <div class="lp-kpi-actions">
-      <button type="button" class="lp-btn" data-action="add-selected" ${(hasStockSelection || hasSelection) ? '' : 'disabled'}>▶ 加入所選</button>
-      <button type="button" class="lp-btn" data-action="to-stock" ${hasSelection ? '' : 'disabled'}>◀ 移出到存貨</button>
-      <button type="button" class="lp-btn" data-action="copy-selected" ${hasSelection ? '' : 'disabled'}>⧉ 複製到…</button>
-      <button type="button" class="lp-btn" data-action="suggest">🧮 配艙建議</button>
-      <button type="button" class="lp-btn" data-action="export-xlsx">⬇ Excel</button>
-      <button type="button" class="lp-btn" data-action="print">🖨 列印</button>
-      <button type="button" class="lp-btn" data-action="edit-plan">✎ 編輯 PLAN</button>
-      <button type="button" class="lp-btn" data-action="undo" ${state.undoStack.length ? '' : 'disabled'}>↶ Undo</button>
-    </div>
-    <div class="lp-kpi-hint">體積顯示：<button type="button" class="lp-link${view === 'vol' ? ' is-on' : ''}" data-action="set-view" data-view="vol">VOL / CBM</button> ·
-      <button type="button" class="lp-link${view === 'cuft' ? ' is-on' : ''}" data-action="set-view" data-view="cuft">cu.ft / CBM</button></div>
-  `;
+  ['to-stock', 'copy-selected'].forEach((action) => {
+    setBtnDisabled(document.querySelector(`[data-action="${action}"]`), !hasSelection);
+  });
+  ['suggest', 'export-xlsx', 'edit-plan'].forEach((action) => {
+    setBtnDisabled(document.querySelector(`[data-action="${action}"]`), !isFlight);
+  });
+
+  const view = isFlight && plan.volume_view === 'cuft' ? 'cuft' : 'vol';
+  document.querySelectorAll('[data-action="set-view"]').forEach((node) => {
+    node.classList.toggle('is-on', node.dataset.view === view);
+  });
 }
 
 // ===== PLAN 卡片 =====
@@ -314,7 +306,7 @@ export function renderPlans() {
 
 export function renderAll() {
   renderStock();
-  renderKpi();
+  renderToolbar();
   renderPlans();
   applyPresence();
   updateOnline();
@@ -374,7 +366,7 @@ export function renderStock() {
   const selected = state.selectedStock;
 
   list.innerHTML = items.length
-    ? items.map((item, index) => itemRow(item, state.stock, index, { selectedSet: selected })).join('')
+    ? items.map((item, index) => stockRow(item, state.stock, index, { selectedSet: selected })).join('')
     : `<div class="lp-empty-sm">${all.length ? '沒有符合的存貨' : '存貨是空的（可從 PLAN 移出，或按「找 Booking」加入）'}</div>`;
 
   const countEl = document.getElementById('lp-stock-count');

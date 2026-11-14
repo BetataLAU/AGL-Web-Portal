@@ -257,6 +257,24 @@ async function readSse(url, predicate, timeoutMs = 5000) {
       plan1Detail.body.items.length === 2 && plan1Detail.body.items.some(i => i.split_of_item_id),
       String(plan1Detail.body.items.length));
 
+    // ---- 重複 MAWB：所有 plan 的同一票都要被標記（不能只有複製出來的那列）----
+    const plan1Dup = plan1Detail.body.items.find(i => i.mawb === '176-6985 5240');
+    check('重複 MAWB：來源 plan 的同一票也標 duplicate_mawb',
+      !!plan1Dup && plan1Dup.duplicate_mawb === true &&
+      plan1Dup.duplicate_places.some(p => p.plan_id === plan2.id),
+      JSON.stringify(plan1Dup && plan1Dup.duplicate_places));
+    const plan2AfterCopy = await req('GET', `/api/loading-plan/plans/${plan2.id}`);
+    const plan2Dup = plan2AfterCopy.body.items.find(i => i.mawb === '176-6985 5240');
+    check('重複 MAWB：另一張 plan 的同一票也標 duplicate_mawb',
+      !!plan2Dup && plan2Dup.duplicate_mawb === true &&
+      plan2Dup.duplicate_places.some(p => p.plan_id === plan1.id));
+    check('duplicate_places 使用 Flight / Date / Owner 標籤',
+      plan2Dup.duplicate_places.some(p => p.label === 'EK9859 / 14NOV / SKY DRAGON'),
+      JSON.stringify(plan2Dup.duplicate_places.map(p => p.label)));
+    const plan1Normal = plan1Detail.body.items.find(i => i.mawb === '176-6840 0640');
+    check('未重複的明細 duplicate_mawb = false',
+      !!plan1Normal && plan1Normal.duplicate_mawb === false);
+
     // ---- placements / hover ----
     const placements = await req('GET', '/api/loading-plan/placements?mawb=176-6985%205240');
     check('GET /placements → 2 處', placements.status === 200 && placements.body.data.length === 2, String(placements.status));

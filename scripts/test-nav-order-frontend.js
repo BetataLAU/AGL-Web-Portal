@@ -10,8 +10,8 @@ const vm = require('vm');
 
 const NAV_ITEM_HREFS = [
   '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
-  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization', '#section-loadsim',
-  '#section-uld-weight', '#section-dbviewer', 'users.html'
+  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization', '#section-loading-plan',
+  '#section-loadsim', '#section-uld-weight', '#section-dbviewer', 'users.html'
 ];
 
 // 舊版伺服器實際存下的不完整排序（缺 sli-eli-layout.html）

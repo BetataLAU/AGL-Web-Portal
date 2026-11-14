@@ -474,6 +474,120 @@ db.serialize(() => {
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_loadsim_plans_saved ON loadsim_plans(saved_at DESC)');
 
+  // ===== 執 PLAN（Loading Plan，2026-11）=====
+  // 對應 Yat Loading Plan/AGL執PLAN.xlsx：一個「plan」＝Excel 的一個區塊（航班／板位），
+  // `type='stock'` 則是「存貨」虛擬 plan（未分配的 booking 池，不計入航班 KPI）。
+  // 一票 booking 同一時間只屬於一個 plan（Move = 改 plan_id）；「複製」才會出現
+  // split_of_item_id 並在 KPI 標示「重複 MAWB」。
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loading_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_no TEXT UNIQUE,
+      type TEXT DEFAULT 'flight',
+      day_code TEXT,
+      flight_no TEXT,
+      flight_date TEXT,
+      etd TEXT,
+      owner_company TEXT,
+      contour_code TEXT,
+      contour_text TEXT,
+      contour_qty INTEGER DEFAULT 1,
+      contour_known INTEGER DEFAULT 0,
+      contour_dims TEXT,
+      max_gross_weight REAL,
+      max_cbm REAL,
+      volume_view TEXT DEFAULT 'vol',
+      status TEXT DEFAULT 'draft',
+      sort_order INTEGER DEFAULT 0,
+      version INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_plans_sort ON loading_plans(sort_order, id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_plans_day ON loading_plans(day_code)');
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loading_plan_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id INTEGER NOT NULL,
+      mawb_record_id INTEGER,
+      mawb TEXT,
+      client TEXT,
+      dest TEXT,
+      tag TEXT,
+      pkgs_text TEXT,
+      cartons INTEGER,
+      pallets INTEGER,
+      pcs_total INTEGER,
+      gross_weight REAL DEFAULT 0,
+      volume_weight REAL,
+      volume_source TEXT DEFAULT 'calc',
+      cbm REAL DEFAULT 0,
+      cuft REAL DEFAULT 0,
+      volume_input_unit TEXT DEFAULT 'cbm',
+      cargo_receipt TEXT,
+      remark TEXT,
+      dg_no_power INTEGER DEFAULT 0,
+      dg_966 INTEGER DEFAULT 0,
+      dg_967 INTEGER DEFAULT 0,
+      dg_969 INTEGER DEFAULT 0,
+      dg_970 INTEGER DEFAULT 0,
+      h_af INTEGER DEFAULT 0,
+      h_fs INTEGER DEFAULT 0,
+      h_sc INTEGER DEFAULT 0,
+      h_vol INTEGER DEFAULT 0,
+      h_ctg INTEGER DEFAULT 0,
+      h_xray INTEGER DEFAULT 0,
+      section INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      split_of_item_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(plan_id, mawb_record_id)
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_items_plan ON loading_plan_items(plan_id, section, sort_order)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_items_mawb ON loading_plan_items(mawb)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_items_record ON loading_plan_items(mawb_record_id)');
+
+  // 事件流：多人即時同步（SSE 以 id 補送）＋ 操作回溯
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loading_plan_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id INTEGER,
+      actor_user_id TEXT,
+      actor_display TEXT,
+      action TEXT NOT NULL,
+      payload TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_events_plan ON loading_plan_events(plan_id, id)');
+
+  // 線上狀態（誰在看哪張 plan、正在改哪一格）；斷線即移除，重啟清空
+  db.run(`
+    CREATE TABLE IF NOT EXISTS loading_plan_presence (
+      conn_id TEXT PRIMARY KEY,
+      plan_id INTEGER,
+      user_id TEXT,
+      display TEXT,
+      editing_item_id INTEGER,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_loading_presence_plan ON loading_plan_presence(plan_id)');
+
+  // MAWB 搜尋（執 PLAN 的動態搜尋會用）
+  db.run('CREATE INDEX IF NOT EXISTS idx_mawb_records_mawb ON mawb_records(mawb)');
+
+  // 多人同時操作：WAL（單寫多讀）＋ 寫入鎖等待，避免 SQLITE_BUSY 直接失敗
+  db.get('PRAGMA journal_mode = WAL', (err, row) => {
+    if (err) console.error('[db] 啟用 WAL 失敗（維持預設 journal 模式）:', err.message);
+    else if (row && row.journal_mode) console.log(`[db] journal_mode = ${row.journal_mode}`);
+  });
+  db.run('PRAGMA busy_timeout = 5000');
+
   // uld_weight_sheets 表相容性：補上「磅差警示門檻」（W5）與「比例上下限」（R2）；
   // 既有 DB 用 ALTER TABLE 補，新 DB 由上面 CREATE TABLE 就有
   initTasks.push(new Promise((resolve) => {

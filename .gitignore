@@ -8,8 +8,13 @@ __pycache__/
 *.pyc
 # SQLite database (use npm run db:export / db:import to sync)
 database.db
+# SQLite WAL／SHM（執行時自動產生）
+database.db-wal
+database.db-shm
 # SQLite session store (connect-sqlite3)
 db/sessions.db
+db/sessions.db-wal
+db/sessions.db-shm
 
 # Shipper Role Project - 暫存/產出（不進 repo）
 data/work/
@@ -18,6 +23,9 @@ data/uploads/
 # 不要寫成整包忽略 `data/`，否則 shipper-role-summary-2026.xlsx 之類的範本會無法提交。
 # 版面編輯器（P5）每次儲存／還原自動產生的 fieldmap 備份（可重建，不進 repo）
 data/templates/sli-eli-fieldmap.bak-*.json
+
+# 執 PLAN 原始 Excel（含客戶 booking 資料；只留在本機，不進版控）
+Yat Loading Plan/
 
 # VS Code（個人設定，不進 repo）
 .vscode/

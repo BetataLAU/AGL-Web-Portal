@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/pallet.css">
   <link rel="stylesheet" href="css/loadsim.css">
   <link rel="stylesheet" href="css/uld-weight.css">
+  <link rel="stylesheet" href="css/loading-plan.css">
   <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="css/xls-booking.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -140,6 +141,9 @@
               <a href="#section-palletization" class="nav-item" id="nav-palletization">
                 <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-palletization-lock" title="需要員工權限"></i>
+              </a>
+              <a href="#section-loading-plan" class="nav-item" id="nav-loading-plan">
+                <i class="fa-solid fa-plane-departure"></i> <span>執 PLAN</span>
               </a>
               <a href="#section-loadsim" class="nav-item" id="nav-loadsim">
                 <i class="fa-solid fa-cubes-stacked"></i> <span>模擬裝板系統</span>
@@ -544,6 +548,19 @@
         </div>
       </section>
 
+      <!-- 執 PLAN（Loading Plan）：三欄工作台 -->
+      <section id="section-loading-plan" class="content-section">
+        <div class="card lp-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-plane-departure"></i> 執 PLAN（Loading Plan）</h2>
+              <p class="card-desc">左欄是存貨、右欄是 PLAN。把存貨拖到 PLAN（或 PLAN 之間互拖）即時看 G.W／CBM 是否達標；右鍵可剪下／複製／貼上；雙擊格子可直接改數字。Plan 名稱固定是「Flight# / Flight Date / Owner」。</p>
+            </div>
+          </div>
+          <div id="lp-root"></div>
+        </div>
+      </section>
+
       <!-- 資料庫檢視器頁面 -->
       <section id="section-dbviewer" class="content-section">
         <div class="card dbviewer-card">
@@ -606,6 +623,7 @@
   <script type="module" src="./js/pallet.js"></script>
   <script type="module" src="./js/loadsim.js"></script>
   <script type="module" src="./js/uld-weight.js"></script>
+  <script type="module" src="./js/loading-plan.js"></script>
   <script src="./js/dbviewer.js"></script>
   <script src="./js/xls-booking-state.js"></script>
   <script src="./js/xls-booking-upload.js"></script>

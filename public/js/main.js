@@ -310,6 +310,10 @@ window.initProtectedSections = function (user) {
   if ((role === 'admin' || role === 'staff') && typeof window.setupUldWeightSection === 'function') {
     window.setupUldWeightSection();
   }
+  // 執 PLAN（Loading Plan）：只要登入即可（實名登記；不設角色限制）
+  if (typeof window.setupLoadingPlanSection === 'function') {
+    window.setupLoadingPlanSection();
+  }
 };
 
 // ===== 右下角「回到頁頂」按鈕 =====

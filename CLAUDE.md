@@ -87,9 +87,9 @@
 | `routes/` | 後端 API 模組（見下方分節） |
 | `public/index.html` | 單一頁面 + 頂部工作列／目錄抽屜（含訂單 / Shipper Role / 打板計劃 / 模擬裝板 / ULD 夾重 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
-| `public/css/` | base / layout / **topbar** / components / animations / orders / dbviewer / pallet / **loadsim** / **uld-weight** / xls-booking |
+| `public/css/` | base / layout / **topbar** / components / animations / orders / dbviewer / pallet / **loadsim** / **uld-weight** / **loading-plan** / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / **topbar** / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / xls-booking-* |
+| `public/js/` | theme / animations / **topbar** / skills / contours / chat / orders / main / dbviewer / auth / **pallet/** / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / **loading-plan（含 loading-plan/）** / xls-booking-* |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
 | `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md`、`uld-weight-system.md` |
@@ -112,6 +112,7 @@
 | `/api/uld-weight` | `routes/uld-weight.js` | ULD 夾重系統：bookings（打板計劃帶入）/ sheets CRUD / duplicate / lock / apply（回寫 Booking）/ sync-bookings（補建 Booking，預設 dry_run）/ versions（歷史版本／異動比對）/ import-rcl（RCL 磅單）/ report.pdf（單張 A4 PDF）/ loading-sheet.pdf（單板 Loading Sheet，A4／MAWB·DEST·PCS·WT）/ batch-pdf（多張打包 ZIP，admin+staff，見下） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
 | `/api/loadsim` | `routes/loadsim.js` | 模擬裝板「雲端存檔」：plans CRUD（snapshot JSON ＋ 件數／重量／利用率彙總；admin+staff。模擬裝板本身免登入，存本機不需要這支 API） |
+| `/api/loading-plan` | `routes/loading-plan/index.js` | 執 PLAN：plans CRUD（＋PATCH 表頭）、items 加入／搬移（Move 語意）／就地編輯／搬回存貨／複製／bulk（Excel 貼上）／reorder、`/stock`、`/bookings`＋placements、`/placements`、`/plans/:id/events`、**SSE `/events`**、`/events.json`（輪詢降級）、`/presence`（心跳／軟鎖）。**只需登入、不設角色**（實名登記） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
 
 ## 登入系統（routes/auth/）
@@ -465,6 +466,76 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - **測試**：`npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（幾何/重量/單位 **136 項**）＋`node scripts/test-loadsim-frontend.js`（DOM stub **159 項**，含 3D 投影／命中／視角／縮放、方向鍵螢幕方向、畫布高度與捲動無關、存檔 modal 與「存到本機」）＋`node scripts/test-loadsim-plans.js`（存檔模組 **48 項**：快照還原、本機多份／同名覆蓋／30 份上限／空間不足、匯出匯入 JSON、雲端 API 呼叫、HTML・CSS・路由・資料表靜態檢查）；另 `npm run test:loadsim-api`（`scripts/test-loadsim-api.js`：自帶伺服器＋暫存 DB，驗 401／403／422／404、CRUD、彙總與審計日誌）。Node 會出現 `MODULE_TYPELESS_PACKAGE_JSON` 警告屬正常（專案 package.json 非 ESM）
 - **注意**：`loadsim.js` 的模組層有 `window.setupLoadsimSection` 與 `MutationObserver`，Node 測試需先 stub `window`/`document`/`canvas`（見 `scripts/test-loadsim-frontend.js`）
 
+## 執 PLAN（Loading Plan；Phase 0：計算核心＋資料表＋Excel 匯入）
+
+目標：把 `Yat Loading Plan/AGL執PLAN.xlsx` 的 copy/paste 工作流搬到 Web（多人同時操作、KPI 自動檢核）。
+**已確認的業務規則（2026-11）**：存貨重複 → Move 時從存貨移除；`P` = Pallet、`C`/`CTNS` = Carton；
+owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Flight# / Flight Date / Owner`；實名登記（`requireAuth`）。
+
+- **計算核心**：`public/js/loading-plan/calc.js`（ESM 純函式，前後端共用；比照 `uldweight/calc.js`）
+  - `VOL = CBM ÷ 0.006`、`CBM = VOL × 0.006`；`cu.ft ↔ CBM`（1 cu.ft = `0.028316846592` m³）
+  - `lpParsePkgs()`：`17+7P` → cartons 17 + pallets 7 = 24；`CTNS` → **件數未填**（不亂猜 1）
+  - **合計一律「逐列四捨五入再加總」**：用總 CBM 回算會與 Excel 差 0.9～2.8 kg（DAY 1/DAY 7 已驗證）
+  - `lpPlanLabel()` → `EK9859 / 14NOV / SKY DRAGON`（缺值顯示 `—`）
+  - `lpContourParse()` 容忍表頭雜訊：`1 X Q5 '新BSA` → Q5、`1 X Q5 / /半板` → Q5、`CO-LOAD` → 空代碼
+  - `lpResolveContourCode(code, knownCodes)`：需傳入 `LOADSIM_ULD_SPECS.map(s => s.code)`；**`Q5` 目前不在規格庫**（known=false，UI 顯示「未收錄」TAG）
+- **資料表**：`loading_plans`（一個 Excel 區塊＝一張 flight plan；`type='stock'`＝存貨）、`loading_plan_items`、`loading_plan_events`（SSE 補送）、`loading_plan_presence`
+  - 一票 booking 同時只屬於一個 plan（Move = 改 `plan_id`）；Copy 才寫 `split_of_item_id`（KPI 標「重複 MAWB」）
+  - `UNIQUE(plan_id, mawb_record_id)`；`mawb_record_id` 允許 NULL（Excel 有「有重量但沒 MAWB」的列，仍要計入 KPI）
+  - 已開 `PRAGMA journal_mode = WAL` ＋ `busy_timeout = 5000`（多人同時寫入）
+- **Excel 匯入**：`npm run import:loadingplan`（dry-run）／`...:apply`（寫入）／`--apply --reset`
+  - `DAY 1..7 / OTH`：每個 `FLIGHT NO.:` 表頭＝一張 plan。**表頭佔連續兩列，只取第一列**（否則同一區塊解析兩次）；E = 日碼、H:J = 航班、O:R = CONTOUR、S:X = owner
+  - 「存貨」→ `type='stock'`；**與航班重複的 MAWB 一律從存貨移除**；跨航班重複保留第一處＋列 conflict
+  - **VOL 有原值就保留**（Excel 是人手微調），空白才由 CBM 回算 → 這樣 KPI 才與 Excel SUM 完全一致
+  - 實跑驗收：13 張 plan／71 筆；`EK9859` = 4,304 / 5,934 / 35.62（＝Excel P19/Q19/R19）；存貨 49 → 移除 29 → 保留 20（有 MAWB 15、無 MAWB 5）
+- **測試**：`npm run test:loadingplan`（`scripts/test-loading-plan-calc.js`，**70 項**：換算往返、逐列捨入、PKGS、planLabel、contour 雜訊、KPI；＋ `scripts/test-loading-plan-frontend.js`，**55 項**：HTML/CSS 掛載點、ESM 模組載入、TAG／明細列／卡片渲染、state、API 路徑）
+  ＋ `npm run test:loadingplan-api`（`scripts/test-loading-plan-api.js`，**54 項**：自帶伺服器＋暫存 DB，驗 401、存貨自動建立、plans CRUD、bulk（cu.ft→CBM）、Move（不是複製）、搬回存貨、PATCH（VOL→CBM）、複製 409、placements 標籤、事件流、刪除保護、422/404、audit）
+- **API（Phase 1 完成）**：`routes/loading-plan/index.js`，掛在 `/api/loading-plan`（`requireAuth`，不設角色）
+  - `GET /plans?type=&search=`｜`GET /plans/:id`｜`POST /plans`｜`PATCH /plans/:id`｜`DELETE /plans/:id`（有明細 409、存貨不可刪）
+  - `POST /plans/:id/items`（`mawb_record_ids` 或 `item_ids`；**一票只在一處 → Move**）｜`POST /plans/:id/items/bulk`（貼上，最多 500 列）｜`POST /plans/:id/reorder`
+  - `PATCH /items/:id`（只送 `volume_weight`/`cuft`/`cbm` 其中一個，後端重算另外兩個）｜`DELETE /items/:id`（預設搬回存貨，`?hard=1` 真刪）｜`POST /items/:id/copy`（同 plan 重複 MAWB → 409）
+  - `GET /stock`｜`GET /bookings?search=`（含 `placements`，MAWB 去空白比對）｜`GET /placements?mawb=|mawb_record_id=`｜`GET /plans/:id/events?since=`
+- **UI（Phase 2 完成）**：`public/js/loading-plan.js`（入口）＋ `public/js/loading-plan/{api,state,dom,render,interactions,contour}.js` ＋ `public/css/loading-plan.css`
+  - NAV：`#nav-loading-plan` → `#section-loading-plan`（**不顯示鎖頭、不設角色**；由 `main.js` 的 `initProtectedSections` 初始化）
+  - 三欄：左＝存貨（即時過濾、多選）、中＝KPI（G.W／CBM 進度條、超重紅字、`VOL/CBM` ↔ `cu.ft/CBM` 切換）、右＝PLAN 卡片（`Flight / Date / Owner` ＋ day／contour／owner TAG，展開＝明細表）
+  - 操作：拖曳（存貨→PLAN、PLAN→PLAN、PLAN→存貨，多選整批）、右鍵（剪下／複製／貼上／移出到存貨／刪除／編輯／查看位置）、雙擊格子就地編輯、`Ctrl+Z` Undo（最多 30 步）、`Delete` 移出
+  - **拖曳插入位置**：拖到某一列的**上半／下半** → 插到該列前／後（藍色插入線）；同一張 PLAN 內拖曳＝排序（`public/js/loading-plan/order.js` 的 `lpMoveOrder()` 純函式）；跨 PLAN 先 Move 再 reorder；兩者都可 `Ctrl+Z` 復原
+  - **`Ctrl+V` 貼上 Excel**：監聽掛在 `document`（不必先點輸入框），但只在「執 PLAN」區塊可見、沒有 modal、焦點不在輸入框時才攔截
+  - 複製規則：`Copy` 走 `/items/:id/copy`（同 plan 有其他 plan 已有同一票 → 409，前端提示改用搬移）；Move 一律 `POST /plans/:id/items`
+  - Hover 一票 → `GET /placements` 顯示「也在 EK9859 / 14NOV / SKY DRAGON」（有快取）
+  - Contour TAG：認得 → 綠 chip（點開用 `loadsimGetSpec` 帶尺寸／皮重／上限＋HACTL 圖）；`Q5` 未收錄 → 虛線 chip
+  - 預覽：`npm run preview:loadingplan` → `data/work/loading-plan-preview.html`（假資料、免登入，可先看版面）
+- **即時同步（Phase 3 完成）**：`public/js/loading-plan/realtime.js` ＋ `routes/loading-plan/bus.js`
+  - SSE：`GET /api/loading-plan/events`（`requireAuth`、`X-Accel-Buffering: no`、25 秒心跳、`Last-Event-ID`／`since` 從 `loading_plan_events` 補送）
+  - 寫入時 `logEvent()` 會同時寫 DB 與 `bus.publish()`；前端任何非 presence 事件 → debounce 350ms 重新載入（**打字中會延後**，不中斷輸入）
+  - Presence：`POST /presence`（心跳 15 秒，TTL 40 秒）、`DELETE /presence/:connId`（`beforeunload` 用 `keepalive`）、`GET /presence`
+  - 軟鎖：正在編輯的格子 → 別人看到 `.lp-row.is-locked`（淡黃底＋左側橙線＋`title`「XXX 正在編輯」）；**不硬鎖**
+  - 連線狀態：`● 即時連線`（綠）／`● 重連中…`（紅）／`● 輪詢中`（橙）；SSE 失敗自動退回 5 秒 `/events.json` 輪詢，切回前景立即補一次
+  - 線上人數：工具列 `#lp-online`（`👥 n`，hover 看名字）
+- **測試（Phase 3）**：API 測試再加 SSE（Content-Type、`presence.snapshot`、即時 `item.patch`、`since` 補送、`/events.json`、presence CRUD、未登入 401）；前端測試加 10 項（樣式／啟動／心跳／補送／輪詢降級）
+- **Excel 整合（Phase 4 完成）**：`public/js/loading-plan/paste.js`（TSV 純函式）＋ `GET /api/loading-plan/plans/:id/export.xlsx`（exceljs）
+  - **貼上**：`Ctrl+V` 或右鍵「📥 貼上 Excel（TSV）」→ 先跳預覽 modal（可選目標 plan）→ `POST /plans/:id/items/bulk`
+    - 有標題列（≥2 個認得的欄名）→ 自動對欄（支援 `MAWB NUMBER`／`SHIPPER`／`G.W`／`HAWB`／`備註`…與中文）
+    - 無標題列 → 用 AGL執PLAN 固定順序（CLIENT, MAWB, HAWB, DEST, PKGS, G.W, VOL, CBM, CARGO RECEIPT, REMARK）
+    - 千分位逗號、空白 VOL（不會變 0）、CRLF、空白列都會處理
+  - **複製**：`Ctrl+C` 或右鍵「📤 複製到 Excel」→ TSV（含標題列）可直接貼回 Excel；cu.ft 模式輸出 cu.ft 欄
+  - **匯出**：KPI 面板「⬇ Excel」→ 依原 `AGL執PLAN` 版面（表頭／欄位順序／TOTAL SUM 公式／凍結窗格）
+  - **列印**：KPI 面板「🖨 列印」→ 自動展開全部 plan → `window.print()`（`@media print` 只印 PLAN 明細、隱藏勾選欄）
+- **測試（Phase 4）**：`scripts/test-loading-plan-paste.js`（**29 項**：往返、Excel 直貼、標題別名、中文標題、邊界）；API 測試加匯出（Content-Type／PK 檔頭／未登入 401／404）；前端測試加 10 項
+- **一鍵配艙建議（Phase 5 完成）**：`public/js/loading-plan/suggest.js`（純函式）＋ KPI 面板「🧮 配艙建議」
+  - 流程：輸入上限（G.W／CBM **可只填一個**）→ **TRY 試算**（純前端、不寫 DB）→ 勾選要的票 → 「套用勾選的 n 票」才真的 Move
+  - **固定條件**：勾「保留現有明細」＝只補剩餘容量（不動既有明細）；取消勾選＝套用時先把現有明細移回存貨再放新建議
+  - 模式：平衡（G.W+CBM）／重量優先／CBM 優先；「同 DEST 優先」（固定明細有 DEST 就沿用，否則每個 DEST 試一次取利用率最高）
+  - 單票已超出剩餘容量 → 列 `skipped` 並說明原因；現有明細本身已超標 → 警告且不再建議加入
+  - 同一輸入永遠同一結果（tie-break 用 `id`），方便現場對數
+  - 測試：`scripts/test-loading-plan-suggest.js`（**33 項**：上限、固定條件、已超標、單票過大、無上限、空存貨、三種模式、同 DEST、穩定性／不變性、單維度）
+- **DUMMY 資料**：`npm run seed:loadingplan`（`scripts/seed-loading-plan-demo.js`；`--reset` 可覆蓋）
+  - 3 張 PLAN／20 票 MAWB：`EK9859 / 14NOV / SKY DRAGON`（7 票 7,803 kg＝86.7%）、`EK9845 / 15NOV / SPACE`（7 票 4,401 kg＝48.9%）、`CX840 / 16NOV / SKY DRAGON`（6 票 **8,542 kg 超重 542**，示範紅色警示）
+  - 另加 7 票存貨（3,540 kg／21.79 m³）給「配艙建議」試玩；MAWB 檢查碼全部合法且不重複
+  - 只動 `loading_plan_*`，缺的 `mawb_records` 會補建；已有 plan 時會拒絕（要覆蓋加 `--reset`）；會先清掉 UI 自動建立的「空存貨」
+  - 測試：`scripts/test-loading-plan-demo-data.js`（9 項，防止 fixture 走鐘）
+- **尚未完成（選配）**：版本快照 diff、欄位級 delta patch、平板版面微調、多板（多 ULD）配艙
+
 ## 資料表（db/database.js）
 
 | 表 | 用途 |
@@ -482,8 +553,12 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `uld_weight_sheets` / `uld_weight_ulds` / `uld_weight_items` | ULD 夾重表／收貨單位（ULD 或散貨）／明細（每板 × 每 MAWB 的重量分攤） |
 | `uld_weight_versions` | ULD 夾重表歷史版本（V3：`sheet_id, version_no, action, status, note, snapshot(JSON), summary(JSON), created_by, created_at`；每張表保留最近 30 版） |
 | `loadsim_plans` | 模擬裝板雲端存檔（`name, uld_code, plate_type, item_count, board_count, total_kg, gross_kg, utilization_pct, saved_at, snapshot(JSON), created_by/updated_by`；模擬裝板本身免登入，這張表只給「存到雲端」用） |
+| `loading_plans` | 執 PLAN 的 plan（`type` flight/stock、`day_code`、`flight_no`、`flight_date`、`owner_company`、`contour_code/qty`、`max_gross_weight`、`max_cbm`、`volume_view`、`version`） |
+| `loading_plan_items` | 執 PLAN 明細（MAWB、`cartons`/`pallets`/`pcs_total`、`gross_weight`、`volume_weight`＋`volume_source`、`cbm`/`cuft`、DG 與 handling flags、`split_of_item_id`） |
+| `loading_plan_events` | 執 PLAN 事件流（`plan_id, actor, action, payload(JSON)`；SSE 以 `id` 補送斷線期間的變更） |
+| `loading_plan_presence` | 執 PLAN 線上狀態（`conn_id, plan_id, user_id, display, editing_item_id`；斷線即移除） |
 
-> 共 **17 張表**（`db/database.js` 建表；17 張都有 `id … AUTOINCREMENT`）。
+> 共 **22 張表**（`db/database.js` 建表；18 張原有 ＋ 4 張 `loading_plan_*`，都有 `id … AUTOINCREMENT`）。
 > REMARK：舊 `messages`（GuestBook/Forum）**已完全清除（2026-11-06）**：建表移除、本機 DB 已無此表，
 > `routes/dbviewer.js` 的 `READONLY_COLUMNS`、`public/js/dbviewer.js` 的中文標籤（`messages` 與 3 個孤兒欄位
 > `user_name`／`title`／`parent_id`）皆已刪除。僅 `public/css/components.css` 的 `.forum-*`／`.guestbook-form`
@@ -493,6 +568,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 - **改訂單功能**：後端改 `routes/orders/`，前端改 `public/js/orders.js` + `public/css/orders.css`
 - **改打板計劃**：後端改 `routes/pallet.js`，前端改 `public/js/pallet/*` + `public/css/pallet.css`
+- **改執 PLAN**：計算／換算改 `public/js/loading-plan/calc.js`（前後端共用）；Excel 匯入改 `scripts/import-loading-plan-xlsx.js`；資料表 `loading_plan_*`
 - **改模擬裝板**：前端改 `public/js/loadsim/*` + `public/css/loadsim.css`；板型尺寸/收角改 `loadsim/uld-specs.js`；存檔（本機／雲端／JSON）改 `loadsim/plans.js` + `loadsim/state.js`（快照）＋後端 `routes/loadsim.js`／`loadsim_plans` 表
 - **改網站內容**：`public/index.html`
 - **改頂部工作列／目錄抽屜**：`public/css/topbar.css` + `public/js/topbar.js`（只影響 `body.has-topbar` 的頁面；目錄的 DOM 仍由 `index.html` 的 `.sidebar` 決定，別把 `.nav-empty` 之類的非 `.nav-item` 放進 `<nav class="sidebar-nav">`）

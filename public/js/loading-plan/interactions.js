@@ -55,9 +55,50 @@ function normalizeDateInput(value) {
   return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
 }
 
-function toDateInput(value) {
-  const text = String(value || '').trim();
-  return text ? text.replace(/-/g, '/') : '';
+// <input type="date"> 只接受 yyyy-MM-dd；舊資料可能是 2026/11/14 或帶時間的 ISO 字串，
+// 先截掉時間再正規化，避免日期欄位空白。
+function toDateValue(value) {
+  const text = normalizeDateInput(String(value || '').trim().slice(0, 10));
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+}
+
+// ===== Shift 連續選取（PLAN 明細／存貨共用）=====
+// 例：先 check 第 2 列 → 按住 Shift → 再 check 第 6 列＝第 2~6 列全部選取；
+// 若 Shift 點的目標是「取消勾選」，整段就跟著取消。
+let rangeAnchor = null;      // { planId, itemId }：上一次正常點選的列
+let rangeHandledBox = null;  // Shift 已處理的 checkbox（change 事件不要再 toggle 一次）
+
+function rowsOfList(planId, isStock) {
+  if (isStock) return [...document.querySelectorAll('#lp-stock-list .lp-row[data-item-id]')];
+  const card = document.querySelector(`.lp-plan[data-plan-id="${planId}"]`);
+  return card ? [...card.querySelectorAll('.lp-row[data-item-id]')] : [];
+}
+
+function applyRangeSelection(box, row) {
+  if (!rangeAnchor) return false;
+  const planId = Number(row.dataset.planId);
+  if (rangeAnchor.planId !== planId) return false;
+  const isStock = !!(state.stock && Number(state.stock.id) === planId);
+  const rows = rowsOfList(planId, isStock);
+  const ids = rows.map(r => Number(r.dataset.itemId));
+  const from = ids.indexOf(rangeAnchor.itemId);
+  const to = ids.indexOf(Number(row.dataset.itemId));
+  if (from < 0 || to < 0) return false;
+
+  const start = Math.min(from, to);
+  const end = Math.max(from, to);
+  const set = isStock ? state.selectedStock : state.selectedItems;
+  for (let i = start; i <= end; i += 1) {
+    const targetRow = rows[i];
+    const id = ids[i];
+    if (box.checked) set.add(id); else set.delete(id);
+    targetRow.classList.toggle('is-selected', box.checked);
+    const targetBox = targetRow.querySelector('input[data-action="select-item"]');
+    if (targetBox) targetBox.checked = box.checked;
+  }
+  if (isStock) renderStock();
+  renderToolbar();
+  return true;
 }
 
 // ===== 動作 =====
@@ -120,11 +161,47 @@ async function deletePlan(planId) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-async function setPlanView(planId, view) {
+// ===== 體積顯示切換（VOL/CBM ↔ cu.ft/CBM）=====
+function volumeViewLabel(view) {
+  return view === 'cuft' ? 'cu.ft / CBM' : 'VOL / CBM';
+}
+
+// 有作用中的航班 PLAN → 只切這一張；沒有 → 套用到全部（含存貨），避免「按了沒反應」。
+// 先樂觀更新畫面（立即回饋＋toast），API 失敗才還原。
+async function setVolumeView(view) {
+  const next = view === 'cuft' ? 'cuft' : 'vol';
+  const viewOf = p => (p && p.volume_view === 'cuft' ? 'cuft' : 'vol');
+  const active = activePlan();
+  const onlyActive = !!(active && active.type !== 'stock');
+  const targets = onlyActive
+    ? [active]
+    : (state.plans || []).slice().concat(state.stock ? [state.stock] : []);
+
+  if (!targets.length) { toast('目前沒有 PLAN 可以切換體積顯示', 'warn'); return; }
+
+  const changed = targets.filter(p => p && viewOf(p) !== next);
+  if (!changed.length) {
+    renderToolbar();
+    toast(`體積顯示已是 ${volumeViewLabel(next)}`, 'ok');
+    return;
+  }
+
+  const snapshot = changed.map(p => ({ plan: p, value: p.volume_view }));
+  snapshot.forEach(({ plan }) => { plan.volume_view = next; });
+  renderToolbar();
+  renderPlans();
+  renderStock();
+
   try {
-    await lpApi.patchPlan(planId, { volume_view: view });
+    const ids = [...new Set(changed.map(p => Number(p.id)))];
+    await Promise.all(ids.map(id => lpApi.patchPlan(id, { volume_view: next })));
+    toast(`已切換為 ${volumeViewLabel(next)}`, 'ok');
     await loadAll();
-  } catch (err) { toast(err.message, 'error'); }
+  } catch (err) {
+    snapshot.forEach(({ plan, value }) => { plan.volume_view = value; });
+    renderAll();
+    toast(err.message, 'error');
+  }
 }
 
 async function undo() {
@@ -348,41 +425,110 @@ function openFindBookingModal() {
     ...flightPlans().map(p => `<option value="${p.id}">${esc(planLabel(p))}</option>`)
   ].join('');
   const body = `
-    <div class="lp-form">
-      <label>加入到 <select id="lp-find-target" class="lp-input">${targets}</select></label>
-      <input id="lp-find-search" class="lp-input" placeholder="輸入 MAWB / 客戶 / DEST（即時搜尋）" autocomplete="off" />
+    <div class="lp-find-tabs" role="tablist">
+      <button type="button" class="lp-find-tab is-on" data-find-tab="search" role="tab" aria-selected="true">🔍 找現有 Booking</button>
+      <button type="button" class="lp-find-tab" data-find-tab="new" role="tab" aria-selected="false">＋ 新增 Booking</button>
     </div>
-    <div class="lp-find-results" id="lp-find-results"><div class="lp-empty-sm">輸入關鍵字開始搜尋</div></div>
+    <div id="lp-find-pane-search">
+      <div class="lp-form">
+        <label>加入到 <select id="lp-find-target" class="lp-input">${targets}</select></label>
+        <input id="lp-find-search" class="lp-input" placeholder="輸入 MAWB / 客戶 / DEST（即時搜尋）" autocomplete="off" />
+      </div>
+      <div class="lp-find-results" id="lp-find-results"><div class="lp-empty-sm">輸入關鍵字開始搜尋</div></div>
+      <div class="lp-find-actions">
+        <button type="button" class="lp-btn lp-btn-primary" id="lp-find-add" disabled>▶ 加入所選</button>
+      </div>
+    </div>
+    <div id="lp-find-pane-new" hidden>
+      <div class="lp-form lp-bk-grid">
+        <label>MAWB# *
+          <input id="lp-bk-mawb" class="lp-input" maxlength="40" placeholder="176-0000 0000（或 後補MAWB#）" autocomplete="off" />
+        </label>
+        <label>HAWB#（選填）
+          <input id="lp-bk-hawb" class="lp-input" maxlength="30" placeholder="選填" autocomplete="off" />
+        </label>
+        <label>客戶 CLIENT
+          <input id="lp-bk-client" class="lp-input" maxlength="80" placeholder="客戶名" autocomplete="off" />
+        </label>
+        <label>DEST
+          <input id="lp-bk-dest" class="lp-input" maxlength="10" placeholder="如 DWC / NRT" style="text-transform:uppercase;" autocomplete="off" />
+        </label>
+        <label>PKGS（例 17+7P）
+          <input id="lp-bk-pkgs" class="lp-input" maxlength="40" placeholder="17+7P" autocomplete="off" />
+        </label>
+        <label>G.W（kg）
+          <input id="lp-bk-gw" class="lp-input" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+        </label>
+        <label>CBM
+          <input id="lp-bk-cbm" class="lp-input" inputmode="decimal" placeholder="0.000" autocomplete="off" />
+        </label>
+        <label>TAG（顯示在 PLAN 表）
+          <input id="lp-bk-tag" class="lp-input" maxlength="80" placeholder="例 4 / D6" autocomplete="off" />
+        </label>
+        <label class="lp-bk-full">備註 REMARK
+          <input id="lp-bk-remark" class="lp-input" maxlength="500" placeholder="選填" autocomplete="off" />
+        </label>
+      </div>
+      <p class="lp-muted">建立後會直接加到「存貨」，之後可再拖到 PLAN；同一 MAWB 已有 Booking 時會提示改用「找現有」。</p>
+      <div class="lp-find-error" id="lp-find-error"></div>
+      <div class="lp-find-actions">
+        <button type="button" class="lp-btn lp-btn-primary" id="lp-bk-create">＋ 建立並加入存貨</button>
+      </div>
+    </div>
   `;
   const modal = openModal({
-    title: '找 Booking 加入',
+    title: '找 Booking／新增 Booking',
     body,
     className: 'lp-modal lp-modal-wide',
-    actions: [
-      {
-        label: '加入所選',
-        className: 'pill btn-primary',
-        onClick: async (m) => {
-          const ids = [...document.querySelectorAll('#lp-find-results input[type="checkbox"]:checked')]
-            .map(box => Number(box.value)).filter(Boolean);
-          if (!ids.length) { toast('請先勾選 Booking', 'warn'); return; }
-          const target = document.getElementById('lp-find-target').value;
-          const planId = target === 'stock' ? (state.stock ? state.stock.id : null) : Number(target);
-          if (!planId) { toast('找不到目標', 'error'); return; }
-          m.close();
-          await addRecords(planId, ids);
-        }
-      },
-      { label: '取消', className: 'pill' }
-    ]
+    actions: [{ label: '關閉', className: 'pill' }]
   });
 
   const resultsEl = document.getElementById('lp-find-results');
+  const addBtn = document.getElementById('lp-find-add');
+  const errorEl = document.getElementById('lp-find-error');
+
+  const setError = (message) => {
+    if (!errorEl) return;
+    errorEl.textContent = message || '';
+    errorEl.classList.toggle('is-on', !!message);
+  };
+  const readField = (id) => {
+    const node = document.getElementById(id);
+    return node ? String(node.value || '').trim() : '';
+  };
+  const syncAddBtn = () => {
+    if (!addBtn || !resultsEl) return;
+    const count = resultsEl.querySelectorAll('input[type="checkbox"]:checked').length;
+    addBtn.disabled = count === 0;
+    addBtn.textContent = count ? `▶ 加入所選（${count}）` : '▶ 加入所選';
+  };
+  const switchTab = (name) => {
+    modal.card.querySelectorAll('[data-find-tab]').forEach((btn) => {
+      const on = btn.dataset.findTab === name;
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    const searchPane = document.getElementById('lp-find-pane-search');
+    const newPane = document.getElementById('lp-find-pane-new');
+    if (searchPane) searchPane.hidden = name !== 'search';
+    if (newPane) newPane.hidden = name !== 'new';
+    setError('');
+    const focusNode = document.getElementById(name === 'search' ? 'lp-find-search' : 'lp-bk-mawb');
+    if (focusNode) focusNode.focus();
+  };
+  modal.card.querySelectorAll('[data-find-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.findTab));
+  });
+
   const runSearch = debounce(async () => {
     const input = document.getElementById('lp-find-search');
     if (!input || !resultsEl) return;
     const query = input.value.trim();
-    if (!query) { resultsEl.innerHTML = '<div class="lp-empty-sm">輸入關鍵字開始搜尋</div>'; return; }
+    if (!query) {
+      resultsEl.innerHTML = '<div class="lp-empty-sm">輸入關鍵字開始搜尋</div>';
+      syncAddBtn();
+      return;
+    }
     try {
       const res = await lpApi.bookings(query, 30);
       const rows = res.data || [];
@@ -399,14 +545,83 @@ function openFindBookingModal() {
           </label>
         `;
       }).join('') : '<div class="lp-empty-sm">找不到符合的 Booking</div>';
-    } catch (err) { resultsEl.innerHTML = `<div class="lp-empty-sm">${esc(err.message)}</div>`; }
+      syncAddBtn();
+    } catch (err) {
+      resultsEl.innerHTML = `<div class="lp-empty-sm">搜尋失敗：${esc(err.message)}</div>`;
+      syncAddBtn();
+    }
   }, 200);
 
-  const input = document.getElementById('lp-find-search');
-  if (input) {
-    input.addEventListener('input', runSearch);
-    input.focus();
+  const searchInput = document.getElementById('lp-find-search');
+  if (searchInput) searchInput.addEventListener('input', runSearch);
+  if (resultsEl) resultsEl.addEventListener('change', syncAddBtn);
+
+  if (addBtn) {
+    addBtn.addEventListener('click', async () => {
+      const ids = [...(resultsEl ? resultsEl.querySelectorAll('input[type="checkbox"]:checked') : [])]
+        .map(box => Number(box.value)).filter(Boolean);
+      if (!ids.length) { toast('請先勾選 Booking', 'warn'); return; }
+      const target = document.getElementById('lp-find-target');
+      const planId = target && target.value === 'stock'
+        ? (state.stock ? state.stock.id : null)
+        : Number(target && target.value);
+      if (!planId) { toast('找不到目標', 'error'); return; }
+      modal.close();
+      await addRecords(planId, ids);
+    });
   }
+
+  const createBtn = document.getElementById('lp-bk-create');
+  if (createBtn) {
+    createBtn.addEventListener('click', async () => {
+      const payload = {
+        mawb: readField('lp-bk-mawb'),
+        hawb: readField('lp-bk-hawb'),
+        client: readField('lp-bk-client'),
+        dest: readField('lp-bk-dest'),
+        pkgs_text: readField('lp-bk-pkgs'),
+        gross_weight: readField('lp-bk-gw'),
+        cbm: readField('lp-bk-cbm'),
+        tag: readField('lp-bk-tag'),
+        remark: readField('lp-bk-remark')
+      };
+      if (!payload.mawb) {
+        setError('請輸入 MAWB#（必填）');
+        const node = document.getElementById('lp-bk-mawb');
+        if (node) node.focus();
+        return;
+      }
+      setError('');
+      createBtn.disabled = true;
+      try {
+        await lpApi.createBooking(payload);
+        // 清掉存貨搜尋條件，確保剛建立的貨一定看得到
+        state.searchStock = '';
+        const stockSearch = document.getElementById('lp-stock-search');
+        if (stockSearch) stockSearch.value = '';
+        modal.close();
+        await loadAll();
+        toast(`已新增 Booking ${payload.mawb} 並加入存貨`, 'ok');
+      } catch (err) {
+        if (err && err.status === 409) {
+          // MAWB 已有 Booking → 自動切到「找現有」並帶入搜尋
+          switchTab('search');
+          const node = document.getElementById('lp-find-search');
+          if (node) {
+            node.value = payload.mawb;
+            node.dispatchEvent(new Event('input'));
+          }
+          toast('此 MAWB 已有 Booking，已幫你搜尋；請勾選後按「加入所選」', 'warn');
+        } else {
+          setError(err.message || '建立失敗');
+        }
+      } finally {
+        createBtn.disabled = false;
+      }
+    });
+  }
+
+  switchTab('search');
   return modal;
 }
 
@@ -443,14 +658,69 @@ function hoverErrorRow(target) {
 
 
 // ===== 位置清單（右鍵 → 查看所有位置）=====
+// 點擊清單任一列 → 切到該 PLAN、展開、載入明細，捲到該列並閃爍 highlight。
+let flashTimer = null;
+
+async function jumpToItem(planId, itemId) {
+  const pid = Number(planId);
+  const iid = Number(itemId);
+  if (!pid) return;
+  const isStock = !!(state.stock && Number(state.stock.id) === pid);
+  if (!isStock) {
+    state.expanded.add(pid);
+    setActivePlan(pid);
+    notifyPlanChange();
+    try {
+      await loadDetail(pid);
+    } catch (err) {
+      toast(err.message, 'error');
+      return;
+    }
+  }
+  renderAll();
+  const rowEl = isStock
+    ? document.querySelector(`#lp-stock-list .lp-row[data-item-id="${iid}"]`)
+    : document.querySelector(`.lp-plan[data-plan-id="${pid}"] .lp-row[data-item-id="${iid}"]`);
+  if (!rowEl) { toast('找不到這個位置（可能已被移走）', 'warn'); return; }
+
+  if (typeof rowEl.scrollIntoView === 'function') rowEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  rowEl.classList.remove('is-flash');
+  void rowEl.offsetWidth; // 強制 reflow，讓動畫可以重新開始
+  rowEl.classList.add('is-flash');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => rowEl.classList.remove('is-flash'), 3200);
+
+  const plan = planById(pid);
+  toast(`已跳到 ${plan ? planLabel(plan) : `PLAN #${pid}`}`, 'ok');
+}
+
 async function showPlacements(mawb) {
   try {
     const res = await lpApi.placements({ mawb });
     const list = res.data || [];
     const body = list.length
-      ? `<div class="lp-form">${list.map(p => `<div class="lp-find-row"><span class="lp-find-mawb">${esc(p.label)}</span><span>#${p.section || 1}</span><span>${esc(p.plan_no || '')}</span></div>`).join('')}</div>`
+      ? `<div class="lp-form">${list.map(p => `
+          <div class="lp-find-row lp-place-row" role="button" tabindex="0"
+               data-plan-id="${p.plan_id}" data-item-id="${p.item_id}"
+               title="點擊跳到這個位置（目標列會閃爍標示）">
+            <span class="lp-find-mawb">${esc(p.label)}</span>
+            <span>#${p.section || 1}</span>
+            <span class="lp-find-place">${esc(p.plan_no || '')}</span>
+            <span class="lp-find-go">➜ 前往</span>
+          </div>`).join('')}</div>`
       : '<div class="lp-empty-sm">只在這一個位置</div>';
-    openModal({ title: `位置：${esc(mawb)}`, body, className: 'lp-modal' });
+    const modal = openModal({ title: `位置：${esc(mawb)}`, body, className: 'lp-modal' });
+    modal.card.querySelectorAll('.lp-place-row[data-plan-id]').forEach((rowEl) => {
+      const go = async () => {
+        modal.close();
+        await jumpToItem(rowEl.dataset.planId, rowEl.dataset.itemId);
+      };
+      rowEl.addEventListener('click', go);
+      rowEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+      });
+    });
+    return modal;
   } catch (err) { toast(err.message, 'error'); }
 }
 
@@ -483,8 +753,8 @@ function suggestResultHtml(result, plan) {
     <div class="lp-sg-summary">
       <div><b>建議加入 ${result.added.tickets} 票</b>${result.groupDest ? `（DEST ${esc(result.groupDest)}）` : ''}
         ｜ +${fmt(result.added.gw, 2)} kg ｜ +${fmt(result.added.cbm, 3)} m³</div>
-      <div>加入後：G.W ${fmt(result.totals.gw, 0)}${plan.max_gross_weight ? ` / ${fmt(plan.max_gross_weight, 0)}` : ''}（${pctText(util.gwPct)}）
-        ｜ CBM ${fmt(result.totals.cbm, 2)}${plan.max_cbm ? ` / ${fmt(plan.max_cbm, 2)}` : ''}（${pctText(util.cbmPct)}）
+      <div>加入後：G.W ${fmt(result.totals.gw, 0)}${plan.max_gross_weight ? ` / max ${fmt(plan.max_gross_weight, 0)}` : ''}（${pctText(util.gwPct)}）
+        ｜ CBM ${fmt(result.totals.cbm, 2)}${plan.max_cbm ? ` / max ${fmt(plan.max_cbm, 2)}` : ''}（${pctText(util.cbmPct)}）
         ｜ 平均 ${pctText(util.avgPct)}</div>
       <div class="lp-muted">剩餘：${result.remaining.gw !== null ? `${fmt(result.remaining.gw, 2)} kg` : '—'} ｜ ${result.remaining.cbm !== null ? `${fmt(result.remaining.cbm, 3)} m³` : '—'}</div>
       ${warnings}${skipped}${more}
@@ -695,7 +965,14 @@ async function onClick(e) {
   const actionEl = e.target.closest('[data-action]');
   if (actionEl) {
     const action = actionEl.dataset.action;
-    if (action === 'select-item') return;
+    if (action === 'select-item') {
+      // Shift+點擊 → 從上一次點選的列到這一列「整段」選取／取消
+      if (e.shiftKey && e.target && e.target.type === 'checkbox') {
+        const row = e.target.closest('.lp-row');
+        if (row && applyRangeSelection(e.target, row)) rangeHandledBox = e.target;
+      }
+      return;
+    }
     e.preventDefault();
     switch (action) {
       case 'new-plan': openPlanModal(null); return;
@@ -720,9 +997,7 @@ async function onClick(e) {
       }
       case 'print': await printPlans(); return;
       case 'set-view': {
-        const p = activePlan();
-        if (!p || p.type === 'stock') { toast('請先點選一張 PLAN 再切換體積顯示', 'warn'); return; }
-        await setPlanView(p.id, actionEl.dataset.view);
+        await setVolumeView(actionEl.dataset.view);
         return;
       }
       case 'contour-spec': {
@@ -762,10 +1037,17 @@ function onChange(e) {
   if (!box) return;
   const row = box.closest('.lp-row');
   if (!row) return;
+  // Shift 連續選取已在前面的 click 事件處理完，這裡只吞掉 change，不再 toggle 一次
+  if (rangeHandledBox === box) {
+    rangeHandledBox = null;
+    return;
+  }
   const planId = Number(row.dataset.planId);
   const isStock = state.stock && Number(state.stock.id) === planId;
   toggleSelection(isStock ? 'stock' : 'items', Number(row.dataset.itemId));
   row.classList.toggle('is-selected', box.checked);
+  // 記住這一列，下一次 Shift+點擊才知道要從哪裡開始連選
+  rangeAnchor = { planId, itemId: Number(row.dataset.itemId) };
   if (isStock) renderStock();
   renderToolbar();
 }
@@ -1020,7 +1302,7 @@ export function openPlanModal(plan) {
     <div class="lp-form">
       <label>日碼 <input id="lp-f-day" class="lp-input" placeholder="D7 / OTH" value="${esc(plan && plan.day_code)}" /></label>
       <label>航班 <input id="lp-f-flight" class="lp-input" placeholder="EK9859" value="${esc(plan && plan.flight_no)}" /></label>
-      <label>Flight Date <input id="lp-f-date" class="lp-input" placeholder="2026/11/14" value="${esc(toDateInput(plan && plan.flight_date))}" /></label>
+      <label>Flight Date <input id="lp-f-date" class="lp-input" type="date" value="${esc(toDateValue(plan && plan.flight_date))}" title="點一下可從日曆選日期" /></label>
       <label>ETD <input id="lp-f-etd" class="lp-input" placeholder="22:35" value="${esc(plan && plan.etd)}" /></label>
       <label>Owner <input id="lp-f-owner" class="lp-input" placeholder="SKY DRAGON" value="${esc(plan && plan.owner_company)}" /></label>
       <label>Contour <input id="lp-f-contour" class="lp-input" placeholder="1 X H3" value="${esc(plan && plan.contour_text)}" /></label>

@@ -380,11 +380,48 @@ async function readSse(url, predicate, timeoutMs = 5000) {
     check('匯出不存在的 plan → 404',
       (await fetch(`${BASE}/api/loading-plan/plans/999999/export.xlsx`, { headers: cookie ? { Cookie: cookie } : {} })).status === 404);
 
+    // ---- 新增 Booking（「找 Booking」modal 的「＋ 新增」分頁）----
+    const newBooking = await req('POST', '/api/loading-plan/bookings', {
+      mawb: '176-9999 8888', client: 'NEW CLIENT', dest: 'nrt',
+      hawb: 'h123', pkgs_text: '2C+1P', gross_weight: 345.5, cbm: 1.5, tag: '直單'
+    });
+    check('POST /bookings → 201', newBooking.status === 201, String(newBooking.status));
+    const newRecordId = newBooking.body && newBooking.body.data && newBooking.body.data.id;
+    check('回傳 Booking record id', Number(newRecordId) > 0, String(newRecordId));
+    const stockAfterNew = await req('GET', '/api/loading-plan/stock');
+    const newStockItem = (stockAfterNew.body.items || []).find(i => i.mawb === '176-9999 8888');
+    check('建立後直接加入存貨',
+      !!newStockItem, JSON.stringify((stockAfterNew.body.items || []).map(i => i.mawb)));
+    check('存貨明細連結 mawb_record_id',
+      !!newStockItem && Number(newStockItem.mawb_record_id) === Number(newRecordId));
+    check('PKGS 2C+1P → 件數 3', !!newStockItem && newStockItem.pcs_total === 3,
+      newStockItem && String(newStockItem.pcs_total));
+    check('DEST 自動轉大寫 NRT', !!newStockItem && newStockItem.dest === 'NRT', newStockItem && newStockItem.dest);
+    check('CBM 1.5 → VOL 250（自動換算）',
+      !!newStockItem && near(newStockItem.volume.vol, 250), newStockItem && JSON.stringify(newStockItem.volume));
+    const newRecordHawb = await queryDb("SELECT hawb FROM mawb_records WHERE mawb = '176-9999 8888'");
+    check('Booking 主檔寫入 HAWB（大寫）', newRecordHawb === 'H123', String(newRecordHawb));
+
+    const dupBooking = await req('POST', '/api/loading-plan/bookings', {
+      mawb: '17699998888', client: 'DUP'
+    });
+    check('同號 MAWB（正規化）→ 409', dupBooking.status === 409, String(dupBooking.status));
+    check('409 帶既有 Booking id', !!(dupBooking.body && dupBooking.body.data && dupBooking.body.data.id));
+    check('MAWB 空白 → 422',
+      (await req('POST', '/api/loading-plan/bookings', { mawb: '' })).status === 422);
+    check('未登入 POST /bookings → 401',
+      (await fetch(`${BASE}/api/loading-plan/bookings`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mawb: '176-0000 0001' })
+      })).status === 401);
+    const bookingAudit = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'loading_plan.booking.create'");
+    check('新增 Booking 寫 audit_log', Number(bookingAudit) === 1, String(bookingAudit));
+
     // ---- 審計 ----
     const auditCount = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'loading_plan.%'");
     check('audit_log 有 loading_plan.* 紀錄', Number(auditCount) > 0, String(auditCount));
     const recordCount = await queryDb('SELECT COUNT(*) AS n FROM mawb_records');
-    check('bulk 有建立 mawb_records（2 筆）', Number(recordCount) === 2, String(recordCount));
+    check('bulk 2＋新增 Booking 1 → mawb_records 3 筆', Number(recordCount) === 3, String(recordCount));
 
     console.log(`\n===== 測試結束：${failures === 0 ? '全部通過' : failures + ' 項失敗'} =====`);
   } catch (err) {

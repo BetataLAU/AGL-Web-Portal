@@ -150,6 +150,13 @@ function near(a, b, tolerance = 1e-6) {
   check('6.7 件數未填 1 票', totals.pcsIncomplete === 1, `(${totals.pcsIncomplete})`);
   check('6.8 由 CBM 回算 VOL 的列數 = 1', totals.volCalculated === 1, `(${totals.volCalculated})`);
   check('6.9 缺 MAWB 1 票', totals.missingMawb === 1, `(${totals.missingMawb})`);
+  check('6.9b MAWB 去重後 2 個（空白列不計）', totals.mawbs === 2, `(${totals.mawbs})`);
+  const dupMawbTotals = lpTotals([
+    { mawb: '176-6985 5240' }, { mawb: '17669855240' }, { mawb: '-' }, { mawb: '' }
+  ]);
+  check('6.9c 同一 MAWB 不同格式只算 1 個（空白／- 不計）',
+    dupMawbTotals.mawbs === 1 && dupMawbTotals.missingMawb === 2,
+    `(${dupMawbTotals.mawbs} / ${dupMawbTotals.missingMawb})`);
 
   const kpi = lpKpi(items, { maxGrossWeight: 1500, maxCbm: 8 });
   check('6.10 超重 81kg', near(kpi.overWeight, 81), `(${kpi.overWeight})`);

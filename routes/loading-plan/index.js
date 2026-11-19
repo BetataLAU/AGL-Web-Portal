@@ -669,6 +669,63 @@ router.get('/bookings', handle(async (req, res) => {
   res.json({ data });
 }));
 
+// ===== POST /bookings（新增 Booking Record ＋ 直接加入存貨）=====
+// 執 PLAN 只要登入即可（不經過 /api/pallet 的 admin/staff 限制）。
+// 同一 MAWB 已有 Booking → 409（前端提示改用「找現有 Booking」分頁加入，避免重複主檔）。
+router.post('/bookings', handle(async (req, res) => {
+  const c = await calc();
+  const body = req.body || {};
+  const mawb = c.lpDisplayMawb(str(body.mawb, 40));
+  if (!mawb) return res.status(422).json({ error: 'MAWB# 必填' });
+
+  const key = c.lpNormalizeMawbKey(mawb);
+  // 正規化比對（去掉 '-' 與空白），與 V1 sync-bookings 的 SQL 一致
+  const existing = key
+    ? await dbGet(
+      `SELECT id, mawb FROM mawb_records
+        WHERE REPLACE(REPLACE(UPPER(IFNULL(mawb,'')),'-',''),' ','') = ?
+        ORDER BY id LIMIT 1`,
+      [key]
+    )
+    : null;
+  if (existing) {
+    return res.status(409).json({
+      error: `MAWB ${existing.mawb} 已有 Booking（#${existing.id}），請改用「找現有 Booking」加入`,
+      data: { id: existing.id, mawb: existing.mawb }
+    });
+  }
+
+  const fields = fieldsFromRow(body, c);
+  const stock = await ensureStockPlan();
+
+  const created = await withTransaction(async () => {
+    const recordIns = await dbRun(
+      `INSERT INTO mawb_records (mawb, hawb, client, dest, pcs, gross_weight, volume_weight, cbm, spl, remark)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [fields.mawb, str(body.hawb, 30).toUpperCase(), fields.client || '', fields.dest || '',
+        fields.pcs_total || 0, fields.gross_weight || 0, fields.volume_weight || 0, fields.cbm || 0,
+        str(body.spl, 20).toUpperCase(), fields.remark || '']
+    );
+    fields.mawb_record_id = recordIns.lastID;
+    const next = await nextSortOrder(stock.id);
+    const itemId = await insertItem(stock.id, fields, next);
+    return { recordId: recordIns.lastID, itemId };
+  });
+
+  const detail = await planRowWithTotals(stock);
+  await logEvent(req, stock.id, 'booking.create', {
+    mawb: fields.mawb, item_id: created.itemId, mawb_record_id: created.recordId
+  });
+  writeAuditLog(req, 'loading_plan.booking.create', created.recordId, `新增 Booking ${fields.mawb}（加入存貨）`);
+
+  res.status(201).json({
+    ok: true,
+    data: { id: created.recordId, mawb: fields.mawb, item_id: created.itemId },
+    plan: detail.plan,
+    items: detail.items
+  });
+}));
+
 // ===== GET /placements（同一票 MAWB 在哪些 plan；hover / 拖曳提示用）=====
 router.get('/placements', handle(async (req, res) => {
   const c = await calc();

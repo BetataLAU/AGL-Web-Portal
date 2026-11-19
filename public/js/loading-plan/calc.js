@@ -209,10 +209,13 @@ export function lpScaleCapacity(value, qty) {
 }
 
 // ===== 明細合計（逐列四捨五入再加總）=====
+// mawbs = 去重後的 MAWB 數（正規化比對；空白／'-' 不計，另計 missingMawb）
 export function lpTotals(items) {
   const list = Array.isArray(items) ? items : [];
+  const mawbKeys = new Set();
   const totals = {
     tickets: 0,
+    mawbs: 0,
     grossWeight: 0,
     cbm: 0,
     vol: 0,
@@ -244,9 +247,12 @@ export function lpTotals(items) {
       totals.pcsIncomplete += 1;
     }
 
-    if (!lpNormalizeMawbKey(item.mawb)) totals.missingMawb += 1;
+    const mawbKey = lpNormalizeMawbKey(item.mawb);
+    if (mawbKey) mawbKeys.add(mawbKey);
+    else totals.missingMawb += 1;
   });
 
+  totals.mawbs = mawbKeys.size;
   totals.grossWeight = lpRound(totals.grossWeight, 2);
   totals.cbm = lpRound(totals.cbm, 3);
   totals.vol = lpRound(totals.vol, 2);

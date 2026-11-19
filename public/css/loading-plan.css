@@ -8,7 +8,41 @@
 }
 .lp-toolbar-left, .lp-toolbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .lp-toolbar-right { justify-content: flex-end; }
-.lp-view-toggle { display: inline-flex; align-items: center; gap: 6px; }
+/* 體積顯示切換：兩個選項緊貼在一起（內側直角、只有最外側小圓角）；
+   選中的字級放大、未選中的縮小，一眼看出目前是哪一個 */
+.lp-view-toggle {
+  display: inline-flex; align-items: stretch; gap: 0;
+  border: 1px solid var(--border-color); border-radius: 8px;
+  background: var(--input-bg); box-shadow: inset 0 1px 2px rgba(15, 23, 42, .06);
+  overflow: hidden;
+}
+.lp-view-btn {
+  border: none; background: none; cursor: pointer; white-space: nowrap;
+  padding: 3px 11px; border-radius: 0;
+  font-size: .66rem; font-weight: 700; color: var(--text-muted);
+  transition: background .15s, color .15s, font-size .15s, box-shadow .15s;
+}
+/* 兩個按鈕直接相鄰：第二個用左邊框當作分隔線（不再另外插 span） */
+.lp-view-btn + .lp-view-btn { border-left: 1px solid var(--border-color); }
+.lp-view-btn:first-child { border-radius: 7px 0 0 7px; }
+.lp-view-btn:last-child { border-radius: 0 7px 7px 0; }
+.lp-view-btn:hover:not(.is-on) { color: var(--text-main); }
+.lp-view-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* 選中：字再放大一級（未選中 .66rem → 選中 .78rem） */
+.lp-view-btn.is-on { font-size: .78rem; font-weight: 800; }
+/* 左右不同顏色：VOL/CBM 藍系、cu.ft/CBM 青綠系；選中＝實心＋白字＋陰影（清楚表示已按下） */
+.lp-view-btn[data-view="vol"] { background: rgba(37, 99, 235, .10); color: var(--text-main); }
+.lp-view-btn[data-view="cuft"] { background: rgba(13, 148, 136, .12); color: var(--text-main); }
+.lp-view-btn[data-view="vol"]:hover:not(.is-on) { background: rgba(37, 99, 235, .20); }
+.lp-view-btn[data-view="cuft"]:hover:not(.is-on) { background: rgba(13, 148, 136, .22); }
+.lp-view-btn[data-view="vol"].is-on {
+  background: var(--primary); color: #fff;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, .38), inset 0 0 0 1px rgba(255, 255, 255, .28);
+}
+.lp-view-btn[data-view="cuft"].is-on {
+  background: #0d9488; color: #fff;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, .38), inset 0 0 0 1px rgba(255, 255, 255, .28);
+}
 .lp-input {
   padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color);
   background: var(--input-bg); color: var(--text-main); font-size: 0.82rem; min-width: 0;
@@ -92,8 +126,18 @@
   border: 1px solid var(--border-color); border-radius: 10px; background: var(--card-bg);
   transition: border-color .15s, box-shadow .15s;
 }
-.lp-plan.is-active { border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+/* 作用中（Active）PLAN：外框藍色光暈持續脈動，一眼看出目前正在操作哪一張 */
+.lp-plan.is-active {
+  border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow);
+  animation: lpPlanActivePulse 1.6s ease-in-out infinite;
+}
+@keyframes lpPlanActivePulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--surface-glow); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 55%, transparent); }
+}
 .lp-plan.is-drop { border-color: var(--primary); box-shadow: 0 0 0 3px var(--surface-glow); }
+/* 拖曳中（is-drop）優先顯示插入提示，暫停脈動避免陰影互相蓋掉 */
+.lp-plan.is-active.is-drop { animation: none; }
 .lp-plan-head { padding: 8px 10px; cursor: pointer; }
 .lp-plan-title-row { display: flex; align-items: center; gap: 6px; }
 .lp-plan-title { font-weight: 800; font-size: .84rem; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -113,7 +157,28 @@
   border-bottom: 1px solid var(--border-color);
   cursor: grab;
 }
-.lp-row:not(.lp-row-head):hover { background: var(--bg-muted); }
+/* 列 hover：底色閃爍高亮（MAWB 明細／存貨列／Booking 清單共用；
+   表頭與合計列不算 record，不閃爍。用 rgba 藍底，Light／Dark／Ocean 都看得見） */
+.lp-row:not(.lp-row-head):not(.lp-row-total):hover,
+.lp-find-row:hover,
+.lp-sg-row:hover {
+  background-color: rgba(37, 99, 235, .10);
+  animation: lpRowHoverFlash 1s ease-in-out infinite;
+}
+@keyframes lpRowHoverFlash {
+  0%, 100% { background-color: rgba(37, 99, 235, .10); }
+  50% { background-color: rgba(37, 99, 235, .26); }
+}
+/* 從「📍 查看所有位置」跳轉過來時，目標列閃爍 highlight（約 3 秒後自動停止）。
+   PLAN／存貨的 hover 規則優先權較高，這裡用同等以上的選擇器確保 hover 時仍持續閃爍 */
+.lp-row.is-flash,
+.lp-row.is-flash:hover,
+.lp-plan .lp-row.is-flash:hover,
+.lp-col-stock .lp-row.is-flash:hover { animation: lpRowJumpFlash .7s ease-in-out 4; }
+@keyframes lpRowJumpFlash {
+  0%, 100% { background-color: rgba(250, 204, 21, 0); box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { background-color: rgba(250, 204, 21, .55); box-shadow: inset 0 0 0 2px #f59e0b; }
+}
 .lp-row.is-dup { background: rgba(124, 58, 237, .06); }
 .lp-row.is-selected { background: rgba(37, 99, 235, .07); }
 .lp-row.is-warn { background: rgba(245, 158, 11, .07); }
@@ -123,6 +188,14 @@
 .lp-row.is-drop-below { box-shadow: inset 0 -2px 0 var(--primary); }
 .lp-row.is-dragging { opacity: .45; }
 .lp-row-head { cursor: default; font-size: .68rem; font-weight: 700; color: var(--text-muted); background: var(--bg-muted); position: sticky; top: 0; z-index: 2; }
+/* 明細最下方合計列：總 MAWB（去重）＋ PKGS／G.W／VOL（cu.ft）／CBM，欄位與上方明細逐欄對齊 */
+.lp-row-total {
+  cursor: default; font-weight: 800; font-size: .74rem;
+  background: var(--bg-muted); border-top: 2px solid var(--border-color); border-bottom: none;
+}
+.lp-row-total .lp-c-mawb { color: var(--text-main); }
+.lp-row-total .lp-c-mawb b { color: var(--primary); font-variant-numeric: tabular-nums; }
+.lp-row-total .lp-c-pkgs { font-variant-numeric: tabular-nums; }
 .lp-c-sel { display: flex; align-items: center; justify-content: center; }
 .lp-c-sel input { margin: 0; cursor: pointer; }
 .lp-c-idx { color: var(--text-muted); font-size: .68rem; text-align: right; padding-right: 2px; }
@@ -201,15 +274,39 @@
 .lp-form .lp-input { width: 100%; }
 .lp-modal .app-modal-body { max-height: 64vh; overflow: auto; }
 .lp-modal-wide .app-modal { max-width: 780px; }
+/* 找 Booking／新增 Booking：分頁＋兩欄表單 */
+.lp-find-tabs {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+.lp-find-tab {
+  border: none; background: none; cursor: pointer; white-space: nowrap;
+  padding: 6px 12px; margin-bottom: -1px;
+  font-size: .78rem; font-weight: 700; color: var(--text-muted);
+  border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0;
+}
+.lp-find-tab:hover { color: var(--text-main); background: var(--bg-muted); }
+.lp-find-tab.is-on { color: var(--primary); border-bottom-color: var(--primary); }
+.lp-form.lp-bk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.lp-form.lp-bk-grid .lp-bk-full { grid-column: 1 / -1; }
+.lp-find-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.lp-find-error {
+  display: none; margin-top: 8px; color: #dc2626;
+  font-size: .76rem; font-weight: 700;
+}
+.lp-find-error.is-on { display: block; }
 .lp-find-results { margin-top: 8px; max-height: 46vh; overflow: auto; border-top: 1px solid var(--border-color); }
 .lp-find-row {
   display: grid; grid-template-columns: 22px minmax(120px, 1.2fr) 52px 60px 72px minmax(120px, 1.4fr);
   gap: 6px; align-items: center; padding: 5px 4px;
   border-bottom: 1px solid var(--border-color); font-size: .76rem; color: var(--text-main); cursor: pointer;
 }
-.lp-find-row:hover { background: var(--bg-muted); }
 .lp-find-mawb { font-weight: 700; font-variant-numeric: tabular-nums; }
 .lp-find-place { color: var(--text-muted); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 「📍 查看所有位置」清單：整列可點（跳到該 PLAN 的位置並閃爍） */
+.lp-place-row { grid-template-columns: minmax(150px, 1.6fr) 56px minmax(110px, 1fr) 76px; }
+.lp-place-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.lp-find-go { color: var(--primary); font-weight: 700; font-size: .72rem; text-align: right; white-space: nowrap; }
 .lp-spec img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; }
 .lp-spec-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .78rem; }
 .lp-spec-table th { text-align: left; color: var(--text-muted); font-weight: 600; width: 34%; padding: 4px 6px; vertical-align: top; }
@@ -232,7 +329,6 @@
   gap: 6px; align-items: center; padding: 4px 8px;
   border-bottom: 1px solid var(--border-color); font-size: .76rem; cursor: pointer;
 }
-.lp-sg-row:hover { background: var(--bg-muted); }
 .lp-sg-row:last-child { border-bottom: none; }
 
 /* ===== 響應式 ===== */
@@ -246,6 +342,26 @@
   .lp-col-plans { order: 1; }
 }
 
+/* 使用者系統關閉動畫偏好：列 hover 改靜態藍底、作用中 PLAN 改固定外框 */
+@media (prefers-reduced-motion: reduce) {
+  .lp-row:not(.lp-row-head):not(.lp-row-total):hover,
+  .lp-find-row:hover,
+  .lp-sg-row:hover {
+    animation: none;
+    background-color: rgba(37, 99, 235, .14);
+  }
+  .lp-plan.is-active { animation: none; box-shadow: 0 0 0 2px var(--primary); }
+  /* 跳轉 highlight 改固定琥珀底＋外框，不閃爍 */
+  .lp-row.is-flash,
+  .lp-row.is-flash:hover,
+  .lp-plan .lp-row.is-flash:hover,
+  .lp-col-stock .lp-row.is-flash:hover {
+    animation: none;
+    background-color: rgba(250, 204, 21, .45);
+    box-shadow: inset 0 0 0 2px #f59e0b;
+  }
+}
+
 /* 列印：只印 PLAN 明細 */
 @media print {
   .lp-toolbar, .lp-col-stock, .lp-context-menu, .lp-toast, .lp-online { display: none !important; }
@@ -253,6 +369,7 @@
   .lp-col-plans { border: none; max-height: none; }
   .lp-plan-list { overflow: visible; padding: 0; }
   .lp-plan { break-inside: avoid; border: none; box-shadow: none; }
+  .lp-plan.is-active { animation: none; border: none; box-shadow: none; }
   .lp-plan-body { overflow: visible; }
   .lp-c-sel { display: none; }
   .lp-row { grid-template-columns: 24px minmax(120px, 1.3fr) minmax(70px, .8fr) 52px 70px 76px 76px 70px minmax(80px, 1fr); }

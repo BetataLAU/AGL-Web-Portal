@@ -68,15 +68,32 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   console.log('--- 3. loading-plan.css ---');
   const css = fs.readFileSync(path.join(ROOT, 'public', 'css', 'loading-plan.css'), 'utf8');
   ['.lp-layout', '.lp-col-stock', '.lp-toolbar', '.lp-plan', '.lp-row', '.lp-context-menu',
-    '.lp-tag-contour', '.lp-tag-owner', '.lp-inline-input', '.lp-toast', '@media print',
-    'grid-template-columns: 330px minmax(0, 1fr)'].forEach((token) => {
+    '.lp-tag-contour', '.lp-tag-owner', '.lp-inline-input', '.lp-toast', '.lp-row-total', '@media print',
+    '.lp-view-btn', 'grid-template-columns: 330px minmax(0, 1fr)'].forEach((token) => {
     check(`3.x 有 ${token}`, css.includes(token));
   });
   check('3.11 KPI 欄樣式已移除', !css.includes('.lp-kpi'));
+  check('3.14 體積切換＝緊貼分段按鈕（內側直角、選中字級放大、選中實心）',
+    /\.lp-view-toggle \{[^}]*border-radius: 8px/.test(css) &&
+    /\.lp-view-btn:first-child \{[^}]*border-radius: 7px 0 0 7px/.test(css) &&
+    /\.lp-view-btn:last-child \{[^}]*border-radius: 0 7px 7px 0/.test(css) &&
+    /\.lp-view-btn\.is-on \{[^}]*font-size: \.78rem/.test(css) &&
+    /\.lp-view-btn\[data-view="vol"\]\.is-on \{[^}]*background: var\(--primary\)/.test(css) &&
+    /\.lp-view-btn\[data-view="cuft"\]\.is-on \{[^}]*background: #0d9488/.test(css) &&
+    /\.lp-view-btn\[data-view="vol"\]\.is-on \{[^}]*color: #fff/.test(css));
   check('3.12 存貨列有完整 MAWB／客戶名樣式',
     ['.lp-stock-row', '.lp-stock-mawb', '.lp-stock-client'].every(token => css.includes(token)));
   check('3.13 存貨 MAWB 樣式不截斷',
     /\.lp-stock-mawb \{[^}]*white-space: nowrap/.test(css) && !/\.lp-stock-mawb \{[^}]*text-overflow/.test(css));
+  check('3.15 列 hover 會閃爍高亮（明細／存貨／Booking 清單共用動畫）',
+    /@keyframes lpRowHoverFlash/.test(css) &&
+    /\.lp-row:not\(\.lp-row-head\):not\(\.lp-row-total\):hover,[\s\S]*?\.lp-find-row:hover,[\s\S]*?\.lp-sg-row:hover \{[^}]*animation: lpRowHoverFlash/.test(css));
+  check('3.16 作用中 PLAN 外框會脈動高亮（拖曳時暫停）',
+    /\.lp-plan\.is-active \{[^}]*animation: lpPlanActivePulse/.test(css) &&
+    /@keyframes lpPlanActivePulse/.test(css) &&
+    css.includes('.lp-plan.is-active.is-drop { animation: none; }'));
+  check('3.17 尊重 prefers-reduced-motion（列／PLAN 動畫關閉）',
+    /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none;[\s\S]*?\.lp-plan\.is-active \{ animation: none/.test(css));
 
   // ===== 4. 模組載入（不會碰真 DOM）=====
   console.log('--- 4. ESM 模組 ---');
@@ -171,18 +188,75 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('5.18 已選取 → is-selected + checked',
     selected.includes('is-selected') && selected.includes('checked'));
 
+  // 明細最下方合計列：總 MAWB（去重）＋ PKGS／G.W／VOL（cu.ft）／CBM，欄位與上方對齊
+  const totalRow = render.planTotalRow({
+    totals: {
+      mawbs: 3, tickets: 4, pcs: 31, pcsIncomplete: 1,
+      grossWeight: 1581, vol: 1433, cuft: 304.06, cbm: 8.61
+    }
+  }, 'vol');
+  check('5.18a 合計列有總 MAWB 數', totalRow.includes('lp-row-total') &&
+    totalRow.includes('TOTAL <b>3</b> MAWB'), totalRow.slice(0, 120));
+  check('5.18b 合計列沿用上方欄位 class（逐欄對齊）',
+    ['lp-c-sel', 'lp-c-idx', 'lp-c-mawb', 'lp-c-client', 'lp-c-dest', 'lp-c-pkgs', 'lp-c-gw', 'lp-c-vol', 'lp-c-cbm', 'lp-c-tag']
+      .every(cls => totalRow.includes(`class="${cls}`) || totalRow.includes(` ${cls}`)));
+  check('5.18c PKGS／G.W／VOL／CBM 數值正確（與上方同欄右對齊）',
+    totalRow.includes('>31 <span class="lp-warn"') &&
+    /lp-c-gw num">1,581\.00</.test(totalRow) &&
+    /lp-c-vol num">1,433\.00</.test(totalRow) &&
+    /lp-c-cbm num">8\.610</.test(totalRow));
+  check('5.18d 件數未填 → PKGS 加 ⚠（title 說明不含）',
+    totalRow.includes('筆件數未填'));
+  const totalCuft = render.planTotalRow({
+    totals: { mawbs: 1, tickets: 1, pcs: 1, grossWeight: 1, vol: 166.67, cuft: 35.31, cbm: 1 }
+  }, 'cuft');
+  check('5.18e cu.ft 模式合計列顯示 cu.ft 值', /lp-c-vol num">35\.31</.test(totalCuft));
+
   const card = render.planCard({
     id: 7, type: 'flight', flight_no: 'EK9859', flight_date: '2026-11-14',
     owner_company: 'SKY DRAGON', day_code: 'D7', volume_view: 'vol',
-    totals: { grossWeight: 4304, cbm: 35.62, tickets: 10, pcs: 148, maxGrossWeight: 9000, gwPct: 47.8, overWeight: 0 }
+    totals: { grossWeight: 4304, cbm: 35.62, tickets: 10, mawbs: 9, pcs: 148, maxGrossWeight: 9000, gwPct: 47.8, overWeight: 0 }
   });
   check('5.19 卡片標題 = Flight / Date / Owner', card.includes('EK9859 / 14NOV / SKY DRAGON'));
   check('5.20 卡片有 KPI 與展開箭頭',
-    card.includes('4,304 / 9,000') && card.includes('data-action="toggle-plan"'));
+    card.includes('4,304 / max 9,000') && card.includes('data-action="toggle-plan"'));
+  const cardLimits = render.planCard({
+    id: 9, type: 'flight', flight_no: 'EK1', owner_company: 'X', volume_view: 'vol',
+    totals: {
+      grossWeight: 8229, maxGrossWeight: 9000, gwPct: 91.4,
+      cbm: 49.78, maxCbm: 65, cbmPct: 76.6, tickets: 10, pcs: 62
+    }
+  });
+  check('5.20b KPI 上限前有 "max"（G.W／CBM）',
+    cardLimits.includes('8,229 / max 9,000 kg') && cardLimits.includes('49.78 / max 65.00 m³'));
+  const cardCuft = render.planCard({
+    id: 10, type: 'flight', flight_no: 'EK1', owner_company: 'X', volume_view: 'cuft',
+    totals: {
+      grossWeight: 8229, maxGrossWeight: 9000, gwPct: 91.4,
+      cbm: 49.78, maxCbm: 65, cbmPct: 76.6, cuft: 1757.77, tickets: 10, pcs: 62
+    }
+  });
+  check('5.20c cu.ft 模式 KPI 上限也標 "max"（跟隨檢視單位）',
+    cardCuft.includes('1,757.77 / max ') && cardCuft.includes('cu.ft') && !cardCuft.includes('m³'));
   check('5.21 超重時卡片標紅', render.planCard({
     id: 8, type: 'flight', flight_no: 'EK1', owner_company: 'X', volume_view: 'vol',
     totals: { grossWeight: 9500, maxGrossWeight: 9000, overWeight: 500, gwPct: 105.6, cbm: 1, tickets: 1, pcs: 1 }
   }).includes('is-over'));
+
+  stateMod.state.expanded.add(7);
+  stateMod.state.details.set(7, [item]);
+  const cardExpanded = render.planCard({
+    id: 7, type: 'flight', flight_no: 'EK9859', flight_date: '2026-11-14',
+    owner_company: 'SKY DRAGON', day_code: 'D7', volume_view: 'vol',
+    totals: { grossWeight: 4304, cbm: 35.62, tickets: 10, mawbs: 9, pcs: 148, vol: 5934, maxGrossWeight: 9000, gwPct: 47.8, overWeight: 0 }
+  });
+  check('5.21b 展開後最下方（最後一個 MAWB 之後）有合計列',
+    cardExpanded.includes('lp-row-total') &&
+    cardExpanded.indexOf('lp-row-total') > cardExpanded.lastIndexOf('data-item-id=') &&
+    cardExpanded.includes('TOTAL <b>9</b> MAWB') &&
+    cardExpanded.includes('5,934.00'));
+  stateMod.state.expanded.delete(7);
+  stateMod.state.details.delete(7);
 
   const stockPlan = { id: 30, type: 'stock', volume_view: 'vol' };
   const srow = render.stockRow(item, stockPlan, 0, { selectedSet: new Set() });
@@ -225,6 +299,8 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('7.2 /stock 路徑', calledUrl === '/api/loading-plan/stock', calledUrl);
   await api.lpApi.copyItem(9, 3);
   check('7.3 copy 走 /items/9/copy', calledUrl === '/api/loading-plan/items/9/copy', calledUrl);
+  await api.lpApi.createBooking({ mawb: '176-9999 8888' });
+  check('7.4 新增 Booking 走 POST /bookings', calledUrl === '/api/loading-plan/bookings', calledUrl);
 
   // ===== 8. 即時同步（SSE / presence）=====
   console.log('--- 8. 即時同步 ---');
@@ -247,6 +323,10 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('8.12 操作按鈕移到頂部公用工具列',
     ['add-selected', 'to-stock', 'copy-selected', 'suggest', 'export-xlsx', 'print', 'edit-plan']
       .every(action => layoutHtml.includes(`data-action="${action}"`)));
+  check('8.12b 體積切換＝兩個緊貼按鈕（無分隔線 span＋aria-pressed）',
+    (layoutHtml.match(/class="lp-view-btn/g) || []).length === 2 &&
+    !layoutHtml.includes('lp-view-sep') &&
+    (layoutHtml.match(/aria-pressed=/g) || []).length === 2);
   check('8.13 hover 只在錯誤列查詢錯誤訊息', interactionsSrc.includes('data-hover-error') && !interactionsSrc.includes('data-hover-mawb'));
 
   // ===== 9. Excel 貼上／匯出／列印 =====
@@ -300,6 +380,46 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('11.10 order.js 可載入', typeof orderMod.lpMoveOrder === 'function');
   check('11.11 插入計算正確', JSON.stringify(orderMod.lpMoveOrder([1, 2, 3], [9], 2, false)) === JSON.stringify([1, 2, 9, 3]),
     JSON.stringify(orderMod.lpMoveOrder([1, 2, 3], [9], 2, false)));
+
+  // ===== 12. 找 Booking／新增 Booking =====
+  console.log('--- 12. 找 Booking／新增 Booking ---');
+  check('12.1 「找 Booking」modal 有兩個分頁', interactionsSrc.includes('data-find-tab="search"') && interactionsSrc.includes('data-find-tab="new"'));
+  check('12.2 新增分頁有建立後加入存貨的按鈕', interactionsSrc.includes('lp-bk-create') && interactionsSrc.includes('建立並加入存貨'));
+  check('12.3 新增表單欄位齊全（MAWB／HAWB／CLIENT／DEST／PKGS／G.W／CBM／TAG／備註）',
+    ['lp-bk-mawb', 'lp-bk-hawb', 'lp-bk-client', 'lp-bk-dest', 'lp-bk-pkgs',
+      'lp-bk-gw', 'lp-bk-cbm', 'lp-bk-tag', 'lp-bk-remark']
+      .every(id => interactionsSrc.includes(`id="${id}"`)));
+  check('12.4 MAWB 已存在（409）會自動切到「找現有」並帶入搜尋',
+    interactionsSrc.includes('err.status === 409') && interactionsSrc.includes("switchTab('search')"));
+  check('12.5 CSS 有分頁／兩欄表單／錯誤訊息樣式',
+    ['.lp-find-tab', '.lp-form.lp-bk-grid', '.lp-find-error'].every(token => css.includes(token)));
+  check('12.6 apiFetch 會帶 HTTP 狀態碼（供 409 分支使用）',
+    fs.readFileSync(path.join(ROOT, 'public', 'js', 'utils', 'api.js'), 'utf8').includes('error.status = res.status'));
+
+  // ===== 13. 連續選取 / 日期選擇 / 位置跳轉 =====
+  console.log('--- 13. 操作增強 ---');
+  check('13.1 明細／存貨 checkbox 有 Shift 連續選取提示',
+    render.itemRow(item, plan, 0, { selectedSet: new Set() }).includes('Shift+點擊可連續選取') &&
+    render.stockRow(item, stockPlan, 0, { selectedSet: new Set([item.id]) })
+      .includes('Shift+點擊可連續選取'));
+  check('13.2 Shift+點擊 → 整段選取（記住 anchor、避免 change 重複 toggle）',
+    interactionsSrc.includes('applyRangeSelection') && interactionsSrc.includes('e.shiftKey') &&
+    interactionsSrc.includes('rangeAnchor') && interactionsSrc.includes('rangeHandledBox'));
+  check('13.3 連續選取會同步勾選狀態與 is-selected 樣式',
+    /targetBox\.checked = box\.checked/.test(interactionsSrc) &&
+    /classList\.toggle\('is-selected', box\.checked\)/.test(interactionsSrc));
+  check('13.4 Flight Date 改用 <input type="date">（點擊開日曆）',
+    /id="lp-f-date"[^>]*type="date"/.test(interactionsSrc) &&
+    interactionsSrc.includes('toDateValue') && !interactionsSrc.includes('toDateInput'));
+  check('13.5 「查看所有位置」清單可點擊跳轉（保留 lp-find-row class）',
+    interactionsSrc.includes('lp-find-row lp-place-row') &&
+    interactionsSrc.includes('jumpToItem') && interactionsSrc.includes('data-plan-id="${p.plan_id}"'));
+  check('13.6 跳轉會展開 PLAN、載入明細並捲到該列',
+    /state\.expanded\.add\(pid\)/.test(interactionsSrc) &&
+    /loadDetail\(pid\)/.test(interactionsSrc) && interactionsSrc.includes('scrollIntoView'));
+  check('13.7 目標列有閃爍 highlight（含 reduced-motion 靜態版）',
+    css.includes('.lp-row.is-flash') && css.includes('@keyframes lpRowJumpFlash') &&
+    /prefers-reduced-motion[\s\S]*?\.lp-row\.is-flash/.test(css));
 
   console.log(`\n===== 測試結束：${pass} 通過 / ${fail} 失敗 =====`);
   process.exitCode = fail ? 1 : 0;

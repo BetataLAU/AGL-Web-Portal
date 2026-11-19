@@ -1,6 +1,6 @@
 // ===== 執 PLAN：畫面渲染（存貨＋PLANS 雙欄工作台）=====
 import { LOADSIM_ULD_SPECS } from '../loadsim/uld-specs.js';
-import { lpResolveContourCode } from './calc.js';
+import { lpResolveContourCode, lpCuftFromCbm } from './calc.js';
 import { state, planLabel, itemsOf, flightPlans, activePlan, isExpanded, fmt, fmtInt } from './state.js';
 import { esc, ownerColor } from './dom.js';
 
@@ -23,9 +23,11 @@ export function layoutHtml() {
       <div class="lp-toolbar-right">
         <span class="lp-online" id="lp-online" title="線上使用者"></span>
         <span class="lp-conn" id="lp-conn" title="即時同步狀態">● 未連線</span>
-        <span class="lp-view-toggle">
-          <button type="button" class="lp-link is-on" data-action="set-view" data-view="vol">VOL / CBM</button>
-          <button type="button" class="lp-link" data-action="set-view" data-view="cuft">cu.ft / CBM</button>
+        <span class="lp-view-toggle" role="group" aria-label="體積顯示切換">
+          <button type="button" class="lp-view-btn is-on" data-action="set-view" data-view="vol"
+                  aria-pressed="true" title="體積顯示 VOL（體積重 kg）／CBM（m³）">VOL / CBM</button>
+          <button type="button" class="lp-view-btn" data-action="set-view" data-view="cuft"
+                  aria-pressed="false" title="體積顯示 cu.ft（ft³）／CBM（m³）">cu.ft / CBM</button>
         </span>
         <button type="button" class="lp-btn" data-action="add-selected" id="lp-btn-add-selected" disabled>▶ 加入所選</button>
         <button type="button" class="lp-btn" data-action="to-stock" disabled>◀ 移出到存貨</button>
@@ -155,7 +157,7 @@ export function itemRow(item, plan, index, options = {}) {
     <div class="lp-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
          draggable="true" data-item-id="${item.id}" data-plan-id="${plan.id}"
          ${issues.length ? `data-hover-error="${esc(issues.join(' ｜ '))}"` : ''}>
-      <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} /></span>
+      <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} title="Shift+點擊可連續選取" /></span>
       <span class="lp-c-idx">${index + 1}</span>
       <span class="lp-c-mawb" data-field="mawb" title="雙擊編輯">
         ${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? `<span class="lp-dup" title="${esc(duplicateMessage(item))}">⧉</span>` : ''}
@@ -167,6 +169,30 @@ export function itemRow(item, plan, index, options = {}) {
       <span class="lp-c-vol num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${fmt(volValue, 2)}</span>
       <span class="lp-c-cbm num" data-field="cbm">${fmt(item.cbm, 3)}</span>
       <span class="lp-c-tag" data-field="tag">${esc(item.tag || '')}${flagTags(item)}</span>
+    </div>
+  `;
+}
+
+// ===== PLAN 明細合計列（固定在最下方；欄位與上方明細逐欄對齊）=====
+// MAWB 欄＝去重後的 MAWB 數；PKGS／G.W／VOL（或 cu.ft）／CBM 依上方同欄對齊方式輸出
+export function planTotalRow(plan, view) {
+  const t = (plan && plan.totals) || {};
+  const mode = view === 'cuft' ? 'cuft' : 'vol';
+  const volValue = mode === 'cuft' ? t.cuft : t.vol;
+  const pcsIncomplete = Number(t.pcsIncomplete || 0);
+  const title = `明細 ${fmtInt(t.tickets)} 筆${pcsIncomplete ? `；${fmtInt(pcsIncomplete)} 筆件數未填（PKGS 合計不含）` : ''}`;
+  return `
+    <div class="lp-row lp-row-total" title="${esc(title)}">
+      <span class="lp-c-sel"></span>
+      <span class="lp-c-idx"></span>
+      <span class="lp-c-mawb">TOTAL <b>${fmtInt(t.mawbs)}</b> MAWB</span>
+      <span class="lp-c-client"></span>
+      <span class="lp-c-dest"></span>
+      <span class="lp-c-pkgs">${fmtInt(t.pcs)}${pcsIncomplete ? ' <span class="lp-warn">⚠</span>' : ''}</span>
+      <span class="lp-c-gw num">${fmt(t.grossWeight, 2)}</span>
+      <span class="lp-c-vol num">${fmt(volValue, 2)}</span>
+      <span class="lp-c-cbm num">${fmt(t.cbm, 3)}</span>
+      <span class="lp-c-tag"></span>
     </div>
   `;
 }
@@ -185,7 +211,7 @@ export function stockRow(item, plan, index, options = {}) {
     <div class="lp-row lp-stock-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
          draggable="true" data-item-id="${item.id}" data-plan-id="${plan ? plan.id : 0}"
          ${issues.length ? `data-hover-error="${esc(issues.join(' ｜ '))}"` : ''}>
-      <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} /></span>
+      <span class="lp-c-sel"><input type="checkbox" data-action="select-item" ${selected ? 'checked' : ''} title="Shift+點擊可連續選取" /></span>
       <span class="lp-c-idx">${index + 1}</span>
       <div class="lp-stock-body">
         <div class="lp-stock-line">
@@ -231,7 +257,9 @@ export function renderToolbar() {
 
   const view = isFlight && plan.volume_view === 'cuft' ? 'cuft' : 'vol';
   document.querySelectorAll('[data-action="set-view"]').forEach((node) => {
-    node.classList.toggle('is-on', node.dataset.view === view);
+    const on = node.dataset.view === view;
+    node.classList.toggle('is-on', on);
+    node.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
 }
 
@@ -247,13 +275,24 @@ function miniKpi(plan) {
   const t = plan.totals || {};
   const overW = Number(t.overWeight || 0);
   const overC = Number(t.overCbm || 0);
+  // 上限一律標 "max"，避免和「目前用量」混淆（8,229 / max 9,000 kg）
   const gwText = t.maxGrossWeight
-    ? `${fmt(t.grossWeight, 0)} / ${fmt(t.maxGrossWeight, 0)}`
+    ? `${fmt(t.grossWeight, 0)} / max ${fmt(t.maxGrossWeight, 0)}`
     : fmt(t.grossWeight, 0);
-  const cbmText = t.maxCbm ? `${fmt(t.cbm, 2)} / ${fmt(t.maxCbm, 2)}` : fmt(t.cbm, 2);
+  // 體積 KPI 跟著檢視單位走：VOL/CBM 模式＝CBM（m³）；cu.ft/CBM 模式＝cu.ft（ft³）
+  const useCuft = plan.volume_view === 'cuft';
+  const volNow = useCuft ? t.cuft : t.cbm;
+  const volMax = useCuft ? (t.maxCbm ? lpCuftFromCbm(t.maxCbm) : null) : t.maxCbm;
+  const volUnit = useCuft ? 'cu.ft' : 'm³';
+  const cbmText = volMax
+    ? `${fmt(volNow, 2)} / max ${fmt(volMax, 2)} ${volUnit}`
+    : `${fmt(volNow, 2)} ${volUnit}`;
+  const overVolText = overC
+    ? (useCuft ? ` ⛔+${fmt(lpCuftFromCbm(overC), 2)}` : ` ⛔+${fmt(overC, 2)}`)
+    : '';
   return `
-    <span class="lp-mini${overW ? ' is-over' : (Number(t.gwPct) >= 90 ? ' is-warn' : '')}" title="G.W">${gwText} kg${overW ? ` ⛔+${fmt(overW, 0)}` : ''}</span>
-    <span class="lp-mini${overC ? ' is-over' : (Number(t.cbmPct) >= 90 ? ' is-warn' : '')}" title="CBM">${cbmText} m³${overC ? ` ⛔+${fmt(overC, 2)}` : ''}</span>
+    <span class="lp-mini${overW ? ' is-over' : (Number(t.gwPct) >= 90 ? ' is-warn' : '')}" title="G.W（目前 / max 上限）">${gwText} kg${overW ? ` ⛔+${fmt(overW, 0)}` : ''}</span>
+    <span class="lp-mini${overC ? ' is-over' : (Number(t.cbmPct) >= 90 ? ' is-warn' : '')}" title="${useCuft ? 'cu.ft（目前 / max 上限）' : 'CBM（目前 / max 上限）'}">${cbmText}${overVolText}</span>
     <span class="lp-mini">${fmtInt(t.tickets)} 票 ｜ ${fmtInt(t.pcs)} 件</span>
     ${t.pcsIncomplete ? `<span class="lp-mini is-warn" title="件數未填">⚠ ${t.pcsIncomplete}</span>` : ''}
   `;
@@ -278,6 +317,7 @@ export function planCard(plan) {
         <div class="lp-plan-body">
           ${rowHead(view)}
           ${items.length ? items.map((item, index) => itemRow(item, plan, index)).join('') : '<div class="lp-empty-sm">沒有明細（把左欄存貨拖進來）</div>'}
+          ${items.length ? planTotalRow(plan, view) : ''}
         </div>
       ` : ''}
     </article>

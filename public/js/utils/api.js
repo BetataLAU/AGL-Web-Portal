@@ -44,7 +44,9 @@ async function apiFetch(url, options = {}) {
     } catch (e) { /* ignore */ }
     // 後端無回傳 JSON（如 Express 預設 HTML error page）→ 附加 HTTP 狀態碼
     if (!errorMsg) errorMsg = `請求失敗（HTTP ${res.status}）`;
-    throw new Error(errorMsg);
+    const error = new Error(errorMsg);
+    error.status = res.status;   // 讓呼叫端可依狀態碼分支（例如 409 改用其他流程）
+    throw error;
   }
   return res.json();
 }

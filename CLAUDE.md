@@ -488,22 +488,29 @@ owner（SKY DRAGON／SPACE…）= 板位實際 owner；Plan 識別名固定 `Fli
   - 「存貨」→ `type='stock'`；**與航班重複的 MAWB 一律從存貨移除**；跨航班重複保留第一處＋列 conflict
   - **VOL 有原值就保留**（Excel 是人手微調），空白才由 CBM 回算 → 這樣 KPI 才與 Excel SUM 完全一致
   - 實跑驗收：13 張 plan／71 筆；`EK9859` = 4,304 / 5,934 / 35.62（＝Excel P19/Q19/R19）；存貨 49 → 移除 29 → 保留 20（有 MAWB 15、無 MAWB 5）
-- **測試**：`npm run test:loadingplan`（`scripts/test-loading-plan-calc.js`，**70 項**：換算往返、逐列捨入、PKGS、planLabel、contour 雜訊、KPI；＋ `scripts/test-loading-plan-frontend.js`，**107 項**：HTML/CSS 掛載點、ESM 模組載入、TAG／明細列／存貨列／卡片渲染、state、API 路徑）
+- **測試**：`npm run test:loadingplan`（`scripts/test-loading-plan-calc.js`，**72 項**：換算往返、逐列捨入、PKGS、planLabel、contour 雜訊、KPI／MAWB 去重；＋ `scripts/test-loading-plan-frontend.js`，**130 項**：HTML/CSS 掛載點、ESM 模組載入、TAG／明細列／存貨列／卡片與合計列渲染、hover 閃爍／Active PLAN 脈動、state、API 路徑）
   ＋ `npm run test:loadingplan-api`（`scripts/test-loading-plan-api.js`，**73 項**：自帶伺服器＋暫存 DB，驗 401、存貨自動建立、plans CRUD、bulk（cu.ft→CBM）、Move（不是複製）、搬回存貨、PATCH（VOL→CBM）、複製 409、跨 PLAN 重複 MAWB 標記、placements 標籤、事件流、刪除保護、422/404、audit）
 - **API（Phase 1 完成）**：`routes/loading-plan/index.js`，掛在 `/api/loading-plan`（`requireAuth`，不設角色）
   - `GET /plans?type=&search=`｜`GET /plans/:id`｜`POST /plans`｜`PATCH /plans/:id`｜`DELETE /plans/:id`（有明細 409、存貨不可刪）
   - `POST /plans/:id/items`（`mawb_record_ids` 或 `item_ids`；**一票只在一處 → Move**）｜`POST /plans/:id/items/bulk`（貼上，最多 500 列）｜`POST /plans/:id/reorder`
   - `PATCH /items/:id`（只送 `volume_weight`/`cuft`/`cbm` 其中一個，後端重算另外兩個）｜`DELETE /items/:id`（預設搬回存貨，`?hard=1` 真刪）｜`POST /items/:id/copy`（同 plan 重複 MAWB → 409）
-  - `GET /stock`｜`GET /bookings?search=`（含 `placements`，MAWB 去空白比對）｜`GET /placements?mawb=|mawb_record_id=`｜`GET /plans/:id/events?since=`
+  - `GET /stock`｜`GET /bookings?search=`（含 `placements`，MAWB 去空白比對）｜`POST /bookings`（**新增 Booking Record 並直接加入存貨**；登入即可，MAWB 正規化重複 → 409）｜`GET /placements?mawb=|mawb_record_id=`｜`GET /plans/:id/events?since=`
 - **UI（Phase 2 完成）**：`public/js/loading-plan.js`（入口）＋ `public/js/loading-plan/{api,state,dom,render,interactions,contour}.js` ＋ `public/css/loading-plan.css`
   - NAV：`#nav-loading-plan` → `#section-loading-plan`（**不顯示鎖頭、不設角色**；由 `main.js` 的 `initProtectedSections` 初始化）
   - 雙欄：左＝存貨（即時過濾、多選；**兩行式列：完整 MAWB／客戶名，第二行 DEST／PKGS／G.W／VOL，不用省略號截斷**）、右＝PLAN 卡片（`Flight / Date / Owner` ＋ day／contour／owner TAG，展開＝明細表）；**所有操作按鈕集中在頂部公用工具列**（加入所選／移出到存貨／複製到…／配艙建議／Excel／列印／編輯 PLAN／Undo／重新整理／新 PLAN，另含 `VOL/CBM` ↔ `cu.ft/CBM` 切換）
   - 操作：拖曳（存貨→PLAN、PLAN→PLAN、PLAN→存貨，多選整批）、右鍵（剪下／複製／貼上／移出到存貨／刪除／編輯／查看位置）、雙擊格子就地編輯、`Ctrl+Z` Undo（最多 30 步）、`Delete` 移出
+  - **checkbox 連續選取**：先 check 第 2 列 → 按住 `Shift` → 再 check 第 6 列＝第 2~6 列整段選取（取消勾選則整段取消）；同一張 PLAN 或同一份存貨清單內有效（`applyRangeSelection()`＋`rangeAnchor`）
+  - **編輯 PLAN 的 Flight Date＝`<input type="date">`**（點一下即開系統日曆；舊資料 `2026/11/14` 會先正規化成 `2026-11-14`）
   - **拖曳插入位置**：拖到某一列的**上半／下半** → 插到該列前／後（藍色插入線）；同一張 PLAN 內拖曳＝排序（`public/js/loading-plan/order.js` 的 `lpMoveOrder()` 純函式）；跨 PLAN 先 Move 再 reorder；兩者都可 `Ctrl+Z` 復原
   - **`Ctrl+V` 貼上 Excel**：監聽掛在 `document`（不必先點輸入框），但只在「執 PLAN」區塊可見、沒有 modal、焦點不在輸入框時才攔截
   - 複製規則：`Copy` 走 `/items/:id/copy`（同 plan 有其他 plan 已有同一票 → 409，前端提示改用搬移）；Move 一律 `POST /plans/:id/items`
-  - 表頭 G.W／VOL／CBM 與下方數值同為右對齊（`num` class）；明細列 hover 只做底色 highlight
-  - Hover 規則：**正常列不出任何 tooltip**；只有該列有錯誤（缺 MAWB／重複 MAWB／件數未填，`data-hover-error`）才顯示錯誤訊息。**重複 MAWB 是全域判定**：跨 PLAN／同 PLAN 只要同一正規化 MAWB 出現 >1 次，所有相關列都會 `is-dup` 上色（紫字＋⧉）並在 hover 列出其他位置（例如「重複 MAWB（也在 EK9845 / — / SKY DRAGON）」）。要查「同一票的所有位置」也可用右鍵「📍 查看所有位置」
+  - 表頭 G.W／VOL／CBM 與下方數值同為右對齊（`num` class）；**明細列／存貨列／找 Booking 清單 hover 會底色閃爍高亮**（`@keyframes lpRowHoverFlash`，1 秒循環、`rgba(37,99,235,.10)↔.26`；表頭列與合計列不算 record → 不閃）；`prefers-reduced-motion` 時改靜態藍底
+  - **作用中（Active）PLAN 的藍框會脈動**（`.lp-plan.is-active` ＋ `@keyframes lpPlanActivePulse`，1.6 秒循環、外光暈 2px ↔ 4px）；拖曳中（`is-drop`）暫停避免蓋掉插入提示，列印時關閉
+  - **明細最下方固定一列合計**（`.lp-row-total`，在最後一個 MAWB 之後）：MAWB 欄＝`TOTAL n MAWB`（`lpTotals().mawbs` **去重**、空白不算）、再依序 PKGS（Σ `pcs_total`，有未填加 ⚠）／Σ G.W／Σ VOL 或 cu.ft（跟隨檢視切換）／Σ CBM；沿用同一組 `lp-c-*` 欄位 class → 與上方明細逐欄對齊
+  - **KPI 上限一律標 `max`**（例：`8,229 / max 9,000 kg`、`49.78 / max 65.00 m³`）；`cu.ft / CBM` 檢視時體積 KPI 改顯示 `cu.ft`（上限由 `max_cbm` 換算），避免「目前用量／上限」混淆
+  - **體積顯示切換＝緊貼分段按鈕**（`.lp-view-toggle` ＋ 兩個相鄰 `.lp-view-btn`，內側直角、只有最外側小圓角，第二個按鈕用左邊框當分隔線；未選中 `.66rem`、選中 `.78rem`（字級放大）；`VOL / CBM` 藍、`cu.ft / CBM` 青綠，選中＝實心白字＋`aria-pressed="true"`）；有作用中的航班 PLAN → 只切該張，沒有 → 套用全部（含存貨）；先樂觀更新畫面＋toast，再 `PATCH /plans/:id`（失敗還原）
+  - **「🔍 找 Booking」modal 兩個分頁**：`找現有 Booking`（搜尋 `mawb_records`＋加入存貨／指定 PLAN，沿用 Move 語意）／`＋ 新增 Booking`（MAWB／HAWB／CLIENT／DEST／PKGS／G.W／CBM／TAG／備註 → `POST /api/loading-plan/bookings` 建 `mawb_records` 後**直接加入存貨**）。MAWB 正規化重複 → **409**，前端自動切回「找現有」並帶入該 MAWB 搜尋。`apiFetch` 的錯誤會帶 `error.status`（供 409 分支）
+  - Hover 規則：**正常列不出任何 tooltip**；只有該列有錯誤（缺 MAWB／重複 MAWB／件數未填，`data-hover-error`）才顯示錯誤訊息。**重複 MAWB 是全域判定**：跨 PLAN／同 PLAN 只要同一正規化 MAWB 出現 >1 次，所有相關列都會 `is-dup` 上色（紫字＋⧉）並在 hover 列出其他位置（例如「重複 MAWB（也在 EK9845 / — / SKY DRAGON）」）。要查「同一票的所有位置」也可用右鍵「📍 查看所有位置」：清單每一列（`.lp-find-row.lp-place-row`）可點擊／Enter → 自動切到該 PLAN、展開明細、捲到該列並 `is-flash` 閃爍 highlight 約 3 秒（`@keyframes lpRowJumpFlash`）
   - Contour TAG：認得 → 綠 chip（點開用 `loadsimGetSpec` 帶尺寸／皮重／上限＋HACTL 圖）；`Q5` 未收錄 → 虛線 chip
   - 預覽：`npm run preview:loadingplan` → `data/work/loading-plan-preview.html`（假資料、免登入，可先看版面）
 - **即時同步（Phase 3 完成）**：`public/js/loading-plan/realtime.js` ＋ `routes/loading-plan/bus.js`

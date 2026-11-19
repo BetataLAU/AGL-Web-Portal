@@ -33,6 +33,10 @@ export const lpApi = {
   stock() {
     return call('/stock');
   },
+  // 新增 Booking Record（建立後直接加入存貨；MAWB 已存在 → 409）
+  createBooking(payload) {
+    return jsonCall('/bookings', 'POST', payload);
+  },
   addItems(planId, payload) {
     return jsonCall(`/plans/${planId}/items`, 'POST', payload);
   },

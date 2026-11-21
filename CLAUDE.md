@@ -181,15 +181,19 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 | `public/js/xls-booking-preview.js` | 前端：自動偵測欄位、預覽面板、欄位指派 |
 | `public/js/xls-booking-grid.js` | 前端：預覽表格編輯（雙擊/右鍵/復原重做） |
 | `public/js/xls-booking-assign.js` | 前端：拖曳指派欄位 |
-| `public/js/xls-booking-standard.js` | 前端：標準化結果預覽、勾選、CNEE 補值、**雙擊修改 MAWB#／DEST／航班號**（`fieldOverrides`，同步到 ④）、**欄寬拖曳調整**（colgroup＋localStorage 記憶） |
+| `public/js/xls-booking-standard.js` | 前端：標準化結果預覽、勾選（**Shift+點擊整段勾選／取消**）、CNEE 補值、**雙擊修改 MAWB#／DEST／航班號**（`fieldOverrides`，同步到 ④）、**欄寬拖曳調整**（colgroup＋localStorage 記憶） |
 | `public/js/xls-booking-workflow.js` | 前端：啟動 job、輪詢、中止、結果呈現 |
 | `public/css/xls-booking.css` | 前端樣式 |
 
 **前端載入順序**：`index.html` 依 `state → upload → preview → grid → assign → standard → workflow` 順序載入（全域函式，inline onclick 使用）。**不可調整順序**。
 
+**缺 CNEE → 不制作（2026-11-21）**：`runWorkflow()` 在 Step 1（`filterSelectedRecords()` 之後）直接排除「CNEE 空白／只有空白」的記錄 → **Report／SLI／ELI／PDF／ZIP 全部不含該 MAWB**（不再產生 CNEE 留空的檔案），只回報 `warnings`（清單，含 file／mawb／dest／remark）與 `skippedNoCnee`（筆數）；`results[]` 每檔多了 `skipped` 欄（前端顯示「略過 n 筆」）。重覆 MAWB 偵測仍用「勾選到的全部列」（`dupRecords`）→ 即使該列因缺 CNEE 被跳過，來源資料重覆仍會提醒。③ 會標示「執行時不會製作」並加紅字說明。驗證：`node scripts/test-xls-skip-no-cnee.js`。
+
+**同 MAWB 只留 1 筆制作（Step 1.6，2026-11-21）**：輸出檔名固定 `{MAWB}.pdf`（SLI/ELI 每張 MAWB 一份）→ 同一 MAWB 有多列時後面的會**覆蓋**前面的（實測：`157-36504591` 有 CNEE 的主列被後面「EHUB留倉」無 CNEE 的列蓋掉，最後 PDF 沒有 CNEE）。Step 1.6 以 `dedupeRecordsByMawb()` 去重：保留 `recordCompleteness()` 分數較高者（**CNEE 32 分 > 航班日期 8 > 航班號 4 > DEST 2 > 件數／重量各 1**），同分保留先出現者；`results[]` 多了 `deduped`、回傳多了 `deduped`（略過筆數）。Report 也同步只寫 1 筆。重覆警告文案改為「每張 MAWB 只保留 1 筆制作」。
+
 **② 預覽表格兩列表頭（sticky，2026-11-07 修正）**：預覽表 `thead` 有兩列（上＝欄位標籤＋Excel 欄字母／下＝原始欄名），兩列 `th` 都是 `position: sticky`。若兩列都寫 `top: 0`，往下捲時**第 2 列會整片蓋在第 1 列上**（看起來像「吃掉一行」）。現在 `public/css/xls-booking.css` 以 `.xls-preview-table thead tr:nth-child(1) th { top: 0; z-index: 4 }` 與 `tr:nth-child(2) th { top: var(--xls-head-h, 0px); z-index: 3 }` 分層；第 1 列高度不固定（標籤換行）→ 由 `public/js/xls-booking-preview.js` 的 `xlsSyncStickyHeadHeight()`（在 `renderPreviewPanel()` 面板顯示後、`resize`／`orientationchange`、`document.fonts.ready` 時）量測寫入 `--xls-head-h`。③ 標準化表格只有一列 thead，函式會移除變數維持 `top:0`。**不要改回兩列都 `top:0`**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-preview-head.js`（② 兩列表頭 sticky 不重疊：CSS 分層／JS 量測／單列表不受影響，含 vm stub 執行期檢查）、`scripts/test-xls-step-nav.js`（① ② ③ ④ 步驟列釘在工作列下方：CSS 間隙變數／spacer／列印還原 + vm 行為：捲過釘住、捲回還原、非 active／無工作列不釘、scroll-margin 計算）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-preview-head.js`（② 兩列表頭 sticky 不重疊：CSS 分層／JS 量測／單列表不受影響，含 vm stub 執行期檢查）、`scripts/test-xls-step-nav.js`（① ② ③ ④ 步驟列釘在工作列下方：CSS 間隙變數／spacer／列印還原 + vm 行為：捲過釘住、捲回還原、非 active／無工作列不釘、scroll-margin 計算）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-xls-std-range-select.js`（③ Shift+點擊整段勾選：錨點／正向反向／整段取消／跨檔／label 留白／錨點清空時機，vm stub 免伺服器）、`scripts/test-xls-skip-no-cnee.js`（缺 CNEE 的 MAWB 不制作：Report／PDF／ZIP 全排除＋重覆 MAWB 仍提醒，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。

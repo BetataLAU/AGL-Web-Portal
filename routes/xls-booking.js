@@ -261,6 +261,8 @@ router.post('/process', async (req, res) => {
             reportPath: result.reportPath,
             errors: result.errors,
             warnings: result.warnings || [],
+            skippedNoCnee: result.skippedNoCnee || 0, // 因缺 CNEE 而「未制作」的筆數
+            deduped: result.deduped || 0,             // 同一 MAWB 只留 1 筆 → 被略過的重覆筆數
             duplicates: result.duplicates || [],
             paper: result.paper || null,
             fontOpt: result.fontOpt || null,

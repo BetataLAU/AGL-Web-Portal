@@ -5,6 +5,10 @@
 // ③ 可「雙擊修改」的欄位（存成 fieldOverrides，會同步到 ④ 執行）
 const XLS_STD_EDITABLE_FIELDS = ['mawb', 'dest', 'flight'];
 
+// ③ 勾選欄的「Shift 整段勾選」錨點：{ fileIndex, mawbKey }
+// 記 mawbKey 而不是 DOM（勾選後會整表重繪，DOM 節點會換掉）；資料重建／全選時清空。
+let xlsStdRangeAnchor = null;
+
 
 // ===== 標準化預覽（前端簡易標準化，供使用者核對 + 勾選要執行的列） =====
 // 標準化資料會快取（f._stdCache）；勾選切換時僅「同步重繪」，不再重新打 API，
@@ -112,6 +116,8 @@ async function xlsEnsureStandardized(fileIndex) {
 
   // 校正勾選狀態：移除已不存在的 mawbKey、新出現的 MAWB 預設勾選。
   // （防止拖入新檔案／欄位定義變更後沿用上一輪的舊勾選，導致全選 checkbox「按不到」）
+  // 勾選清單重建 → 舊的 Shift 整段錨點一併失效
+  xlsStdRangeAnchor = null;
   const mawbKeys = standardized.map((r) => r.mawbKey);
   let sel = xlsState.selections[fileIndex];
   if (!sel) {
@@ -307,7 +313,9 @@ function xlsRenderStandardized(fileIndex) {
   const cneeHint = (f._cneeBlocks && f._cneeBlocks.length) ? '（CNEE 自動由下方對照區比對，點擊 CNEE 格可手動補值）' : '（點擊 CNEE 格可手動補值）';
   panel.innerHTML = `
     <h4>標準化結果預覽（${xlsEscapeHtml(f.originalName)}）</h4>
-    <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）${missingCnee ? ` &nbsp;🔴 <b>${missingCnee}</b> 筆缺 CNEE <button type="button" class="pill xls-jump-cnee" onclick="xlsJumpFirstMissingCnee(${fileIndex})">📍 跳至第一筆</button>` : ''}</p>
+    <p class="xls-standardized-count">☑ 已勾選 <b>${selectedCount}</b> / ${total} 筆（有勾選的才會執行）${missingCnee ? ` &nbsp;🔴 <b>${missingCnee}</b> 筆缺 CNEE（執行時<b>不會製作</b>）<button type="button" class="pill xls-jump-cnee" onclick="xlsJumpFirstMissingCnee(${fileIndex})">📍 跳至第一筆</button>` : ''}</p>
+    <p class="xls-preview-note">⇧ 按住 <b>Shift</b> 點選勾選框可「整段勾選／取消」（例：先勾第 1 列，再按住 Shift 勾第 4 列 → 第 1～4 列全勾）</p>
+    ${missingCnee ? '<p class="xls-preview-note">🚫 缺 CNEE 的列執行時會直接跳過（不會產生 SLI／ELI／Report）；請先點擊該列紅色 CNEE 格補值。</p>' : ''}
     <p class="xls-preview-note">${cneeHint}</p>
     <p class="xls-preview-note">✏️ 雙擊 <b>${xlsEscapeHtml(editableLabels.join('／'))}</b> 可修改內容（Enter 儲存／Esc 取消；會同步到 ④ 執行，不需重新上傳）</p>
     <p class="xls-preview-note">↔ 拖曳表頭右緣可調整欄寬（雙擊該邊界只恢復該欄；欄寬會記住）
@@ -344,12 +352,12 @@ function xlsRenderStandardized(fileIndex) {
             return `
             <tr>
               <td class="xls-check-col">
-                <label title="選擇此列">
-                  <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${isSel ? 'checked' : ''} onchange="xlsToggleRow(${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
+                <label title="選擇此列（按住 Shift 可整段勾選／取消）" onclick="xlsStdCheckCellClick(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
+                  <input type="checkbox" data-mawb="${xlsEscapeHtml(r.mawbKey)}" ${isSel ? 'checked' : ''} onclick="xlsToggleRow(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')" />
                 </label>
               </td>
               <td class="xls-std-editable${mawbMissing ? ' xls-required-missing' : ''}" title="${mawbMissing ? '🔴 缺少 MAWB#（此列已勾選，執行時將被略過）；' : ''}雙擊編輯 MAWB#" ondblclick="xlsEditStandardField(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}', 'mawb')">${xlsEscapeHtml(r.mawb || '')}</td>
-              <td class="xls-cnee-cell${cneeMissing ? ' xls-cnee-missing' : ''}${isSel && cneeMissing ? ' xls-missing-pulse' : ''}" title="${r.cnee ? '點擊編輯 CNEE' : '🔴 無 CNEE — 點擊填入'}" onclick="xlsEditCnee(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
+              <td class="xls-cnee-cell${cneeMissing ? ' xls-cnee-missing' : ''}${isSel && cneeMissing ? ' xls-missing-pulse' : ''}" title="${r.cnee ? '點擊編輯 CNEE' : '🔴 無 CNEE（執行時不會製作）— 點擊填入'}" onclick="xlsEditCnee(event, ${fileIndex}, '${xlsEscapeHtml(r.mawbKey)}')">
                 ${r.cnee ? xlsEscapeHtml(r.cnee.length > 30 ? r.cnee.slice(0, 30) + '…' : r.cnee) : '🔴 無 CNEE（點擊填入）'}
               </td>
               ${otherTypes.map((t) => {
@@ -394,19 +402,61 @@ function xlsRetryStandardized(fileIndex) {
   renderStandardizedPreview(fileIndex);
 }
 
-// ===== 標準化預覽：勾選 / 取消勾選單一列 =====
-function xlsToggleRow(fileIndex, mawbKey) {
+// ===== 標準化預覽：勾選 / 取消勾選單一列（Shift＝整段勾選／取消） =====
+// Excel 手感：先勾第 1 列（一般點擊＝記住錨點）→ 按住 Shift 勾第 4 列 → 第 1~4 列一起勾。
+// 若 Shift 點的目標原本已勾選，整段就跟著取消。
+// 錨點（xlsStdRangeAnchor）在檔案頂端宣告，記 mawbKey 讓重繪後仍有效。
+
+// 取得「錨點列 ~ 目標列」的勾選 key 清單；沒有錨點／跨檔／找不到列 → null（退回單列切換）
+function xlsStdRangeKeys(fileIndex, mawbKey) {
+  if (!xlsStdRangeAnchor || xlsStdRangeAnchor.fileIndex !== fileIndex) return null;
+  const f = xlsState.files[fileIndex];
+  const list = (f && f._stdCache && f._stdCache.standardized) || [];
+  const keys = list.map((r) => r.mawbKey);
+  const from = keys.indexOf(xlsStdRangeAnchor.mawbKey);
+  const to = keys.indexOf(mawbKey);
+  if (from < 0 || to < 0 || from === to) return null;
+  return keys.slice(Math.min(from, to), Math.max(from, to) + 1);
+}
+
+function xlsToggleRow(ev, fileIndex, mawbKey) {
   const sel = xlsState.selections[fileIndex];
   if (!sel) return;
-  if (sel.selected.has(mawbKey)) sel.selected.delete(mawbKey);
-  else sel.selected.add(mawbKey);
+  // 點在勾選格留白（label）時，Chrome 仍會把 click 轉發給 checkbox（實測）；
+  // 此時 label 已由 xlsStdCheckCellClick 處理並重繪 → 轉發事件落在「已被換掉的舊 DOM」，
+  // 用 isConnected 判斷並忽略，避免同一次點擊被切換兩次（整段勾選後又被加回來）。
+  const box = ev && ev.currentTarget;
+  if (box && box.isConnected === false) return;
+  // click 一定切換勾選狀態；用勾選清單推算「切換後」的狀態（不依賴 DOM/瀏覽器時序）
+  const next = !sel.selected.has(mawbKey);
+  const range = (ev && ev.shiftKey) ? xlsStdRangeKeys(fileIndex, mawbKey) : null;
+  if (range) {
+    range.forEach((k) => { if (next) sel.selected.add(k); else sel.selected.delete(k); });
+    // 錨點維持不變：可再 Shift+點其他列，整段重新計算
+  } else {
+    if (next) sel.selected.add(mawbKey);
+    else sel.selected.delete(mawbKey);
+    xlsStdRangeAnchor = { fileIndex, mawbKey };
+  }
   xlsRenderStandardized(fileIndex); // 同步重繪，即時反應
+}
+
+// 勾選格整格（label）都可點：點在 checkbox 外的留白也要支援 Shift 整段勾選。
+// Chrome 即使 preventDefault() 仍會把 click 再轉發給 checkbox（實測），且轉發事件的 Shift 可能遺失
+// → 這裡先套用整段勾選；轉發事件則由 xlsToggleRow 的 isConnected 檢查忽略（避免切換兩次）。
+function xlsStdCheckCellClick(ev, fileIndex, mawbKey) {
+  if (!ev || !ev.shiftKey) return;              // 一般點擊：交給 checkbox 自己的 onclick
+  if (ev.target && ev.target.type === 'checkbox') return; // 直接點 checkbox：已由 xlsToggleRow 處理
+  if (!xlsStdRangeKeys(fileIndex, mawbKey)) return;       // 沒有錨點：走預設（單列切換）
+  if (ev.preventDefault) ev.preventDefault();
+  xlsToggleRow(ev, fileIndex, mawbKey);
 }
 
 // ===== 標準化預覽：全選 / 全部不選（頂部 checkbox） =====
 function xlsToggleAll(fileIndex) {
   const sel = xlsState.selections[fileIndex];
   if (!sel) return;
+  xlsStdRangeAnchor = null; // 全選／全不選後重新建立錨點，避免 Shift 整段選到非預期的範圍
   const allChecked = sel.all.length > 0 && sel.all.every((k) => sel.selected.has(k));
   if (allChecked) {
     sel.selected.clear();

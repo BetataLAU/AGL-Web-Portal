@@ -414,6 +414,56 @@ function findDuplicateMawbs(records) {
 }
 
 /**
+ * 單筆記錄的「完整度」分數：重覆 MAWB 時用來決定保留哪一筆（分數高者優先）。
+ * 權重：CNEE（最高）> 航班日期 > 航班號 > DEST > 件數／重量。
+ * 航班日期／航班號刻意放前面：ZIP 依航班日期分組，缺了會變成「航班未定」。
+ * @param {Object} rec
+ * @returns {number}
+ */
+function recordCompleteness(rec) {
+  if (!rec) return 0;
+  let score = 0;
+  if (String(rec.cnee || '').trim()) score += 32;
+  if (rec.flightDate instanceof Date && !isNaN(rec.flightDate.getTime())) score += 8;
+  if (String(rec.flight || '').trim()) score += 4;
+  if (String(rec.dest || '').trim()) score += 2;
+  if (Number(rec.pcs) > 0) score += 1;
+  if (Number(rec.weight) > 0) score += 1;
+  return score;
+}
+
+/**
+ * 同一 MAWB 只保留一筆（輸出的檔名固定是 `{MAWB}.pdf`，SLI/ELI 是「每張 MAWB 一份」）。
+ * 若同一 MAWB 有多列（例如來源檔拆成主列＋「留倉」列），後面的列會覆蓋前面的檔案，
+ * 實測就發生過「有 CNEE 的列被後面無 CNEE 的列蓋掉」。
+ * 保留規則：完整度較高者；同分保留「先出現」的那一筆（維持來源順序）。
+ * @param {Array<Object>} records
+ * @returns {{records: Array<Object>, dropped: Array<Object>}}
+ */
+function dedupeRecordsByMawb(records) {
+  const kept = new Map(); // key -> { rec, idx }
+  const dropped = [];
+  let idx = 0;
+  for (const rec of records || []) {
+    if (!rec) continue;
+    const key = normalizeMawb(rec.mawb) || rec.mawb;
+    const prev = kept.get(key);
+    if (!prev) {
+      kept.set(key, { rec, idx: idx++ });
+      continue;
+    }
+    if (recordCompleteness(rec) > recordCompleteness(prev.rec)) {
+      dropped.push(prev.rec);
+      kept.set(key, { rec, idx: prev.idx }); // 保留原本的順序位置
+    } else {
+      dropped.push(rec);
+    }
+  }
+  const out = Array.from(kept.values()).sort((a, b) => a.idx - b.idx).map((v) => v.rec);
+  return { records: out, dropped };
+}
+
+/**
  * 依「航班日期」把合併好的 PDF 分組（同一天所有航班合併為一組；超過 30MB 才由呼叫端拆 Part）。
  * 缺航班日期的記錄退回以單一航班自成一群。
  * @param {Array<{flight?:string, flightDate?:Date, mawb?:string}>} allRecords
@@ -527,8 +577,9 @@ async function runWorkflow(opts) {
 
   const results = [];
   const errors = [];
-  const allRecords = [];
-  const cneeWarnings = []; // 缺 CNEE 的 MAWB 警告清單（不阻斷執行）
+  const allRecords = [];   // 實際要製作檔案的記錄（缺 CNEE 的列已排除）
+  const dupRecords = [];   // 重覆 MAWB 偵測用（含缺 CNEE 的列：來源資料有重覆就要提醒）
+  const cneeWarnings = []; // 缺 CNEE 而「不制作」的 MAWB 清單
   const reportProgress = (pct, msg) => {
     if (typeof onProgress === 'function') onProgress(pct, msg);
   };
@@ -585,23 +636,48 @@ async function runWorkflow(opts) {
       }
     });
 
-    // 收集缺 CNEE 的 MAWB（警告清單；SLI/ELI 仍照常產生，CNEE 留空）
-    recs.forEach((r) => {
-      if (r.mawb && !r.cnee) {
-        cneeWarnings.push({ file: file.originalName, mawb: r.mawb, dest: r.dest || '', remark: r.remark || '' });
-      }
-    });
-
     recs.forEach((r) => r.sourceFile = file.originalName);
+
+    // 缺 CNEE 的 MAWB → 一律「不制作」（Report／SLI／ELI／ZIP 全部排除），只列警告清單。
+    // 註：重覆 MAWB 仍以「勾選到的全部列」偵測（dupRecords），來源資料有重覆就該提醒，
+    //     即使該列因缺 CNEE 被跳過也一樣。
+    dupRecords.push(...recs);
+    const skippedNoCnee = recs.filter((r) => r.mawb && !String(r.cnee || '').trim());
+    skippedNoCnee.forEach((r) => {
+      cneeWarnings.push({ file: file.originalName, mawb: r.mawb, dest: r.dest || '', remark: r.remark || '' });
+    });
+    recs = recs.filter((r) => skippedNoCnee.indexOf(r) < 0);
+
     allRecords.push(...recs);
-    results.push({ file: file.originalName, records: recs.length });
+    results.push({ file: file.originalName, records: recs.length, skipped: skippedNoCnee.length, deduped: 0 });
   }
 
   // Step 1.5: 偵測重覆 MAWB（不阻斷執行；供執行結果顯示警告清單）
-  const duplicates = findDuplicateMawbs(allRecords);
+  // 用 dupRecords（含缺 CNEE 而被跳過的列）→ 重覆情形屬於來源資料問題，跳過也要提醒
+  const duplicates = findDuplicateMawbs(dupRecords);
 
-  // Step 2: Report 寫入
-  reportProgress(15, `解析完成，共 ${allRecords.length} 筆，寫入 Report...`);
+  // Step 1.6: 同一 MAWB 只保留一筆制作
+  // 輸出檔名固定為 {MAWB}.pdf（SLI/ELI 每張 MAWB 一份）→ 同一 MAWB 多列時後面的會覆蓋前面的，
+  // 實測發生過「有 CNEE 的列被後面的無 CNEE 列蓋掉」。缺 CNEE 的列已在 Step 1 排除，
+  // 這裡處理「重覆且都有 CNEE」的情況：優先保留資料較完整的列（航班日期／航班號／DEST…）。
+  const deduped = dedupeRecordsByMawb(allRecords);
+  const dedupedCount = deduped.dropped.length;
+  if (dedupedCount) {
+    const droppedByFile = new Map();
+    deduped.dropped.forEach((r) => {
+      const f = r.sourceFile || '';
+      droppedByFile.set(f, (droppedByFile.get(f) || 0) + 1);
+    });
+    results.forEach((res) => {
+      const n = droppedByFile.get(res.file) || 0;
+      if (n) { res.records -= n; res.deduped = n; }
+    });
+    allRecords.length = 0;
+    allRecords.push(...deduped.records);
+  }
+
+  // Step 2: Report 寫入（allRecords 已排除缺 CNEE 的列、同 MAWB 也只留一筆）
+  reportProgress(15, `解析完成，共 ${allRecords.length} 筆${cneeWarnings.length ? `（缺 CNEE 已跳過 ${cneeWarnings.length} 筆）` : ''}${dedupedCount ? `（重覆 MAWB 已略過 ${dedupedCount} 筆）` : ''}，寫入 Report...`);
   assertActive();
   let reportOut = reportTemplate;
   if (allRecords.length) {
@@ -875,7 +951,9 @@ async function runWorkflow(opts) {
     count: pdfCount,
     errors,
     results,   // 每個檔案的處理筆數（套用勾選過濾後）
-    warnings: cneeWarnings, // 缺 CNEE 的 MAWB 警告清單
+    warnings: cneeWarnings, // 缺 CNEE 而「不制作」的 MAWB 清單
+    skippedNoCnee: cneeWarnings.length, // 因缺 CNEE 被跳過的筆數（＝warnings.length）
+    deduped: dedupedCount, // 同一 MAWB 只保留 1 筆制作 → 被略過的重覆筆數
     duplicates, // 重覆 MAWB 警告清單（不阻斷；同一 MAWB 出現 2 次或以上）
     paper: paperReport, // 紙張驗證結果（mode / measured / ok / issues）
     fontOpt, // PDF 字型優化結果（files / before / after / reductionPct / skipped）
@@ -891,6 +969,8 @@ module.exports = {
   standardizeRows,
   filterSelectedRecords,
   findDuplicateMawbs,
+  recordCompleteness,
+  dedupeRecordsByMawb,
   planDateGroups,
   extractCneeLookupArea,
   matchCnee,

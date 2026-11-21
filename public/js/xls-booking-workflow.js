@@ -175,15 +175,15 @@ function renderResult(res) {
   if (res.errors && res.errors.length) {
     html += `<div class="xls-error">${res.errors.map((e) => xlsEscapeHtml(e)).join('<br>')}</div>`;
   }
-  // 缺 CNEE 警告清單（不阻斷執行，SLI/ELI 的 CNEE 留空）
+  // 缺 CNEE 警告清單（缺 CNEE 的 MAWB 一律不制作：Report／SLI／ELI／ZIP 都不含）
   if (res.warnings && res.warnings.length) {
-    html += `<div class="xls-warning-box">⚠️ 有 <b>${res.warnings.length}</b> 筆 MAWB 缺 CNEE（已照常產生，但 SLI/ELI 的 CNEE 留空）。<br>請回到「③ 標準化結果預覽」點擊紅色 CNEE 格補值後再執行：`;
+    html += `<div class="xls-warning-box">⚠️ 有 <b>${res.warnings.length}</b> 筆 MAWB 缺 CNEE（<b>已跳過、不會產生</b> SLI/ELI 與 Report）。<br>請回到「③ 標準化結果預覽」點擊紅色 CNEE 格補值後再執行：`;
     html += `<ul class="xls-warning-list">${res.warnings.map((w) => `<li>${xlsEscapeHtml(w.mawb)}${w.dest ? `（DEST: ${xlsEscapeHtml(w.dest)}）` : ''}${w.remark ? ` REMARK: ${xlsEscapeHtml(w.remark)}` : ''} — ${xlsEscapeHtml(w.file)}</li>`).join('')}</ul>`;
     html += `</div>`;
   }
-  // 重覆 MAWB 警告清單（不阻斷執行；保留重覆資料，僅提示人手判斷）
+  // 重覆 MAWB 警告清單（同一 MAWB 只保留 1 筆制作：優先有 CNEE、資料較完整）
   if (res.duplicates && res.duplicates.length) {
-    html += `<div class="xls-warning-box">⚠️ 偵測到 <b>${res.duplicates.length}</b> 筆 MAWB 出現重覆（已照常處理，不會自動刪除）。如非預期，請檢查來源檔／刪除重覆列後再執行：`;
+    html += `<div class="xls-warning-box">⚠️ 偵測到 <b>${res.duplicates.length}</b> 筆 MAWB 出現重覆（<b>每張 MAWB 只保留 1 筆制作</b>：優先有 CNEE、資料較完整${res.deduped ? `；本次已略過 ${res.deduped} 筆` : ''}）。如非預期，請檢查來源檔／刪除重覆列後再執行：`;
     html += `<ul class="xls-warning-list">${res.duplicates.map((d) =>
       `<li><b>${xlsEscapeHtml(d.mawb)}</b>（出現 ${d.count} 次）${d.dest ? `DEST: ${xlsEscapeHtml(d.dest)}` : ''} — ${(d.files || []).map((f) => xlsEscapeHtml(f)).join('、')}</li>`
     ).join('')}</ul>`;
@@ -194,6 +194,9 @@ function renderResult(res) {
     html += `<div class="xls-warning-box">${xlsEscapeHtml(res.syncWarning)}</div>`;
   }
   html += `<p>成功產生 ${res.count} 份 PDF（已合併 SLI + ELI）。</p>`;
+  if (!res.count && res.warnings && res.warnings.length) {
+    html += `<p class="xls-paper-warn">⚠️ 缺 CNEE 的列已全部略過，因此本次沒有任何 PDF。</p>`;
+  }
   // PDF 產生方式（P4）：顯示本次引擎、疊字份數與退回舊引擎筆數
   if (res.engine) {
     const modeLabel = res.engine.mode === 'overlay' ? '疊字（新版）' : 'Excel（舊版）';
@@ -251,7 +254,7 @@ function renderResult(res) {
   }
   html += `</div>`;
   if (res.fileResults && res.fileResults.length) {
-    html += `<p class="xls-preview-note">${res.fileResults.map((r) => `${xlsEscapeHtml(r.file)}：${r.records} 筆`).join('；')}</p>`;
+    html += `<p class="xls-preview-note">${res.fileResults.map((r) => `${xlsEscapeHtml(r.file)}：${r.records} 筆${r.skipped ? `（缺 CNEE 略過 ${r.skipped} 筆）` : ''}${r.deduped ? `（重覆 MAWB 略過 ${r.deduped} 筆）` : ''}`).join('；')}</p>`;
   }
   panel.innerHTML = html;
   panel.style.display = 'block';

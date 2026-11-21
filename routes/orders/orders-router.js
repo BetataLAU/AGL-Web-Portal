@@ -473,13 +473,13 @@ router.put('/:id', (req, res) => {
 });
 
 // DELETE /api/orders/:id
-// 刪除訂單時，連帶刪除對應的打板 MAWB 記錄（含從所有 Plan 移出）
+// 刪除訂單時，連帶刪除對應的 Booking Record（mawb_records）
 router.delete('/:id', (req, res) => {
   const { id } = req.params;
   verifyOrderAccess(req, res, id, (hasAccess) => {
     if (!hasAccess) return res.status(404).json({ error: '訂單不存在' });
 
-    // 先取出訂單的 MAWB，判斷是否為後補（後補不刪打板）
+    // 先取出訂單的 MAWB，判斷是否為後補（後補不刪 Booking Record）
     db.get("SELECT mawb FROM orders WHERE id = ?", [id], (getErr, order) => {
       if (getErr) return res.status(500).json({ error: getErr.message });
       const orderMawb = order && order.mawb;
@@ -491,17 +491,15 @@ router.delete('/:id', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!this.changes) return res.status(404).json({ error: '訂單不存在' });
 
-        // 若訂單有真實 MAWB → 連帶刪除對應打板 MAWB（先移出所有 Plan）
+        // 若訂單有真實 MAWB → 連帶刪除對應 Booking Record
         if (!isLateMawb && orderMawb) {
           db.get("SELECT id FROM mawb_records WHERE mawb = ? AND order_id = ?", [orderMawb, id], (mawbErr, mawbRec) => {
             if (mawbErr || !mawbRec) {
               return res.json({ success: true, changes: this.changes, synced: false });
             }
-            db.run("DELETE FROM pallet_plan_items WHERE mawb_record_id = ?", mawbRec.id, () => {
-              db.run("DELETE FROM mawb_records WHERE id = ?", mawbRec.id, (delMawbErr) => {
-                if (delMawbErr) console.error('[orders] 刪除訂單連帶刪除 MAWB 失敗:', delMawbErr.message);
-                res.json({ success: true, changes: this.changes, synced: true });
-              });
+            db.run("DELETE FROM mawb_records WHERE id = ?", mawbRec.id, (delMawbErr) => {
+              if (delMawbErr) console.error('[orders] 刪除訂單連帶刪除 Booking Record 失敗:', delMawbErr.message);
+              res.json({ success: true, changes: this.changes, synced: true });
             });
           });
         } else {

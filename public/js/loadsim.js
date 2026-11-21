@@ -1,7 +1,7 @@
 // ===== 模擬裝板系統：入口模組 =====
 // 版面：① 新增貨物（左）｜② 俯視圖 ＋ 前視圖（右）｜底部摘要（重量 / 利用率 / 警示）
 // 純前端：無後端 API、無資料表；板型規格內建，使用中的狀態存 localStorage。
-// 掛載方式與 public/js/pallet.js 一致（type="module" ＋ window.setupLoadsimSection）。
+// 掛載方式與 public/js/loading-plan.js 一致（type="module" ＋ window.setupLoadsimSection）。
 import {
   LOADSIM_ULD_SPECS, loadsimBaseSpec, loadsimGetSpec, loadsimSpecImageUrl
 } from './loadsim/uld-specs.js';
@@ -2121,7 +2121,7 @@ function importPlanFile(fileInput, modal) {
   reset();
 }
 
-// ===== 掛載到 window（供 main.js 呼叫，與 pallet.js 同一種模式）=====
+// ===== 掛載到 window（供 main.js 呼叫，與 loading-plan.js 同一種模式）=====
 window.setupLoadsimSection = setupLoadsimSection;
 
 // 主題切換時重畫（畫布顏色取自 CSS 變數）

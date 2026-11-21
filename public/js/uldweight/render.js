@@ -192,8 +192,8 @@ export function renderEditor(root) {
           <div class="uldw-more${ui.more ? ' is-open' : ''}">
             <button type="button" class="uldw-btn" data-action="toggle-more" title="更多動作：版本／列印／PDF／複製／刪除／套用／補建 Booking">⋯ 更多</button>
             <div class="uldw-more-menu">
-      <button type="button" class="uldw-btn" data-action="apply"${locked ? '' : ' disabled'} title="把夾重後的最終重量回寫到打板計劃的 Booking Record（需先鎖定；只改 mawb_records.gross_weight，不動訂單）">套用到 Booking</button>
-          <button type="button" class="uldw-btn" data-action="sync-bookings" title="把還沒連結 Booking 的票補到打板計劃：MAWB 已存在就只連結、不存在才建立（gross_weight 用夾重後重量；不動訂單）。會先顯示預覽請你確認。">⇧ 補建 Booking</button>
+      <button type="button" class="uldw-btn" data-action="apply"${locked ? '' : ' disabled'} title="把夾重後的最終重量回寫到 Booking Record（需先鎖定；只改 mawb_records.gross_weight，不動訂單）">套用到 Booking</button>
+          <button type="button" class="uldw-btn" data-action="sync-bookings" title="把還沒連結 Booking 的票補到 Booking Record：MAWB 已存在就只連結、不存在才建立（gross_weight 用夾重後重量；不動訂單）。會先顯示預覽請你確認。">⇧ 補建 Booking</button>
           <button type="button" class="uldw-btn" data-action="versions" title="版本紀錄：每次儲存／鎖定／解鎖／套用 Booking／補建 Booking 都會留一份快照，可比較兩版差異（每張表保留最近 30 版）">🕘 版本</button>
           <button type="button" class="uldw-btn" data-action="print" title="列印／另存 PDF（A4 直式；草稿與鎖定都可列印，只印表頭、每板 RCL − Tare = 淨重、每票最終重量、磅差與合計）">🖨 列印</button>
           <button type="button" class="uldw-btn" data-action="pdf" title="下載 server 端正式 PDF（固定 A4 排版，適合批次產檔／寄送；草稿與鎖定都可下載）">⤓ PDF</button>
@@ -290,7 +290,7 @@ export function renderEditor(root) {
   `;
 
   refreshComputed(root);
-  // 「新增 MAWB」列：MAWB 輸入框接上打板計劃 Booking Record 的輸入即篩選
+  // 「新增 MAWB」列：MAWB 輸入框接上 Booking Record 的輸入即篩選
   // （選到後自動帶入件數／重量／Port 與 mawb_record_id；手動輸入仍可用）
   // 載荷表沒有「新增 MAWB」列（新票在最下面那格輸入，或按「＋ 列」），所以不用綁。
   if (!viewIsGrid) wireBookingPickers(root);
@@ -778,7 +778,7 @@ function unitCardHtml(unit, idx, locked) {
         <tbody>
           ${items.length
             ? items.map((item, i) => itemRowHtml(unit, item, i, locked)).join('')
-            : '<tr><td colspan="9" class="uldw-empty-cell">還沒有 MAWB#：在下面輸入（可搜尋打板計劃 Booking）按 Enter 加入，或按「⧉ 貼上」一次貼多票。</td></tr>'}
+            : '<tr><td colspan="9" class="uldw-empty-cell">還沒有 MAWB#：在下面輸入（可搜尋 Booking Record）按 Enter 加入，或按「⧉ 貼上」一次貼多票。</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -823,7 +823,7 @@ function itemRowHtml(unit, item, idx, locked) {
   const mawbCheck = uldValidateMawb(item.mawb);
   const mawbBad = !mawbCheck.ok && !mawbCheck.empty;
   const mawbTitle = item.mawb_record_id
-    ? `已連結打板計劃 Booking Record #${item.mawb_record_id}`
+    ? `已連結 Booking Record #${item.mawb_record_id}`
     : (mawbBad ? uldMawbIssueText(mawbCheck) : '');
   return `
   <tr data-item-idx="${idx}" data-item-uid="${esc(item.uid)}" class="${item.is_squeeze ? 'is-squeeze' : ''}">

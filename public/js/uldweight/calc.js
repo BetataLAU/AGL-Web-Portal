@@ -265,7 +265,7 @@ export function uldComputeUnit(unit, options = {}) {
   const items = ((unit && unit.items) || []).map((raw, idx) => ({
     key: raw && raw.id != null ? String(raw.id) : `t${idx}`,
     id: raw && raw.id != null ? raw.id : null,
-    // 前端暫存 id 與打板計劃 Booking Record 連結（W2 回寫 mawb_records 用）
+    // 前端暫存 id 與 Booking Record 連結（W2 回寫 mawb_records 用）
     uid: raw && raw.uid != null ? raw.uid : null,
     mawb_record_id: raw && raw.mawb_record_id != null ? (Number(raw.mawb_record_id) || null) : null,
     mawb: (raw && raw.mawb) || '',

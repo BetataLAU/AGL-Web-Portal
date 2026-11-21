@@ -427,9 +427,9 @@ async function setupAuthUI() {
     if (userNameEl) userNameEl.textContent = user.display_name || user.user_id;
     if (userCompanyEl) userCompanyEl.textContent = `${user.company_name}（${AUTH_ROLE_LABELS[user.role] || user.role}）`;
 
-    // 初始化受保護區塊（訂單系統 / 資料庫檢視器 / 打板計劃）
+    // 初始化受保護區塊（訂單系統 / 資料庫檢視器 / ULD 夾重）
     // 定義於 main.js：僅在已登入時呼叫，避免未登入時發出受保護 API 請求
-    // 傳入 user 讓打板計劃僅對 admin/staff 初始化
+    // 傳入 user 讓 ULD 夾重僅對 admin/staff 初始化
     if (typeof window.initProtectedSections === 'function') {
       window.initProtectedSections(user);
     }
@@ -446,26 +446,12 @@ async function setupAuthUI() {
     const layoutLock = document.getElementById('nav-sli-eli-layout-lock');
     if (layoutLock) layoutLock.style.display = 'none';
 
-    // 打板計劃：僅限 admin / staff 解鎖；否則顯示鎖頭並攔截
-    const palletLock = document.getElementById('nav-palletization-lock');
-    const navPallet = document.getElementById('nav-palletization');
-    const canPallet = user.role === 'admin' || user.role === 'staff';
-    if (palletLock) palletLock.style.display = canPallet ? 'none' : '';
-    if (navPallet) {
-      if (!canPallet) {
-        navPallet.classList.add('nav-item-locked');
-        navPallet.addEventListener('click', (e) => {
-          e.preventDefault();
-          alert('打板計劃僅限內部員工使用');
-        });
-      }
-    }
-
-    // ULD 夾重系統：同樣僅限 admin / staff（與打板計劃一致）
+    // ULD 夾重系統：僅限 admin / staff 解鎖；否則顯示鎖頭並攔截
+    const canInternal = user.role === 'admin' || user.role === 'staff';
     const uldWeightLock = document.getElementById('nav-uld-weight-lock');
     const navUldWeight = document.getElementById('nav-uld-weight');
-    if (uldWeightLock) uldWeightLock.style.display = canPallet ? 'none' : '';
-    if (navUldWeight && !canPallet) {
+    if (uldWeightLock) uldWeightLock.style.display = canInternal ? 'none' : '';
+    if (navUldWeight && !canInternal) {
       navUldWeight.classList.add('nav-item-locked');
       navUldWeight.addEventListener('click', (e) => {
         e.preventDefault();
@@ -521,9 +507,9 @@ async function setupAuthUI() {
     if (loginBtn) loginBtn.style.display = 'flex';
     if (loggedInBox) loggedInBox.style.display = 'none';
 
-    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / 打板計劃 / ULD 夾重系統：
+    // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / ULD 夾重系統：
     // 顯示鎖頭，點擊導向登入頁（登入後跳回原本想看的區塊或頁面）
-    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-palletization', 'nav-uld-weight'].forEach(id => {
+    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-uld-weight'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');

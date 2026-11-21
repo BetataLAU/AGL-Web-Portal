@@ -24,7 +24,6 @@ const DEFAULT_ORDER = [
   '#section-orders',
   '#section-xls-booking',
   'sli-eli-layout.html',
-  '#section-palletization',
   '#section-loadsim',
   '#section-uld-weight',
   '#section-dbviewer',

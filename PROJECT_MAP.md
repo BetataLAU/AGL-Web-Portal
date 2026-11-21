@@ -12,7 +12,7 @@
 
 | 檔案 | 說明 |
 |------|------|
-| `server.js` | Express 入口：靜態服務、JSON body、session、掛載 8 組 API 前綴（auth / skills / contours / orders / pallet / xls-booking / db）；Port 被佔用自動 +1 |
+| `server.js` | Express 入口：靜態服務、JSON body、session、掛載全部 API 前綴（auth / skills / contours / orders / uld-weight / xls-booking / db）；Port 被佔用自動 +1 |
 | `package.json` | 名稱 gemini-intro-site；依賴 express / sqlite3 / express-session / bcryptjs / connect-sqlite3 / multer / exceljs / xlsx / pdf-lib / archiver |
 | `database.db` | SQLite 資料庫（自動建立，勿手動編輯） |
 | `docs/design/order-system-design.md` | 訂單系統設計紀錄（原根目錄 `ORDER_SYSTEM_PLAN.md`）：欄位規格、電力分類、訂單類型邏輯、電郵總結格式（已實作，含「與現況差異」對照） |
@@ -64,8 +64,7 @@
 | `orders/companies.js` | 公司/地點 CRUD，`normalizeCategory` |
 | `orders/note-templates.js` | 訂單備註文字範本（GET / POST） |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
-| `pallet.js` | **打板計劃 API**：bookings / plans / spl-codes / remark-templates / sync-orders（見 §3.6） |
-| `uld-weight.js` | **ULD 夾重 API**：bookings（打板計劃 Booking Record，輸入即篩選用）/ sheets CRUD（明細 **diff 更新**）/ duplicate / lock / **apply（W2 回寫 Booking Record）** / **sync-bookings（V1 補建 Booking，預設 dry_run）** / **versions（V3 歷史版本／diff）** / **import-rcl（W3 RCL 磅單解析）** / **report.pdf（R1 server 端 A4 PDF）** / **loading-sheet.pdf（U3 單板 Loading Sheet）** / **batch-pdf（V2 多張打包 ZIP）**（見 §3.8） |
+| `uld-weight.js` | **ULD 夾重 API**：bookings（Booking Record，輸入即篩選用）/ sheets CRUD（明細 **diff 更新**）/ duplicate / lock / **apply（W2 回寫 Booking Record）** / **sync-bookings（V1 補建 Booking，預設 dry_run）** / **versions（V3 歷史版本／diff）** / **import-rcl（W3 RCL 磅單解析）** / **report.pdf（R1 server 端 A4 PDF）** / **loading-sheet.pdf（U3 單板 Loading Sheet）** / **batch-pdf（V2 多張打包 ZIP）**（見 §3.7） |
 | `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
@@ -121,9 +120,6 @@
 | `js/utils/time-picker.js` | 自訂時間選擇器（`setupTimePicker`） |
 | `js/utils/autocomplete.js` | 輸入即篩選自動補全（`setupAutocomplete`） |
 | `js/auth.js` | 登入狀態、Sidebar 鎖頭與「我的帳號」、導航排序 UI |
-| `js/pallet.js` | 打板計劃進入點 |
-| `js/pallet/` | api / state / bookingsController / bookingModal / plansController / planCardRenderer / planActions / planModal / planSorting / planDupUtils / dragController / formatters |
-| `css/pallet.css` | 打板計劃樣式 |
 | `js/loadsim.js` | **模擬裝板系統**進入點（工具列／貨物表單／待裝清單／摘要／板型設定） |
 | `js/loadsim/` | units（cm↔inch，cm 整數顯示）/ geometry（6 方向・重疊・輪廓・支撐・自動疊放・可移動範圍 ±40cm・出界界線）/ uld-specs（板型規格庫）/ state（localStorage＋Undo＋**快照 / 還原**）/ **plans（存檔：本機多份・雲端 API・匯出／匯入 JSON）** / weight（重量／CBM）/ autoplace / colors / **render3d（3D 主視圖・出界引線・hover 邊長）** / render（2D 剖面＋視圖分派）/ drag（Pointer Events・視角・縮放・方向鍵微調） |
 | `css/loadsim.css` | 模擬裝板樣式 |
@@ -133,8 +129,8 @@
 | `js/uldweight/render.js` | 清單／編輯畫面渲染（清單含 **批次勾選欄＋全選**）、`refreshComputed()` 局部更新、MAWB 彙總／檢核／合計、列印與 PDF 按鈕；**U1**：工具列「⋯ 更多」、表頭「⚙ 進階」收合、卡片網格＋板序 `01/A`（`unitCode()`）、PLAN／RCL／DIFF 合計（K） |
 | `js/uldweight/paste-parse.js` | **貼上多列解析（U2，共用純函式）**：`uldParsePastedRows()`（Tab／逗號／多空白；4／3／2／1 欄；表頭列略過；MAWB 可含空白） |
 | `js/uldweight/mawb-format.js` | **MAWB 格式化＋檢查碼驗證（共用純函式）**：`uldMawbDigits()`／`uldNormalizeMawbDigits()`（11 位、航空公司左補 0）／`uldFormatMawb()`（`000-0000 0000`）／`uldMawbCheckDigit()`（前 7 位 mod 7）／`uldValidateMawb()`（EMPTY／LENGTH／TOO_LONG／CHECK_DIGIT） |
-| `js/uldweight/api.js` | 夾重 API 呼叫層（含 `fetchBookings()`：打板計劃 Booking Record、`fetchReportPdfBlob()`：R1 PDF 下載、`fetchBatchPdfBlob()`：V2 批次 ZIP、`syncSheetBookings()`：V1 補建 Booking） |
-| `js/uldweight/booking-search.js` | **MAWB 從打板計劃帶入（W1）**：Booking Record 輸入即篩選（`wireBookingPickers`）、選到後帶入件數／重量／Port 與 `mawb_record_id`、候選清單快取 |
+| `js/uldweight/api.js` | 夾重 API 呼叫層（含 `fetchBookings()`：Booking Record、`fetchReportPdfBlob()`：R1 PDF 下載、`fetchBatchPdfBlob()`：V2 批次 ZIP、`syncSheetBookings()`：V1 補建 Booking） |
+| `js/uldweight/booking-search.js` | **MAWB 從 Booking Record 帶入（W1）**：輸入即篩選（`wireBookingPickers`）、選到後帶入件數／重量／Port 與 `mawb_record_id`、候選清單快取 |
 | `js/uldweight/rcl-parse.js` | **RCL 磅單解析（W3，前後端共用純函式）**：表頭偵測、欄位對應（中英關鍵字）、列驗證／略過與重複偵測 |
 | `js/uldweight/rcl-import.js` | **RCL 磅單匯入（W3 前端輔助）**：選檔、上傳預覽、改欄位後本機重算、勾選列、ULD# 正規化 |
 | `js/uldweight/version-diff.js` | **版本比對（V3，前後端共用純函式）**：快照摘要、欄位級異動比對（表頭／單位／明細；DB id 配對） |
@@ -198,7 +194,7 @@ created_at, updated_at
 | POST | `/api/orders/note-templates` | 新增/更新備註文字範本 |
 
 > 訂單端點皆在 `/api/orders`（`requireAuth`）之下；customer 角色僅能存取自己公司資料。
-> 其他模組：`/api/pallet`（打板計劃，admin/staff）、`/api/auth`、`/api/db`（`db_view`）、
+> 其他模組：`/api/auth`、`/api/db`（`db_view`）、
 > `/api/xls-booking`（Shipper Role 空運單據，登入；`POST /process` 接受 `engine=overlay|com`）、
 > `/api/xls-booking/layout`（SLI/ELI 版面編輯器：`GET /`、`PUT /`、`POST /reset`、`POST /preview`、`GET /backups`、`GET /background/:page`；**寫入需 admin/staff**）。
 
@@ -217,29 +213,7 @@ created_at, updated_at
 
 ---
 
-## 3.6 打板計劃（routes/pallet.js）
-
-| Method | Path | 說明 |
-|--------|------|------|
-| GET/POST/PUT/DELETE | `/api/pallet/bookings[/:id]` | 板位 booking CRUD |
-| GET | `/api/pallet/bookings/destinations` | 目的地清單 |
-| GET/POST | `/api/pallet/plans` | 計劃卡列表 / 新增 |
-| GET/PUT/DELETE | `/api/pallet/plans/:id` | 計劃卡詳情 / 更新 / 刪除 |
-| PUT | `/api/pallet/plans/reorder` | 計劃卡排序 |
-| POST | `/api/pallet/plans/:id/duplicate` | 複製計劃卡 |
-| POST/DELETE | `/api/pallet/plans/:id/items[/:planItemId]` | 計劃項目新增 / 刪除 |
-| PUT | `/api/pallet/plans/:id/items/reorder` | 計劃項目排序 |
-| GET/POST | `/api/pallet/spl-codes` | SPL 代碼 |
-| GET/POST | `/api/pallet/remark-templates` | 備註範本 |
-| POST | `/api/pallet/sync-orders` | 由訂單同步資料至計劃 |
-
-- 權限：`requireRole('admin', 'staff')`
-- 資料表：`pallet_plans`、`pallet_plan_items`、`spl_codes`、`remark_templates`
-- 前端：`public/index.html` 的 `#section-palletization` + `public/js/pallet/*`
-
----
-
-## 3.7 模擬裝板系統（前端模擬 ＋ `/api/loadsim` 雲端存檔）
+## 3.6 模擬裝板系統（前端模擬 ＋ `/api/loadsim` 雲端存檔）
 
 **用途**：裝板前先模擬「貨物擺進某個板型（Contour / ULD）」是否裝得下、是否超出輪廓、是否超重；排好的板可以**存檔**（本機／雲端／JSON）日後拿出來繼續操作。
 
@@ -269,7 +243,7 @@ created_at, updated_at
 | 測試 | `npm run test:loadsim`＝`node scripts/test-loadsim-geometry.js`（136 項）＋`node scripts/test-loadsim-frontend.js`（159 項，DOM stub／含 3D、轉視角、拖曳 1:1、出界閃爍與引線、hover 邊長、tooltip CTN#、MAWB 群組／排序（含 CBM）／刪除＋重力、方向鍵（含騎出板邊、3D 螢幕方向）、表單修改與選項開關、畫布高度與捲動無關、存檔 modal 與存到本機）＋`node scripts/test-loadsim-plans.js`（48 項：快照還原、本機存檔／改名／刪除／上限／空間不足、匯出匯入、雲端 API 呼叫、靜態檢查）；`npm run test:loadsim-api`（31 項：401／403／422／404、CRUD、彙總、審計日誌） |
 
 ---
-## 3.8 ULD 夾重系統（routes/uld-weight.js + public/js/uldweight/）
+## 3.7 ULD 夾重系統（routes/uld-weight.js + public/js/uldweight/）
 
 **目的**：貨站（HACTL / AAT / CPSL）出 RCL 後，把「RCL 磅重 − 倉庫申報」的差額回填到指定 MAWB（可多票按比例），算出每票最終重量。
 
@@ -280,7 +254,7 @@ created_at, updated_at
 
 | Method | Path | 說明 |
 |---|---|---|
-| GET | `/api/uld-weight/bookings?search=&dest=&limit=` | **打板計劃 Booking Record 候選清單（W1）**：只讀 `mawb_records`；`search` 比對 MAWB／HAWB／客戶／DEST／SPL、`limit` 預設 50 上限 500 |
+| GET | `/api/uld-weight/bookings?search=&dest=&limit=` | **Booking Record 候選清單（W1）**：只讀 `mawb_records`；`search` 比對 MAWB／HAWB／客戶／DEST／SPL、`limit` 預設 50 上限 500 |
 | GET | `/api/uld-weight/sheets?status=&search=` | 夾重表清單（含板數／RCL 總重／淨重／磅差） |
 | POST | `/api/uld-weight/sheets` | 新增（`WGT-YYYYMMDD-XX`，預設貨站 CPSL） |
 | GET | `/api/uld-weight/sheets/:id` | 明細 + 即時重算 + 檢核 |
@@ -289,7 +263,7 @@ created_at, updated_at
 | POST | `/api/uld-weight/sheets/:id/duplicate` | 複製 |
 | POST | `/api/uld-weight/sheets/:id/lock` · `/unlock` | 鎖定／解鎖 |
 | POST | `/api/uld-weight/sheets/:id/apply` | **W2 回寫 Booking Record**：僅 `locked`、同票跨板加總覆寫 `mawb_records.gross_weight`、原重量留 `audit_log`、冪等、不動 `orders` |
-| POST | `/api/uld-weight/sheets/:id/sync-bookings` | **V1 補建 Booking Record**：沒有連結的票 → 打板計劃已有同號 MAWB 只連結、沒有才建立（`gross_weight` = 夾重後重量、`pcs`、`dest` = 該票 Port）；**預設 dry_run 只回預覽**，`{ dry_run: false }` 才寫；不動 `orders`／不動夾重表重量；同號多筆 → `skipped(duplicate_booking)`；有 error → 422 |
+| POST | `/api/uld-weight/sheets/:id/sync-bookings` | **V1 補建 Booking Record**：沒有連結的票 → Booking Record 已有同號 MAWB 只連結、沒有才建立（`gross_weight` = 夾重後重量、`pcs`、`dest` = 該票 Port）；**預設 dry_run 只回預覽**，`{ dry_run: false }` 才寫；不動 `orders`／不動夾重表重量；同號多筆 → `skipped(duplicate_booking)`；有 error → 422 |
 | GET | `/api/uld-weight/sheets/:id/versions` | **V3 版本清單**（新到舊；含 action／status／summary／created_by） |
 | GET | `/api/uld-weight/sheets/:id/versions/:versionId` | 單一版本（含 `snapshot`） |
 | GET | `/api/uld-weight/sheets/:id/versions/diff?from=&to=` | **V3 異動比對**：`from` 必填、`to` 省略＝對目前內容；欄位級差異由 `public/js/uldweight/version-diff.js` 產生 |
@@ -303,7 +277,7 @@ created_at, updated_at
 - 重量分配（方案 B）：`calc.uldAllocateByPcs()`／`calc.uldApplyMawbAllocation()` 依各板件數把申報 WT 分下去（Σ = 申報 WT）；`auto_alloc = 0` 的列保留各板自填重量（舊資料自動長出的列預設 0）
 - 前端：`#section-uld-weight` + `public/js/uld-weight.js` + `public/js/uldweight/{state,render,sheet-grid,api,booking-search}.js` + `public/css/uld-weight.css`
   - 編輯畫面兩種版面（`state.ui.view`，預設 `grid`）：**載荷表**（CHARTER LOADING SHEET，**可編輯**：左邊申報列 MAWB／DEST／PCS／WT／W-H／自動／夾重／上數；右邊每板 PCS 與 **WT 都可直接打字**（2026-11-09：打完＝固定那一板、其餘依件數分剩下的申報 WT，該列轉手動）；**板頭可直接左右拖曳換板序**；Enter／Shift+Enter 上下換列；底部 PLAN/RCL/DIFF）／**卡片**（板資料：ULD#／Contour／Tare／RCL Gross／LIH／Pre-decl；MAWB 與申報 WT 唯讀）
-  - 「新增 MAWB」列的 MAWB 欄＝**輸入即篩選**打板計劃 Booking Record（選到後帶入件數／重量／Port＋`mawb_record_id`；手動輸入仍可用；`renderEditor()` 尾端 `wireBookingPickers()` 每次重畫重綁）
+  - 「新增 MAWB」列的 MAWB 欄＝**輸入即篩選** Booking Record（選到後帶入件數／重量／Port＋`mawb_record_id`；手動輸入仍可用；`renderEditor()` 尾端 `wireBookingPickers()` 每次重畫重綁）
   - 鎖定後才有「套用到 Booking」按鈕（W2）：`calc.uldBookingTotals()` 彙總後回寫 `mawb_records.gross_weight`，跳出 applied／skipped／conflicts 報告
   - 「⇪ 匯入 RCL」（W3）：上傳磅單 → 面板（表頭列／4 個欄位對應／可勾選單位／略過原因）→ 加入草稿單位（Pre-decl 預設 P）→ 按「儲存」；`rcl-parse.js` 前後端共用
   - 「🖨 列印」（W4）：`@media print`（A4 直式、單欄、每板不跨頁、黑字白底）→ 表頭＋每板 RCL − Tare = 淨重＋每票最終重量＋磅差＋全表合計；草稿／鎖定都能印；輸入框直接印出值（去框線）
@@ -312,7 +286,7 @@ created_at, updated_at
   - 「⤓ PDF」（R1）：下載 server 端 PDF（`fetchReportPdfBlob()`；不能用 `apiFetch`），草稿／鎖定都能下
   - 「⤓ 批次 PDF」（V2，清單頁）：每列勾選框＋表頭全選 → 工具列按鈕下載 ZIP（`fetchBatchPdfBlob({ ids })`）；
     `manifest.txt` ＋每張 `<sheet_no>.pdf`；勾選存 `state.batchSelected`，只更新計數／按鈕／列底色（不整份重畫）
-  - 「⇧ 補建 Booking」（V1，編輯畫面）：把沒連結 Booking 的票反推回打板計劃（`syncSheetBookings()`）；
+  - 「⇧ 補建 Booking」（V1，編輯畫面）：把沒連結 Booking 的票反推回 Booking Record（`syncSheetBookings()`）；
     固定「`dryRun:true` 預覽 → confirm → `dryRun:false` 寫入」，草稿／鎖定都能按；同號 MAWB 只連結不重建
   - 「🕘 版本」（V3）：`#uldw-versions` 面板列出 v1…vN（每次建立／儲存／鎖定／解鎖／套用／補建都留，保留最近 30 版）；
     每列「與前一版比／對目前」→ 欄位級差異（表頭／單位／明細；新增綠、刪除紅、修改黃）；只重畫面板、列印不印

@@ -287,7 +287,7 @@ export function uldGridHtml(computed, sheet, ui = {}) {
               <th rowspan="2" class="uldw-grid-dest uldw-grid-manual">DEST</th>
               <th rowspan="2" class="uldw-grid-manual">PCS</th>
               <th rowspan="2" class="uldw-grid-manual">WT（kg）</th>
-              <th rowspan="2" class="uldw-grid-wh uldw-grid-manual" title="W/H 單號或打板計劃 Booking（#id）">W/H or Booking</th>
+              <th rowspan="2" class="uldw-grid-wh uldw-grid-manual" title="W/H 單號或 Booking Record（#id）">W/H or Booking</th>
               <th rowspan="2" class="uldw-grid-manual" title="自動分配重量：依各板件數把申報重量分下去（Σ = 申報 WT）；手動改過任一板重量後會自動取消勾選">自動</th>
               <th rowspan="2" class="uldw-grid-manual" title="勾選＝這票參與夾重（紅字）">夾重</th>
               <th rowspan="2" class="uldw-grid-auto" title="這票在各板已分配的件數｜重量（夾重後）">上數</th>

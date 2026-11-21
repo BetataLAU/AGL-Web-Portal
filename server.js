@@ -52,7 +52,6 @@ const ordersRouter = require('./routes/orders');
 const dbViewerRouter = require('./routes/dbviewer');
 const authRouter = require('./routes/auth/auth-router');
 const usersRouter = require('./routes/auth/users-router');
-const palletRouter = require('./routes/pallet');
 const xlsBookingRouter = require('./routes/xls-booking');
 const uldWeightRouter = require('./routes/uld-weight');
 const loadsimRouter = require('./routes/loadsim');
@@ -116,9 +115,7 @@ app.use('/api/contour-image', contourImageRouter);   // 保持舊路徑
 // ===== 受保護路由：必須登入 =====
 // 訂單：登入即可（requireAuth），內部另做角色/公司資料隔離與細粒度權限
 app.use('/api/orders', requireAuth, ordersRouter);
-// 打板計劃：僅限 admin / staff（內部員工操作）
-app.use('/api/pallet', requireRole('admin', 'staff'), palletRouter);
-// ULD 夾重系統：僅限 admin / staff（與打板計劃同一批操作人員）
+// ULD 夾重系統：僅限 admin / staff
 app.use('/api/uld-weight', requireRole('admin', 'staff'), uldWeightRouter);
 // 模擬裝板的「雲端存檔」：僅限 admin / staff（模擬裝板本身免登入，存在本機不需要這支 API）
 app.use('/api/loadsim', requireRole('admin', 'staff'), loadsimRouter);

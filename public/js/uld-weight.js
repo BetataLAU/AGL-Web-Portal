@@ -192,7 +192,7 @@ async function applyToBookings() {
     return;
   }
   const ok = confirm(
-    '把每票夾重後的最終重量回寫到打板計劃的 Booking Record？\n'
+    '把每票夾重後的最終重量回寫到 Booking Record？\n'
     + '・只更新「已連結 Booking」的票（mawb_records.gross_weight，同一票跨板會加總）\n'
     + '・不會修改訂單（orders）的重量\n'
     + '・原重量會留在操作紀錄（audit_log）'
@@ -231,10 +231,10 @@ async function applyToBookings() {
   }
 }
 
-// ===== V1：把沒有連結 Booking 的票補到打板計劃（安全版：先預覽 → 確認 → 才寫入）=====
+// ===== V1：把沒有連結 Booking 的票補到 Booking Record（安全版：先預覽 → 確認 → 才寫入）=====
 const SYNC_SKIP_TEXT = {
   no_mawb: '沒有 MAWB#',
-  duplicate_booking: '打板計劃已有同號 MAWB 多筆（請先人工整理）'
+  duplicate_booking: 'Booking Record 已有同號 MAWB 多筆（請先人工整理）'
 };
 
 function syncSkipText(item) {
@@ -273,7 +273,7 @@ async function syncBookings() {
     }
     if (linked.length) {
       if (lines.length) lines.push('');
-      lines.push(`將連結 ${linked.length} 筆「打板計劃已有同號 MAWB」的票（不重複建立）：`);
+      lines.push(`將連結 ${linked.length} 筆「Booking Record 已有同號 MAWB」的票（不重複建立）：`);
       linked.slice(0, 10).forEach(x => lines.push(
         `・${x.mawb} → Booking #${x.mawb_record_id}（原重 ${uldFmtKg(x.before)} kg）`
       ));
@@ -285,7 +285,7 @@ async function syncBookings() {
     }
     lines.push('', '・只會新增／連結 Booking Record（gross_weight 用夾重後重量），不會修改訂單或夾重表的重量。');
 
-    if (!confirm(`${lines.join('\n')}\n\n確定要寫入打板計劃嗎？`)) return;
+    if (!confirm(`${lines.join('\n')}\n\n確定要寫入 Booking Record 嗎？`)) return;
 
     const result = await syncSheetBookings(s.current.id, { dryRun: false });
     const done = (result && result.data) || {};
@@ -2269,7 +2269,7 @@ async function createNew() {
 
 async function refreshCurrent() {
   const s = state();
-  resetBookingCache(); // 打板計劃可能新增／改過 Booking Record，重新整理時一併更新候選清單
+  resetBookingCache(); // 執 PLAN／夾重表可能新增／改過 Booking Record，重新整理時一併更新候選清單
   if (s.view === 'editor' && s.current) {
     if (s.dirty && !confirm('尚有未儲存的修改，重新整理會放棄它們，確定嗎？')) return;
     await openSheet(s.current.id);

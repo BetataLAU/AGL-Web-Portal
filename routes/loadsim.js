@@ -32,7 +32,7 @@ function dbRun(sql, params = []) {
   });
 }
 
-// 寫入審計日誌（與打板計劃／ULD 夾重同一套）
+// 寫入審計日誌（與訂單／ULD 夾重同一套）
 function writeAuditLog(req, action, targetId, detail) {
   const user = (req.session && req.session.user) || {};
   db.run(

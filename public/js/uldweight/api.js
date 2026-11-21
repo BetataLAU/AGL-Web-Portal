@@ -10,7 +10,7 @@ export async function fetchSheets(params = {}) {
   return Array.isArray(res.data) ? res.data : [];
 }
 
-// 打板計劃的 Booking Record（夾重表「新增 MAWB」的候選清單）
+// Booking Record（MAWB 主檔；與執 PLAN 共用）——夾重表「新增 MAWB」的候選清單
 // params：{ search, dest, limit }
 export async function fetchBookings(params = {}) {
   const query = new URLSearchParams();

@@ -16,7 +16,6 @@
   <link rel="stylesheet" href="css/utils/time-picker.css">
   <link rel="stylesheet" href="css/utils/autocomplete.css">
   <link rel="stylesheet" href="css/orders.css">
-  <link rel="stylesheet" href="css/pallet.css">
   <link rel="stylesheet" href="css/loadsim.css">
   <link rel="stylesheet" href="css/uld-weight.css">
   <link rel="stylesheet" href="css/loading-plan.css">
@@ -138,10 +137,6 @@
                 <span class="nav-badge">子功能</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-sli-eli-layout-lock" title="需要登入"></i>
               </a>
-              <a href="#section-palletization" class="nav-item" id="nav-palletization">
-                <i class="fa-solid fa-boxes-packing"></i> <span>打板計劃</span>
-                <i class="fa-solid fa-lock nav-lock-icon" id="nav-palletization-lock" title="需要員工權限"></i>
-              </a>
               <a href="#section-loading-plan" class="nav-item" id="nav-loading-plan">
                 <i class="fa-solid fa-plane-departure"></i> <span>執 PLAN</span>
               </a>
@@ -252,26 +247,6 @@
           <div id="contour-results-grid" class="contour-results-grid" tabindex="0">
             <div class="empty-state">Search above to view contour images.</div>
           </div>
-        </div>
-      </section>
-
-      <!-- 打板計劃頁面 -->
-      <section id="section-palletization" class="content-section">
-        <div class="card pallet-card">
-          <div class="card-header-flex">
-            <div>
-              <h2><i class="fa-solid fa-boxes-packing"></i> 🧱 打板計劃</h2>
-              <p class="card-desc">管理 Booking Record（MAWB）與打板計劃，透過拖曳/按鈕將貨物分配到各板。</p>
-            </div>
-            <div class="pallet-header-actions">
-              <button type="button" class="pallet-layout-toggle-btn" id="btn-pallet-layout-toggle" title="切換打板計劃排列方向" style="display:none;">
-                <i class="fa-solid fa-table-columns"></i> <span id="pallet-layout-toggle-label">左右排列</span>
-              </button>
-              <button type="button" class="pill" id="btn-pallet-sync-orders" title="將訂單系統的訂單同步為 Booking Record" style="display:none;"><i class="fa-solid fa-arrows-rotate"></i> ⇄ 同步訂單</button>
-              <button type="button" class="pill" id="btn-pallet-refresh"><i class="fa-solid fa-arrows-rotate"></i> 重新整理</button>
-            </div>
-          </div>
-          <div id="pallet-root"></div>
         </div>
       </section>
 
@@ -619,7 +594,6 @@
   <script src="./js/contours.js"></script>
   <script src="./js/chat.js"></script>
   <script type="module" src="./js/orders.js"></script>
-  <script type="module" src="./js/pallet.js"></script>
   <script type="module" src="./js/loadsim.js"></script>
   <script type="module" src="./js/uld-weight.js"></script>
   <script type="module" src="./js/loading-plan.js"></script>

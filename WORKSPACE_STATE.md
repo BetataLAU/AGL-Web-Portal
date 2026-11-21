@@ -7,6 +7,7 @@
 
 - **最後 commit**：`a7e17b9` feat(topbar): 目錄與搜尋合併成同一圓角膠囊；Contour 搜尋欄焦點圓角＋② 預覽表頭分層 sticky
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
+- **2026-11-21：打板計劃模組已整個移除**（`routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css`、`#section-palletization`、`/api/pallet`，以及 `pallet_plans`／`pallet_plan_items`／`spl_codes`／`remark_templates` 的建表與 seed）。`mawb_records` 保留為共用的 Booking Record（由「執 PLAN」與「ULD 夾重」維護）；以下歷史紀錄提到的打板計劃屬當時狀態。
 - **工作目錄狀態（尚未提交，P3 ＋ P4 前置 ＋ P4 ＋ P5 ＋ ZIP 檔名修正 ＋ 字元處理 ＋ 側欄主/子層級 ＋ ③ 欄寬 ＋ ③ 雙擊修改 ＋ 測試程式碼清理 ＋ 移除 ULD 裝箱 ＋ 模擬裝板系統 ＋ 模擬裝板拖曳效能 ＋ 模擬裝板摘要位置／① 表單精簡 ＋ 出界閃爍／出界量提示 ＋ 多尺寸／MAWB／排序／刪除重力／方向鍵 ＋ 新增修改貨物／選項開關／排序圖示 ＋ 表單欄寬左對齊／方向鍵騎出板邊 ＋ 出界引線／hover 邊長／tooltip CTN#／CBM 欄 ＋ ZA/ZB/ZC 板型 ＋ 動態搜尋／A1・A3・XJ・ZJ・ZQ・ZR・Z2–Z5 板型 ＋ 說明行內／暫存區②／畫布全高 ＋ Contour 邊長／暫存區③／板底 ring track／OVERHANG 推盡 ＋ **ULD 夾重系統** ＋ **ULD 夾重 W1（MAWB 從 Booking Record 帶入）** ＋ **ULD 夾重 W2（回寫 Booking Record）** ＋ **ULD 夾重 W3（RCL 磅單匯入）** ＋ **ULD 夾重 W4（列印／PDF 報表）** ＋ **ULD 夾重 W5（磅差門檻可調＋LIH 細分）** ＋ **ULD 夾重 R1～R4（server 端 PDF／比例上下限／明細 diff 更新／seed 競態）** ＋ **ULD 夾重 V2（批次 PDF 打包 ZIP）** ＋ **ULD 夾重 V1（補建 Booking Record）** ＋ **ULD 夾重 V3（歷史版本／異動比對）** ＋ **ULD 夾重 V4（效能量測→不需節流）** ＋ **ULD 夾重 U1～U3（直觀版 UI／輸入加速／單板 Loading Sheet）** ＋ **ULD 夾重 U4（載荷表 CHARTER LOADING SHEET）** ＋ **ULD 夾重方案 B（MAWB 申報列＋可編輯載荷表）** ＋ **頂部工作列／目錄抽屜** ＋ **Contour 搜尋欄焦點圓角** ＋ **模擬裝板存檔（本機多份／雲端 `/api/loadsim`／匯出・匯入 JSON）** ＋ **目錄／搜尋合併膠囊** ＋ **③ Shift 整段勾選** ＋ **缺 CNEE 不制作**）**：
   - **(SR2) ④ 執行產生：缺 CNEE 的 MAWB 一律「不制作」（2026-11-21）**：使用者要求「如發現 MAWB 缺 CNEE，無需制作出來」（原行為＝照常產生、SLI/ELI 的 CNEE 留空）。
     - **後端（`scripts/xls-workflow.js`）**：Step 1 `filterSelectedRecords()` 之後新增過濾 —— `String(r.cnee || '').trim()` 為空（含只有空白）→ 從 `recs` 移除並推進 `cneeWarnings`；因此 **Report（`writeReport`）、SLI/ELI payload／PDF、ZIP 分組全部不含該 MAWB**。`results[]` 每檔新增 `skipped`（跳過筆數），回傳新增 `skippedNoCnee`；Step 2 進度訊息會帶「缺 CNEE 已跳過 n 筆」。
@@ -417,7 +418,7 @@
    - 新增 `scripts/test-xls-preview-formula.js`（26 項斷言：後端預覽／前端顯示函式／`resolveCellValue`／③ `standardizeRows`），並以實際來源檔驗證 AD2 → `TK0171`。
 3. **文件分類整合**（`86db6d9`）：歷史規格 → `docs/archive/`、設計 → `docs/design/`、研究產物 → `docs/research/`、新增 `docs/README.md`；`README.md` 重寫；`CLAUDE.md` / `PROJECT_MAP.md` 補齊模組與 17 張表；`sync-project-state.js` 排除 `data/work`、`data/uploads`、`__pycache__`。
 4. **側邊欄排序修復**（`549289c`）：`*.html` 頁面連結項目不再被後端過濾，排序能正確保存。
-5. **打板計劃**（`8fdf148` 等）：`routes/pallet.js`、`public/js/pallet/*`（板位 booking、計劃卡、SPL 代碼、拖曳排序）。
+5. **打板計劃（已移除，2026-11-21）**：原 `routes/pallet.js`、`public/js/pallet/*`、板位 booking／計劃卡／SPL 代碼與 `pallet_plans`／`pallet_plan_items`／`spl_codes`／`remark_templates` 建表已刪除；`mawb_records` 保留為 Booking Record（執 PLAN／ULD 夾重共用）。
 6. **Shipper Role 模組化**（`1578210` 等）：`scripts/xls-workflow.js` 拆出 `xls-utils` / `xls-cnee` / `xls-report` / `xls-sli-eli`；前端 `public/js/xls-booking.js` 拆成 7 支（state / upload / preview / grid / assign / standard / workflow）；PDF 產生加入 worker pool 並行（`XLS_PDF_CONCURRENCY`，PRD 見 `docs/design/xls-pdf-parallel-prd.md`）。
 7. **登入與權限**：Session 登入（`routes/auth/`）、角色 admin / staff / customer、客戶資料隔離、`users.html` 使用者管理、導航排序持久化。
 8. **CNEE 對照區自動化**：`extractCneeLookupArea` + `matchCnee`（DEST / REMARK 加權）、缺 CNEE 與重覆 MAWB 警告清單。

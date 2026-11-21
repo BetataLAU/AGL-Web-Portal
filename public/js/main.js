@@ -293,20 +293,17 @@ function setupSidebarReorder() {
 // 供 auth.js 登入後重新整理（nav-users 顯示時需要補上把手）
 window.setupSidebarReorder = setupSidebarReorder;
 
-// ===== 受保護區塊初始化（訂單系統 / 資料庫檢視器 / 打板計劃） =====
+// ===== 受保護區塊初始化（訂單系統 / 資料庫檢視器 / ULD 夾重） =====
 // 僅在「已登入」時由 auth.js 呼叫（user 為登入者資訊）：
 // - 未登入時不初始化 → 不會發出受保護 API 請求 → 公開頁面（HOME/AI/Capabilities/Contour）仍可正常瀏覽
 // - 若直接呼叫會觸發 apiFetch 401 自動跳轉登入頁
-// - 打板計劃僅限 admin / staff，其餘角色不初始化
+// - ULD 夾重僅限 admin / staff，其餘角色不初始化
 window.initProtectedSections = function (user) {
   if (typeof setupOrdersSection === 'function') setupOrdersSection();
   if (typeof setupDbViewerSection === 'function') setupDbViewerSection();
   if (typeof setupXlsBookingSection === 'function') setupXlsBookingSection();
   const role = user && user.role;
-  if ((role === 'admin' || role === 'staff') && typeof setupPalletSection === 'function') {
-    setupPalletSection();
-  }
-  // ULD 夾重系統：同樣僅限 admin / staff（與打板計劃相同操作人員）
+  // ULD 夾重系統：僅限 admin / staff
   if ((role === 'admin' || role === 'staff') && typeof window.setupUldWeightSection === 'function') {
     window.setupUldWeightSection();
   }

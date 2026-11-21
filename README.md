@@ -9,7 +9,6 @@
 | 🔐 登入 / 權限 | `login.html`、`users.html` | Session 登入（Company Code + User ID + Password）；角色 `admin` / `staff` / `customer`，Sidebar 依權限顯示鎖頭 |
 | 📦 訂單系統 | Sidebar「訂單系統」 | 收貨/送貨落 ORDER、公司/地點資料庫、電力分類、趕機、電郵總結 |
 | ✈️ Shipper Role Project | Sidebar「Shipper Role Project」 | 上傳 XLS 配對表 → 產生 Report + SLI/ELI PDF + ZIP |
-| 📥 打板計劃 | Sidebar「打板計劃」 | 板位 booking、SPL 代碼、計劃卡（可從訂單同步）、拖曳排序（需 admin/staff） |
 | 🗄️ 資料庫檢視器 | Sidebar「資料庫」 | 白名單保護的資料表瀏覽 / 編輯 / 刪除（需 `db_view` 權限） |
 | 其他 | HOME / AI Playground / Capabilities / Contour | 首頁、聊天示範、技能展示、ULD 斷面圖資 |
 
@@ -55,7 +54,6 @@ AGL-Web-Portal/
 ├── routes/
 │   ├── auth/                # 登入、使用者管理、權限 middleware
 │   ├── orders/              # 訂單 CRUD、公司/地點、備註範本、工具
-│   ├── pallet.js            # 打板計劃 API
 │   └── xls-booking*.js      # Shipper Role 單據工具
 ├── public/
 │   ├── index.html           # 主站單頁 + Sidebar
@@ -63,7 +61,7 @@ AGL-Web-Portal/
 │   ├── users.html           # 使用者管理（admin）
 │   ├── css/                 # base / layout / components / animations / orders / dbviewer …
 │   │   └── utils/           # modal / cbm-calculator / time-picker / autocomplete
-│   └── js/                  # 主站邏輯 + utils/ + pallet/
+│   └── js/                  # 主站邏輯 + utils/
 ├── scripts/                 # XLS 流程、DB 匯出/匯入、測試與維運腳本
 └── data/templates/          # Shipper Role 模板（SLI/ELI 母版、年度 Report 工作檔）
 ```
@@ -77,7 +75,7 @@ AGL-Web-Portal/
 | 角色 | 權限 |
 |------|------|
 | `admin` | 全部，含使用者管理（`users.html`）與資料庫 |
-| `staff` | 內部員工：訂單、Shipper Role、打板計劃、資料庫 |
+| `staff` | 內部員工：訂單、Shipper Role、ULD 夾重、資料庫 |
 | `customer` | 客戶：只能看自己公司（`customer_company_id`）的訂單 |
 
 - 相關腳本：`node scripts/test-auth.js`、`node scripts/test-login-lockout.js`、`node scripts/test-customer-isolation.js`、`node scripts/seed-admin.js`
@@ -199,12 +197,6 @@ GET  /api/xls-booking/report-template                          # 下載 Report �
 POST /api/xls-booking/cleanup                                  # 清理過期產出（admin/staff）
 ```
 
-## 📥 打板計劃（`/api/pallet`，admin/staff）
-
-- 板位 booking（`/bookings`）與目的地清單、SPL 代碼維護、備註範本
-- 計劃卡（`/plans`）：新增 / 修改 / 刪除 / 複製、項目排序（拖曳）、可 `POST /plans/sync-orders` 由訂單同步資料
-- 前端：`public/index.html` 的「打板計劃」區塊、`public/js/pallet/`、`public/css/pallet.css`
-
 ## 📦 模擬裝板系統（`#section-loadsim`，模擬免登入；存檔分本機／雲端）
 
 裝板前先在瀏覽器模擬「貨物放進哪個板型（Contour / ULD）」，確認裝得下、沒有超出輪廓、沒有超重。
@@ -230,8 +222,8 @@ POST /api/xls-booking/cleanup                                  # 清理過期產
 - 夾重表 CRUD、複製、鎖定；匯出 Excel（3 個工作表）、複製文字摘要、**A4 列印／另存 PDF**（草稿／鎖定都能印）
 - **server 端正式 PDF**（⤓ PDF，A4 直式固定排版）；清單可勾選多張 → **批次下載 ZIP**（每張 `<sheet_no>.pdf` ＋ `manifest.txt`，上限 50 張）
 - **歷史版本**（🕘 版本）：每次建立／儲存／鎖定／解鎖／套用／補建 Booking 都留一份快照（每表保留 30 版），可比較兩版差異
-- 鎖定後可把結果套用到打板計劃的 Booking Record（`mawb_records.gross_weight`，不動訂單）；
-  也可以反向「**⇧ 補建 Booking**」：把夾重表上還沒連結 Booking 的票補進打板計劃（預設先預覽、確認後才寫；同號 MAWB 只連結不重建）；RCL 磅單（Excel／CSV）可整批匯入收貨單位
+- 鎖定後可把結果套用到 Booking Record（`mawb_records.gross_weight`，不動訂單）；
+  也可以反向「**⇧ 補建 Booking**」：把夾重表上還沒連結 Booking 的票補進 Booking Record（預設先預覽、確認後才寫；同號 MAWB 只連結不重建）；RCL 磅單（Excel／CSV）可整批匯入收貨單位
 - 前端：`#section-uld-weight`、`public/js/uld-weight.js`、`public/js/uldweight/*`、`public/css/uld-weight.css`；設計文件 `docs/design/uld-weight-system.md`
 
 ```bash
@@ -273,7 +265,6 @@ GET    /api/uld-weight/sheets/:id/versions/diff  # 版本差異（from 必填；
 | `/api/skills` | 技能清單 | 公開 |
 | `/api/contours`、`/api/contour-image` | Contour 影像 | 公開 |
 | `/api/orders` | 訂單 CRUD、重複檢查、公司/地點、備註範本 | 登入（customer 僅自己公司） |
-| `/api/pallet` | 打板計劃：bookings / plans / SPL 代碼 / 備註範本 / sync-orders | admin / staff |
 | `/api/uld-weight` | ULD 夾重系統：sheets CRUD / duplicate / lock | admin / staff |
 | `/api/xls-booking` | Shipper Role：upload / preview / cnee-preview / process / status / cancel / download / cleanup | 登入 |
 | `/api/db` | 資料庫檢視器 | `db_view` |
@@ -314,7 +305,6 @@ npm run hooks:install     # 安裝 git hooks
 | 主題 | `public/css/base.css`（變數）+ `public/js/theme.js` |
 | 訂單系統後端 | `routes/orders/*` |
 | 訂單系統前端 | `public/js/orders.js`、`public/css/orders.css` |
-| 打板計劃 | `routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css` |
 | 模擬裝板系統 | `public/js/loadsim/*`、`public/css/loadsim.css`（純前端；板型規格在 `js/loadsim/uld-specs.js`） |
 | Shipper Role 後端 | `routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-*.js` |
 | Shipper Role 前端 | `public/js/xls-booking-*.js`、`public/css/xls-booking.css` |

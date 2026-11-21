@@ -2,40 +2,73 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/21 下午1:47:51
+> 最後更新：2026/11/21 下午2:00:02
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
 M README.md
 M WORKSPACE_STATE.md
-M data/templates/shipper-role-summary-2026.xlsx
-M public/js/xls-booking-standard.js
-M public/js/xls-booking-workflow.js
-M routes/xls-booking.js
-M scripts/xls-workflow.js
-?? scripts/test-xls-skip-no-cnee.js
-?? scripts/test-xls-std-range-select.js
+M db/database.js
+M db/db-dump.sql
+M docs/design/uld-weight-phase2-handoff.md
+M docs/design/uld-weight-remaining-work.md
+M docs/design/uld-weight-system.md
+D public/css/pallet.css
+M public/index.html
+M public/js/auth.js
+M public/js/loadsim.js
+M public/js/main.js
+D public/js/pallet.js
+D public/js/pallet/api.js
+D public/js/pallet/bookingModal.js
+D public/js/pallet/bookingsController.js
+D public/js/pallet/dragController.js
+D public/js/pallet/formatters.js
+D public/js/pallet/planActions.js
+D public/js/pallet/planCardRenderer.js
+D public/js/pallet/planDupUtils.js
+D public/js/pallet/planModal.js
+D public/js/pallet/planSorting.js
+D public/js/pallet/plansController.js
+D public/js/pallet/state.js
+M public/js/uld-weight.js
+M public/js/uldweight/api.js
+M public/js/uldweight/booking-search.js
+M public/js/uldweight/calc.js
+M public/js/uldweight/render.js
+M public/js/uldweight/sheet-grid.js
+M routes/loading-plan/index.js
+M routes/loadsim.js
+M routes/orders/orders-router.js
+D routes/pallet.js
+M routes/uld-weight.js
+M scripts/fix-nav-order.js
+M scripts/test-nav-order-frontend.js
+M scripts/test-uld-weight-api.js
+M scripts/test-uld-weight-frontend.js
+M server.js
 ```
 
-## 📁 檔案清單（共 288 個檔案）
+## 📁 檔案清單（共 273 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitattributes`（316 B）
 - `.gitignore`（1.1 KB）
-- `CLAUDE.md`（129.0 KB）
+- `CLAUDE.md`（128.1 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（38.6 KB）
-- `README.md`（25.5 KB）
-- `WORKSPACE_STATE.md`（155.2 KB）
+- `PROJECT_MAP.md`（37.0 KB）
+- `README.md`（24.7 KB）
+- `WORKSPACE_STATE.md`（155.8 KB）
 - `database.db-shm`（32.0 KB）
 - `database.db-wal`（4031.5 KB）
 - `package.json`（2.1 KB）
-- `server.js`（7.3 KB）
+- `server.js`（7.1 KB）
 
 ### data/templates
 
@@ -110,8 +143,8 @@ M scripts/xls-workflow.js
 
 ### db
 
-- `db/database.js`（25.6 KB）
-- `db/db-dump.sql`（288.8 KB）
+- `db/database.js`（21.3 KB）
+- `db/db-dump.sql`（272.4 KB）
 
 ### docs
 
@@ -120,15 +153,15 @@ M scripts/xls-workflow.js
 ### docs/design
 
 - `docs/design/order-system-design.md`（9.6 KB）
-- `docs/design/uld-weight-phase2-handoff.md`（43.9 KB）
-- `docs/design/uld-weight-remaining-work.md`（46.6 KB）
-- `docs/design/uld-weight-system.md`（30.8 KB）
+- `docs/design/uld-weight-phase2-handoff.md`（44.4 KB）
+- `docs/design/uld-weight-remaining-work.md`（46.9 KB）
+- `docs/design/uld-weight-system.md`（31.1 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
 - `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
 
 ### public
 
-- `public/index.html`（37.8 KB）
+- `public/index.html`（36.2 KB）
 - `public/login.html`（8.5 KB）
 - `public/sli-eli-layout.html`（8.9 KB）
 - `public/users.html`（31.5 KB）
@@ -143,7 +176,6 @@ M scripts/xls-workflow.js
 - `public/css/loading-plan.css`（19.7 KB）
 - `public/css/loadsim.css`（26.4 KB）
 - `public/css/orders.css`（33.7 KB）
-- `public/css/pallet.css`（31.9 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
 - `public/css/topbar.css`（14.2 KB）
 - `public/css/uld-weight.css`（75.1 KB）
@@ -159,15 +191,14 @@ M scripts/xls-workflow.js
 ### public/js
 
 - `public/js/animations.js`（12.2 KB）
-- `public/js/auth.js`（26.1 KB）
+- `public/js/auth.js`（25.6 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（20.3 KB）
 - `public/js/dbviewer.js`（42.7 KB）
 - `public/js/loading-plan.js`（955 B）
 - `public/js/loadsim.js`（84.0 KB）
-- `public/js/main.js`（14.7 KB）
+- `public/js/main.js`（14.6 KB）
 - `public/js/orders.js`（418 B）
-- `public/js/pallet.js`（6.1 KB）
 - `public/js/skills.js`（1.0 KB）
 - `public/js/sli-eli-layout-editor.js`（16.9 KB）
 - `public/js/sli-eli-layout-main.js`（10.9 KB）
@@ -232,21 +263,6 @@ M scripts/xls-workflow.js
 - `public/js/orders/components/noteTemplates.js`（10.3 KB）
 - `public/js/orders/components/powerItemsEditor.js`（4.5 KB）
 
-### public/js/pallet
-
-- `public/js/pallet/api.js`（5.2 KB）
-- `public/js/pallet/bookingModal.js`（13.9 KB）
-- `public/js/pallet/bookingsController.js`（12.0 KB）
-- `public/js/pallet/dragController.js`（12.0 KB）
-- `public/js/pallet/formatters.js`（5.4 KB）
-- `public/js/pallet/planActions.js`（17.5 KB）
-- `public/js/pallet/planCardRenderer.js`（13.8 KB）
-- `public/js/pallet/planDupUtils.js`（1.8 KB）
-- `public/js/pallet/planModal.js`（13.8 KB）
-- `public/js/pallet/planSorting.js`（2.1 KB）
-- `public/js/pallet/plansController.js`（3.7 KB）
-- `public/js/pallet/state.js`（4.7 KB）
-
 ### public/js/uldweight
 
 - `public/js/uldweight/api.js`（6.1 KB）
@@ -278,7 +294,6 @@ M scripts/xls-workflow.js
 - `routes/contours.js`（3.4 KB）
 - `routes/dbviewer.js`（11.4 KB）
 - `routes/loadsim.js`（10.8 KB）
-- `routes/pallet.js`（35.4 KB）
 - `routes/skills.js`（377 B）
 - `routes/uld-weight.js`（71.9 KB）
 - `routes/xls-booking-helpers.js`（5.6 KB）
@@ -302,7 +317,7 @@ M scripts/xls-workflow.js
 - `routes/orders/companies.js`（5.3 KB）
 - `routes/orders/index.js`（1.1 KB）
 - `routes/orders/note-templates.js`（2.0 KB）
-- `routes/orders/orders-router.js`（21.3 KB）
+- `routes/orders/orders-router.js`（21.2 KB）
 - `routes/orders/utils.js`（7.3 KB）
 
 ### scripts
@@ -359,7 +374,7 @@ M scripts/xls-workflow.js
 - `scripts/test-topbar.js`（11.7 KB）
 - `scripts/test-uld-weight-api.js`（66.6 KB）
 - `scripts/test-uld-weight-calc.js`（35.5 KB）
-- `scripts/test-uld-weight-frontend.js`（104.6 KB）
+- `scripts/test-uld-weight-frontend.js`（104.5 KB）
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）
 - `scripts/test-uld-weight-rcl.js`（6.8 KB）
 - `scripts/test-xls-preview-formula.js`（6.7 KB）

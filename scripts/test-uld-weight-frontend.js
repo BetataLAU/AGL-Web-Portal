@@ -244,7 +244,7 @@ function apiDetail() {
   check('10.2 空表計算總計為 0', state.uldComputed().totals.netTotal === 0);
   check('10.3 uldFmtKg 顯示整數不帶小數', calc.uldFmtKg(1013) === '1013' && calc.uldFmtKg(1013.5) === '1013.5');
 
-  // ===== 11. MAWB 從打板計劃 Booking Record 帶入（W1）=====
+  // ===== 11. MAWB 從 Booking Record 帶入（W1）=====
   console.log('\n--- 11. Booking Record 帶入（W1）---');
   const booking = await import(`${BASE}/booking-search.js`);
   const bookingRow = { id: 12, mawb: '160-00000777', dest: 'LAX', pcs: 12, gross_weight: 345.5 };
@@ -283,7 +283,7 @@ function apiDetail() {
   const linkedRoot = makeRoot();
   render.renderEditor(linkedRoot);
   check('11.9 已連結的明細列顯示 Booking #99',
-    linkedRoot.innerHTML.includes('已連結打板計劃 Booking Record #99'));
+    linkedRoot.innerHTML.includes('已連結 Booking Record #99'));
 
   // ===== 12. 輸入即篩選：選到 Booking 後自動帶入（模擬 setupAutocomplete）=====
   console.log('\n--- 12. 選到 Booking 自動帶入 ---');

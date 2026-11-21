@@ -217,7 +217,7 @@ db.serialize(() => {
     ensureColumn('dest', 'TEXT');
   });
 
-  // ===== 打板計劃：Booking Record（左欄 MAWB 主檔） =====
+  // ===== Booking Record（MAWB 主檔；執 PLAN／ULD 夾重共用） =====
   db.run(`
     CREATE TABLE IF NOT EXISTS mawb_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -236,43 +236,7 @@ db.serialize(() => {
     )
   `);
 
-  // ===== 打板計劃：計劃主表 =====
-  db.run(`
-    CREATE TABLE IF NOT EXISTS pallet_plans (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      plan_no TEXT UNIQUE,
-      company_name TEXT,
-      fax TEXT,
-      plan_date TEXT,
-      flight_no TEXT,
-      flight_date TEXT,
-      arrival_airport TEXT,
-      contour_text TEXT,
-      contour_code TEXT,
-      max_gross_weight REAL,
-      handover_hours INTEGER,
-      planner TEXT,
-      remarks TEXT,
-      status TEXT DEFAULT 'draft',
-      sort_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // ===== 打板計劃：計劃明細（MAWB ↔ Plan 多對多） =====
-  db.run(`
-    CREATE TABLE IF NOT EXISTS pallet_plan_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      plan_id INTEGER NOT NULL,
-      mawb_record_id INTEGER NOT NULL,
-      sort_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(plan_id, mawb_record_id)
-    )
-  `);
-
-  // mawb_records 表相容性：補上 order_id 欄位（訂單 ↔ 打板 雙向同步用）
+  // mawb_records 表相容性：補上 order_id 欄位（訂單 ↔ Booking Record 同步用）
   db.all("PRAGMA table_info(mawb_records)", [], (err, mawbCols) => {
     if (err) {
       console.error('PRAGMA table_info(mawb_records) failed:', err.message);
@@ -289,44 +253,6 @@ db.serialize(() => {
       });
     }
   });
-
-  // pallet_plans 表相容性：補上 sort_order 欄位（整張卡片拖曳排序用）
-  db.all("PRAGMA table_info(pallet_plans)", [], (err, planCols) => {
-    if (err) {
-      console.error('PRAGMA table_info(pallet_plans) failed:', err.message);
-      return;
-    }
-    const planColumns = planCols.map(c => c.name);
-    if (!planColumns.includes('sort_order')) {
-      db.run("ALTER TABLE pallet_plans ADD COLUMN sort_order INTEGER DEFAULT 0", (alterErr) => {
-        if (alterErr) {
-          console.error('Failed to add sort_order column to pallet_plans:', alterErr.message);
-        } else {
-          console.log('Added sort_order column to pallet_plans');
-        }
-      });
-    }
-  });
-
-  // ===== 打板計劃：SPL 特殊代碼（可維護清單） =====
-  db.run(`
-    CREATE TABLE IF NOT EXISTS spl_codes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      code TEXT UNIQUE,
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // ===== 打板計劃：REMARK 備註範本（可維護清單） =====
-  db.run(`
-    CREATE TABLE IF NOT EXISTS remark_templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      content TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
 
   // ===== ULD 夾重系統：夾重表（一張單＝一次夾重作業）=====
   db.run(`
@@ -634,54 +560,6 @@ db.serialize(() => {
     }
   });
 
-  // 打板計劃：SPL 種子資料（若表格為空）
-  db.get("SELECT COUNT(*) AS count FROM spl_codes", (err, row) => {
-    if (row && row.count === 0) {
-      const seedSpl = [
-        ['無電', '全數無電'],
-        ['全部冇電', '全部無電'],
-        ['PI967', '鋰電池（隨設備）'],
-        ['PI968', '鋰電池（獨立）'],
-        ['UN3481', '鋰電池安裝於設備內'],
-        ['UN3480', '鋰離子電池'],
-        ['UN3091', '鋰金屬電池安裝於設備內'],
-        ['ELI', '鋰電池'],
-        ['ELM', '鋰金屬'],
-        ['A67', '鋰電池（包裝）'],
-        ['A123', '鋰電池（設備）'],
-        ['A199', '鋰電池（內置）'],
-        ['SPX', '特殊處理（Special Handling）'],
-        ['PER', '易腐貨'],
-        ['AVI', '活體動物'],
-        ['VAL', '貴重貨'],
-        ['HUM', '人體遺骸'],
-        ['DIP', '外交郵袋'],
-        ['EAT', '食品']
-      ];
-      const stmt = db.prepare("INSERT INTO spl_codes (code, description) VALUES (?, ?)");
-      seedSpl.forEach(([code, desc]) => stmt.run(code, desc));
-      stmt.finalize();
-    }
-  });
-
-  // 打板計劃：REMARK 範本種子資料（若表格為空）
-  db.get("SELECT COUNT(*) AS count FROM remark_templates", (err, row) => {
-    if (row && row.count === 0) {
-      const seedRemarks = [
-        ['JPS 自送', '今天自送到 JPS'],
-        ['卸車點', 'JPS 卸車 / 代貼 UN3481 電池 LABEL'],
-        ['20% HAND SEARCH', '需要幫忙做 20% HAND SEARCH，影貨相、LABEL相、開箱相、裝板相'],
-        ['不需爆箱', '不需要爆箱'],
-        ['REV PLAN', 'REV PLAN（換貨）'],
-        ['防火網', '要裝防火網'],
-        ['AWB LABEL', '每件貨貼 2 張 AWB LABEL'],
-        ['交板時間', '起飛前 8 個鐘要交到板']
-      ];
-      const stmt = db.prepare("INSERT INTO remark_templates (name, content) VALUES (?, ?)");
-      seedRemarks.forEach(([name, content]) => stmt.run(name, content));
-      stmt.finalize();
-    }
-  });
 });
 
 // 初始化完成訊號：schema 與相容性欄位（例：companies.company_code）都補好後才 resolve，

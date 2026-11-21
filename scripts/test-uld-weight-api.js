@@ -265,12 +265,12 @@ const CASE4 = {
     const login = await req('POST', '/api/auth/login', CREDS);
     check('登入成功（admin）', login.status === 200, String(login.status));
 
-    // ---- W1：MAWB 從打板計劃 Booking Record 帶入 ----
-    const newBooking = await req('POST', '/api/pallet/bookings', {
-      mawb: '160-00000777', client: 'W1 TEST', dest: 'LAX', pcs: 12, gross_weight: 345.5
+    // ---- W1：MAWB 從 Booking Record 帶入 ----
+    const newBooking = await req('POST', '/api/loading-plan/bookings', {
+      mawb: '160-00000777', client: 'W1 TEST', dest: 'LAX', pcs_total: 12, gross_weight: 345.5
     });
-    check('POST /api/pallet/bookings → 200（打板計劃建立 Booking）',
-      newBooking.status === 200 && !!(newBooking.body && newBooking.body.data), String(newBooking.status));
+    check('POST /api/loading-plan/bookings → 201（建立 Booking Record）',
+      newBooking.status === 201 && !!(newBooking.body && newBooking.body.data), String(newBooking.status));
     const bookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-00000777');
     const foundBooking = (bookingSearch.body.data || []).find(b => b.mawb === '160-00000777');
     check('GET /uld-weight/bookings?search= 找到剛建的 Booking',
@@ -287,11 +287,11 @@ const CASE4 = {
     check('limit=1 → 最多 1 筆', (bookingLimit.body.data || []).length === 1,
       String((bookingLimit.body.data || []).length));
     // ---- W2 前置：CASE 4 的兩票也各建一筆 Booking（b 的原始重量故意放 1000，套用後應變 1013）----
-    const bookingA = await req('POST', '/api/pallet/bookings', {
-      mawb: '160-00000005', client: 'W2 TEST', dest: 'HKG', pcs: 5, gross_weight: 300
+    const bookingA = await req('POST', '/api/loading-plan/bookings', {
+      mawb: '160-00000005', client: 'W2 TEST', dest: 'HKG', pcs_total: 5, gross_weight: 300
     });
-    const bookingB = await req('POST', '/api/pallet/bookings', {
-      mawb: '160-00000006', client: 'W2 TEST', dest: 'TPE', pcs: 6, gross_weight: 1000
+    const bookingB = await req('POST', '/api/loading-plan/bookings', {
+      mawb: '160-00000006', client: 'W2 TEST', dest: 'TPE', pcs_total: 6, gross_weight: 1000
     });
     const idA = bookingA.body.data && bookingA.body.data.id;
     const idB = bookingB.body.data && bookingB.body.data.id;
@@ -707,9 +707,9 @@ const CASE4 = {
           tare_weight: 100, rcl_gross_weight: 300, material_weight: 0,
           lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
           items: [
-            // 打板計劃已有這票（W2 前置建的 Booking，原重 300）→ 只連結、不重建
+            // Booking Record 已有這票（W2 前置建的 Booking，原重 300）→ 只連結、不重建
             { mawb: '160-00000005', port: 'HKG', pcs: 2, declared_weight: 150, is_squeeze: 0, lih_type: 'N' },
-            // 打板計劃沒有 → 建立（夾重票：RCL 淨重 300 − 申報 150 = 150）
+            // Booking Record 沒有 → 建立（夾重票：RCL 淨重 300 − 申報 150 = 150）
             { mawb: '160-00008888', port: 'NRT', pcs: 3, declared_weight: 150, is_squeeze: 1, lih_type: 'N' }
           ]
         }
@@ -736,7 +736,7 @@ const CASE4 = {
       Number(previewLinked[0].mawb_record_id) === Number(idA),
       JSON.stringify(previewLinked));
     const stillMissing = await req('GET', '/api/uld-weight/bookings?search=160-00008888');
-    check('V1 預覽沒有寫 DB（打板計劃仍查不到 160-00008888）',
+    check('V1 預覽沒有寫 DB（Booking Record 仍查不到 160-00008888）',
       (stillMissing.body.data || []).length === 0, JSON.stringify(stillMissing.body.data));
     const previewDetail = await req('GET', `/api/uld-weight/sheets/${v1Id}`);
     check('V1 預覽沒有回填 mawb_record_id',

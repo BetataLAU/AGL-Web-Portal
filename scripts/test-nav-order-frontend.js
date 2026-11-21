@@ -10,14 +10,14 @@ const vm = require('vm');
 
 const NAV_ITEM_HREFS = [
   '#section-home', '#section-chat', '#section-skills', '#section-contour', '#section-orders',
-  '#section-xls-booking', 'sli-eli-layout.html', '#section-palletization', '#section-loading-plan',
+  '#section-xls-booking', 'sli-eli-layout.html', '#section-loading-plan',
   '#section-loadsim', '#section-uld-weight', '#section-dbviewer', 'users.html'
 ];
 
 // 舊版伺服器實際存下的不完整排序（缺 sli-eli-layout.html）
 const LEGACY_PARTIAL = [
   '#section-xls-booking', '#section-contour', '#section-chat', '#section-skills',
-  '#section-orders', '#section-palletization', '#section-dbviewer', 'users.html'
+  '#section-orders', '#section-dbviewer', 'users.html'
 ];
 
 function makeItem(href) {
@@ -123,7 +123,7 @@ function check(name, ok, detail = '') {
     orderA.slice(-2).join() === '#section-loadsim,#section-uld-weight',
     `→ 最後兩項 ${orderA.slice(-2).join(' , ')}`);
   check('A3 已列出的項目維持伺服器順序',
-    JSON.stringify(orderA.slice(1, 9)) === JSON.stringify(LEGACY_PARTIAL));
+    JSON.stringify(orderA.slice(1, 1 + LEGACY_PARTIAL.length)) === JSON.stringify(LEGACY_PARTIAL));
 
   // --- B. 重複呼叫：事件只綁一次 ---
   sandbox.setupSidebarReorder();

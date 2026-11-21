@@ -1,4 +1,4 @@
-// ===== ULD 夾重系統：MAWB 從「打板計劃 Booking Record」帶入（輸入即篩選）=====
+// ===== ULD 夾重系統：MAWB 從 Booking Record 帶入（輸入即篩選） =====
 // 選到 Booking 後自動帶入 mawb / 件數（pcs）/ 申報重量（gross_weight）/ Port（dest），
 // 並把 mawb_record_id 記在 item 上（uldSheetPayload 已保留該欄位）。
 // 手動輸入 MAWB 仍然可用（沒選 Booking 就是 mawb_record_id = null）。
@@ -19,7 +19,7 @@ const bookingsByMawb = new Map();   // MAWB 鍵 → Booking Record（選到時�
 let snapshot = { at: 0, labels: [] };
 const queryCache = new Map();       // 查詢字串 → { at, labels }
 
-// 換頁／重新整理時清掉（Booking Record 可能在打板計劃被新增或修改）
+// 換頁／重新整理時清掉（Booking Record 可能在執 PLAN／夾重表被新增或修改）
 export function resetBookingCache() {
   bookingsByMawb.clear();
   queryCache.clear();

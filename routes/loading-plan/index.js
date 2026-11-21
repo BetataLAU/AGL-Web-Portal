@@ -670,7 +670,7 @@ router.get('/bookings', handle(async (req, res) => {
 }));
 
 // ===== POST /bookings（新增 Booking Record ＋ 直接加入存貨）=====
-// 執 PLAN 只要登入即可（不經過 /api/pallet 的 admin/staff 限制）。
+// 執 PLAN 只要登入即可（不設角色限制）。
 // 同一 MAWB 已有 Booking → 409（前端提示改用「找現有 Booking」分頁加入，避免重複主檔）。
 router.post('/bookings', handle(async (req, res) => {
   const c = await calc();

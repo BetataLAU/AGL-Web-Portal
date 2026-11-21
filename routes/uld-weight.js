@@ -54,7 +54,7 @@ function dbRun(sql, params = []) {
   });
 }
 
-// 寫入審計日誌（比照打板計劃）
+// 寫入審計日誌（與訂單／執 PLAN 同一套）
 function writeAuditLog(req, action, targetType, targetId, detail) {
   const user = (req.session && req.session.user) || {};
   db.run(
@@ -496,8 +496,8 @@ function serializeVersionRow(row, withSnapshot = false) {
   return out;
 }
 
-// ===== Booking Record（打板計劃的 MAWB 主檔）：夾重表的 MAWB 可直接挑選 =====
-// 沿用 routes/pallet.js 的 BOOKING_SELECT_SQL／serializeBooking 概念，只取夾重要用到的欄位；
+// ===== Booking Record（MAWB 主檔；與執 PLAN 共用）：夾重表的 MAWB 可直接挑選 =====
+// 沿用 Booking Record 的 BOOKING_SELECT_SQL 概念，只取夾重要用到的欄位；
 // 這裡只讀不寫（夾重表回寫 mawb_records 是 Phase 2 的 W2，尚未做）。
 const BOOKING_SELECT_SQL = `
   SELECT b.id, b.mawb, b.hawb, b.client, b.dest, b.pcs, b.gross_weight,
@@ -1255,7 +1255,7 @@ router.post('/sheets/:id/duplicate', async (req, res) => {
 });
 
 // ===== POST /api/uld-weight/sheets/:id/apply（W2）=====
-// 把夾重後的「最終重量」回寫打板計劃的 Booking Record（mawb_records.gross_weight）。
+// 把夾重後的「最終重量」回寫 Booking Record（mawb_records.gross_weight）。
 // 規則（D1 已確認）：僅 status = 'locked' 可套用；同一票跨板加總；原重量寫進 audit_log.detail；
 // 不動 orders（訂單的申報重量不應被夾重結果覆蓋）。重複套用為冪等（重量未變就略過）。
 router.post('/sheets/:id/apply', async (req, res) => {
@@ -1320,14 +1320,14 @@ router.post('/sheets/:id/apply', async (req, res) => {
 });
 
 // ===== POST /api/uld-weight/sheets/:id/sync-bookings（V1）=====
-// 「夾重表反推打板計劃」：把**沒有連結 Booking** 的票補上 `mawb_record_id`。
-//   1) 打板計劃已有同號 MAWB（正規化比對：去空白／連字號、大寫）→ **只連結，不重複建**
+// 「夾重表反推 Booking Record」：把**沒有連結 Booking** 的票補上 `mawb_record_id`。
+//   1) Booking Record 已有同號 MAWB（正規化比對：去空白／連字號、大寫）→ **只連結，不重複建**
 //   2) 沒有 → 建一筆 Booking（`gross_weight` = 夾重後重量加總、`pcs` = 件數加總、`dest` = 該票 Port）
 // 安全設計（不改既定規則）：
 //   * **預設 dry_run**（只回預覽、不寫 DB）；要真的寫入必須明確傳 `{ "dry_run": false }`
 //   * **不動 orders**（D1）；也不動夾重表的重量，只更新 `uld_weight_items.mawb_record_id`
 //   * 夾重表有 error（未勾夾重／目標過小…）→ 422（重量還不確定，不該寫進 Booking）
-//   * 同號 MAWB 在打板計劃有多筆 → 不猜，列在 skipped（`duplicate_booking`）交給人工
+//   * 同號 MAWB 在 Booking Record 有多筆 → 不猜，列在 skipped（`duplicate_booking`）交給人工
 // 重量一律來自 `calc.uldBookingTotals()`（與 W2 的 /apply 同一份來源，不在這裡另寫算法）。
 const MAWB_KEY_SQL = "REPLACE(REPLACE(UPPER(IFNULL(mawb, '')), '-', ''), ' ', '') = ?";
 
@@ -1395,7 +1395,7 @@ router.post('/sheets/:id/sync-bookings', async (req, res) => {
         [key]
       );
       if (existing.length > 1) {
-        // 打板計劃本身就有重複 MAWB → 不猜哪一筆（避免把重量寫到錯的 Booking）
+        // Booking Record 本身就有重複 MAWB → 不猜哪一筆（避免把重量寫到錯的 Booking）
         skipped.push({ mawb, reason: 'duplicate_booking', count: existing.length });
         continue;
       }

@@ -49,7 +49,7 @@ export function layoutHtml() {
         </header>
         <div class="lp-stock-tools">
           <input type="search" id="lp-stock-search" class="lp-input" placeholder="搜尋存貨（MAWB / 客戶 / DEST）" autocomplete="off" />
-          <button type="button" class="lp-btn lp-btn-sm" data-action="find-booking" title="從 Booking 主檔找貨加入">🔍 找 Booking</button>
+          <button type="button" class="lp-btn lp-btn-sm" data-action="find-booking" title="找現有 Booking 或新增 Booking">🔍 找/新增Booking</button>
         </div>
         <div class="lp-stock-list" id="lp-stock-list"></div>
         <footer class="lp-stock-foot" id="lp-stock-summary"></footer>
@@ -108,13 +108,13 @@ export function rowHead(view) {
       <span class="lp-c-sel"></span>
       <span class="lp-c-idx">#</span>
       <span class="lp-c-mawb">MAWB</span>
-      <span class="lp-c-client">CLIENT</span>
       <span class="lp-c-dest">DEST</span>
+      <span class="lp-c-client">CLIENT</span>
       <span class="lp-c-pkgs">PKGS</span>
       <span class="lp-c-gw num">G.W</span>
       <span class="lp-c-vol num">${view === 'cuft' ? 'cu.ft' : 'VOL'}</span>
       <span class="lp-c-cbm num">CBM</span>
-      <span class="lp-c-tag">TAG</span>
+      <span class="lp-c-tag" title="自由文字（滑鼠移入可展開；雙擊編輯；DIM 格式 L x W x H / PCS）">REMARK</span>
     </div>
   `;
 }
@@ -162,8 +162,8 @@ export function itemRow(item, plan, index, options = {}) {
       <span class="lp-c-mawb" data-field="mawb" title="雙擊編輯">
         ${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? `<span class="lp-dup" title="${esc(duplicateMessage(item))}">⧉</span>` : ''}
       </span>
-      <span class="lp-c-client" data-field="client">${esc(item.client || '')}</span>
       <span class="lp-c-dest" data-field="dest">${esc(item.dest || '')}</span>
+      <span class="lp-c-client" data-field="client">${esc(item.client || '')}</span>
       <span class="lp-c-pkgs" data-field="pkgs_text">${pcsText(item)}</span>
       <span class="lp-c-gw num" data-field="gross_weight">${fmt(item.gross_weight, 2)}</span>
       <span class="lp-c-vol num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${fmt(volValue, 2)}</span>
@@ -186,8 +186,8 @@ export function planTotalRow(plan, view) {
       <span class="lp-c-sel"></span>
       <span class="lp-c-idx"></span>
       <span class="lp-c-mawb">TOTAL <b>${fmtInt(t.mawbs)}</b> MAWB</span>
-      <span class="lp-c-client"></span>
       <span class="lp-c-dest"></span>
+      <span class="lp-c-client"></span>
       <span class="lp-c-pkgs">${fmtInt(t.pcs)}${pcsIncomplete ? ' <span class="lp-warn">⚠</span>' : ''}</span>
       <span class="lp-c-gw num">${fmt(t.grossWeight, 2)}</span>
       <span class="lp-c-vol num">${fmt(volValue, 2)}</span>
@@ -407,7 +407,7 @@ export function renderStock() {
 
   list.innerHTML = items.length
     ? items.map((item, index) => stockRow(item, state.stock, index, { selectedSet: selected })).join('')
-    : `<div class="lp-empty-sm">${all.length ? '沒有符合的存貨' : '存貨是空的（可從 PLAN 移出，或按「找 Booking」加入）'}</div>`;
+    : `<div class="lp-empty-sm">${all.length ? '沒有符合的存貨' : '存貨是空的（可從 PLAN 移出，或按「找/新增Booking」加入）'}</div>`;
 
   const countEl = document.getElementById('lp-stock-count');
   if (countEl) countEl.textContent = `${items.length} 筆`;

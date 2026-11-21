@@ -99,7 +99,7 @@ export function lpBuildTsv(items, view = 'vol') {
       item.gross_weight != null ? item.gross_weight : '',
       vol != null ? vol : '',
       item.cbm != null ? item.cbm : '',
-      item.tag || '',
+      String(item.tag || '').replace(/[\t\r\n]+/g, ' '),
       String(item.remark || '').replace(/[\t\r\n]+/g, ' ')
     ].join('\t'));
   });

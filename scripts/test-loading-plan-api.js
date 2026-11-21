@@ -246,6 +246,13 @@ async function readSse(url, predicate, timeoutMs = 5000) {
       patchedPkgs.body.data.cartons === 10 && patchedPkgs.body.data.pallets === 2 && patchedPkgs.body.data.pcs_total === 12,
       JSON.stringify({ c: patchedPkgs.body.data.cartons, p: patchedPkgs.body.data.pallets }));
 
+    // REMARK（tag）自由文字：DIM 一組一行 → 換行必須保留
+    const dimText = '4 / D6\n60 x 40 x 50 / 10\n30 x 20 x 10 / 5';
+    const patchedTag = await req('PATCH', `/api/loading-plan/items/${movedItemId}`, { tag: dimText });
+    check('PATCH tag（畫面 REMARK）保留 DIM 換行',
+      patchedTag.status === 200 && patchedTag.body.data.tag === dimText,
+      JSON.stringify(patchedTag.body.data && patchedTag.body.data.tag));
+
     // ---- 複製 ----
     const copySame = await req('POST', `/api/loading-plan/items/${movedItemId}/copy`, { plan_id: plan2.id });
     check('複製到同一張 plan → 409（請用搬移）', copySame.status === 409, String(copySame.status));
@@ -382,14 +389,14 @@ async function readSse(url, predicate, timeoutMs = 5000) {
 
     // ---- 新增 Booking（「找 Booking」modal 的「＋ 新增」分頁）----
     const newBooking = await req('POST', '/api/loading-plan/bookings', {
-      mawb: '176-9999 8888', client: 'NEW CLIENT', dest: 'nrt',
+      mawb: '176-9999 8883', client: 'NEW CLIENT', dest: 'nrt',
       hawb: 'h123', pkgs_text: '2C+1P', gross_weight: 345.5, cbm: 1.5, tag: '直單'
     });
     check('POST /bookings → 201', newBooking.status === 201, String(newBooking.status));
     const newRecordId = newBooking.body && newBooking.body.data && newBooking.body.data.id;
     check('回傳 Booking record id', Number(newRecordId) > 0, String(newRecordId));
     const stockAfterNew = await req('GET', '/api/loading-plan/stock');
-    const newStockItem = (stockAfterNew.body.items || []).find(i => i.mawb === '176-9999 8888');
+    const newStockItem = (stockAfterNew.body.items || []).find(i => i.mawb === '176-9999 8883');
     check('建立後直接加入存貨',
       !!newStockItem, JSON.stringify((stockAfterNew.body.items || []).map(i => i.mawb)));
     check('存貨明細連結 mawb_record_id',
@@ -399,14 +406,38 @@ async function readSse(url, predicate, timeoutMs = 5000) {
     check('DEST 自動轉大寫 NRT', !!newStockItem && newStockItem.dest === 'NRT', newStockItem && newStockItem.dest);
     check('CBM 1.5 → VOL 250（自動換算）',
       !!newStockItem && near(newStockItem.volume.vol, 250), newStockItem && JSON.stringify(newStockItem.volume));
-    const newRecordHawb = await queryDb("SELECT hawb FROM mawb_records WHERE mawb = '176-9999 8888'");
+    const newRecordHawb = await queryDb("SELECT hawb FROM mawb_records WHERE mawb = '176-9999 8883'");
     check('Booking 主檔寫入 HAWB（大寫）', newRecordHawb === 'H123', String(newRecordHawb));
 
     const dupBooking = await req('POST', '/api/loading-plan/bookings', {
-      mawb: '17699998888', client: 'DUP'
+      mawb: '17699998883', client: 'DUP'
     });
     check('同號 MAWB（正規化）→ 409', dupBooking.status === 409, String(dupBooking.status));
     check('409 帶既有 Booking id', !!(dupBooking.body && dupBooking.body.data && dupBooking.body.data.id));
+    // ---- MAWB# 嚴格驗證（格式＋prefix＋檢查碼；後補MAWB# 例外）----
+    const shortMawb = await req('POST', '/api/loading-plan/bookings', { mawb: '176-9999' });
+    check('MAWB 位數不足 → 422', shortMawb.status === 422, `${shortMawb.status} ${shortMawb.body && shortMawb.body.error}`);
+    const badCheckDigit = await req('POST', '/api/loading-plan/bookings', { mawb: '176-9999 8888' });
+    check('MAWB 檢查碼不符 → 422',
+      badCheckDigit.status === 422 && /問題|檢查碼|格式/.test(String(badCheckDigit.body && badCheckDigit.body.error)),
+      `${badCheckDigit.status} ${badCheckDigit.body && badCheckDigit.body.error}`);
+    const badPrefix = await req('POST', '/api/loading-plan/bookings', { mawb: '000-1234 5679' });
+    check('MAWB prefix 000 → 422',
+      badPrefix.status === 422 && /prefix/.test(String(badPrefix.body && badPrefix.body.error)),
+      `${badPrefix.status} ${badPrefix.body && badPrefix.body.error}`);
+    const late1 = await req('POST', '/api/loading-plan/bookings', { mawb: '後補MAWB#', client: 'LATE-1' });
+    check('「後補MAWB#」允許建立 → 201', late1.status === 201, String(late1.status));
+    const late2 = await req('POST', '/api/loading-plan/bookings', { mawb: '後補MAWB#', client: 'LATE-2' });
+    check('第二筆「後補MAWB#」不算重複 → 201', late2.status === 201, String(late2.status));
+    const formattedMawb = await queryDb("SELECT mawb FROM mawb_records WHERE client = 'NEW CLIENT'");
+    check('MAWB 自動格式化後存入（176-9999 8883）', formattedMawb === '176-9999 8883', String(formattedMawb));
+    const lateMawb = await queryDb("SELECT mawb FROM mawb_records WHERE client = 'LATE-1'");
+    check('後補 Booking 主檔保留「後補MAWB#」', lateMawb === '後補MAWB#', String(lateMawb));
+    const stockLate = await req('GET', '/api/loading-plan/stock');
+    const lateItems = (stockLate.body.items || []).filter(i => i.mawb === '後補MAWB#');
+    check('後補MAWB# 不列入重複 MAWB 判定',
+      lateItems.length === 2 && lateItems.every(i => i.duplicate_mawb === false),
+      JSON.stringify(lateItems.map(i => i.duplicate_mawb)));
     check('MAWB 空白 → 422',
       (await req('POST', '/api/loading-plan/bookings', { mawb: '' })).status === 422);
     check('未登入 POST /bookings → 401',
@@ -415,13 +446,13 @@ async function readSse(url, predicate, timeoutMs = 5000) {
         body: JSON.stringify({ mawb: '176-0000 0001' })
       })).status === 401);
     const bookingAudit = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'loading_plan.booking.create'");
-    check('新增 Booking 寫 audit_log', Number(bookingAudit) === 1, String(bookingAudit));
+    check('新增 Booking（含後補 2 筆）寫 audit_log', Number(bookingAudit) === 3, String(bookingAudit));
 
     // ---- 審計 ----
     const auditCount = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'loading_plan.%'");
     check('audit_log 有 loading_plan.* 紀錄', Number(auditCount) > 0, String(auditCount));
     const recordCount = await queryDb('SELECT COUNT(*) AS n FROM mawb_records');
-    check('bulk 2＋新增 Booking 1 → mawb_records 3 筆', Number(recordCount) === 3, String(recordCount));
+    check('bulk 2＋新增 Booking 1＋後補 2 → mawb_records 5 筆', Number(recordCount) === 5, String(recordCount));
 
     console.log(`\n===== 測試結束：${failures === 0 ? '全部通過' : failures + ' 項失敗'} =====`);
   } catch (err) {

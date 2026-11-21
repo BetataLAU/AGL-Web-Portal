@@ -151,7 +151,7 @@
 
 .lp-row {
   display: grid;
-  grid-template-columns: 24px 24px minmax(120px, 1.3fr) minmax(70px, .8fr) 52px 70px 76px 76px 70px minmax(80px, 1fr);
+  grid-template-columns: 24px 24px 104px 42px 116px 70px 76px 76px 70px minmax(80px, 1fr);
   gap: 4px; align-items: center; padding: 3px 8px;
   font-size: .74rem; color: var(--text-main);
   border-bottom: 1px solid var(--border-color);
@@ -201,6 +201,7 @@
 .lp-c-idx { color: var(--text-muted); font-size: .68rem; text-align: right; padding-right: 2px; }
 .lp-c-mawb { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lp-c-client, .lp-c-tag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-c-tag { position: relative; cursor: text; }
 .lp-c-dest { font-weight: 700; }
 .lp-c-pkgs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -210,6 +211,64 @@
   width: 100%; padding: 1px 4px; font-size: .74rem; border-radius: 4px;
   border: 1px solid var(--primary); background: var(--input-bg); color: var(--text-main);
 }
+/* REMARK 用 textarea 就地編輯（自由文字可多行；fixed 定位避免被格子 overflow 裁切） */
+.lp-inline-textarea {
+  position: fixed; z-index: 10001;
+  width: 280px; min-height: 64px; padding: 4px 6px; line-height: 1.45;
+  white-space: pre-wrap; resize: vertical;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+}
+
+/* ===== REMARK 自由文字：hover 向下展開（fixed 定位，避免被 PLAN 容器裁切）===== */
+.lp-remark-pop {
+  position: fixed; z-index: 10000;
+  display: flex; align-items: flex-start; gap: 8px;
+  min-width: 240px; max-width: 380px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .18);
+}
+.lp-remark-pop-text {
+  flex: 1; min-width: 0; max-height: 40vh; overflow: auto;
+  font-size: .76rem; line-height: 1.5; color: var(--text-main);
+  white-space: pre-wrap; word-break: break-word;
+}
+.lp-remark-pop-text.is-empty { color: var(--text-muted); font-style: italic; }
+.lp-dim-btn {
+  flex: none; padding: 3px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--primary); background: var(--input-bg);
+  color: var(--primary); font-size: .7rem; font-weight: 700; white-space: nowrap;
+}
+.lp-dim-btn:hover { background: var(--primary); color: #fff; }
+
+/* ===== DIM 快捷輸入：L × W × H / PCS ===== */
+.lp-dim-editor {
+  position: fixed; z-index: 10001; width: 330px;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; border-radius: 10px;
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .22);
+}
+.lp-dim-head { display: flex; align-items: baseline; gap: 8px; font-size: .78rem; color: var(--text-main); }
+.lp-dim-head b { font-size: .8rem; }
+.lp-dim-head span { color: var(--text-muted); font-size: .72rem; }
+.lp-dim-rows { display: flex; flex-direction: column; gap: 4px; max-height: 40vh; overflow: auto; }
+.lp-dim-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr) 10px minmax(0, 1fr) 10px minmax(0, 1fr);
+  gap: 2px; align-items: center;
+}
+.lp-dim-input {
+  width: 100%; min-width: 0; padding: 2px 4px; font-size: .74rem; text-align: right;
+  border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--input-bg); color: var(--text-main); font-variant-numeric: tabular-nums;
+}
+.lp-dim-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--surface-glow); }
+.lp-dim-input::-webkit-outer-spin-button,
+.lp-dim-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.lp-dim-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.lp-dim-x, .lp-dim-sep { text-align: center; color: var(--text-muted); font-size: .7rem; }
+.lp-dim-hint { margin: 0; font-size: .68rem; line-height: 1.5; color: var(--text-muted); }
+.lp-dim-actions { display: flex; justify-content: flex-end; gap: 6px; }
 
 /* 左欄存貨：兩行排版，MAWB／客戶名完整顯示（不截斷） */
 .lp-col-stock .lp-stock-row {
@@ -272,6 +331,9 @@
 .lp-form { display: flex; flex-direction: column; gap: 8px; }
 .lp-form label { display: flex; flex-direction: column; gap: 3px; font-size: .74rem; color: var(--text-muted); }
 .lp-form .lp-input { width: 100%; }
+/* 驗證失敗的輸入框（例：MAWB# 格式／檢查碼不符） */
+.lp-input.is-invalid { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, .16); }
+.lp-input.is-invalid:focus { border-color: #dc2626; }
 .lp-modal .app-modal-body { max-height: 64vh; overflow: auto; }
 .lp-modal-wide .app-modal { max-width: 780px; }
 /* 找 Booking／新增 Booking：分頁＋兩欄表單 */
@@ -289,6 +351,13 @@
 .lp-find-tab.is-on { color: var(--primary); border-bottom-color: var(--primary); }
 .lp-form.lp-bk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .lp-form.lp-bk-grid .lp-bk-full { grid-column: 1 / -1; }
+/* 備註 REMARK：多行輸入＋DIM 快捷輸入（沿用 PLAN 的 .lp-dim-btn／.lp-dim-editor） */
+.lp-bk-remark { display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.lp-bk-remark .lp-input {
+  flex: 1; width: auto; min-height: 52px; resize: vertical;
+  font-family: inherit; line-height: 1.45;
+}
+.lp-bk-remark .lp-dim-btn { margin-top: 2px; }
 .lp-find-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .lp-find-error {
   display: none; margin-top: 8px; color: #dc2626;
@@ -304,9 +373,17 @@
 .lp-find-mawb { font-weight: 700; font-variant-numeric: tabular-nums; }
 .lp-find-place { color: var(--text-muted); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 「📍 查看所有位置」清單：整列可點（跳到該 PLAN 的位置並閃爍） */
-.lp-place-row { grid-template-columns: minmax(150px, 1.6fr) 56px minmax(110px, 1fr) 76px; }
+.lp-place-row { grid-template-columns: minmax(150px, 1.6fr) 56px minmax(110px, 1fr) minmax(76px, auto); }
 .lp-place-row:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .lp-find-go { color: var(--primary); font-weight: 700; font-size: .72rem; text-align: right; white-space: nowrap; }
+/* 目前所在的位置：綠底＋左側綠線，最後一欄直接寫「📍 現在的位置」（不再顯示「前往」）。
+   綠色沿用 .lp-tag-contour 的配色，Light／Dark／Ocean 都看得見。 */
+.lp-place-row.is-current { background: rgba(22, 163, 74, .12); box-shadow: inset 3px 0 0 #16a34a; }
+/* 目前的位置不跟著 hover 閃藍底，改成加深綠底（避免和「現在的位置」語意打架） */
+.lp-place-row.is-current:hover { animation: none; background-color: rgba(22, 163, 74, .2); }
+/* 文字色混一點 --text-main，淺色主題偏深綠、深色主題偏亮綠（兩邊都看得清楚） */
+.lp-place-row.is-current .lp-find-mawb,
+.lp-find-now { color: color-mix(in srgb, #16a34a 70%, var(--text-main)); }
 .lp-spec img { max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; }
 .lp-spec-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .78rem; }
 .lp-spec-table th { text-align: left; color: var(--text-muted); font-weight: 600; width: 34%; padding: 4px 6px; vertical-align: top; }
@@ -364,7 +441,8 @@
 
 /* 列印：只印 PLAN 明細 */
 @media print {
-  .lp-toolbar, .lp-col-stock, .lp-context-menu, .lp-toast, .lp-online { display: none !important; }
+  .lp-toolbar, .lp-col-stock, .lp-context-menu, .lp-toast, .lp-online,
+  .lp-remark-pop, .lp-dim-editor { display: none !important; }
   .lp-layout { display: block; }
   .lp-col-plans { border: none; max-height: none; }
   .lp-plan-list { overflow: visible; padding: 0; }
@@ -372,7 +450,7 @@
   .lp-plan.is-active { animation: none; border: none; box-shadow: none; }
   .lp-plan-body { overflow: visible; }
   .lp-c-sel { display: none; }
-  .lp-row { grid-template-columns: 24px minmax(120px, 1.3fr) minmax(70px, .8fr) 52px 70px 76px 76px 70px minmax(80px, 1fr); }
+  .lp-row { grid-template-columns: 24px 104px 42px 116px 70px 76px 76px 70px minmax(80px, 1fr); }
   .lp-row.is-locked { background: none; box-shadow: none; }
   .lp-tag { border: 1px solid #999; }
 }

@@ -94,6 +94,14 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     css.includes('.lp-plan.is-active.is-drop { animation: none; }'));
   check('3.17 尊重 prefers-reduced-motion（列／PLAN 動畫關閉）',
     /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation: none;[\s\S]*?\.lp-plan\.is-active \{ animation: none/.test(css));
+  check('3.18 REMARK hover 展開／DIM 輸入器樣式齊全',
+    ['.lp-remark-pop', '.lp-remark-pop-text', '.lp-dim-btn', '.lp-dim-editor', '.lp-dim-input', '.lp-inline-textarea']
+      .every(token => css.includes(token)));
+  check('3.19 列印時隱藏 REMARK 展開／DIM 編輯器',
+    /@media print \{[\s\S]*?\.lp-remark-pop, \.lp-dim-editor \{ display: none !important; \}/.test(css));
+  check('3.20 MAWB／DEST 固定寬度、CLIENT 保留 15 字元寬度（縮短三欄間距）',
+    /\.lp-row \{\s*display: grid;\s*grid-template-columns: 24px 24px 104px 42px 116px/.test(css) &&
+    /@media print \{[\s\S]*?\.lp-row \{ grid-template-columns: 24px 104px 42px 116px/.test(css));
 
   // ===== 4. 模組載入（不會碰真 DOM）=====
   console.log('--- 4. ESM 模組 ---');
@@ -137,6 +145,8 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     /lp-c-gw num/.test(render.rowHead('vol')) &&
     /lp-c-vol num/.test(render.rowHead('vol')) &&
     /lp-c-cbm num/.test(render.rowHead('vol')));
+  check('5.8c 表頭 TAG 欄改名 REMARK（class 仍為 lp-c-tag）',
+    /<span class="lp-c-tag"[^>]*>REMARK<\/span>/.test(render.rowHead('vol')));
 
   const plan = { id: 7, volume_view: 'vol', day_code: 'D7', contour_code: 'H3', owner_company: 'SKY DRAGON' };
   const item = {
@@ -149,6 +159,13 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('5.10 列可拖曳', row.includes('draggable="true"'));
   check('5.11 顯示 MAWB / DEST / PKGS',
     row.includes('176-6985 5240') && row.includes('DWC') && row.includes('17+7P'));
+  check('5.11b 欄位順序 MAWB → DEST → CLIENT（表頭與明細一致）', (() => {
+    const cols = (html) => [html.indexOf('lp-c-mawb'), html.indexOf('lp-c-dest'), html.indexOf('lp-c-client')];
+    const head = cols(render.rowHead('vol'));
+    const body = cols(row);
+    const ordered = (list) => list[0] >= 0 && list[0] < list[1] && list[1] < list[2];
+    return ordered(head) && ordered(body);
+  })());
   check('5.12 顯示 VOL 與 CBM', row.includes('1,135.00') && row.includes('6.820'));
   check('5.13 DG flag（966）有標示', row.includes('lp-flags') && row.includes('966'));
   check('5.14 一般列不帶 hover 屬性（只 highlight）',
@@ -395,6 +412,21 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     ['.lp-find-tab', '.lp-form.lp-bk-grid', '.lp-find-error'].every(token => css.includes(token)));
   check('12.6 apiFetch 會帶 HTTP 狀態碼（供 409 分支使用）',
     fs.readFileSync(path.join(ROOT, 'public', 'js', 'utils', 'api.js'), 'utf8').includes('error.status = res.status'));
+  check('12.7 備註 REMARK 是多行 textarea（DIM 一組一行）＋「📐 輸入 DIM」按鈕',
+    interactionsSrc.includes('<textarea id="lp-bk-remark"') &&
+    interactionsSrc.includes('id="lp-bk-dim"') &&
+    interactionsSrc.includes('📐 輸入 DIM') &&
+    css.includes('.lp-bk-remark'));
+  check('12.8 備註欄的 DIM 按鈕接到共用輸入器（openBookingDimEditor）',
+    /openBookingDimEditor\(remarkField\)/.test(interactionsSrc) &&
+    /function openBookingDimEditor\(field\)/.test(interactionsSrc));
+  check('12.9 存貨工具列按鈕文案改為「找/新增Booking」', renderSrc.includes('🔍 找/新增Booking'));
+  check('12.10 新增 Booking 的 MAWB 做嚴格驗證（validateMawb＋自動格式化）',
+    interactionsSrc.includes('checkMawbField') &&
+    interactionsSrc.includes('window.validateMawb') &&
+    /payload\.mawb = mawbCheck\.formatted/.test(interactionsSrc));
+  check('12.11 MAWB 驗證失敗標紅（.lp-input.is-invalid）',
+    /classList\.toggle\('is-invalid'/.test(interactionsSrc) && css.includes('.lp-input.is-invalid'));
 
   // ===== 13. 連續選取 / 日期選擇 / 位置跳轉 =====
   console.log('--- 13. 操作增強 ---');
@@ -420,6 +452,59 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('13.7 目標列有閃爍 highlight（含 reduced-motion 靜態版）',
     css.includes('.lp-row.is-flash') && css.includes('@keyframes lpRowJumpFlash') &&
     /prefers-reduced-motion[\s\S]*?\.lp-row\.is-flash/.test(css));
+  check('13.8 位置清單會標示「📍 現在的位置」（右鍵來源那一列）',
+    interactionsSrc.includes('showPlacements(item.mawb, { planId, itemId: item.id })') &&
+    interactionsSrc.includes('placeRowHtml') && interactionsSrc.includes('現在的位置') &&
+    interactionsSrc.includes('is-current') && interactionsSrc.includes('aria-current="true"') &&
+    css.includes('.lp-place-row.is-current') && css.includes('.lp-find-now'));
+
+  // ===== 14. REMARK 自由文字／DIM 快捷輸入 =====
+  console.log('--- 14. REMARK／DIM ---');
+  const routesSrc = fs.readFileSync(path.join(ROOT, 'routes', 'loading-plan', 'index.js'), 'utf8');
+  check('14.1 REMARK 雙擊改用 textarea 就地編輯（可多行）',
+    interactionsSrc.includes('lp-inline-textarea') && interactionsSrc.includes("field === 'tag'") &&
+    interactionsSrc.includes("createElement(multiline ? 'textarea' : 'input')"));
+  check('14.2 滑鼠移入 REMARK 向下展開完整內容（fixed 定位不裁切）',
+    interactionsSrc.includes('showRemark') && interactionsSrc.includes('lp-remark-pop') &&
+    interactionsSrc.includes('placeFloating') && interactionsSrc.includes("closest('.lp-c-tag[data-field=\"tag\"]')"));
+  check('14.3 展開面板右側有 DIM 按鈕（右鍵選單也有入口）',
+    interactionsSrc.includes('lp-dim-btn') && interactionsSrc.includes('📐 DIM') &&
+    interactionsSrc.includes('📐 輸入 DIM（L×W×H / PCS）'));
+  check('14.4 DIM 格式 L × W × H / PCS（四格輸入＋純函式）',
+    interactionsSrc.includes('data-dim="${field}"') &&
+    interactionsSrc.includes('lpNormalizeDimRows') && interactionsSrc.includes('lpAppendDim'));
+  check('14.5 Tab 換下一格；PCS 後 Tab 新增一列',
+    interactionsSrc.includes("e.key === 'Tab'") && interactionsSrc.includes('addDimRow(editor)'));
+  check('14.6 Enter 完成（附加到 REMARK 後 PATCH tag）',
+    interactionsSrc.includes('saveDim') && interactionsSrc.includes('lpApi.patchItem(item.id, { tag: appended.text })'));
+  check('14.7 後端 tag／remark 保留換行（DIM 一組一行，上限 500）',
+    routesSrc.includes('strMultiline') && /field === 'tag' \|\| field === 'remark'/.test(routesSrc) &&
+    /strMultiline\(\(row \|\| \{\}\)\.tag, 500\)/.test(routesSrc));
+  const dimMod = await import(url('public/js/loading-plan/dim.js'));
+  check('14.8 dim.js 可載入（DIM 格式／驗證純函式）',
+    typeof dimMod.lpNormalizeDimRows === 'function' && typeof dimMod.lpAppendDim === 'function' &&
+    typeof dimMod.lpDimLine === 'function' && dimMod.LP_DIM_HEADER === 'DIM(CM):');
+  check('14.9 DIM 上一行自動加 DIM(CM):（重複附加不重複）', (() => {
+    const once = dimMod.lpAppendDim('4 / D6', ['60 x 40 x 50 / 10']).text;
+    const twice = dimMod.lpAppendDim(once, ['30 x 20 x 10 / 5']).text;
+    return once === '4 / D6\nDIM(CM):\n60 x 40 x 50 / 10' &&
+      (twice.match(/DIM\(CM\):/g) || []).length === 1 &&
+      twice.endsWith('60 x 40 x 50 / 10\n30 x 20 x 10 / 5');
+  })());
+  check('14.10 DIM 輸入器抽成共用（openDimPanel；PLAN 用 tag 當 existingText）',
+    interactionsSrc.includes('function openDimPanel(anchorEl, ctx)') &&
+    /openDimPanel\(cell, \{/.test(interactionsSrc) &&
+    /existingText: item\.tag/.test(interactionsSrc));
+  check('14.11 Booking modal 的 DIM 只寫回 textarea（建立時才送出，不打 API）', (() => {
+    const start = interactionsSrc.indexOf('function openBookingDimEditor');
+    const end = start >= 0 ? interactionsSrc.indexOf('async function addRecords', start) : -1;
+    const block = start >= 0 ? interactionsSrc.slice(start, end > start ? end : start + 600) : '';
+    return block.includes('field.value = appended.text') && !block.includes('lpApi.');
+  })());
+  check('14.12 Booking 建立時 remark 保留換行（fieldsFromRow 用 strMultiline）',
+    /remark: strMultiline\(\(row \|\| \{\}\)\.remark, 500\)/.test(routesSrc));
+  check('14.13 DIM 內的 Esc 不會關掉外層 modal（stopPropagation）',
+    /e\.key === 'Escape'[\s\S]{0,160}e\.stopPropagation\(\)/.test(interactionsSrc));
 
   console.log(`\n===== 測試結束：${pass} 通過 / ${fail} 失敗 =====`);
   process.exitCode = fail ? 1 : 0;

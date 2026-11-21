@@ -10,6 +10,7 @@ import { lpVolFromCbm, lpCuftFromCbm } from './calc.js';
 import { lpParseTsv, lpBuildTsv } from './paste.js';
 import { lpSuggestLoad, LP_SUGGEST_MODES } from './suggest.js';
 import { lpMoveOrder } from './order.js';
+import { LP_DIM_FIELDS, LP_DIM_LABELS, LP_DIM_MAX_LEN, lpNormalizeDimRows, lpAppendDim } from './dim.js';
 import { startRealtime, setEditingItem, notifyPlanChange } from './realtime.js';
 
 const openModal = (...args) => window.openModal(...args);
@@ -312,7 +313,20 @@ function openMenu(x, y, row, planEl) {
     defs.push({ label: '◀ 移出到存貨', fn: () => toStock(ids) });
     defs.push({ label: '🗑 刪除（不進存貨）', fn: () => hardDelete(ids) });
     const item = itemsOf(planId).find(i => i.id === ids[0]);
-    if (item && item.mawb) defs.push({ label: '📍 查看所有位置', fn: () => showPlacements(item.mawb) });
+    // 把「右鍵所在的那一列」一起帶進去，清單才能標出「現在的位置」
+    if (item && item.mawb) {
+      defs.push({ label: '📍 查看所有位置', fn: () => showPlacements(item.mawb, { planId, itemId: item.id }) });
+    }
+    // REMARK 欄有 DIM 快捷輸入（hover 面板的替代入口；觸控／鍵盤也能用）
+    if (item && row.querySelector('.lp-c-tag')) {
+      defs.push({
+        label: '📐 輸入 DIM（L×W×H / PCS）',
+        fn: () => {
+          const cell = row.querySelector('.lp-c-tag');
+          if (cell) openDimEditor(cell, item);
+        }
+      });
+    }
   } else if (planEl && planEl.dataset.planId) {
     if (state.clipboard) defs.push({ label: '📋 貼上到這張 PLAN', fn: () => pasteInto(planId) });
     defs.push({ label: '📥 貼上 Excel（TSV）', fn: () => pasteFromClipboard(planId) });
@@ -347,7 +361,15 @@ function openMenu(x, y, row, planEl) {
 }
 
 document.addEventListener('click', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); });
-document.addEventListener('scroll', closeMenu, true);
+document.addEventListener('scroll', (e) => {
+  const target = e.target;
+  // 展開面板／DIM 清單「內部」捲動不算頁面捲動（長內容可自己捲）
+  if (remarkEl && target && remarkEl.contains(target)) return;
+  if (dimEditor && target && dimEditor.contains(target)) return;
+  closeMenu();
+  hideRemark();
+  if (dimEditor) closeDimEditor();
+}, true);
 
 // ===== 就地編輯（雙擊格子）=====
 async function commitInline(cell, item, field, value) {
@@ -373,20 +395,51 @@ function startInlineEdit(cell, item) {
   const raw = field === 'cuft'
     ? (item.volume ? item.volume.cuft : item.cuft)
     : item[field];
-  const input = document.createElement('input');
-  input.className = 'lp-inline-input';
+  // REMARK（tag）是自由文字 → 用 textarea 就地編輯，可多行（DIM 每組一行）
+  const multiline = field === 'tag';
+  const input = document.createElement(multiline ? 'textarea' : 'input');
+  input.className = multiline ? 'lp-inline-input lp-inline-textarea' : 'lp-inline-input';
+  if (multiline) {
+    input.rows = 3;
+    input.maxLength = 500;
+    input.placeholder = '自由文字；Enter 換行、Ctrl+Enter 完成';
+    input.title = 'Enter 換行；Ctrl+Enter 或點擊其他地方完成；Esc 取消';
+  }
   input.value = raw === null || raw === undefined ? '' : String(raw);
   const original = cell.innerHTML;
   cell.innerHTML = '';
   cell.appendChild(input);
+  // textarea 用 fixed 定位（格子的 overflow: hidden 會裁切）→ 跟著格子捲動
+  let cleanup = null;
+  if (multiline) {
+    const place = () => {
+      const rect = cell.getBoundingClientRect();
+      const width = 280;
+      const left = Math.max(4, Math.min(rect.left, window.innerWidth - width - 8));
+      const top = Math.max(4, Math.min(rect.top, window.innerHeight - 96));
+      input.style.left = `${left}px`;
+      input.style.top = `${top}px`;
+    };
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    cleanup = () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }
   input.focus();
   input.select();
   setEditingItem(item.id);
+  remarkSuppressed = true;
+  hideRemark();
   let done = false;
 
   const finish = async (commit) => {
     if (done) return;
     done = true;
+    if (cleanup) { cleanup(); cleanup = null; }
+    remarkSuppressed = false;
     setEditingItem(null);
     if (!commit) {
       cell.innerHTML = original;
@@ -401,10 +454,272 @@ function startInlineEdit(cell, item) {
   };
 
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); return; }
+    if (e.key !== 'Enter') return;
+    // textarea 內 Enter 是換行；Ctrl/Cmd+Enter 才完成
+    if (multiline && !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    finish(true);
   });
   input.addEventListener('blur', () => finish(true));
+}
+
+// ===== REMARK（tag）自由文字：hover 向下展開＋DIM 快捷輸入 =====
+// REMARK 一格可放多行自由文字（DIM 每組一行，格式「L x W x H / PCS」）。
+// 滑鼠移入 → 下方浮出完整內容（fixed 定位，不會被 PLAN 容器裁切），右側是「DIM」按鈕。
+let remarkEl = null;
+let remarkCell = null;
+let remarkShowTimer = null;
+let remarkHideTimer = null;
+let remarkSuppressed = false;
+let dimEditor = null;
+let dimOutsideHandler = null;
+
+function hideRemark() {
+  clearTimeout(remarkShowTimer);
+  clearTimeout(remarkHideTimer);
+  remarkShowTimer = null;
+  remarkHideTimer = null;
+  remarkCell = null;
+  if (remarkEl) { remarkEl.remove(); remarkEl = null; }
+}
+
+function scheduleHideRemark() {
+  if (remarkHideTimer) return;
+  remarkHideTimer = setTimeout(() => {
+    remarkHideTimer = null;
+    remarkCell = null;
+    if (remarkEl) { remarkEl.remove(); remarkEl = null; }
+  }, 220);
+}
+
+function cancelHideRemark() {
+  clearTimeout(remarkHideTimer);
+  remarkHideTimer = null;
+}
+
+function itemFromCell(cell) {
+  const row = cell && cell.closest ? cell.closest('.lp-row') : null;
+  if (!row) return null;
+  return itemsOf(Number(row.dataset.planId)).find(i => i.id === Number(row.dataset.itemId)) || null;
+}
+
+function placeFloating(boxEl, anchorRect) {
+  const box = boxEl.getBoundingClientRect();
+  const left = Math.min(anchorRect.left, window.innerWidth - box.width - 8);
+  let top = anchorRect.bottom + 4;
+  if (top + box.height > window.innerHeight - 8) top = Math.max(8, anchorRect.top - box.height - 4);
+  boxEl.style.left = `${Math.max(4, left)}px`;
+  boxEl.style.top = `${Math.max(4, top)}px`;
+}
+
+function showRemark(cell) {
+  if (!cell || !cell.isConnected || remarkSuppressed || dimEditor) return;
+  const item = itemFromCell(cell);
+  if (!item) return;
+  const text = String(item.tag || '').trim();
+  hideTip();
+  if (remarkEl) remarkEl.remove();
+  remarkEl = document.createElement('div');
+  remarkEl.className = 'lp-remark-pop';
+  remarkEl.innerHTML = `
+    <div class="lp-remark-pop-text${text ? '' : ' is-empty'}">${text ? esc(text) : '（空白；雙擊格子可輸入文字）'}</div>
+    <button type="button" class="lp-dim-btn" title="輸入 DIM：L × W × H / PCS">📐 DIM</button>
+  `;
+  remarkEl.addEventListener('mouseenter', cancelHideRemark);
+  remarkEl.addEventListener('mouseleave', scheduleHideRemark);
+  const dimBtn = remarkEl.querySelector('.lp-dim-btn');
+  if (dimBtn) {
+    dimBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hideRemark();
+      openDimEditor(cell, item);
+    });
+  }
+  document.body.appendChild(remarkEl);
+  placeFloating(remarkEl, cell.getBoundingClientRect());
+}
+
+// ---- DIM 輸入器（L × W × H / PCS）----
+function dimInputHtml(field) {
+  const numeric = field === 'pcs'
+    ? 'min="1" step="1" inputmode="numeric"'
+    : 'min="0" step="any" inputmode="decimal"';
+  return `<input type="number" class="lp-dim-input" data-dim="${field}" ${numeric} placeholder="${LP_DIM_LABELS[field]}" autocomplete="off" />`;
+}
+
+function dimRowHtml() {
+  return `
+    <div class="lp-dim-row">
+      ${dimInputHtml('length')}<span class="lp-dim-x">×</span>
+      ${dimInputHtml('width')}<span class="lp-dim-x">×</span>
+      ${dimInputHtml('height')}<span class="lp-dim-sep">/</span>
+      ${dimInputHtml('pcs')}
+    </div>
+  `;
+}
+
+function addDimRow(editor) {
+  const rows = editor.querySelector('.lp-dim-rows');
+  if (!rows) return;
+  rows.insertAdjacentHTML('beforeend', dimRowHtml());
+  const row = rows.lastElementChild;
+  if (!row) return;
+  const first = row.querySelector('[data-dim="length"]');
+  if (first) first.focus();
+  rows.scrollTop = rows.scrollHeight;
+  // 新增列後若超出視窗底部 → 把面板往上移
+  const rect = editor.getBoundingClientRect();
+  if (rect.bottom > window.innerHeight - 8) {
+    editor.style.top = `${Math.max(8, window.innerHeight - rect.height - 8)}px`;
+  }
+}
+
+function focusDimField(row, field) {
+  const input = row ? row.querySelector(`[data-dim="${field}"]`) : null;
+  if (input) input.focus();
+}
+
+function closeDimEditor() {
+  if (dimOutsideHandler) {
+    document.removeEventListener('mousedown', dimOutsideHandler);
+    dimOutsideHandler = null;
+  }
+  if (dimEditor) { dimEditor.remove(); dimEditor = null; }
+  setEditingItem(null);
+}
+
+function readDimRowValues(row) {
+  const values = {};
+  LP_DIM_FIELDS.forEach((field) => {
+    const input = row ? row.querySelector(`[data-dim="${field}"]`) : null;
+    values[field] = input ? input.value : '';
+  });
+  return values;
+}
+
+// ctx = { existingText, itemId, apply(appended, lines) }：PLAN 明細與 Booking modal 共用
+async function saveDim(editor, ctx) {
+  if (!editor || editor.dataset.saving === '1') return;
+  const rowEls = [...editor.querySelectorAll('.lp-dim-row')];
+  const normalized = lpNormalizeDimRows(rowEls.map(readDimRowValues));
+  if (normalized.error) {
+    toast(normalized.error.message, 'warn');
+    focusDimField(rowEls[normalized.error.rowIndex], normalized.error.field);
+    return;
+  }
+  if (!normalized.lines.length) { toast('尚未輸入任何 DIM', 'warn'); return; }
+
+  const appended = lpAppendDim(ctx.existingText, normalized.lines);
+  if (appended.overflow) {
+    toast(`REMARK 最多 ${LP_DIM_MAX_LEN} 字，請縮短或分批輸入`, 'warn');
+    return;
+  }
+
+  editor.dataset.saving = '1';
+  try {
+    await ctx.apply(appended, normalized.lines);
+  } catch (err) {
+    delete editor.dataset.saving;
+    toast(err.message, 'error');
+  }
+}
+
+// 共用 DIM 輸入器：anchorEl 決定浮出位置；ctx.apply() 決定「完成後做什麼」
+function openDimPanel(anchorEl, ctx) {
+  if (!anchorEl) return;
+  closeDimEditor();
+  hideRemark();
+  const panel = ctx || {};
+  dimEditor = document.createElement('div');
+  dimEditor.className = 'lp-dim-editor';
+  dimEditor.innerHTML = `
+    <div class="lp-dim-head"><b>📐 DIM</b><span>L × W × H / PCS（cm）</span></div>
+    <div class="lp-dim-rows">${dimRowHtml()}</div>
+    <p class="lp-dim-hint">Tab 換下一格；PCS 後 Tab 新增一列；Enter 完成、Esc 取消</p>
+    <div class="lp-dim-actions">
+      <button type="button" class="lp-btn lp-btn-sm lp-btn-primary" data-dim-action="save">✓ 完成</button>
+      <button type="button" class="lp-btn lp-btn-sm" data-dim-action="cancel">取消</button>
+    </div>
+  `;
+  document.body.appendChild(dimEditor);
+  placeFloating(dimEditor, anchorEl.getBoundingClientRect());
+
+  const editor = dimEditor;
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      // 只關 DIM；外層若開著 modal 不要一起被 ESC 關掉
+      e.stopPropagation();
+      closeDimEditor();
+      return;
+    }
+    if (e.key === 'Enter') {
+      // 按鈕上的 Enter 交給按鈕本身處理
+      if (e.target && e.target.tagName === 'BUTTON') return;
+      e.preventDefault();
+      saveDim(editor, panel);
+      return;
+    }
+    // 最後一格 PCS 再按 Tab → 新增一列並把焦點移到新列的 L
+    if (e.key === 'Tab' && !e.shiftKey) {
+      const inputs = [...editor.querySelectorAll('.lp-dim-input')];
+      if (inputs.length && e.target === inputs[inputs.length - 1]) {
+        e.preventDefault();
+        addDimRow(editor);
+      }
+    }
+  });
+  editor.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dim-action]');
+    if (!btn) return;
+    if (btn.dataset.dimAction === 'save') saveDim(editor, panel);
+    else closeDimEditor();
+  });
+
+  // 點擊編輯器外面 → 關閉（延後註冊，避免剛開啟就被同一個 click 關掉）
+  dimOutsideHandler = (ev) => {
+    if (dimEditor === editor && !editor.contains(ev.target)) closeDimEditor();
+  };
+  setTimeout(() => {
+    if (dimEditor === editor && dimOutsideHandler) {
+      document.addEventListener('mousedown', dimOutsideHandler);
+    }
+  }, 0);
+
+  setEditingItem(panel.itemId || null);
+  const first = editor.querySelector('[data-dim="length"]');
+  if (first) first.focus();
+}
+
+// PLAN 明細的 REMARK（tag）：完成後直接 PATCH 存回（行為與原本一致）
+function openDimEditor(cell, item) {
+  openDimPanel(cell, {
+    existingText: item.tag,
+    itemId: item.id,
+    apply: async (appended, lines) => {
+      await lpApi.patchItem(item.id, { tag: appended.text });
+      closeDimEditor();
+      await loadAll();
+      toast(`已加入 ${lines.length} 組 DIM`, 'ok');
+    }
+  });
+}
+
+// Booking modal 的「備註 REMARK」：只寫回 textarea，按「建立並加入存貨」才送出
+function openBookingDimEditor(field) {
+  if (!field) return;
+  openDimPanel(field, {
+    existingText: field.value,
+    apply: async (appended, lines) => {
+      field.value = appended.text;
+      closeDimEditor();
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+      toast(`已加入 ${lines.length} 組 DIM`, 'ok');
+    }
+  });
 }
 
 // ===== 找 Booking（MAWB 主檔動態搜尋）=====
@@ -466,7 +781,10 @@ function openFindBookingModal() {
           <input id="lp-bk-tag" class="lp-input" maxlength="80" placeholder="例 4 / D6" autocomplete="off" />
         </label>
         <label class="lp-bk-full">備註 REMARK
-          <input id="lp-bk-remark" class="lp-input" maxlength="500" placeholder="選填" autocomplete="off" />
+          <span class="lp-bk-remark">
+            <textarea id="lp-bk-remark" class="lp-input" rows="2" maxlength="500" placeholder="選填；可多行（DIM 一組一行）"></textarea>
+            <button type="button" class="lp-dim-btn" id="lp-bk-dim" title="輸入 DIM：L × W × H / PCS">📐 輸入 DIM</button>
+          </span>
         </label>
       </div>
       <p class="lp-muted">建立後會直接加到「存貨」，之後可再拖到 PLAN；同一 MAWB 已有 Booking 時會提示改用「找現有」。</p>
@@ -486,6 +804,32 @@ function openFindBookingModal() {
   const resultsEl = document.getElementById('lp-find-results');
   const addBtn = document.getElementById('lp-find-add');
   const errorEl = document.getElementById('lp-find-error');
+  // 備註 REMARK 的 DIM 快捷輸入（與 PLAN 的 REMARK 同一套輸入器）
+  const remarkField = document.getElementById('lp-bk-remark');
+  const remarkDimBtn = document.getElementById('lp-bk-dim');
+  if (remarkField && remarkDimBtn) {
+    remarkDimBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      openBookingDimEditor(remarkField);
+    });
+  }
+
+  // MAWB# 嚴格驗證（沿用訂單系統的 validateMawb：11 位＋prefix 001-999＋檢查碼；允許「後補MAWB#」）
+  const mawbField = document.getElementById('lp-bk-mawb');
+  const checkMawbField = (markInvalid) => {
+    const raw = mawbField ? String(mawbField.value || '').trim() : '';
+    const result = typeof window.validateMawb === 'function'
+      ? window.validateMawb(raw)
+      : { valid: true, late: false, error: null, formatted: raw };
+    const showInvalid = !result.valid && (markInvalid || raw !== '');
+    if (mawbField) {
+      mawbField.classList.toggle('is-invalid', showInvalid);
+      mawbField.title = showInvalid ? String(result.error || '') : '';
+      if (result.valid) mawbField.value = result.formatted;   // 自動格式化成 176-6525 7360
+    }
+    return result;
+  };
+  if (mawbField) mawbField.addEventListener('blur', () => checkMawbField(false));
 
   const setError = (message) => {
     if (!errorEl) return;
@@ -585,12 +929,18 @@ function openFindBookingModal() {
         tag: readField('lp-bk-tag'),
         remark: readField('lp-bk-remark')
       };
+      const mawbCheck = checkMawbField(true);
       if (!payload.mawb) {
         setError('請輸入 MAWB#（必填）');
-        const node = document.getElementById('lp-bk-mawb');
-        if (node) node.focus();
+        if (mawbField) mawbField.focus();
         return;
       }
+      if (!mawbCheck.valid) {
+        setError(mawbCheck.error || 'MAWB# 格式不正確');
+        if (mawbField) mawbField.focus();
+        return;
+      }
+      payload.mawb = mawbCheck.formatted;
       setError('');
       createBtn.disabled = true;
       try {
@@ -694,20 +1044,39 @@ async function jumpToItem(planId, itemId) {
   toast(`已跳到 ${plan ? planLabel(plan) : `PLAN #${pid}`}`, 'ok');
 }
 
-async function showPlacements(mawb) {
-  try {
-    const res = await lpApi.placements({ mawb });
-    const list = res.data || [];
-    const body = list.length
-      ? `<div class="lp-form">${list.map(p => `
-          <div class="lp-find-row lp-place-row" role="button" tabindex="0"
-               data-plan-id="${p.plan_id}" data-item-id="${p.item_id}"
-               title="點擊跳到這個位置（目標列會閃爍標示）">
+// 位置清單的一列；current = 目前所在的位置（最後一欄改成「📍 現在的位置」）
+function placeRowHtml(p, current) {
+  const title = current
+    ? '你目前就在這個位置（點擊會捲到該列並閃爍）'
+    : '點擊跳到這個位置（目標列會閃爍標示）';
+  return `
+          <div class="lp-find-row lp-place-row${current ? ' is-current' : ''}" role="button" tabindex="0"
+               data-plan-id="${p.plan_id}" data-item-id="${p.item_id}" title="${title}"${current ? ' aria-current="true"' : ''}>
             <span class="lp-find-mawb">${esc(p.label)}</span>
             <span>#${p.section || 1}</span>
             <span class="lp-find-place">${esc(p.plan_no || '')}</span>
-            <span class="lp-find-go">➜ 前往</span>
-          </div>`).join('')}</div>`
+            <span class="lp-find-go${current ? ' lp-find-now' : ''}">${current ? '📍 現在的位置' : '➜ 前往'}</span>
+          </div>`;
+}
+
+// 由「開啟清單的那一列」判斷哪一個位置是現在的位置：先比 item_id，沒有才退回比 plan_id
+function currentPlacementMatcher(source = {}) {
+  const planId = Number(source.planId) || null;
+  const itemId = Number(source.itemId) || null;
+  return (p) => {
+    if (!planId) return false;
+    if (!itemId) return Number(p.plan_id) === planId;
+    return Number(p.item_id) === itemId && Number(p.plan_id) === planId;
+  };
+}
+
+async function showPlacements(mawb, source = {}) {
+  try {
+    const res = await lpApi.placements({ mawb });
+    const list = res.data || [];
+    const isCurrent = currentPlacementMatcher(source);
+    const body = list.length
+      ? `<div class="lp-form">${list.map(p => placeRowHtml(p, isCurrent(p))).join('')}</div>`
       : '<div class="lp-empty-sm">只在這一個位置</div>';
     const modal = openModal({ title: `位置：${esc(mawb)}`, body, className: 'lp-modal' });
     modal.card.querySelectorAll('.lp-place-row[data-plan-id]').forEach((rowEl) => {
@@ -789,7 +1158,7 @@ function openSuggestModal() {
   if (!plan || plan.type === 'stock') { toast('請先選一張 PLAN', 'warn'); return; }
   const candidates = state.stockItems || [];
   if (!candidates.length) {
-    toast('存貨是空的：先用「找 Booking」加入，或把其他 PLAN 的貨移出', 'warn');
+    toast('存貨是空的：先用「找/新增Booking」加入，或把其他 PLAN 的貨移出', 'warn');
     return;
   }
 
@@ -962,6 +1331,7 @@ async function printPlans() {
 
 // ===== 事件綁定 =====
 async function onClick(e) {
+  hideRemark();
   const actionEl = e.target.closest('[data-action]');
   if (actionEl) {
     const action = actionEl.dataset.action;
@@ -1059,7 +1429,7 @@ function onDblClick(e) {
   if (!row) return;
   const planId = Number(row.dataset.planId);
   const item = itemsOf(planId).find(i => i.id === Number(row.dataset.itemId));
-  if (item) startInlineEdit(cell, item);
+  if (item) { hideRemark(); startInlineEdit(cell, item); }
 }
 
 const debouncedStock = debounce(() => renderStock(), 120);
@@ -1076,7 +1446,27 @@ function onInput(e) {
 }
 
 function onHover(e) {
-  const row = hoverErrorRow(e.target);
+  const target = e.target;
+  // REMARK 格子：延遲 160ms 展開（避免滑過整排時一直閃）
+  const remark = target && target.closest ? target.closest('.lp-c-tag[data-field="tag"]') : null;
+  if (remark) {
+    hideTip();
+    hoverNode = null;
+    clearTimeout(tipTimer);
+    cancelHideRemark();
+    if (remarkSuppressed || dimEditor) return;
+    if (remarkCell !== remark) {
+      remarkCell = remark;
+      clearTimeout(remarkShowTimer);
+      remarkShowTimer = setTimeout(() => showRemark(remark), 160);
+    }
+    return;
+  }
+  // 游標在展開面板內（面板掛在 body，不經過這裡）→ 保留
+  if (remarkEl && remarkEl.contains(target)) { cancelHideRemark(); return; }
+  if (remarkEl) scheduleHideRemark();
+
+  const row = hoverErrorRow(target);
   if (!row) {
     if (hoverNode) { hoverNode = null; clearTimeout(tipTimer); hideTip(); }
     return;
@@ -1088,7 +1478,16 @@ function onHover(e) {
 }
 
 function onHoverOut(e) {
-  const row = hoverErrorRow(e.target);
+  const target = e.target;
+  const remark = target && target.closest ? target.closest('.lp-c-tag[data-field="tag"]') : null;
+  if (remark) {
+    const to = e.relatedTarget;
+    if (to && to.nodeType === 1 && remark.contains(to)) return;
+    clearTimeout(remarkShowTimer);
+    scheduleHideRemark();
+    return;
+  }
+  const row = hoverErrorRow(target);
   if (!row) return;
   // 在「同一列」內部移動（例如 MAWB → CLIENT 格子）不算離開，避免 tooltip 閃爍
   if (hoverErrorRow(e.relatedTarget) === row) return;
@@ -1099,7 +1498,13 @@ function onHoverOut(e) {
 
 function onKeyDown(e) {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
-  if (e.key === 'Escape') { closeMenu(); hideTip(); return; }
+  if (e.key === 'Escape') {
+    closeMenu();
+    hideTip();
+    hideRemark();
+    closeDimEditor();
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) {
     e.preventDefault();
     undo();

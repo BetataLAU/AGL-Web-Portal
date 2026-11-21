@@ -12,6 +12,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const ExcelJS = require('exceljs');
 const db = require('../../db/database');
+const { validateMawb, MAWB_LATE_LABEL } = require('../orders/utils');
 const bus = require('./bus');
 const router = express.Router();
 
@@ -98,6 +99,18 @@ function str(value, max = 200) {
   return text.slice(0, max);
 }
 
+// 自由文字（REMARK／DIM）：保留換行，只整理水平空白與過多空行
+function strMultiline(value, max = 500) {
+  const text = String(value === null || value === undefined ? '' : value)
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text.slice(0, max);
+}
+
 function numOrNull(value) {
   if (value === null || value === undefined || value === '') return null;
   const n = Number(String(value).replace(/,/g, '').trim());
@@ -167,6 +180,8 @@ async function duplicateMawbMap(c) {
   );
   const byKey = new Map();
   rows.forEach((row) => {
+    // 「後補MAWB#」是佔位字串（不是真主號）→ 不列入重複判定（可能同時有多票後補）
+    if (String(row.mawb || '').trim() === MAWB_LATE_LABEL) return;
     const key = calcMod.lpNormalizeMawbKey(row.mawb);
     if (!key) return;
     const label = row.type === 'stock' ? '存貨' : calcMod.lpPlanLabel(row);
@@ -503,8 +518,12 @@ router.patch('/items/:id', handle(async (req, res) => {
   const textFields = ['mawb', 'client', 'dest', 'tag', 'cargo_receipt', 'remark'];
   textFields.forEach((field) => {
     if (body[field] === undefined) return;
+    const maxLen = field === 'mawb' ? 40 : (field === 'tag' || field === 'remark') ? 500 : 80;
     sets.push(`${field} = ?`);
-    params.push(str(body[field], field === 'remark' ? 500 : field === 'mawb' ? 40 : 80));
+    // tag（畫面 REMARK）與 remark 是自由文字，DIM 一組一行 → 保留換行
+    params.push(field === 'tag' || field === 'remark'
+      ? strMultiline(body[field], maxLen)
+      : str(body[field], maxLen));
   });
   if (body.pkgs_text !== undefined) {
     const pkgs = pkgsOf(body, c);
@@ -675,10 +694,19 @@ router.get('/bookings', handle(async (req, res) => {
 router.post('/bookings', handle(async (req, res) => {
   const c = await calc();
   const body = req.body || {};
-  const mawb = c.lpDisplayMawb(str(body.mawb, 40));
-  if (!mawb) return res.status(422).json({ error: 'MAWB# 必填' });
+  const rawMawb = str(body.mawb, 40);
+  if (!c.lpDisplayMawb(rawMawb)) return res.status(422).json({ error: 'MAWB# 必填' });
 
-  const key = c.lpNormalizeMawbKey(mawb);
+  // 嚴格驗證（與訂單系統同一套 validateMawb）：11 位數字＋prefix 001-999＋檢查碼（suffix 前 7 位 mod 7）。
+  // 「後補MAWB#」視為合法（late），但不參與重複比對。
+  const mawbCheck = validateMawb(rawMawb);
+  if (!mawbCheck.valid) {
+    return res.status(422).json({ error: mawbCheck.error, data: { code: 'mawb_invalid', mawb: rawMawb } });
+  }
+  const mawb = mawbCheck.formatted;   // 標準顯示格式 176-6525 7360（後補MAWB# 原樣）
+  const isLate = mawbCheck.late === true;
+
+  const key = isLate ? '' : c.lpNormalizeMawbKey(mawb);
   // 正規化比對（去掉 '-' 與空白），與 V1 sync-bookings 的 SQL 一致
   const existing = key
     ? await dbGet(
@@ -696,6 +724,7 @@ router.post('/bookings', handle(async (req, res) => {
   }
 
   const fields = fieldsFromRow(body, c);
+  fields.mawb = mawb;   // 以驗證後的標準格式存入（避免原字串格式不一）
   const stock = await ensureStockPlan();
 
   const created = await withTransaction(async () => {
@@ -785,7 +814,7 @@ function fieldsFromRow(row, c) {
     mawb: c.lpDisplayMawb((row || {}).mawb),
     client: str((row || {}).client, 80),
     dest: str((row || {}).dest, 10).toUpperCase(),
-    tag: str((row || {}).tag, 80),
+    tag: strMultiline((row || {}).tag, 500),
     pkgs_text: pkgs.pkgsText,
     cartons: pkgs.cartons,
     pallets: pkgs.pallets,
@@ -797,7 +826,8 @@ function fieldsFromRow(row, c) {
     cuft: volume.cuft,
     volume_input_unit: unit,
     cargo_receipt: str((row || {}).cargo_receipt, 20),
-    remark: str((row || {}).remark, 500),
+    // 備註是自由文字（Booking modal 的 DIM 一組一行）→ 保留換行
+    remark: strMultiline((row || {}).remark, 500),
     section: Math.max(1, intOrNull((row || {}).section) || 1),
     dg_no_power: (row || {}).dg_no_power,
     dg_966: (row || {}).dg_966,

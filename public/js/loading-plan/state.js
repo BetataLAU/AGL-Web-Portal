@@ -2,7 +2,9 @@
 import { lpPlanLabel } from './calc.js';
 
 export const state = {
-  plans: [],
+  plans: [],                 // 正常（未封存）的 plan
+  archivedPlans: [],         // 已封存（USER 認為無用）的 plan；可 RECALL 取回
+  showArchived: false,       // PLAN 欄目前是否顯示「封存」清單
   stock: null,
   stockItems: [],
   details: new Map(),        // planId -> items[]
@@ -37,6 +39,22 @@ export function itemsOf(planId) {
 
 export function flightPlans() {
   return state.plans.filter(p => p.type !== 'stock');
+}
+
+// 已封存的 plan（不含存貨；存貨本身不可封存）
+export function archivedFlightPlans() {
+  return (state.archivedPlans || []).filter(p => p.type !== 'stock');
+}
+
+export function archivedPlanById(id) {
+  const key = Number(id);
+  return (state.archivedPlans || []).find(p => p.id === key) || null;
+}
+
+// PLAN 欄顯示切換：正常清單 ↔ 封存清單
+export function toggleShowArchived() {
+  state.showArchived = !state.showArchived;
+  return state.showArchived;
 }
 
 export function activePlan() {

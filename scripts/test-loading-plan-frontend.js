@@ -582,6 +582,87 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     /lpApi\.patchItem\(itemId, \{ cargo_receipt: iso \}\)/.test(interactionsSrc) &&
     /cargo_receipt = \?/.test(routesSrc));
 
+  // ===== 16. 封存（ARCHIVE）／RECALL =====
+  console.log('--- 16. 封存 / RECALL ---');
+  const planArchived = {
+    id: 41, type: 'flight', plan_no: 'LP-D7-EK9859-09', day_code: 'D7',
+    flight_no: 'EK1000', flight_date: '2026-11-24', owner_company: 'SKY DRAGON',
+    contour_code: 'H3', volume_view: 'vol', archived_at: '2026-11-24 06:30:00', archived_by: 'admin',
+    totals: { grossWeight: 100, cbm: 1, tickets: 1, mawbs: 1, pcs: 1, vol: 166.67 }
+  };
+  const archivedCard = render.planCard(planArchived);
+  check('16.1 封存卡片有 is-archived（虛線／淡化）',
+    /class="lp-plan[^"]*is-archived/.test(archivedCard) &&
+    /\.lp-plan\.is-archived \{[^}]*border-style: dashed/.test(css));
+  check('16.2 封存卡片提供「♻ RECALL」按鈕',
+    archivedCard.includes('data-action="recall-plan"') && archivedCard.includes('♻ RECALL'));
+  check('16.3 封存卡片不展開明細、也不提供封存／收合按鈕',
+    !archivedCard.includes('lp-plan-body') &&
+    !archivedCard.includes('data-action="archive-plan"') &&
+    !archivedCard.includes('data-action="toggle-plan"'));
+  check('16.4 封存卡片標示封存時間與提示',
+    archivedCard.includes('lp-archived-note') && archivedCard.includes('已封存') &&
+    archivedCard.includes('lp-archived-hint'));
+  check('16.5 封存卡片標題不啟動 PLAN（只能 RECALL）',
+    archivedCard.includes('data-action="archived-plan"') &&
+    !archivedCard.includes('data-action="activate-plan"'));
+  check('16.6 封存時間格式化（UTC → 當地 yyyy/mm/dd hh:mm）',
+    /^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/.test(render.archivedStamp(planArchived)));
+  const normalCard = render.planCard({ id: 42, type: 'flight', flight_no: 'EK1', volume_view: 'vol', totals: {} });
+  check('16.7 一般卡片有「封存」文字按鈕（不是只有圖示）',
+    normalCard.includes('data-action="archive-plan"') &&
+    /data-action="archive-plan"[\s\S]{0,200}>封存<\/button>/.test(normalCard) &&
+    /\.lp-archive-btn \{[^}]*border-color: rgba\(180, 83, 9/.test(css));
+  check('16.8 PLAN 欄表頭有封存清單切換＋張數', (() => {
+    const layout = render.layoutHtml();
+    return layout.includes('id="lp-archive-toggle"') &&
+      layout.includes('data-action="toggle-archived"') &&
+      layout.includes('id="lp-archived-count"') &&
+      /\.lp-archive-toggle\.is-on \{/.test(css);
+  })());
+  check('16.9 state 有 archivedPlans／showArchived＋archivedFlightPlans／archivedPlanById', (() => {
+    stateMod.state.archivedPlans = [{ id: 41, type: 'flight' }, { id: 30, type: 'stock' }];
+    const onlyFlight = stateMod.archivedFlightPlans();
+    const found = stateMod.archivedPlanById(41);
+    const before = stateMod.state.showArchived;
+    stateMod.toggleShowArchived();
+    const toggled = stateMod.state.showArchived !== before;
+    stateMod.toggleShowArchived();
+    stateMod.state.archivedPlans = [];
+    return onlyFlight.length === 1 && onlyFlight[0].id === 41 && !!found && toggled;
+  })());
+  calledUrl = '';
+  await api.lpApi.plans({ archived: 1 });
+  check('16.10 /plans?archived=1（封存清單）', calledUrl === '/api/loading-plan/plans?archived=1', calledUrl);
+  await api.lpApi.archivePlan(5);
+  check('16.11 封存走 POST /plans/5/archive', calledUrl === '/api/loading-plan/plans/5/archive', calledUrl);
+  await api.lpApi.recallPlan(5);
+  check('16.12 RECALL 走 POST /plans/5/recall', calledUrl === '/api/loading-plan/plans/5/recall', calledUrl);
+  check('16.13 loadAll 會同時抓封存清單', interactionsSrc.includes('lpApi.plans({ archived: 1 })'));
+  check('16.14 封存／RECALL 有確認與提示，並會重新載入',
+    interactionsSrc.includes('function archivePlan') && interactionsSrc.includes('window.confirm') &&
+    interactionsSrc.includes('lpApi.archivePlan') && interactionsSrc.includes('lpApi.recallPlan') &&
+    interactionsSrc.includes('已 RECALL'));
+  check('16.15 右鍵選單：正常可封存、封存只能 RECALL',
+    interactionsSrc.includes('🗄 封存 PLAN（可 RECALL）') &&
+    interactionsSrc.includes('♻ RECALL（取回 PLAN 列表）'));
+  check('16.16 封存卡片不接受拖入', interactionsSrc.includes('.lp-plan:not(.is-archived)'));
+  check('16.17 CSS：RECALL 按鈕／封存提示／列印隱藏封存切換',
+    css.includes('.lp-recall-btn') && css.includes('.lp-archived-hint') &&
+    /@media print \{[\s\S]*?\.lp-archive-toggle/.test(css));
+  check('16.18 後端：archive／recall 路由＋預設排除封存',
+    /router\.post\('\/plans\/:id\/archive'/.test(routesSrc) &&
+    /router\.post\('\/plans\/:id\/recall'/.test(routesSrc) && /return !p\.archived_at/.test(routesSrc));
+  check('16.19 後端：封存的 PLAN 不列入重複 MAWB／不可加入明細',
+    /WHERE p\.archived_at IS NULL/.test(routesSrc) &&
+    /已封存，請先 RECALL 再加入明細/.test(routesSrc));
+  check('16.20 位置清單標示「（已封存）」且不展開（只能 RECALL）',
+    interactionsSrc.includes('lp-archived-place-tag') &&
+    interactionsSrc.includes('已封存；按「♻ RECALL」取回後才能查看明細') &&
+    /p\.archived_at/.test(routesSrc));
+  check('16.21 CSS 有位置清單封存樣式',
+    css.includes('.lp-archived-place-tag') && css.includes('.lp-place-row.is-archived-place'));
+
   console.log(`\n===== 測試結束：${pass} 通過 / ${fail} 失敗 =====`);
   process.exitCode = fail ? 1 : 0;
 })().catch((err) => {

@@ -65,6 +65,7 @@
 | `orders/note-templates.js` | 訂單備註文字範本（GET / POST） |
 | `orders/utils.js` | MAWB 工具、`generateOrderNo`、`serializeOrder`、`ORDER_SELECT_SQL` |
 | `uld-weight.js` | **ULD 夾重 API**：bookings（Booking Record，輸入即篩選用）/ sheets CRUD（明細 **diff 更新**）/ duplicate / lock / **apply（W2 回寫 Booking Record）** / **sync-bookings（V1 補建 Booking，預設 dry_run）** / **versions（V3 歷史版本／diff）** / **import-rcl（W3 RCL 磅單解析）** / **report.pdf（R1 server 端 A4 PDF）** / **loading-sheet.pdf（U3 單板 Loading Sheet）** / **batch-pdf（V2 多張打包 ZIP）**（見 §3.7） |
+| `loading-plan/index.js` | **執 PLAN API**：plans CRUD／**封存 `/plans/:id/archive`·RECALL `/plans/:id/recall`（`GET /plans?archived=`）**／items 搬移·就地編輯·複製·bulk·reorder／`/stock`／`/bookings`＋placements／`/placements`／事件流（SSE／輪詢）／`/presence`（詳見 `CLAUDE.md`「執 PLAN」） |
 | `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
@@ -135,6 +136,9 @@
 | `js/uldweight/rcl-import.js` | **RCL 磅單匯入（W3 前端輔助）**：選檔、上傳預覽、改欄位後本機重算、勾選列、ULD# 正規化 |
 | `js/uldweight/version-diff.js` | **版本比對（V3，前後端共用純函式）**：快照摘要、欄位級異動比對（表頭／單位／明細；DB id 配對） |
 | `css/uld-weight.css` | ULD 夾重樣式 |
+| `js/loading-plan.js` | **執 PLAN（Loading Plan）**進入點（雙欄工作台：左＝存貨、右＝PLAN 卡片；`setupLoadingPlanSection`） |
+| `js/loading-plan/` | api／state／render／interactions／calc（前後端共用）／paste／order／dim／crd／contour／suggest／realtime；**封存／RECALL** 在 `state.js`（`archivedPlans`／`showArchived`）、`render.js`（`planCard()`／`archivedStamp()`）、`interactions.js`（`archivePlan()`／`recallPlan()`） |
+| `css/loading-plan.css` | 執 PLAN 樣式（含封存卡片 `.lp-plan.is-archived`、`♻ RECALL` 按鈕、`.lp-archive-toggle` 封存清單切換） |
 
 ---
 

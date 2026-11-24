@@ -152,6 +152,9 @@ function serializePlan(row, totals) {
     status: row.status,
     sort_order: row.sort_order,
     version: row.version,
+    // 封存（ARCHIVE）：archived_at 有值＝已封存；archived_by 記最後操作人（實名）
+    archived_at: row.archived_at || null,
+    archived_by: row.archived_by || null,
     updated_at: row.updated_at,
     totals: totals || null
   };
@@ -176,6 +179,7 @@ async function duplicateMawbMap(c) {
             p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company
        FROM loading_plan_items i
        JOIN loading_plans p ON p.id = i.plan_id
+      WHERE p.archived_at IS NULL
       ORDER BY p.sort_order, i.section, i.sort_order, i.id`
   );
   const byKey = new Map();
@@ -225,10 +229,14 @@ function autoPlanNo(plan, seq) {
 }
 
 // ===== GET /plans（清單＋KPI）=====
+// ?archived=1 → 只回「已封存」的 plan（依封存時間新→舊）；預設不含封存；?archived=all → 全部。
+// 封存的 plan 內容完整保留，RECALL（POST /plans/:id/recall）即可回到正常清單。
 router.get('/plans', handle(async (req, res) => {
   const c = await calc();
   const type = str(req.query.type || '', 10);
   const search = str(req.query.search || '', 60).toLowerCase();
+  const archived = str(req.query.archived || '', 10).toLowerCase();
+  const archivedOnly = archived === '1' || archived === 'true' || archived === 'yes' || archived === 'archived';
 
   const plans = await dbAll('SELECT * FROM loading_plans ORDER BY sort_order, id');
   const items = await dbAll('SELECT * FROM loading_plan_items ORDER BY plan_id, section, sort_order, id');
@@ -241,12 +249,22 @@ router.get('/plans', handle(async (req, res) => {
   const data = plans
     .filter(p => (type && type !== 'all' ? p.type === type : true))
     .filter((p) => {
+      if (archivedOnly) return !!p.archived_at;
+      if (archived === 'all') return true;
+      return !p.archived_at;
+    })
+    .filter((p) => {
       if (!search) return true;
       const haystack = [p.plan_no, p.day_code, p.flight_no, p.flight_date, p.owner_company, p.contour_code]
         .map(v => String(v || '').toLowerCase()).join(' ');
       return haystack.includes(search);
     })
     .map(p => serializePlan(p, c.lpKpi(byPlan.get(p.id) || [], planLimits(p))));
+
+  // 封存清單：最後封存的排最前面（要找回來通常是想最近封存的那張）
+  if (archivedOnly) {
+    data.sort((a, b) => String(b.archived_at || '').localeCompare(String(a.archived_at || '')));
+  }
 
   res.json({ data });
 }));
@@ -307,6 +325,10 @@ router.patch('/plans/:id', handle(async (req, res) => {
   const id = Number(req.params.id);
   const row = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [id]);
   if (!row) return res.status(404).json({ error: '找不到這張 plan' });
+  // 封存的 plan 內容保留但不可編輯；要改先 RECALL（避免「封存了還在被改」）
+  if (row.archived_at) {
+    return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再修改' });
+  }
 
   const body = req.body || {};
   const sets = [];
@@ -347,6 +369,65 @@ router.patch('/plans/:id', handle(async (req, res) => {
   await logEvent(req, id, 'plan.update', { fields: Object.keys(body) });
   writeAuditLog(req, 'loading_plan.update', id, c.lpPlanLabel(updated));
   res.json({ data: detail.plan });
+}));
+
+// ===== POST /plans/:id/archive（封存）=====
+// USER 認為無用的 PLAN → 封存：從 PLAN 列表消失（也不列入 KPI／重複 MAWB 檢核），
+// 但明細完整保留在 loading_plan_items（只是 plan 被標記 archived_at）。
+// 存貨（type='stock'）是虛擬 plan，不能封存。重複呼叫＝idempotent（回目前狀態，不重複寫事件）。
+router.post('/plans/:id/archive', handle(async (req, res) => {
+  const c = await calc();
+  const id = Number(req.params.id);
+  const row = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [id]);
+  if (!row) return res.status(404).json({ error: '找不到這張 plan' });
+  if (row.type === 'stock') return res.status(409).json({ error: '存貨不能封存' });
+
+  if (row.archived_at) {
+    const detail = await planRowWithTotals(row);
+    return res.json({ ok: true, already: true, data: detail.plan });
+  }
+
+  const actor = actorOf(req);
+  await dbRun(
+    `UPDATE loading_plans
+        SET archived_at = CURRENT_TIMESTAMP, archived_by = ?,
+            updated_at = CURRENT_TIMESTAMP, version = version + 1
+      WHERE id = ?`,
+    [actor.display, id]
+  );
+
+  const updated = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [id]);
+  const detail = await planRowWithTotals(updated);
+  await logEvent(req, id, 'plan.archive', { plan_no: row.plan_no, by: actor.display });
+  writeAuditLog(req, 'loading_plan.archive', id, c.lpPlanLabel(row));
+  res.json({ ok: true, data: detail.plan });
+}));
+
+// ===== POST /plans/:id/recall（RECALL：把封存的 PLAN 取回清單）=====
+router.post('/plans/:id/recall', handle(async (req, res) => {
+  const c = await calc();
+  const id = Number(req.params.id);
+  const row = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [id]);
+  if (!row) return res.status(404).json({ error: '找不到這張 plan' });
+
+  if (!row.archived_at) {
+    const detail = await planRowWithTotals(row);
+    return res.json({ ok: true, already: true, data: detail.plan });
+  }
+
+  await dbRun(
+    `UPDATE loading_plans
+        SET archived_at = NULL, archived_by = NULL,
+            updated_at = CURRENT_TIMESTAMP, version = version + 1
+      WHERE id = ?`,
+    [id]
+  );
+
+  const updated = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [id]);
+  const detail = await planRowWithTotals(updated);
+  await logEvent(req, id, 'plan.recall', { plan_no: row.plan_no });
+  writeAuditLog(req, 'loading_plan.recall', id, c.lpPlanLabel(row));
+  res.json({ ok: true, data: detail.plan });
 }));
 
 // ===== DELETE /plans/:id（存貨不可刪；有明細要先搬走）=====
@@ -437,6 +518,7 @@ router.post('/plans/:id/items', handle(async (req, res) => {
   const plan = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [planId]);
   if (!plan) return res.status(404).json({ error: '找不到這張 plan' });
   if (plan.status === 'locked') return res.status(409).json({ error: '這張 plan 已鎖定' });
+  if (plan.archived_at) return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再加入明細' });
 
   const body = req.body || {};
   const recordIds = (Array.isArray(body.mawb_record_ids) ? body.mawb_record_ids : []).map(Number).filter(Boolean);
@@ -511,6 +593,7 @@ router.patch('/items/:id', handle(async (req, res) => {
   if (!item) return res.status(404).json({ error: '找不到這筆明細' });
   const plan = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [item.plan_id]);
   if (plan && plan.status === 'locked') return res.status(409).json({ error: '這張 plan 已鎖定' });
+  if (plan && plan.archived_at) return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再修改' });
 
   const body = req.body || {};
   const sets = [];
@@ -591,6 +674,10 @@ router.delete('/items/:id', handle(async (req, res) => {
   const id = Number(req.params.id);
   const item = await dbGet('SELECT * FROM loading_plan_items WHERE id = ?', [id]);
   if (!item) return res.status(404).json({ error: '找不到這筆明細' });
+  const sourcePlan = await dbGet('SELECT archived_at FROM loading_plans WHERE id = ?', [item.plan_id]);
+  if (sourcePlan && sourcePlan.archived_at) {
+    return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再操作明細' });
+  }
 
   const hard = String(req.query.hard || '') === '1';
   const stock = await ensureStockPlan();
@@ -622,6 +709,7 @@ router.post('/items/:id/copy', handle(async (req, res) => {
   const target = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [targetPlanId]);
   if (!target) return res.status(404).json({ error: '找不到目標 plan' });
   if (target.status === 'locked') return res.status(409).json({ error: '目標 plan 已鎖定' });
+  if (target.archived_at) return res.status(409).json({ error: '目標 PLAN 已封存，請先 RECALL' });
 
   if (source.mawb_record_id) {
     const dup = await dbGet(
@@ -647,6 +735,7 @@ router.post('/plans/:id/reorder', handle(async (req, res) => {
   const plan = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [planId]);
   if (!plan) return res.status(404).json({ error: '找不到這張 plan' });
   if (plan.status === 'locked') return res.status(409).json({ error: '這張 plan 已鎖定' });
+  if (plan.archived_at) return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再排序' });
 
   const body = req.body || {};
   const ids = (Array.isArray(body.item_ids) ? body.item_ids : []).map(Number).filter(Boolean);
@@ -690,7 +779,7 @@ router.get('/bookings', handle(async (req, res) => {
     const ph = ids.map(() => '?').join(',');
     placements = await dbAll(
       `SELECT i.id AS item_id, i.plan_id, i.mawb_record_id, i.section, i.sort_order,
-              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company
+              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company, p.archived_at
          FROM loading_plan_items i
          JOIN loading_plans p ON p.id = i.plan_id
         WHERE i.mawb_record_id IN (${ph})
@@ -789,7 +878,7 @@ router.get('/placements', handle(async (req, res) => {
   if (recordId) {
     rows = await dbAll(
       `SELECT i.id AS item_id, i.plan_id, i.mawb_record_id, i.mawb, i.section, i.sort_order,
-              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company
+              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company, p.archived_at
          FROM loading_plan_items i JOIN loading_plans p ON p.id = i.plan_id
         WHERE i.mawb_record_id = ? ORDER BY p.sort_order, i.section, i.sort_order`,
       [recordId]
@@ -798,7 +887,7 @@ router.get('/placements', handle(async (req, res) => {
     const target = c.lpNormalizeMawbKey(mawb);
     rows = await dbAll(
       `SELECT i.id AS item_id, i.plan_id, i.mawb_record_id, i.mawb, i.section, i.sort_order,
-              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company
+              p.plan_no, p.type, p.day_code, p.flight_no, p.flight_date, p.owner_company, p.archived_at
          FROM loading_plan_items i JOIN loading_plans p ON p.id = i.plan_id
         ORDER BY p.sort_order, i.section, i.sort_order`
     ).then(list => list.filter(r => c.lpNormalizeMawbKey(r.mawb) === target));
@@ -875,6 +964,7 @@ router.post('/plans/:id/items/bulk', handle(async (req, res) => {
   const plan = await dbGet('SELECT * FROM loading_plans WHERE id = ?', [planId]);
   if (!plan) return res.status(404).json({ error: '找不到這張 plan' });
   if (plan.status === 'locked') return res.status(409).json({ error: '這張 plan 已鎖定' });
+  if (plan.archived_at) return res.status(409).json({ error: '這張 PLAN 已封存，請先 RECALL 再貼上' });
 
   const rows = Array.isArray((req.body || {}).rows) ? req.body.rows.slice(0, 500) : [];
   if (!rows.length) return res.status(422).json({ error: '請提供 rows（最多 500 列）' });

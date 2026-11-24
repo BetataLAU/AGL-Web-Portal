@@ -2,26 +2,24 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/24 下午6:13:22
+> 最後更新：2026/11/24 下午6:35:32
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
 M FILE_INVENTORY.md
-M package.json
+M PROJECT_MAP.md
+M WORKSPACE_STATE.md
+M db/database.js
 M public/css/loading-plan.css
-M public/js/loading-plan/calc.js
+M public/js/loading-plan/api.js
 M public/js/loading-plan/interactions.js
-M public/js/loading-plan/realtime.js
 M public/js/loading-plan/render.js
+M public/js/loading-plan/state.js
 M routes/loading-plan/index.js
-M scripts/loading-plan-preview.js
 M scripts/test-loading-plan-api.js
-M scripts/test-loading-plan-calc.js
 M scripts/test-loading-plan-frontend.js
-?? public/js/loading-plan/crd.js
-?? scripts/test-loading-plan-crd.js
 ```
 
 ## 📁 檔案清單（共 277 個檔案）
@@ -31,11 +29,11 @@ M scripts/test-loading-plan-frontend.js
 - `.clineignore`（461 B）
 - `.gitattributes`（316 B）
 - `.gitignore`（1.1 KB）
-- `CLAUDE.md`（133.5 KB）
+- `CLAUDE.md`（135.9 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（37.0 KB）
+- `PROJECT_MAP.md`（38.0 KB）
 - `README.md`（24.7 KB）
-- `WORKSPACE_STATE.md`（155.8 KB）
+- `WORKSPACE_STATE.md`（158.4 KB）
 - `database.db-shm`（32.0 KB）
 - `database.db-wal`（4031.5 KB）
 - `package.json`（2.2 KB）
@@ -114,8 +112,8 @@ M scripts/test-loading-plan-frontend.js
 
 ### db
 
-- `db/database.js`（21.3 KB）
-- `db/db-dump.sql`（275.4 KB）
+- `db/database.js`（23.1 KB）
+- `db/db-dump.sql`（277.4 KB）
 
 ### docs
 
@@ -144,7 +142,7 @@ M scripts/test-loading-plan-frontend.js
 - `public/css/components.css`（10.3 KB）
 - `public/css/dbviewer.css`（15.6 KB）
 - `public/css/layout.css`（18.6 KB）
-- `public/css/loading-plan.css`（26.3 KB）
+- `public/css/loading-plan.css`（28.3 KB）
 - `public/css/loadsim.css`（26.4 KB）
 - `public/css/orders.css`（33.7 KB）
 - `public/css/sli-eli-layout.css`（9.4 KB）
@@ -187,18 +185,18 @@ M scripts/test-loading-plan-frontend.js
 
 ### public/js/loading-plan
 
-- `public/js/loading-plan/api.js`（2.4 KB）
+- `public/js/loading-plan/api.js`（2.7 KB）
 - `public/js/loading-plan/calc.js`（15.6 KB）
 - `public/js/loading-plan/contour.js`（3.2 KB）
 - `public/js/loading-plan/crd.js`（2.1 KB）
 - `public/js/loading-plan/dim.js`（4.8 KB）
 - `public/js/loading-plan/dom.js`（1.6 KB）
-- `public/js/loading-plan/interactions.js`（79.5 KB）
+- `public/js/loading-plan/interactions.js`（83.2 KB）
 - `public/js/loading-plan/order.js`（1.2 KB）
 - `public/js/loading-plan/paste.js`（4.3 KB）
 - `public/js/loading-plan/realtime.js`（5.4 KB）
-- `public/js/loading-plan/render.js`（22.2 KB）
-- `public/js/loading-plan/state.js`（3.3 KB）
+- `public/js/loading-plan/render.js`（25.3 KB）
+- `public/js/loading-plan/state.js`（4.1 KB）
 - `public/js/loading-plan/suggest.js`（7.9 KB）
 
 ### public/js/loadsim
@@ -283,7 +281,7 @@ M scripts/test-loading-plan-frontend.js
 ### routes/loading-plan
 
 - `routes/loading-plan/bus.js`（707 B）
-- `routes/loading-plan/index.js`（50.1 KB）
+- `routes/loading-plan/index.js`（54.7 KB）
 
 ### routes/orders
 
@@ -321,12 +319,12 @@ M scripts/test-loading-plan-frontend.js
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
-- `scripts/test-loading-plan-api.js`（28.8 KB）
+- `scripts/test-loading-plan-api.js`（34.8 KB）
 - `scripts/test-loading-plan-calc.js`（13.7 KB）
 - `scripts/test-loading-plan-crd.js`（5.4 KB）
 - `scripts/test-loading-plan-demo-data.js`（3.1 KB）
 - `scripts/test-loading-plan-dim.js`（7.7 KB）
-- `scripts/test-loading-plan-frontend.js`（39.4 KB）
+- `scripts/test-loading-plan-frontend.js`（44.7 KB）
 - `scripts/test-loading-plan-order.js`（2.7 KB）
 - `scripts/test-loading-plan-paste.js`（5.9 KB）
 - `scripts/test-loading-plan-suggest.js`（7.6 KB）

@@ -94,6 +94,19 @@
   padding: 8px 12px; border-bottom: 1px solid var(--border-color);
   font-size: .8rem; font-weight: 700; color: var(--text-main);
 }
+/* PLAN 欄表頭右側：張數＋「🗄 封存」切換（封存的 PLAN 可 RECALL 取回） */
+.lp-col-head-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.lp-archive-toggle { font-size: .72rem; padding: 3px 9px; }
+.lp-archive-toggle.is-on {
+  background: rgba(100, 116, 139, .16); border-color: var(--text-muted);
+  color: var(--text-main); font-weight: 800;
+}
+.lp-archive-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; padding: 0 4px; margin-left: 2px;
+  border-radius: 999px; background: rgba(100, 116, 139, .18);
+  font-size: .66rem; font-weight: 800; color: var(--text-main);
+}
 .lp-stock-tools { display: flex; gap: 6px; padding: 8px 10px 4px; }
 .lp-stock-tools .lp-input { flex: 1; }
 .lp-stock-list { overflow: auto; flex: 1; min-height: 120px; }
@@ -138,6 +151,33 @@
 .lp-plan.is-drop { border-color: var(--primary); box-shadow: 0 0 0 3px var(--surface-glow); }
 /* 拖曳中（is-drop）優先顯示插入提示，暫停脈動避免陰影互相蓋掉 */
 .lp-plan.is-active.is-drop { animation: none; }
+
+/* ===== 封存（ARCHIVE）的 PLAN：淡化＋虛線；不可編輯／拖入，只能 ♻ RECALL ===== */
+.lp-plan.is-archived {
+  border-style: dashed; opacity: .86;
+  background: color-mix(in srgb, var(--card-bg) 88%, var(--bg-muted));
+}
+.lp-plan.is-archived:hover { opacity: 1; }
+.lp-plan.is-archived .lp-plan-title { color: var(--text-muted); }
+.lp-plan.is-archived .lp-plan-head { cursor: default; }
+/* 「封存」按鈕：文字按鈕（不是只有圖示），琥珀色系讓它一眼可見 */
+.lp-archive-btn {
+  border-color: rgba(180, 83, 9, .38); color: #b45309; background: rgba(180, 83, 9, .08);
+}
+.lp-archive-btn:hover:not(:disabled) {
+  border-color: #b45309; color: #92400e; background: rgba(180, 83, 9, .16);
+}
+.lp-recall-btn {
+  border-color: rgba(22, 163, 74, .45); color: #15803d; background: rgba(22, 163, 74, .10);
+}
+.lp-recall-btn:hover:not(:disabled) { border-color: #16a34a; color: #15803d; background: rgba(22, 163, 74, .18); }
+.lp-archived-note { color: var(--text-muted); font-weight: 700; }
+.lp-archived-place-tag { margin-left: 4px; font-size: .66rem; font-weight: 800; color: var(--text-muted); }
+.lp-place-row.is-archived-place { opacity: .8; }
+.lp-archived-hint {
+  border-top: 1px dashed var(--border-color); padding: 6px 10px;
+  font-size: .72rem; color: var(--text-muted);
+}
 .lp-plan-head { padding: 8px 10px; cursor: pointer; }
 .lp-plan-title-row { display: flex; align-items: center; gap: 6px; }
 .lp-plan-title { font-weight: 800; font-size: .84rem; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -486,7 +526,7 @@
 /* 列印：只印 PLAN 明細 */
 @media print {
   .lp-toolbar, .lp-col-stock, .lp-context-menu, .lp-toast, .lp-online,
-  .lp-remark-pop, .lp-dim-editor { display: none !important; }
+  .lp-archive-toggle, .lp-remark-pop, .lp-dim-editor { display: none !important; }
   .lp-layout { display: block; }
   .lp-col-plans { border: none; max-height: none; }
   .lp-plan-list { overflow: visible; padding: 0; }

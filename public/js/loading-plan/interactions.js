@@ -1,7 +1,7 @@
 // ===== 執 PLAN：互動（拖曳 / 右鍵選單 / 剪貼簿 / Undo / 就地編輯）=====
 import { lpApi } from './api.js';
 import {
-  state, planById, planLabel, activePlan, itemsOf, flightPlans,
+  state, planById, planLabel, activePlan, itemsOf, flightPlans, archivedPlanById,
   setActivePlan, toggleExpanded, toggleSelection, clearSelection, selectedIdList, pushUndo, fmt
 } from './state.js';
 import { renderAll, renderStock, renderToolbar, renderPlans } from './render.js';
@@ -28,8 +28,11 @@ export async function loadDetail(planId) {
 export async function loadAll() {
   state.loading = true;
   try {
-    const [plansRes, stockRes] = await Promise.all([lpApi.plans(), lpApi.stock()]);
+    const [plansRes, archivedRes, stockRes] = await Promise.all([
+      lpApi.plans(), lpApi.plans({ archived: 1 }), lpApi.stock()
+    ]);
     state.plans = plansRes.data || [];
+    state.archivedPlans = archivedRes.data || [];
     state.stock = stockRes.data || null;
     if (state.stock) state.details.set(Number(state.stock.id), stockRes.items || []);
     state.stockItems = stockRes.items || [];
@@ -160,6 +163,42 @@ async function deletePlan(planId) {
     if (Number(state.activePlanId) === Number(planId)) setActivePlan(null);
     await loadAll();
     toast('PLAN 已刪除', 'ok');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ===== 封存（ARCHIVE）／RECALL =====
+// 使用者認為無用的 PLAN → 封存（從 PLAN 列表消失、不列入統計與重複 MAWB 檢核），
+// 明細完整保留；之後在「🗄 封存」清單按「♻ RECALL」即可取回繼續使用。
+async function archivePlan(planId) {
+  const plan = planById(planId) || archivedPlanById(planId);
+  if (!plan) return;
+  if (plan.type === 'stock') { toast('存貨不能封存', 'warn'); return; }
+  if (plan.archived_at) { toast(`「${planLabel(plan)}」已經封存`, 'warn'); return; }
+  const ok = window.confirm(
+    `確定封存「${planLabel(plan)}」？\n\n` +
+    '封存後不會出現在 PLAN 列表（也不列入統計與重複 MAWB 檢核），\n' +
+    '明細會完整保留，之後可按「🗄 封存」→「♻ RECALL」取回。'
+  );
+  if (!ok) return;
+  try {
+    await lpApi.archivePlan(planId);
+    state.expanded.delete(Number(planId));
+    state.details.delete(Number(planId));
+    if (Number(state.activePlanId) === Number(planId)) setActivePlan(null);
+    await loadAll();
+    toast(`已封存「${planLabel(plan)}」（可從 🗄 封存 RECALL 取回）`, 'ok');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function recallPlan(planId) {
+  const plan = archivedPlanById(planId) || planById(planId);
+  if (!plan) return;
+  try {
+    await lpApi.recallPlan(planId);
+    state.showArchived = false;   // RECALL 後回到正常清單，馬上看到這張 PLAN
+    setActivePlan(planId);
+    await loadAll();
+    toast(`已 RECALL「${planLabel(plan)}」回 PLAN 列表`, 'ok');
   } catch (err) { toast(err.message, 'error'); }
 }
 
@@ -329,11 +368,18 @@ function openMenu(x, y, row, planEl) {
       });
     }
   } else if (planEl && planEl.dataset.planId) {
-    if (state.clipboard) defs.push({ label: '📋 貼上到這張 PLAN', fn: () => pasteInto(planId) });
-    defs.push({ label: '📥 貼上 Excel（TSV）', fn: () => pasteFromClipboard(planId) });
-    defs.push({ label: '✎ 編輯 PLAN', fn: () => openPlanModal(planById(planId)) });
-    defs.push({ divider: true });
-    defs.push({ label: '🗑 刪除 PLAN', fn: () => deletePlan(planId) });
+    const plan = planById(planId) || archivedPlanById(planId);
+    if (plan && plan.archived_at) {
+      // 已封存：只能 RECALL（要修改先取回，避免封存中還被改）
+      defs.push({ label: '♻ RECALL（取回 PLAN 列表）', fn: () => recallPlan(planId) });
+    } else {
+      if (state.clipboard) defs.push({ label: '📋 貼上到這張 PLAN', fn: () => pasteInto(planId) });
+      defs.push({ label: '📥 貼上 Excel（TSV）', fn: () => pasteFromClipboard(planId) });
+      defs.push({ label: '✎ 編輯 PLAN', fn: () => openPlanModal(planById(planId)) });
+      defs.push({ divider: true });
+      defs.push({ label: '🗄 封存 PLAN（可 RECALL）', fn: () => archivePlan(planId) });
+      defs.push({ label: '🗑 刪除 PLAN', fn: () => deletePlan(planId) });
+    }
   }
   if (!defs.length) return;
 
@@ -1242,6 +1288,14 @@ async function jumpToItem(planId, itemId) {
   const pid = Number(planId);
   const iid = Number(itemId);
   if (!pid) return;
+  // 目標在「已封存」的 PLAN：不展開（封存只能 RECALL），切到封存清單讓使用者按 ♻ RECALL
+  const archived = archivedPlanById(pid);
+  if (archived) {
+    state.showArchived = true;
+    renderPlans();
+    toast(`「${planLabel(archived)}」已封存；按「♻ RECALL」取回後才能查看明細`, 'warn');
+    return;
+  }
   const isStock = !!(state.stock && Number(state.stock.id) === pid);
   if (!isStock) {
     state.expanded.add(pid);
@@ -1272,14 +1326,18 @@ async function jumpToItem(planId, itemId) {
 }
 
 // 位置清單的一列；current = 目前所在的位置（最後一欄改成「📍 現在的位置」）
+// 已封存的 PLAN：標籤後面加「（已封存）」，點擊只會切到封存清單（需 RECALL 才能看明細）
 function placeRowHtml(p, current) {
-  const title = current
-    ? '你目前就在這個位置（點擊會捲到該列並閃爍）'
-    : '點擊跳到這個位置（目標列會閃爍標示）';
+  const isArchived = !!p.archived_at;
+  const title = isArchived
+    ? '這個位置在已封存的 PLAN（需 ♻ RECALL 取回才能查看明細）'
+    : current
+      ? '你目前就在這個位置（點擊會捲到該列並閃爍）'
+      : '點擊跳到這個位置（目標列會閃爍標示）';
   return `
-          <div class="lp-find-row lp-place-row${current ? ' is-current' : ''}" role="button" tabindex="0"
+          <div class="lp-find-row lp-place-row${current ? ' is-current' : ''}${isArchived ? ' is-archived-place' : ''}" role="button" tabindex="0"
                data-plan-id="${p.plan_id}" data-item-id="${p.item_id}" title="${title}"${current ? ' aria-current="true"' : ''}>
-            <span class="lp-find-mawb">${esc(p.label)}</span>
+            <span class="lp-find-mawb">${esc(p.label)}${isArchived ? '<span class="lp-archived-place-tag">（已封存）</span>' : ''}</span>
             <span>#${p.section || 1}</span>
             <span class="lp-find-place">${esc(p.plan_no || '')}</span>
             <span class="lp-find-go${current ? ' lp-find-now' : ''}">${current ? '📍 現在的位置' : '➜ 前往'}</span>
@@ -1574,6 +1632,25 @@ async function onClick(e) {
     switch (action) {
       case 'new-plan': openPlanModal(null); return;
       case 'edit-plan': { const p = activePlan(); if (p && p.type !== 'stock') openPlanModal(p); return; }
+      // 封存／RECALL：封存清單切換（同一顆按鈕，is-on 表示目前在看封存清單）
+      case 'toggle-archived': {
+        state.showArchived = !state.showArchived;
+        renderPlans();
+        return;
+      }
+      case 'archive-plan': {
+        const card = actionEl.closest('.lp-plan');
+        if (card) await archivePlan(Number(card.dataset.planId));
+        return;
+      }
+      case 'recall-plan': {
+        const card = actionEl.closest('.lp-plan');
+        if (card) await recallPlan(Number(card.dataset.planId));
+        return;
+      }
+      case 'archived-plan':
+        toast('這張 PLAN 已封存；按「♻ RECALL」即可取回繼續使用', 'warn');
+        return;
       case 'refresh': await loadAll(); toast('已重新整理', 'ok'); return;
       case 'undo': await undo(); return;
       case 'add-selected': {
@@ -1834,7 +1911,8 @@ function setupDnd(root) {
 
   root.addEventListener('dragover', (e) => {
     if (!dragPayload) return;
-    const planEl = e.target.closest('.lp-plan');
+    // 已封存的 PLAN 不接受拖入（要先用 ♻ RECALL 取回）
+    const planEl = e.target.closest('.lp-plan:not(.is-archived)');
     const stockCol = e.target.closest('.lp-col-stock');
     if (!planEl && !stockCol) return;
     e.preventDefault();
@@ -1874,7 +1952,7 @@ function setupDnd(root) {
 
   root.addEventListener('drop', async (e) => {
     if (!dragPayload) return;
-    const planEl = e.target.closest('.lp-plan');
+    const planEl = e.target.closest('.lp-plan:not(.is-archived)');
     const stockCol = e.target.closest('.lp-col-stock');
     const targetPlanId = planEl
       ? Number(planEl.dataset.planId)

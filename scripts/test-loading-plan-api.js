@@ -478,6 +478,86 @@ async function readSse(url, predicate, timeoutMs = 5000) {
     const bookingAudit = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'loading_plan.booking.create'");
     check('新增 Booking（含後補 2 筆）寫 audit_log', Number(bookingAudit) === 3, String(bookingAudit));
 
+    // ---- 封存（ARCHIVE）／RECALL ----
+    // USER 認為無用的 PLAN → 封存（離開清單、不列入統計與重複 MAWB 檢核）；封存的可 RECALL 取回。
+    const archiveStock = await req('POST', `/api/loading-plan/plans/${stock.id}/archive`);
+    check('存貨不能封存 → 409',
+      archiveStock.status === 409 && /存貨/.test(String(archiveStock.body && archiveStock.body.error)),
+      `${archiveStock.status} ${archiveStock.body && archiveStock.body.error}`);
+
+    const archivePlan2 = await req('POST', `/api/loading-plan/plans/${plan2.id}/archive`);
+    check('POST /plans/:id/archive → 200 ＋ archived_at',
+      archivePlan2.status === 200 && !!archivePlan2.body.data.archived_at,
+      JSON.stringify(archivePlan2.body && archivePlan2.body.data && archivePlan2.body.data.archived_at));
+    check('封存者記實名（archived_by 有值）',
+      !!archivePlan2.body.data.archived_by, String(archivePlan2.body.data.archived_by));
+
+    const plansAfterArchive = await req('GET', '/api/loading-plan/plans');
+    check('封存後不再出現在 PLAN 列表',
+      !plansAfterArchive.body.data.some(p => p.id === plan2.id),
+      JSON.stringify(plansAfterArchive.body.data.map(p => p.id)));
+    const archivedList = await req('GET', '/api/loading-plan/plans?archived=1');
+    check('GET /plans?archived=1 找得到封存的 PLAN',
+      archivedList.status === 200 && archivedList.body.data.some(p => p.id === plan2.id),
+      archivedList.body.data ? JSON.stringify(archivedList.body.data.map(p => p.id)) : 'null');
+    const allPlans = await req('GET', '/api/loading-plan/plans?archived=all');
+    check('?archived=all 同時包含正常與封存',
+      allPlans.body.data.some(p => p.id === plan1.id) && allPlans.body.data.some(p => p.id === plan2.id));
+
+    const plan1AfterArchive = await req('GET', `/api/loading-plan/plans/${plan1.id}`);
+    const p1ItemAfterArchive = plan1AfterArchive.body.items.find(i => i.mawb === '176-6985 5240');
+    check('封存的 PLAN 不列入重複 MAWB 檢核',
+      !!p1ItemAfterArchive && p1ItemAfterArchive.duplicate_mawb === false,
+      JSON.stringify(p1ItemAfterArchive && p1ItemAfterArchive.duplicate_places));
+    const placementsArchived = await req('GET', '/api/loading-plan/placements?mawb=176-6985%205240');
+    check('placements 帶 archived_at（位置清單可標示已封存）',
+      placementsArchived.body.data.some(p => p.plan_id === plan2.id && !!p.archived_at),
+      JSON.stringify(placementsArchived.body.data.map(p => ({ plan: p.plan_id, archived: p.archived_at }))));
+
+    const addToArchived = await req('POST', `/api/loading-plan/plans/${plan2.id}/items`, { item_ids: [item1.id] });
+    check('已封存不能加入明細 → 409', addToArchived.status === 409, String(addToArchived.status));
+    const bulkArchived = await req('POST', `/api/loading-plan/plans/${plan2.id}/items/bulk`, {
+      rows: [{ mawb: '176-0000 0006', client: 'X' }]
+    });
+    check('已封存不能貼上 Excel → 409', bulkArchived.status === 409, String(bulkArchived.status));
+    const reorderArchived = await req('POST', `/api/loading-plan/plans/${plan2.id}/reorder`, { item_ids: [plan2Dup.id] });
+    check('已封存不能拖曳排序 → 409', reorderArchived.status === 409, String(reorderArchived.status));
+    const patchArchivedItem = await req('PATCH', `/api/loading-plan/items/${plan2Dup.id}`, { client: 'CHANGED' });
+    check('已封存不能就地編輯明細 → 409', patchArchivedItem.status === 409, String(patchArchivedItem.status));
+    const patchArchivedPlan = await req('PATCH', `/api/loading-plan/plans/${plan2.id}`, { owner_company: 'CHANGED' });
+    check('已封存不能修改表頭 → 409', patchArchivedPlan.status === 409, String(patchArchivedPlan.status));
+
+    const archiveEvent = await queryDb(
+      "SELECT COUNT(*) AS n FROM loading_plan_events WHERE action = 'plan.archive' AND plan_id = ?", [plan2.id]
+    );
+    check('封存寫事件流（plan.archive）', Number(archiveEvent) === 1, String(archiveEvent));
+    const archiveAudit = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'loading_plan.archive'");
+    check('封存寫 audit_log（loading_plan.archive）', Number(archiveAudit) === 1, String(archiveAudit));
+
+    // ---- RECALL（取回）----
+    const recall = await req('POST', `/api/loading-plan/plans/${plan2.id}/recall`);
+    check('RECALL → 200 ＋ archived_at 清空',
+      recall.status === 200 && !recall.body.data.archived_at,
+      JSON.stringify(recall.body.data && recall.body.data.archived_at));
+    const plansAfterRecall = await req('GET', '/api/loading-plan/plans');
+    check('RECALL 後回到 PLAN 列表', plansAfterRecall.body.data.some(p => p.id === plan2.id));
+    const archivedEmpty = await req('GET', '/api/loading-plan/plans?archived=1');
+    check('RECALL 後封存清單是空的', archivedEmpty.body.data.length === 0, String(archivedEmpty.body.data.length));
+    const plan1AfterRecall = await req('GET', `/api/loading-plan/plans/${plan1.id}`);
+    const p1ItemAfterRecall = plan1AfterRecall.body.items.find(i => i.mawb === '176-6985 5240');
+    check('RECALL 後重複 MAWB 檢核恢復',
+      !!p1ItemAfterRecall && p1ItemAfterRecall.duplicate_mawb === true,
+      JSON.stringify(p1ItemAfterRecall && p1ItemAfterRecall.duplicate_places));
+    const recallAgain = await req('POST', `/api/loading-plan/plans/${plan2.id}/recall`);
+    check('重複 RECALL 不報錯（idempotent）',
+      recallAgain.status === 200 && recallAgain.body.already === true, String(recallAgain.status));
+    const recallAudit = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'loading_plan.recall'");
+    check('RECALL 寫 audit_log（loading_plan.recall）', Number(recallAudit) === 1, String(recallAudit));
+    check('封存不存在的 plan → 404',
+      (await req('POST', '/api/loading-plan/plans/999999/archive')).status === 404);
+    check('RECALL 不存在的 plan → 404',
+      (await req('POST', '/api/loading-plan/plans/999999/recall')).status === 404);
+
     // ---- 審計 ----
     const auditCount = await queryDb("SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'loading_plan.%'");
     check('audit_log 有 loading_plan.* 紀錄', Number(auditCount) > 0, String(auditCount));

@@ -426,12 +426,16 @@ db.serialize(() => {
       status TEXT DEFAULT 'draft',
       sort_order INTEGER DEFAULT 0,
       version INTEGER DEFAULT 1,
+      archived_at DATETIME,
+      archived_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_loading_plans_sort ON loading_plans(sort_order, id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_loading_plans_day ON loading_plans(day_code)');
+  // 注意：archived_at 的索引不能在此建立——既有 DB 還沒 ALTER TABLE 補欄會直接 SQLITE_ERROR，
+  // 移到下面的 initTasks（補欄完成後）再建。
 
   db.run(`
     CREATE TABLE IF NOT EXISTS loading_plan_items (
@@ -503,6 +507,42 @@ db.serialize(() => {
     )
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_loading_presence_plan ON loading_plan_presence(plan_id)');
+
+  // loading_plans 表相容性：補上「封存」（archived_at／archived_by）。
+  // 既有 DB 用 ALTER TABLE 補，新 DB 由上面 CREATE TABLE 就有；
+  // 索引一定要「補欄完成後」才建（否則既有 DB 會 no such column: archived_at）。
+  initTasks.push(new Promise((resolve) => {
+    db.all('PRAGMA table_info(loading_plans)', [], (err, planCols) => {
+      if (err) {
+        console.error('PRAGMA table_info(loading_plans) failed:', err.message);
+        return resolve();
+      }
+      const ensureIndex = () => {
+        db.run('CREATE INDEX IF NOT EXISTS idx_loading_plans_archived ON loading_plans(archived_at)', (indexErr) => {
+          if (indexErr) console.error('Failed to create idx_loading_plans_archived:', indexErr.message);
+          resolve();
+        });
+      };
+      const planColumns = planCols.map(c => c.name);
+      const missing = [
+        { name: 'archived_at', def: 'DATETIME' },
+        { name: 'archived_by', def: 'TEXT' }
+      ].filter(col => !planColumns.includes(col.name));
+      if (!missing.length) return ensureIndex();
+      let pending = missing.length;
+      missing.forEach(col => {
+        db.run(`ALTER TABLE loading_plans ADD COLUMN ${col.name} ${col.def}`, (alterErr) => {
+          if (alterErr) {
+            console.error(`Failed to add ${col.name} column to loading_plans:`, alterErr.message);
+          } else {
+            console.log(`Added ${col.name} column to loading_plans`);
+          }
+          pending -= 1;
+          if (pending === 0) ensureIndex();
+        });
+      });
+    });
+  }));
 
   // MAWB 搜尋（執 PLAN 的動態搜尋會用）
   db.run('CREATE INDEX IF NOT EXISTS idx_mawb_records_mawb ON mawb_records(mawb)');

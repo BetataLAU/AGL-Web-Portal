@@ -15,6 +15,7 @@ export const lpApi = {
     const qs = new URLSearchParams();
     if (params.type) qs.set('type', params.type);
     if (params.search) qs.set('search', params.search);
+    if (params.archived) qs.set('archived', String(params.archived));
     const query = qs.toString();
     return call(`/plans${query ? `?${query}` : ''}`);
   },
@@ -29,6 +30,13 @@ export const lpApi = {
   },
   deletePlan(id) {
     return call(`/plans/${id}`, { method: 'DELETE' });
+  },
+  // 封存（USER 認為無用的 PLAN；可 RECALL 取回）
+  archivePlan(id) {
+    return jsonCall(`/plans/${id}/archive`, 'POST', {});
+  },
+  recallPlan(id) {
+    return jsonCall(`/plans/${id}/recall`, 'POST', {});
   },
   stock() {
     return call('/stock');

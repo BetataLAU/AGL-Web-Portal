@@ -1,7 +1,7 @@
 // ===== 執 PLAN：畫面渲染（存貨＋PLANS 雙欄工作台）=====
 import { LOADSIM_ULD_SPECS } from '../loadsim/uld-specs.js';
 import { lpResolveContourCode, lpCuftFromCbm, lpCrdIssue, lpFormatCrd } from './calc.js';
-import { state, planLabel, itemsOf, flightPlans, activePlan, isExpanded, fmt, fmtInt } from './state.js';
+import { state, planLabel, itemsOf, flightPlans, archivedFlightPlans, activePlan, isExpanded, fmt, fmtInt } from './state.js';
 import { esc, ownerColor } from './dom.js';
 
 export const SPEC_CODES = LOADSIM_ULD_SPECS.map(s => s.code);
@@ -58,7 +58,12 @@ export function layoutHtml() {
       <section class="lp-col lp-col-plans">
         <header class="lp-col-head">
           <span>🧱 PLANS</span>
-          <span class="lp-count" id="lp-plans-total"></span>
+          <span class="lp-col-head-tools">
+            <span class="lp-count" id="lp-plans-total"></span>
+            <button type="button" class="lp-btn lp-btn-sm lp-archive-toggle" id="lp-archive-toggle"
+                    data-action="toggle-archived"
+                    title="USER 認為無用的 PLAN 可封存；封存後隨時可 RECALL 取回">🗄 封存 <span class="lp-archive-count" id="lp-archived-count">0</span></button>
+          </span>
         </header>
         <div class="lp-plan-list" id="lp-plan-list"></div>
       </section>
@@ -256,7 +261,7 @@ function setBtnDisabled(node, disabled) {
 export function renderToolbar() {
   if (typeof document === 'undefined') return;
   const plan = activePlan();
-  const isFlight = !!plan && plan.type !== 'stock';
+  const isFlight = !!plan && plan.type !== 'stock' && !plan.archived_at;
   const hasSelection = state.selectedItems.size > 0;
   const hasStockSelection = state.selectedStock.size > 0;
 
@@ -317,22 +322,43 @@ function miniKpi(plan) {
   `;
 }
 
+// 封存時間：DB 存 UTC（CURRENT_TIMESTAMP）→ 顯示使用者當地時間
+export function archivedStamp(plan) {
+  const raw = String((plan && plan.archived_at) || '').trim();
+  if (!raw) return '';
+  const iso = raw.includes('T') ? raw : `${raw.replace(' ', 'T')}Z`;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return raw;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function planCard(plan) {
-  const expanded = isExpanded(plan.id);
-  const active = Number(state.activePlanId) === Number(plan.id);
+  const archived = !!plan.archived_at;
+  const expanded = !archived && isExpanded(plan.id);
+  const active = !archived && Number(state.activePlanId) === Number(plan.id);
   const items = itemsOf(plan.id);
   const view = plan.volume_view === 'cuft' ? 'cuft' : 'vol';
   return `
-    <article class="lp-plan${active ? ' is-active' : ''}" data-plan-id="${plan.id}">
-      <header class="lp-plan-head" data-action="activate-plan">
+    <article class="lp-plan${active ? ' is-active' : ''}${archived ? ' is-archived' : ''}" data-plan-id="${plan.id}">
+      <header class="lp-plan-head" data-action="${archived ? 'archived-plan' : 'activate-plan'}">
         <div class="lp-plan-title-row">
           <span class="lp-plan-title" title="${esc(planLabel(plan))}">${esc(planLabel(plan))}</span>
           <span class="lp-plan-badges">${dayTag(plan)}${contourTag(plan)}${ownerTag(plan)}</span>
-          <button type="button" class="lp-icon-btn" data-action="toggle-plan" title="${expanded ? '收合' : '展開明細'}">${expanded ? '▾' : '▸'}</button>
+          ${archived ? `
+            <button type="button" class="lp-btn lp-btn-sm lp-recall-btn" data-action="recall-plan"
+                    title="RECALL：把這張 PLAN 取回 PLAN 列表（明細與設定都會保留）">♻ RECALL</button>
+          ` : `
+            <button type="button" class="lp-btn lp-btn-sm lp-archive-btn" data-action="archive-plan"
+                    title="封存（USER 認為無用時使用；之後可從「🗄 封存」RECALL 取回）">封存</button>
+            <button type="button" class="lp-icon-btn" data-action="toggle-plan" title="${expanded ? '收合' : '展開明細'}">${expanded ? '▾' : '▸'}</button>
+          `}
         </div>
-        <div class="lp-plan-kpi-row">${miniKpi(plan)}</div>
+        <div class="lp-plan-kpi-row">${miniKpi(plan)}${archived ? `<span class="lp-mini lp-archived-note" title="封存者：${esc(plan.archived_by || '—')}">🗄 已封存 ${esc(archivedStamp(plan))}</span>` : ''}</div>
       </header>
-      ${expanded ? `
+      ${archived ? `
+        <div class="lp-archived-hint">已封存：內容完整保留，但不列入 PLAN 統計與重複 MAWB 檢核。按「♻ RECALL」即可取回繼續使用。</div>
+      ` : expanded ? `
         <div class="lp-plan-body">
           ${rowHead(view)}
           ${items.length ? items.map((item, index) => itemRow(item, plan, index)).join('') : '<div class="lp-empty-sm">沒有明細（把左欄存貨拖進來）</div>'}
@@ -346,21 +372,45 @@ export function planCard(plan) {
 export function renderPlans() {
   const list = document.getElementById('lp-plan-list');
   if (!list) return;
+  const archivedView = !!state.showArchived;
+  const pool = archivedView ? archivedFlightPlans() : flightPlans();
   const needle = String(state.searchPlan || '').toLowerCase();
-  const plans = flightPlans().filter((plan) => {
+  const plans = pool.filter((plan) => {
     if (!needle) return true;
     return [planLabel(plan), plan.plan_no, plan.day_code, plan.contour_code]
       .map(v => String(v || '').toLowerCase()).join(' ').includes(needle);
-  }).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+  }).sort(archivedView
+    // 封存清單：最後封存的排最前面（最可能是想 RECALL 的那張）
+    ? (a, b) => String(b.archived_at || '').localeCompare(String(a.archived_at || ''))
+    : (a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
   list.innerHTML = plans.length
     ? plans.map(planCard).join('')
-    : `<div class="lp-empty">${state.plans.length ? '沒有符合的 PLAN' : '還沒有 PLAN，按右上角「＋ 新 PLAN」開始'}</div>`;
+    : archivedView
+      ? '<div class="lp-empty">目前沒有封存的 PLAN。在 PLAN 卡片按「🗄」即可封存（之後可 RECALL）。</div>'
+      : `<div class="lp-empty">${state.plans.length ? '沒有符合的 PLAN' : '還沒有 PLAN，按右上角「＋ 新 PLAN」開始'}</div>`;
 
   const totalEl = document.getElementById('lp-plans-total');
-  if (totalEl) totalEl.textContent = `${flightPlans().length} 張`;
+  if (totalEl) totalEl.textContent = archivedView ? `封存 ${archivedFlightPlans().length} 張` : `${flightPlans().length} 張`;
   const countEl = document.getElementById('lp-plan-count');
-  if (countEl) countEl.textContent = state.searchPlan ? `${plans.length} / ${flightPlans().length}` : '';
+  if (countEl) countEl.textContent = state.searchPlan ? `${plans.length} / ${pool.length}` : '';
+
+  const archivedCount = archivedFlightPlans().length;
+  const toggle = document.getElementById('lp-archive-toggle');
+  if (toggle) {
+    toggle.classList.toggle('is-on', archivedView);
+    toggle.textContent = archivedView ? '← 回到 PLAN 列表' : '🗄 封存';
+    if (!archivedView) {
+      const count = document.createElement('span');
+      count.className = 'lp-archive-count';
+      count.id = 'lp-archived-count';
+      count.textContent = String(archivedCount);
+      toggle.appendChild(count);
+    }
+    toggle.title = archivedView
+      ? '回到正常的 PLAN 列表'
+      : `已封存 ${archivedCount} 張；點一下查看並 RECALL 取回`;
+  }
 }
 
 export function renderAll() {

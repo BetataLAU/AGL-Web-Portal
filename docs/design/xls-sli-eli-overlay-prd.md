@@ -39,7 +39,7 @@
 - 開關：`PDF_PAPER=a4`（預設）| `custom`（完全不動＝舊行為，可一鍵回滾）
 - Python 端同時寫入 A4 設定（對 openpyxl + LibreOffice 路徑有效，但 Excel 會忽略）
 - 回報：`result.paper = { mode, measured, ok, issues }`，前端顯示實測尺寸；不符只警示不中斷
-- 驗證：`python scripts/test-sli-generate.py`（印 Excel 原始尺寸）、`node scripts/test-pdf-a4.js`、`node scripts/test-a4-integration.js`
+- 驗證：`node scripts/test-a4-integration.js`（免伺服器端對端；原本的 `python scripts/test-sli-generate.py` 與 `node scripts/test-pdf-a4.js` 已於 2026-11-24 移除，原因見 §3 檔案地圖）
 - 實測：915.3×1295.5 → **595.3×841.9**；文字（空白正規化後）**完全相同**；ELI 頁本來就是 A4（未動）
 
 ### P2a PDF 字型瘦身 ✅（本次最大戰果）
@@ -359,7 +359,7 @@
 |---|---|
 | `scripts/sli-eli-font-optimize.py` | 字型瘦身（CLI + 可被 importlib 載入的函式庫）：`--report` / `--diff` / `--inplace` |
 | `scripts/build-sli-eli-blank.py` | 建置 A4 空白背景 + fieldmap + 底圖（含自我校準與 QA） |
-| `scripts/test-pdf-a4.js` | A4 正規化驗證（合併→正規化→斷言 A4） |
+| ~~`scripts/test-pdf-a4.js`~~ | A4 正規化驗證（合併→正規化→斷言 A4）——**2026-11-24 移除**（需 `data/test-sli-job`，已由 `test-a4-integration.js` 覆蓋） |
 | `scripts/test-a4-integration.js` | 免伺服器端對端（合成 3 筆跑完 Step 1~5，驗證 A4 + 字型優化 + ZIP） |
 | `data/templates/sli-eli-blank.pdf` | 空白背景（**執行期需要，要進版控**） |
 | `data/templates/sli-eli-blank-p1.png` / `-p2.png` | 編輯器底圖（P5 需要） |
@@ -374,7 +374,7 @@
 | `scripts/xls-sli-eli.js` | 新增 `readPdfPageSizes()`、`normalizePdfToA4()`、`optimizePdfFontsInPlace()`、`A4_SIZE` |
 | `scripts/xls-workflow.js` | Step 4 加 A4 正規化＋紙張驗證；新增 Step 4.5 字型優化；`result.paper` / `result.fontOpt`；`--paper` 傳給 worker |
 | `scripts/sli-eli-generate.py` | `PDF_PAPER` / `--paper` / `--a4-zoom`；兩條引擎都設定 A4 頁面設定；多印 `PAPER:` 行 |
-| `scripts/test-sli-generate.py` | 新增頁面尺寸量測輸出 |
+| ~~`scripts/test-sli-generate.py`~~ | 新增頁面尺寸量測輸出——**2026-11-24 移除**（需 Windows＋Excel COM，已由 `test-a4-integration.js` 覆蓋） |
 | `routes/xls-booking.js` | 結果帶出 `paper` / `fontOpt` |
 | `public/js/xls-booking-workflow.js` | 結果面板顯示紙張實測與字型優化幅度 |
 | `public/css/xls-booking.css` | `.xls-paper-info` / `.xls-paper-warn` |
@@ -466,9 +466,9 @@
 ## 5. 驗證指令（可直接跑，全部應通過）
 
 ```powershell
-# P1 A4：Excel 原始匯出尺寸 → 合併後正規化 → 斷言 A4
-python scripts/test-sli-generate.py
-node scripts/test-pdf-a4.js
+# P1 A4：合併後正規化 → 斷言 A4
+#   註：原 `python scripts/test-sli-generate.py`（Excel COM 原始尺寸）與 `node scripts/test-pdf-a4.js`
+#       已於 2026-11-24 移除（需外部 job／Windows Excel），A4 驗證改用下面的端對端測試。
 
 # 端對端（免伺服器）：合成 3 筆跑完 Step 1~5
 # 期望：count=3、errors=[]、每份 2 頁 A4（595.3x841.9 / 595.0x842.0）、

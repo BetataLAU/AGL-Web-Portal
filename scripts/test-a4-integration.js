@@ -91,7 +91,7 @@ async function main() {
     allOk = allOk && okOpt;
   }
   console.log(`\nPAPER_MODE=${paperMode} -> ${allOk ? 'A4 INTEGRATION CHECK: PASS' : 'A4 INTEGRATION CHECK: FAIL'}`);
-  console.log(`（A4 對照檔：${path.join(DATA, 'test-pdf-a4', 'merged-a4.pdf')}；輸出目錄：${result.workDir}）`);
+  console.log(`（Report 副本：${reportCopy}；輸出目錄：${result.workDir}）`);
   if (!allOk) process.exit(1);
 }
 

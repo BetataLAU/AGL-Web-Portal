@@ -192,7 +192,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 
 **② 預覽表格兩列表頭（sticky，2026-11-07 修正）**：預覽表 `thead` 有兩列（上＝欄位標籤＋Excel 欄字母／下＝原始欄名），兩列 `th` 都是 `position: sticky`。若兩列都寫 `top: 0`，往下捲時**第 2 列會整片蓋在第 1 列上**（看起來像「吃掉一行」）。現在 `public/css/xls-booking.css` 以 `.xls-preview-table thead tr:nth-child(1) th { top: 0; z-index: 4 }` 與 `tr:nth-child(2) th { top: var(--xls-head-h, 0px); z-index: 3 }` 分層；第 1 列高度不固定（標籤換行）→ 由 `public/js/xls-booking-preview.js` 的 `xlsSyncStickyHeadHeight()`（在 `renderPreviewPanel()` 面板顯示後、`resize`／`orientationchange`、`document.fonts.ready` 時）量測寫入 `--xls-head-h`。③ 標準化表格只有一列 thead，函式會移除變數維持 `top:0`。**不要改回兩列都 `top:0`**。
 
-**測試**：`scripts/test-cnee-lookup.js`（單元 + 端對端，需先上傳 CX 來源檔）、`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-preview-head.js`（② 兩列表頭 sticky 不重疊：CSS 分層／JS 量測／單列表不受影響，含 vm stub 執行期檢查）、`scripts/test-xls-step-nav.js`（① ② ③ ④ 步驟列釘在工作列下方：CSS 間隙變數／spacer／列印還原 + vm 行為：捲過釘住、捲回還原、非 active／無工作列不釘、scroll-margin 計算）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-xls-std-range-select.js`（③ Shift+點擊整段勾選：錨點／正向反向／整段取消／跨檔／label 留白／錨點清空時機，vm stub 免伺服器）、`scripts/test-xls-skip-no-cnee.js`（缺 CNEE 的 MAWB 不制作：Report／PDF／ZIP 全排除＋重覆 MAWB 仍提醒，免伺服器）、`scripts/test-pdf-a4.js`（合併後 A4 正規化驗證）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）、`scripts/test-sli-generate.py`（印出 Excel 原始匯出的頁面尺寸）。
+**測試**：`scripts/test-xls-preview-formula.js`（公式／複合儲存格預覽 + 日期顯示，免伺服器）、`scripts/test-xls-preview-head.js`（② 兩列表頭 sticky 不重疊：CSS 分層／JS 量測／單列表不受影響，含 vm stub 執行期檢查）、`scripts/test-xls-standard-cols.js`（③ 標準化預覽欄寬：colgroup／拖曳／記憶／夾制／重設，vm stub DOM 免伺服器）、`scripts/test-xls-standard-fields.js`（③ 雙擊修改 MAWB#／DEST／航班號：後端 `fieldOverrides`／勾選過濾＋前端套用與渲染，免伺服器）、`scripts/test-xls-std-range-select.js`（③ Shift+點擊整段勾選：錨點／正向反向／整段取消／跨檔／label 留白／錨點清空時機，vm stub 免伺服器）、`scripts/test-xls-skip-no-cnee.js`（缺 CNEE 的 MAWB 不制作：Report／PDF／ZIP 全排除＋重覆 MAWB 仍提醒，免伺服器）、`scripts/test-a4-integration.js`（免伺服器端對端：合成 3 筆跑完 Step 1~5，驗證紙張與 ZIP）、`scripts/test-p4-engine.js`（P4 引擎分派：混合批次／背景缺失全退回）、`scripts/test-sli-eli-layout.js`（P5 版面編輯器：自帶伺服器端對端）、`scripts/test-zip-naming.js`（ZIP 檔名安全化，hermetic）。
 
 **公式儲存格（重要）**：來源檔常整欄是公式（如 `VLOOKUP` 參照外部活頁簿 `[1]Sheet1`），ExcelJS 讀出來是 `{ formula, result }` 物件。
 - 一律取 Excel 快取的計算結果（`result`）；若 Excel 未快取（外部連結失效且原值空白）則視為空字串。
@@ -313,7 +313,7 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 把範圍「逐格展開」成物件（`DefinedNames.set model` → `CellMatrix.addCellEx`），瞬間吃爆約 4GB heap → **Node 直接崩潰**，
 伺服器一死前端 fetch 連線失敗，只顯示「上傳失敗：Failed to fetch」（與檔案大小無關，88KB 也會發生）。
 - 修正：`scripts/xls-exceljs-guard.js` 以 prototype patch 讓 `CellMatrix.addCellEx` 略過超過 `MAX_DEFINED_NAME_CELLS`（1,000,000 格）的範圍。
-- **凡讀取「使用者上傳檔案」的模組，最上方必須 `require` 本防護且早於 `require('exceljs')`**（目前：`routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-workflow.js`、`scripts/test-cnee-lookup.js`）。新增讀檔入口時請一併載入。
+- **凡讀取「使用者上傳檔案」的模組，最上方必須 `require` 本防護且早於 `require('exceljs')`**（目前：`routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-workflow.js`）。新增讀檔入口時請一併載入。
 - 實測同一檔案：4GB+（OOM）→ 約 22MB；工作表內容／欄列數不變。SLI/ELI 模板的 `Print_Area`（數百格）不受影響。
 
 ## 訂單系統（routes/orders/）

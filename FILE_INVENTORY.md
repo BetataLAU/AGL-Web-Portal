@@ -2,38 +2,35 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/24 下午6:35:32
+> 最後更新：2026/11/24 下午6:46:31
 
 ## 🔄 Git 變更狀態
 
 ```
 M CLAUDE.md
 M FILE_INVENTORY.md
-M PROJECT_MAP.md
 M WORKSPACE_STATE.md
-M db/database.js
-M public/css/loading-plan.css
-M public/js/loading-plan/api.js
-M public/js/loading-plan/interactions.js
-M public/js/loading-plan/render.js
-M public/js/loading-plan/state.js
-M routes/loading-plan/index.js
-M scripts/test-loading-plan-api.js
-M scripts/test-loading-plan-frontend.js
+M docs/design/xls-sli-eli-overlay-prd.md
+D  scripts/fill-sli-eli.py
+M scripts/test-a4-integration.js
+D  scripts/test-cnee-lookup.js
+D  scripts/test-pdf-a4.js
+D  scripts/test-sli-generate.py
+M scripts/test-uld-weight-api.js
 ```
 
-## 📁 檔案清單（共 277 個檔案）
+## 📁 檔案清單（共 273 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
 - `.gitattributes`（316 B）
 - `.gitignore`（1.1 KB）
-- `CLAUDE.md`（135.9 KB）
+- `CLAUDE.md`（135.4 KB）
 - `Dockerfile`（1.3 KB）
 - `PROJECT_MAP.md`（38.0 KB）
 - `README.md`（24.7 KB）
-- `WORKSPACE_STATE.md`（158.4 KB）
+- `WORKSPACE_STATE.md`（159.8 KB）
 - `database.db-shm`（32.0 KB）
 - `database.db-wal`（4031.5 KB）
 - `package.json`（2.2 KB）
@@ -113,7 +110,7 @@ M scripts/test-loading-plan-frontend.js
 ### db
 
 - `db/database.js`（23.1 KB）
-- `db/db-dump.sql`（277.4 KB）
+- `db/db-dump.sql`（280.4 KB）
 
 ### docs
 
@@ -126,7 +123,7 @@ M scripts/test-loading-plan-frontend.js
 - `docs/design/uld-weight-remaining-work.md`（46.9 KB）
 - `docs/design/uld-weight-system.md`（31.1 KB）
 - `docs/design/xls-pdf-parallel-prd.md`（19.0 KB）
-- `docs/design/xls-sli-eli-overlay-prd.md`（65.0 KB）
+- `docs/design/xls-sli-eli-overlay-prd.md`（65.4 KB）
 
 ### public
 
@@ -299,7 +296,6 @@ M scripts/test-loading-plan-frontend.js
 - `scripts/db-export.js`（5.4 KB）
 - `scripts/db-import.js`（3.3 KB）
 - `scripts/excel-to-pdf.py`（1.8 KB）
-- `scripts/fill-sli-eli.py`（1.6 KB）
 - `scripts/fix-nav-order.js`（5.8 KB）
 - `scripts/import-loading-plan-xlsx.js`（21.9 KB）
 - `scripts/install-hooks.js`（2.9 KB）
@@ -317,7 +313,6 @@ M scripts/test-loading-plan-frontend.js
 - `scripts/sync-project-state.js`（6.3 KB）
 - `scripts/test-a4-integration.js`（4.5 KB）
 - `scripts/test-auth.js`（3.1 KB）
-- `scripts/test-cnee-lookup.js`（9.6 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
 - `scripts/test-loading-plan-api.js`（34.8 KB）
 - `scripts/test-loading-plan-calc.js`（13.7 KB）
@@ -337,15 +332,13 @@ M scripts/test-loading-plan-frontend.js
 - `scripts/test-nav-order-frontend.js`（6.8 KB）
 - `scripts/test-nav-order.js`（4.3 KB）
 - `scripts/test-p4-engine.js`（9.5 KB）
-- `scripts/test-pdf-a4.js`（2.7 KB）
 - `scripts/test-sli-eli-charset.js`（17.1 KB）
 - `scripts/test-sli-eli-layout-frontend.js`（9.7 KB）
 - `scripts/test-sli-eli-layout.js`（9.8 KB）
 - `scripts/test-sli-eli-overlay.js`（10.7 KB）
-- `scripts/test-sli-generate.py`（3.1 KB）
 - `scripts/test-topbar-behavior.js`（12.7 KB）
 - `scripts/test-topbar.js`（11.7 KB）
-- `scripts/test-uld-weight-api.js`（66.6 KB）
+- `scripts/test-uld-weight-api.js`（66.7 KB）
 - `scripts/test-uld-weight-calc.js`（35.5 KB）
 - `scripts/test-uld-weight-frontend.js`（104.5 KB）
 - `scripts/test-uld-weight-mawb.js`（5.2 KB）

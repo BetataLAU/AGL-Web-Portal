@@ -212,8 +212,8 @@ const CASE4 = {
       tare_weight: 115, rcl_gross_weight: 425, material_weight: 0,
       lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
       items: [
-        { mawb: '160-00000005', port: 'HKG', pcs: 5, declared_weight: 300, is_squeeze: 0, lih_type: 'N' },
-        { mawb: '160-00000006', port: 'TPE', pcs: 3, declared_weight: 125, is_squeeze: 1, lih_type: 'N' }
+        { mawb: '160-0000 0011', port: 'HKG', pcs: 5, declared_weight: 300, is_squeeze: 0, lih_type: 'N' },
+        { mawb: '160-0000 0022', port: 'TPE', pcs: 3, declared_weight: 125, is_squeeze: 1, lih_type: 'N' }
       ]
     },
     {
@@ -221,7 +221,7 @@ const CASE4 = {
       tare_weight: 112, rcl_gross_weight: 888, material_weight: 0,
       lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
       items: [
-        { mawb: '160-00000006', port: 'TPE', pcs: 3, declared_weight: 888, is_squeeze: 1, lih_type: 'N' }
+        { mawb: '160-0000 0022', port: 'TPE', pcs: 3, declared_weight: 888, is_squeeze: 1, lih_type: 'N' }
       ]
     }
   ]
@@ -267,12 +267,12 @@ const CASE4 = {
 
     // ---- W1：MAWB 從 Booking Record 帶入 ----
     const newBooking = await req('POST', '/api/loading-plan/bookings', {
-      mawb: '160-00000777', client: 'W1 TEST', dest: 'LAX', pcs_total: 12, gross_weight: 345.5
+      mawb: '160-0000 0770', client: 'W1 TEST', dest: 'LAX', pcs_total: 12, gross_weight: 345.5
     });
     check('POST /api/loading-plan/bookings → 201（建立 Booking Record）',
       newBooking.status === 201 && !!(newBooking.body && newBooking.body.data), String(newBooking.status));
-    const bookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-00000777');
-    const foundBooking = (bookingSearch.body.data || []).find(b => b.mawb === '160-00000777');
+    const bookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-0000 0770');
+    const foundBooking = (bookingSearch.body.data || []).find(b => b.mawb === '160-0000 0770');
     check('GET /uld-weight/bookings?search= 找到剛建的 Booking',
       bookingSearch.status === 200 && !!foundBooking, String(bookingSearch.status));
     check('Booking 帶回件數 12／重量 345.5（可自動帶入夾重表）',
@@ -280,7 +280,7 @@ const CASE4 = {
       foundBooking ? `${foundBooking.pcs}／${foundBooking.gross_weight}` : 'missing');
     check('Booking 帶回 mawb_record_id 與 DEST', foundBooking && !!foundBooking.id && foundBooking.dest === 'LAX');
     const bookingDest = await req('GET', '/api/uld-weight/bookings?dest=LAX');
-    check('dest=LAX 篩選有結果', (bookingDest.body.data || []).some(b => b.mawb === '160-00000777'));
+    check('dest=LAX 篩選有結果', (bookingDest.body.data || []).some(b => b.mawb === '160-0000 0770'));
     const bookingNoDest = await req('GET', '/api/uld-weight/bookings?dest=ZZZ');
     check('dest=ZZZ（不存在）→ 0 筆', (bookingNoDest.body.data || []).length === 0);
     const bookingLimit = await req('GET', '/api/uld-weight/bookings?limit=1');
@@ -288,10 +288,10 @@ const CASE4 = {
       String((bookingLimit.body.data || []).length));
     // ---- W2 前置：CASE 4 的兩票也各建一筆 Booking（b 的原始重量故意放 1000，套用後應變 1013）----
     const bookingA = await req('POST', '/api/loading-plan/bookings', {
-      mawb: '160-00000005', client: 'W2 TEST', dest: 'HKG', pcs_total: 5, gross_weight: 300
+      mawb: '160-0000 0011', client: 'W2 TEST', dest: 'HKG', pcs_total: 5, gross_weight: 300
     });
     const bookingB = await req('POST', '/api/loading-plan/bookings', {
-      mawb: '160-00000006', client: 'W2 TEST', dest: 'TPE', pcs_total: 6, gross_weight: 1000
+      mawb: '160-0000 0022', client: 'W2 TEST', dest: 'TPE', pcs_total: 6, gross_weight: 1000
     });
     const idA = bookingA.body.data && bookingA.body.data.id;
     const idB = bookingB.body.data && bookingB.body.data.id;
@@ -351,8 +351,8 @@ const CASE4 = {
     const saved = await req('PUT', `/api/uld-weight/sheets/${sheetId}`, CASE4);
     check('PUT /sheets/:id → 200', saved.status === 200, JSON.stringify((saved.body.data && saved.body.data.error) || ''));
     const detail = saved.body.data || {};
-    const mawbA = (detail.mawbs || []).find(m => m.mawb === '160-00000005');
-    const mawbB = (detail.mawbs || []).find(m => m.mawb === '160-00000006');
+    const mawbA = (detail.mawbs || []).find(m => m.mawb === '160-0000 0011');
+    const mawbB = (detail.mawbs || []).find(m => m.mawb === '160-0000 0022');
     check('CASE4 MAWB a = 300（不夾重）', mawbA && Number(mawbA.final) === 300, mawbA ? String(mawbA.final) : 'missing');
     check('CASE4 MAWB b = 125 + 888 = 1013', mawbB && Number(mawbB.final) === 1013, mawbB ? String(mawbB.final) : 'missing');
     check('板 a 淨重（RCL）= 425（Tare 115 不扣）', Number(detail.ulds[0].calc.finalSum) === 425, String(detail.ulds[0].calc.finalSum));
@@ -362,7 +362,7 @@ const CASE4 = {
 
     // ---- 讀回（後端重算一致）----
     const reread = await req('GET', `/api/uld-weight/sheets/${sheetId}`);
-    const rereadB = (reread.body.data.mawbs || []).find(m => m.mawb === '160-00000006');
+    const rereadB = (reread.body.data.mawbs || []).find(m => m.mawb === '160-0000 0022');
     check('GET 讀回 MAWB b 仍為 1013', rereadB && Number(rereadB.final) === 1013, rereadB ? String(rereadB.final) : 'missing');
     check('GET 讀回明細 3 筆 MAWB 列',
       reread.body.data.ulds.reduce((n, u) => n + (u.items || []).length, 0) === 3);
@@ -505,9 +505,9 @@ const CASE4 = {
         tare_weight: 0, rcl_gross_weight: 2000, material_weight: 0,
         lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
         items: [
-          { mawb: '160-00000071', port: 'HKG', pcs: 9, declared_weight: 900, is_squeeze: 1, lih_type: 'N' },
-          { mawb: '160-00000072', port: 'HKG', pcs: 1, declared_weight: 50, is_squeeze: 1, lih_type: 'N' },
-          { mawb: '160-00000073', port: 'HKG', pcs: 1, declared_weight: 50, is_squeeze: 1, lih_type: 'N' }
+          { mawb: '160-0000 0070', port: 'HKG', pcs: 9, declared_weight: 900, is_squeeze: 1, lih_type: 'N' },
+          { mawb: '160-0000 0081', port: 'HKG', pcs: 1, declared_weight: 50, is_squeeze: 1, lih_type: 'N' },
+          { mawb: '160-0000 0092', port: 'HKG', pcs: 1, declared_weight: 50, is_squeeze: 1, lih_type: 'N' }
         ]
       }]
     };
@@ -572,24 +572,24 @@ const CASE4 = {
     check('鎖定後套用 → 200', applied.status === 200, String(applied.status));
     const appliedList = (applied.body.data && applied.body.data.applied) || [];
     const skippedList = (applied.body.data && applied.body.data.skipped) || [];
-    const appliedB = appliedList.find(a => a.mawb === '160-00000006');
+    const appliedB = appliedList.find(a => a.mawb === '160-0000 0022');
     check('只回寫需要變更的票（b 1000 → 1013）',
       appliedList.length === 1 && appliedB && Number(appliedB.before) === 1000 && Number(appliedB.after) === 1013,
       appliedB ? `${appliedB.before} → ${appliedB.after}` : JSON.stringify(appliedList));
     check('重量未變的票列為 skipped（unchanged）',
-      skippedList.some(s => s.mawb === '160-00000005' && s.reason === 'unchanged'),
+      skippedList.some(s => s.mawb === '160-0000 0011' && s.reason === 'unchanged'),
       JSON.stringify(skippedList));
     check('skipped 的原因都在預期集合內（CASE 4 三票都已連結 → 無 no_booking）',
       skippedList.every(s => ['unchanged', 'no_booking', 'booking_not_found'].includes(s.reason)),
       JSON.stringify(skippedList));
     check('回傳夾重表明細（可直接更新畫面）', !!(applied.body.sheet && applied.body.sheet.id === sheetId));
 
-    const afterApplyB = await req('GET', '/api/uld-weight/bookings?search=160-00000006');
-    const bRow = (afterApplyB.body.data || []).find(b => b.mawb === '160-00000006');
+    const afterApplyB = await req('GET', '/api/uld-weight/bookings?search=160-0000 0022');
+    const bRow = (afterApplyB.body.data || []).find(b => b.mawb === '160-0000 0022');
     check('Booking b 的 gross_weight 已回寫 1013',
       bRow && Number(bRow.gross_weight) === 1013, bRow ? String(bRow.gross_weight) : 'missing');
-    const afterApplyA = await req('GET', '/api/uld-weight/bookings?search=160-00000005');
-    const aRow = (afterApplyA.body.data || []).find(b => b.mawb === '160-00000005');
+    const afterApplyA = await req('GET', '/api/uld-weight/bookings?search=160-0000 0011');
+    const aRow = (afterApplyA.body.data || []).find(b => b.mawb === '160-0000 0011');
     check('Booking a 維持 300（不夾重的票重量不變）',
       aRow && Number(aRow.gross_weight) === 300, aRow ? String(aRow.gross_weight) : 'missing');
 
@@ -620,7 +620,7 @@ const CASE4 = {
     dupId = dup.body.data && dup.body.data.id;
     check('複製 → 201 且新編號', dup.status === 201 && dupId && dupId !== sheetId, String(dup.status));
     check('複製後明細一併帶過去', dup.body.data && dup.body.data.ulds.length === 2);
-    const dupB = dup.body.data && (dup.body.data.mawbs || []).find(m => m.mawb === '160-00000006');
+    const dupB = dup.body.data && (dup.body.data.mawbs || []).find(m => m.mawb === '160-0000 0022');
     check('複製後 MAWB b 仍為 1013', dupB && Number(dupB.final) === 1013);
     check('W5 複製會一併帶門檻（5% / 50kg）',
       dup.body.data && Number(dup.body.data.diff_warn_pct) === 5 && Number(dup.body.data.diff_warn_kg) === 50,
@@ -708,9 +708,9 @@ const CASE4 = {
           lih_type: 'N', predecl_type: 'X', squeeze_mode: 'weight',
           items: [
             // Booking Record 已有這票（W2 前置建的 Booking，原重 300）→ 只連結、不重建
-            { mawb: '160-00000005', port: 'HKG', pcs: 2, declared_weight: 150, is_squeeze: 0, lih_type: 'N' },
+            { mawb: '160-0000 0011', port: 'HKG', pcs: 2, declared_weight: 150, is_squeeze: 0, lih_type: 'N' },
             // Booking Record 沒有 → 建立（夾重票：RCL 淨重 300 − 申報 150 = 150）
-            { mawb: '160-00008888', port: 'NRT', pcs: 3, declared_weight: 150, is_squeeze: 1, lih_type: 'N' }
+            { mawb: '160-0000 8886', port: 'NRT', pcs: 3, declared_weight: 150, is_squeeze: 1, lih_type: 'N' }
           ]
         }
       ]
@@ -727,16 +727,16 @@ const CASE4 = {
     const previewLinked = previewData.linked || [];
     check('V1 預設是 dry_run（只回預覽、不寫 DB）',
       syncPreview.status === 200 && previewData.dry_run === true, String(syncPreview.status));
-    check('V1 預覽：1 筆要建立（160-00008888，gross = 夾重後 150、dest NRT、3 件）',
-      previewCreated.length === 1 && previewCreated[0].mawb === '160-00008888' &&
+    check('V1 預覽：1 筆要建立（160-0000 8886，gross = 夾重後 150、dest NRT、3 件）',
+      previewCreated.length === 1 && previewCreated[0].mawb === '160-0000 8886' &&
       near(previewCreated[0].final, 150) && previewCreated[0].dest === 'NRT' && previewCreated[0].pcs === 3,
       JSON.stringify(previewCreated));
-    check('V1 預覽：1 筆要連結（160-00000005 已有 Booking，不重複建立）',
-      previewLinked.length === 1 && previewLinked[0].mawb === '160-00000005' &&
+    check('V1 預覽：1 筆要連結（160-0000 0011 已有 Booking，不重複建立）',
+      previewLinked.length === 1 && previewLinked[0].mawb === '160-0000 0011' &&
       Number(previewLinked[0].mawb_record_id) === Number(idA),
       JSON.stringify(previewLinked));
-    const stillMissing = await req('GET', '/api/uld-weight/bookings?search=160-00008888');
-    check('V1 預覽沒有寫 DB（Booking Record 仍查不到 160-00008888）',
+    const stillMissing = await req('GET', '/api/uld-weight/bookings?search=160-0000 8886');
+    check('V1 預覽沒有寫 DB（Booking Record 仍查不到 160-0000 8886）',
       (stillMissing.body.data || []).length === 0, JSON.stringify(stillMissing.body.data));
     const previewDetail = await req('GET', `/api/uld-weight/sheets/${v1Id}`);
     check('V1 預覽沒有回填 mawb_record_id',
@@ -751,14 +751,14 @@ const CASE4 = {
     check('V1 建立 Booking 後回填明細連結（建立的 1 列、連結的 1 列）',
       !!createdRow.mawb_record_id && createdRow.itemCount === 1 && linkedRow.itemCount === 1,
       `${createdRow.mawb_record_id}／${createdRow.itemCount}／${linkedRow.itemCount}`);
-    const newBookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-00008888');
+    const newBookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-0000 8886');
     const newBookingRow = (newBookingSearch.body.data || [])[0];
     check('V1 新 Booking：gross_weight = 夾重後重量 150、pcs 3、dest NRT',
       !!newBookingRow && near(newBookingRow.gross_weight, 150) &&
       Number(newBookingRow.pcs) === 3 && newBookingRow.dest === 'NRT',
       newBookingRow ? `${newBookingRow.gross_weight}／${newBookingRow.pcs}／${newBookingRow.dest}` : 'missing');
-    const oldBookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-00000005');
-    check('V1 同號 MAWB 只連結、不重複建立（160-00000005 仍只有 1 筆）',
+    const oldBookingSearch = await req('GET', '/api/uld-weight/bookings?search=160-0000 0011');
+    check('V1 同號 MAWB 只連結、不重複建立（160-0000 0011 仍只有 1 筆）',
       (oldBookingSearch.body.data || []).length === 1, String((oldBookingSearch.body.data || []).length));
     check('V1 回應帶回夾重表明細（mawb_record_id 已更新，前端可直接覆蓋畫面）',
       !!(syncApply.body.sheet &&
@@ -998,14 +998,14 @@ const CASE4 = {
       handler: 'lih-test',
       remark: '',
       mawb_rows: [
-        { mawb: '160-00000006', dest: 'HKG', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }
+        { mawb: '160-0000 0022', dest: 'HKG', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }
       ],
       ulds: [{
         kind: 'ULD', uld_number: 'PMC9999XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
         tare_weight: 0, rcl_gross_weight: 100, material_weight: 0,
         lih_type: 'UN3481+UN3091', predecl_type: 'P', squeeze_mode: 'weight',
         items: [{
-          mawb: '160-00000006', port: 'HKG', pcs: 1, declared_weight: 100,
+          mawb: '160-0000 0022', port: 'HKG', pcs: 1, declared_weight: 100,
           is_squeeze: 0, lih_type: 'UN3091'
         }]
       }]
@@ -1027,12 +1027,12 @@ const CASE4 = {
       sheet_date: '2026-11-11', terminal: 'CPSL', flight_no: '', flight_date: '',
       round_px: 1, round_b: 1, allow_half_kg: 1, tail_mode: 'adjust_largest',
       handler: 'half-kg', remark: '',
-      mawb_rows: [{ mawb: '160-00000006', dest: 'TPE', pcs: 1, declared_weight: 800.5, auto_alloc: 0, is_squeeze: 1 }],
+      mawb_rows: [{ mawb: '160-0000 0022', dest: 'TPE', pcs: 1, declared_weight: 800.5, auto_alloc: 0, is_squeeze: 1 }],
       ulds: [{
         kind: 'ULD', uld_number: 'PMC7777XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
         tare_weight: 0, rcl_gross_weight: 800.5, material_weight: 0,
         lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
-        items: [{ mawb: '160-00000006', port: 'TPE', pcs: 1, declared_weight: 800.5, is_squeeze: 1, lih_type: 'N' }]
+        items: [{ mawb: '160-0000 0022', port: 'TPE', pcs: 1, declared_weight: 800.5, is_squeeze: 1, lih_type: 'N' }]
       }]
     };
     const halfSaved = await req('PUT', `/api/uld-weight/sheets/${halfSheetId}`, halfPayload);
@@ -1062,12 +1062,12 @@ const CASE4 = {
     const optSaved = await req('PUT', `/api/uld-weight/sheets/${optSheetId}`, {
       sheet_date: '2026-11-11', terminal: 'CPSL', flight_no: '', flight_date: '',
       round_px: 1, round_b: 1, tail_mode: 'adjust_largest', handler: 'optional-wt', remark: '',
-      mawb_rows: [{ mawb: '160-00000006', dest: 'TPE', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }],
+      mawb_rows: [{ mawb: '160-0000 0022', dest: 'TPE', pcs: 1, declared_weight: 100, auto_alloc: 1, is_squeeze: 0 }],
       ulds: [{
         kind: 'ULD', uld_number: 'PMC8888XX', contour_code: 'PMC', port: 'HKG', pcs: 1,
         tare_weight: 0, rcl_gross_weight: 0, material_weight: 0,
         lih_type: 'N', predecl_type: 'P', squeeze_mode: 'weight',
-        items: [{ mawb: '160-00000006', port: 'TPE', pcs: 1, declared_weight: 100, is_squeeze: 0, lih_type: 'N' }]
+        items: [{ mawb: '160-0000 0022', port: 'TPE', pcs: 1, declared_weight: 100, is_squeeze: 0, lih_type: 'N' }]
       }]
     });
     check('ULD WT 選填（0）可儲存，先保留申報重量（100）',

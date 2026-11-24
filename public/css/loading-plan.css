@@ -147,11 +147,11 @@
 .lp-mini.is-warn { color: #d97706; font-weight: 700; }
 .lp-mini.is-over { color: #dc2626; font-weight: 800; }
 .lp-plan-body { border-top: 1px solid var(--border-color); overflow-x: auto; }
-.lp-plan-body > .lp-row { min-width: 720px; }
+.lp-plan-body > .lp-row { min-width: 790px; }
 
 .lp-row {
   display: grid;
-  grid-template-columns: 24px 24px 104px 42px 116px 70px 76px 76px 70px minmax(80px, 1fr);
+  grid-template-columns: 24px 24px 104px 42px 116px 70px 76px 76px 70px 62px minmax(80px, 1fr);
   gap: 4px; align-items: center; padding: 3px 8px;
   font-size: .74rem; color: var(--text-main);
   border-bottom: 1px solid var(--border-color);
@@ -205,6 +205,37 @@
 .lp-c-dest { font-weight: 700; }
 .lp-c-pkgs { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* ===== CRD（Cargo Ready Date）：DDMMM 小輸入框 =====
+   游標進入會在 DD 位（前 2 碼）選取；↑ +1 日、↓ −1 日（跨月／跨年自動），Enter 存檔。
+   平時透明、看起來像文字；hover／focus 才出現框線。比 Flight Date 遲 → 紅框。 */
+/* CRD 欄與右側 REMARK 之間加大留白（margin 吃掉欄寬，其他欄位位置不動） */
+.lp-c-crd { display: flex; align-items: center; justify-content: flex-end; min-width: 0; margin-right: 10px; }
+/* 表頭 CRD 與下方日期一起靠右（3px = 輸入框 1px 邊框 + 2px 內距，右緣對齊） */
+.lp-row-head .lp-c-crd { padding-right: 3px; }
+.lp-crd-input {
+  width: 100%; min-width: 0; padding: 1px 2px;
+  border: 1px solid transparent; border-radius: 4px;
+  background: transparent; color: var(--text-main);
+  font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  text-align: right; text-transform: uppercase; letter-spacing: .02em;
+  cursor: text;
+}
+.lp-crd-input:hover { border-color: var(--border-color); }
+.lp-crd-input:focus {
+  outline: none; border-color: var(--primary); background: var(--input-bg);
+  box-shadow: 0 0 0 2px var(--surface-glow);
+}
+/* 與 Flight Date 邏輯衝突（CRD 比航班日期遲）→ 紅框紅字＋淡紅底 */
+.lp-crd-input.is-invalid {
+  border-color: #dc2626; color: #dc2626; background: rgba(220, 38, 38, .08);
+}
+.lp-crd-input.is-invalid:focus { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, .16); }
+.lp-crd-input.is-crd-error { animation: lpCrdShake .3s ease-in-out; }
+@keyframes lpCrdShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
 [data-field] { border-radius: 4px; }
 [data-field]:hover { outline: 1px dashed var(--border-color); outline-offset: 1px; }
 .lp-inline-input {
@@ -286,6 +317,19 @@
 .lp-stock-meta > span { white-space: nowrap; }
 .lp-stock-meta .num { text-align: left; }
 .lp-stock-meta b { color: var(--text-main); font-weight: 700; }
+/* 存貨列的 CRD：圓角按鈕（chip，唯讀；VOL 的右邊） */
+.lp-stock-crd {
+  display: inline-flex; align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(37, 99, 235, .35);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, .10);
+  color: var(--text-main);
+  font-family: inherit; font-size: .66rem; font-weight: 700;
+  line-height: 1.7; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
 
 .lp-empty, .lp-empty-sm {
   color: var(--text-muted); font-size: .76rem; text-align: center; padding: 18px 10px; line-height: 1.6;
@@ -450,7 +494,8 @@
   .lp-plan.is-active { animation: none; border: none; box-shadow: none; }
   .lp-plan-body { overflow: visible; }
   .lp-c-sel { display: none; }
-  .lp-row { grid-template-columns: 24px 104px 42px 116px 70px 76px 76px 70px minmax(80px, 1fr); }
+  .lp-row { grid-template-columns: 24px 104px 42px 116px 70px 76px 76px 70px 62px minmax(80px, 1fr); }
   .lp-row.is-locked { background: none; box-shadow: none; }
+  .lp-crd-input { border-color: transparent; background: transparent; }
   .lp-tag { border: 1px solid #999; }
 }

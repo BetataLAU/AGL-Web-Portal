@@ -6,7 +6,8 @@ import {
 } from './state.js';
 import { renderAll, renderStock, renderToolbar, renderPlans } from './render.js';
 import { esc, toast, debounce } from './dom.js';
-import { lpVolFromCbm, lpCuftFromCbm } from './calc.js';
+import { lpVolFromCbm, lpCuftFromCbm, lpCrdToIso, lpCrdIssue, lpFormatCrd, lpTodayIso } from './calc.js';
+import { lpCrdStep, lpCrdParseInput } from './crd.js';
 import { lpParseTsv, lpBuildTsv } from './paste.js';
 import { lpSuggestLoad, LP_SUGGEST_MODES } from './suggest.js';
 import { lpMoveOrder } from './order.js';
@@ -464,6 +465,187 @@ function startInlineEdit(cell, item) {
   input.addEventListener('blur', () => finish(true));
 }
 
+// ===== CRD（Cargo Ready Date）：DDMMM；游標在 DD，↑ +1 日／↓ −1 日；不可遲於 Flight Date =====
+// 顯示只到「日＋月」，年份由 Flight Date（沒有就用今天）推最近的一年 →
+// 30NOV 按 ↑ 變 01DEC、01DEC 按 ↓ 變 30NOV（自動跨月／跨年）。
+// 存檔一律 ISO（YYYY-MM-DD）；比 Flight Date 遲 → toast 通知＋紅框，且不寫入。
+let crdCommitInFlight = false;
+let crdToastMsg = '';
+let crdToastAt = 0;
+
+function crdInputOf(target) {
+  return target && target.closest ? target.closest('.lp-crd-input') : null;
+}
+
+// 游標停在 DD（前 2 碼），符合「游標去到 DD 位」的操作習慣
+function selectCrdDay(input) {
+  if (!input || typeof input.setSelectionRange !== 'function') return;
+  try { input.setSelectionRange(0, Math.min(2, String(input.value || '').length)); } catch (err) { /* ignore */ }
+}
+
+// 滑鼠點進來時瀏覽器會在 focus 之後才放游標 → 下一個 tick 再選一次 DD
+function scheduleSelectCrdDay(input) {
+  selectCrdDay(input);
+  setTimeout(() => {
+    if (input && document.activeElement === input) selectCrdDay(input);
+  }, 0);
+}
+
+function setCrdInvalid(input, issue) {
+  if (!input) return;
+  input.classList.toggle('is-invalid', !!issue);
+  const base = `CRD：${String(input.value || '').trim() || '（空白）'}｜↑ +1 日、↓ −1 日、Enter 完成`;
+  input.title = issue ? `${base} ｜ ⛔ ${issue}` : base;
+}
+
+// 同一個錯誤 1.5 秒內不重複 toast（連續按 ↑ 不會洗版）
+function toastCrdError(message) {
+  const now = Date.now();
+  if (message === crdToastMsg && now - crdToastAt < 1500) return;
+  crdToastMsg = message;
+  crdToastAt = now;
+  toast(`⛔ ${message}（CRD 不可比 Flight Date 遲）`, 'error');
+}
+
+function flashCrdError(input) {
+  if (!input || !input.classList) return;
+  input.classList.remove('is-crd-error');
+  void input.offsetWidth;   // 強制 reflow → 重新觸發 CSS 動畫
+  input.classList.add('is-crd-error');
+  setTimeout(() => input.classList.remove('is-crd-error'), 400);
+}
+
+// 還原成 DB 的值（放棄未存的草稿）
+function resetCrdDisplay(input) {
+  if (!input) return;
+  const saved = String(input.dataset.crdSaved || '');
+  input.value = saved ? (lpFormatCrd(saved) || saved.slice(0, 10)) : '';
+  delete input.dataset.crdDirty;
+  delete input.dataset.crdAuto;
+  setCrdInvalid(input, lpCrdIssue(saved, input.dataset.crdFlight || ''));
+}
+
+async function patchCrd(input, itemId, iso) {
+  if (!itemId) { resetCrdDisplay(input); return false; }
+  crdCommitInFlight = true;
+  input.disabled = true;
+  try {
+    await lpApi.patchItem(itemId, { cargo_receipt: iso });
+    toast(iso ? `CRD 已更新 ${lpFormatCrd(iso)}` : 'CRD 已清除', 'ok');
+    await loadAll();
+  } catch (err) {
+    toast(err.message || 'CRD 更新失敗', 'error');
+    input.disabled = false;
+    resetCrdDisplay(input);
+    crdCommitInFlight = false;
+    return false;
+  }
+  crdCommitInFlight = false;
+  return true;
+}
+
+async function commitCrd(input, options = {}) {
+  if (!input || crdCommitInFlight) return false;
+  const itemId = Number(input.dataset.crdItem) || 0;
+  const flight = String(input.dataset.crdFlight || '');
+  const ref = flight || lpTodayIso();
+  const saved = String(input.dataset.crdSaved || '');
+  const raw = String(input.value || '').trim();
+
+  if (!raw) {
+    if (!saved) { resetCrdDisplay(input); return true; }
+    delete input.dataset.crdDirty;
+    delete input.dataset.crdAuto;
+    return patchCrd(input, itemId, '');
+  }
+  const parsed = lpCrdParseInput(raw, flight, saved, lpTodayIso());
+  if (!parsed) {
+    toast('CRD 格式應為 DDMMM（例 24NOV）或 YYYY-MM-DD', 'warn');
+    flashCrdError(input);
+    resetCrdDisplay(input);
+    return false;
+  }
+  if (parsed.issue) {
+    toastCrdError(parsed.issue);
+    flashCrdError(input);
+    resetCrdDisplay(input);
+    return false;
+  }
+  const iso = parsed.iso;
+  const savedIso = lpCrdToIso(saved, ref);
+  if (iso === savedIso) {
+    input.value = lpFormatCrd(iso);
+    delete input.dataset.crdDirty;
+    delete input.dataset.crdAuto;
+    setCrdInvalid(input, '');
+    return true;
+  }
+
+  delete input.dataset.crdDirty;   // 先清掉，避免 blur 再次送出同一筆
+  delete input.dataset.crdAuto;
+  const ok = await patchCrd(input, itemId, iso);
+  // loadAll 會重畫整張表 → 舊 input 已移除；按 Enter 完成時把焦點放回同一票的新格子
+  if (ok && options.refocus) {
+    const next = document.querySelector(`.lp-crd-input[data-crd-item="${itemId}"]`);
+    if (next) { next.focus(); scheduleSelectCrdDay(next); }
+  }
+  return ok;
+}
+
+function onCrdFocus(e) {
+  const input = crdInputOf(e.target);
+  if (!input) return;
+  setEditingItem(Number(input.dataset.crdItem) || null);
+  // 空白格子：游標一進去先自動帶入今天（只顯示；沒改就離開會還原，不會誤存）
+  if (!String(input.value || '').trim()) {
+    input.value = lpFormatCrd(lpTodayIso()) || '';
+    input.dataset.crdAuto = '1';
+  }
+  setCrdInvalid(input, lpCrdIssue(input.value, input.dataset.crdFlight || ''));
+  scheduleSelectCrdDay(input);
+}
+
+function onCrdBlur(e) {
+  const input = crdInputOf(e.target);
+  if (!input) return;
+  setEditingItem(null);
+  if (crdCommitInFlight) return;
+  // 只有真的動過（↑↓／打字／Enter）才存；只是游標經過 → 還原
+  if (input.dataset.crdDirty) commitCrd(input);
+  else resetCrdDisplay(input);
+}
+
+function onCrdKeyDown(e) {
+  const input = crdInputOf(e.target);
+  if (!input) return;
+  const flight = String(input.dataset.crdFlight || '');
+
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    e.preventDefault();
+    const step = lpCrdStep(input.value, e.key === 'ArrowUp' ? 'up' : 'down', flight, lpTodayIso());
+    if (!step) return;
+    input.value = step.text;
+    input.dataset.crdDirty = '1';
+    delete input.dataset.crdAuto;
+    setCrdInvalid(input, step.issue);
+    if (step.issue) { toastCrdError(step.issue); flashCrdError(input); }
+    selectCrdDay(input);
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    commitCrd(input, { refocus: true });
+    return;
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    resetCrdDisplay(input);
+    input.blur();
+  }
+}
+
 // ===== REMARK（tag）自由文字：hover 向下展開＋DIM 快捷輸入 =====
 // REMARK 一格可放多行自由文字（DIM 每組一行，格式「L x W x H / PCS」）。
 // 滑鼠移入 → 下方浮出完整內容（fixed 定位，不會被 PLAN 容器裁切），右側是「DIM」按鈕。
@@ -777,10 +959,12 @@ function openFindBookingModal() {
         <label>CBM
           <input id="lp-bk-cbm" class="lp-input" inputmode="decimal" placeholder="0.000" autocomplete="off" />
         </label>
-        <label>TAG（顯示在 PLAN 表）
-          <input id="lp-bk-tag" class="lp-input" maxlength="80" placeholder="例 4 / D6" autocomplete="off" />
+        <label>CRD（Cargo Ready Date）
+          <input id="lp-bk-crd" class="lp-input" maxlength="10" placeholder="24NOV（選填）"
+                 style="text-transform:uppercase;" autocomplete="off"
+                 title="格式 DDMMM（例 24NOV）；游標進入先帶入今天，↑ +1 日、↓ −1 日" />
         </label>
-        <label class="lp-bk-full">備註 REMARK
+        <label class="lp-bk-full">REMARK（顯示在 PLAN 表）
           <span class="lp-bk-remark">
             <textarea id="lp-bk-remark" class="lp-input" rows="2" maxlength="500" placeholder="選填；可多行（DIM 一組一行）"></textarea>
             <button type="button" class="lp-dim-btn" id="lp-bk-dim" title="輸入 DIM：L × W × H / PCS">📐 輸入 DIM</button>
@@ -811,6 +995,38 @@ function openFindBookingModal() {
     remarkDimBtn.addEventListener('click', (ev) => {
       ev.preventDefault();
       openBookingDimEditor(remarkField);
+    });
+  }
+
+  // CRD：與 PLAN 明細的 CRD 同一套規則（DDMMM；游標進入先帶入今天；↑ +1 日、↓ −1 日）
+  const crdField = document.getElementById('lp-bk-crd');
+  if (crdField) {
+    crdField.addEventListener('focus', () => {
+      if (!String(crdField.value || '').trim()) crdField.value = lpFormatCrd(lpTodayIso()) || '';
+      crdField.classList.remove('is-invalid');
+      crdField.title = '格式 DDMMM（例 24NOV）；游標進入先帶入今天，↑ +1 日、↓ −1 日';
+      try { crdField.setSelectionRange(0, Math.min(2, crdField.value.length)); } catch (err) { /* ignore */ }
+    });
+    crdField.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const step = lpCrdStep(crdField.value, e.key === 'ArrowUp' ? 'up' : 'down', '', lpTodayIso());
+      if (!step) return;
+      crdField.value = step.text;
+      try { crdField.setSelectionRange(0, 2); } catch (err) { /* ignore */ }
+    });
+    crdField.addEventListener('blur', () => {
+      const raw = String(crdField.value || '').trim();
+      if (!raw) { crdField.classList.remove('is-invalid'); crdField.title = ''; return; }
+      const parsed = lpCrdParseInput(raw, '', '', lpTodayIso());
+      if (!parsed) {
+        crdField.classList.add('is-invalid');
+        crdField.title = 'CRD 格式應為 DDMMM（例 24NOV）或 YYYY-MM-DD';
+        return;
+      }
+      crdField.value = parsed.text;
+      crdField.classList.remove('is-invalid');
+      crdField.title = '';
     });
   }
 
@@ -926,8 +1142,10 @@ function openFindBookingModal() {
         pkgs_text: readField('lp-bk-pkgs'),
         gross_weight: readField('lp-bk-gw'),
         cbm: readField('lp-bk-cbm'),
-        tag: readField('lp-bk-tag'),
-        remark: readField('lp-bk-remark')
+        // TAG 與 REMARK 已合併成同一欄：同時寫入 tag（PLAN 表顯示）與 remark（Excel 匯出用）
+        tag: readField('lp-bk-remark'),
+        remark: readField('lp-bk-remark'),
+        cargo_receipt: ''
       };
       const mawbCheck = checkMawbField(true);
       if (!payload.mawb) {
@@ -941,6 +1159,15 @@ function openFindBookingModal() {
         return;
       }
       payload.mawb = mawbCheck.formatted;
+      // CRD（選填）：DDMMM／ISO 都接受 → 送出前統一轉 ISO（與 PLAN 明細一致）
+      const crdRaw = readField('lp-bk-crd');
+      const crdParsed = crdRaw ? lpCrdParseInput(crdRaw, '', '', lpTodayIso()) : { iso: '' };
+      if (!crdParsed) {
+        setError('CRD 格式應為 DDMMM（例 24NOV）或 YYYY-MM-DD');
+        if (crdField) { crdField.classList.add('is-invalid'); crdField.focus(); }
+        return;
+      }
+      payload.cargo_receipt = crdParsed.iso;
       setError('');
       createBtn.disabled = true;
       try {
@@ -1436,6 +1663,14 @@ const debouncedStock = debounce(() => renderStock(), 120);
 const debouncedPlan = debounce(() => renderPlans(), 120);
 
 function onInput(e) {
+  // CRD 手動輸入（DD／DDMMM／YYYY-MM-DD）→ 標記為 dirty，離開或 Enter 才驗證存檔
+  const crd = crdInputOf(e.target);
+  if (crd) {
+    crd.dataset.crdDirty = '1';
+    delete crd.dataset.crdAuto;
+    setCrdInvalid(crd, lpCrdIssue(crd.value, crd.dataset.crdFlight || ''));
+    return;
+  }
   if (e.target.id === 'lp-stock-search') {
     state.searchStock = e.target.value;
     debouncedStock();
@@ -1548,6 +1783,9 @@ export function setupInteractions(root) {
   root.addEventListener('change', onChange);
   root.addEventListener('dblclick', onDblClick);
   root.addEventListener('input', onInput);
+  root.addEventListener('focusin', onCrdFocus);
+  root.addEventListener('focusout', onCrdBlur);
+  root.addEventListener('keydown', onCrdKeyDown);
   root.addEventListener('mouseover', onHover);
   root.addEventListener('mouseout', onHoverOut);
   root.addEventListener('contextmenu', (e) => {

@@ -164,6 +164,117 @@ export function lpPlanLabel(plan) {
   return `${flight} / ${date} / ${owner}`;
 }
 
+// ===== CRD（Cargo Ready Date）：DDMMM 顯示、鍵盤 ±1 日、Flight Date 檢核 =====
+// 畫面只顯示「日＋月」（DDMMM，例 24NOV）；DB 一律存 ISO（YYYY-MM-DD），
+// 沒有年份的輸入（DDMMM）用「最接近參考日期（Flight Date／今天）」的年份補齊，
+// 因此 30NOV 按 ↑ 會變 01DEC、01DEC 按 ↓ 會變 30NOV（自動跨月／跨年）。
+export function lpMonthIndex(text) {
+  const key = String(text === null || text === undefined ? '' : text).trim().toUpperCase().slice(0, 3);
+  return MONTHS.indexOf(key);
+}
+
+function lpValidYmd(year, month, day) {
+  if (![year, month, day].every(value => Number.isFinite(value))) return false;
+  if (year < 1970 || year > 2200 || month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  return dt.getUTCFullYear() === year && dt.getUTCMonth() === month - 1 && dt.getUTCDate() === day;
+}
+
+export function lpIsoFromParts(year, month, day) {
+  const y = Math.trunc(Number(year));
+  const m = Math.trunc(Number(month));
+  const d = Math.trunc(Number(day));
+  if (!lpValidYmd(y, m, d)) return '';
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+// 解析日期：'YYYY-MM-DD'（可帶時間）／'DDMMM'／'DD MMM'／'DD-NOV'／'DD/MM'
+// 有年份 → 回傳 { year, month, day, iso }；沒有年份 → year: null、iso: ''
+export function lpParseDate(value) {
+  const raw = String(value === null || value === undefined ? '' : value).trim();
+  if (!raw) return null;
+
+  const ymd = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
+  if (ymd) {
+    const year = Number(ymd[1]);
+    const month = Number(ymd[2]);
+    const day = Number(ymd[3]);
+    const iso = lpIsoFromParts(year, month, day);
+    return iso ? { year, month, day, iso } : null;
+  }
+
+  const dmy = raw.match(/^(\d{1,2})\s*[-/\s]?\s*([A-Za-z]{3})$/);
+  if (dmy) {
+    const month = lpMonthIndex(dmy[2]) + 1;
+    const day = Number(dmy[1]);
+    return month > 0 && day >= 1 && day <= 31 ? { year: null, month, day, iso: '' } : null;
+  }
+
+  const dm = raw.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (dm) {
+    const day = Number(dm[1]);
+    const month = Number(dm[2]);
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31 ? { year: null, month, day, iso: '' } : null;
+  }
+  return null;
+}
+
+// 今天（本機時區）的 ISO 日期
+export function lpTodayIso(now = new Date()) {
+  const dt = now instanceof Date ? now : new Date(now);
+  if (!Number.isFinite(dt.getTime())) return '';
+  return lpIsoFromParts(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+}
+
+// 沒有年份的 DDMMM → 取「最接近參考日期」的年份（前一年／本年／後一年；無法構成有效日期回 ''）
+export function lpResolveYear(month, day, refValue) {
+  const ref = lpParseDate(refValue) || lpParseDate(lpTodayIso());
+  const refYear = ref ? ref.year : new Date().getFullYear();
+  const refTime = ref ? Date.UTC(ref.year, ref.month - 1, ref.day) : Date.now();
+  let best = '';
+  let bestDiff = Infinity;
+  [refYear - 1, refYear, refYear + 1].forEach((year) => {
+    const iso = lpIsoFromParts(year, month, day);
+    if (!iso) return;
+    const diff = Math.abs(Date.UTC(year, month - 1, day) - refTime);
+    if (diff < bestDiff) { best = iso; bestDiff = diff; }
+  });
+  return best;
+}
+
+// 任意可解析的日期 → ISO（DDMMM 以 refValue 補年份）；無法解析回 ''
+export function lpCrdToIso(value, refValue) {
+  const parts = lpParseDate(value);
+  if (!parts) return '';
+  if (parts.iso) return parts.iso;
+  return lpResolveYear(parts.month, parts.day, refValue);
+}
+
+// 顯示用 DDMMM（例 '2026-11-24' / '24NOV' → '24NOV'）；無法解析回 ''
+export function lpFormatCrd(value) {
+  const parts = lpParseDate(value);
+  if (!parts) return '';
+  return `${String(parts.day).padStart(2, '0')}${MONTHS[parts.month - 1]}`;
+}
+
+// ISO 日期 ±N 天（跨月／跨年自動處理；用 UTC 計算，不受時區／日光節約影響）
+export function lpShiftIsoDate(value, days, refValue) {
+  const iso = lpCrdToIso(value, refValue) || lpCrdToIso(refValue, refValue);
+  const parts = lpParseDate(iso);
+  if (!parts || !parts.iso) return '';
+  const dt = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  dt.setUTCDate(dt.getUTCDate() + Math.trunc(Number(days) || 0));
+  return lpIsoFromParts(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+}
+
+// 邏輯檢核：CRD 不可遲於 Flight Date（沒有 Flight Date 或無法解析 → 不檢核）
+export function lpCrdIssue(value, flightDate) {
+  const crd = lpCrdToIso(value, flightDate);
+  const flight = lpCrdToIso(flightDate, flightDate);
+  if (!crd || !flight || crd <= flight) return '';
+  return `CRD ${lpFormatCrd(crd)} 不可遲於 Flight Date ${lpFormatCrd(flight)}`;
+}
+
 // ===== Contour 解析（1 X H3 / 2 x Q5-00 / H3）=====
 // Excel 的表頭常有雜訊（`1 X Q5 '新BSA`、`1 X Q5 / /半板`、`CO-LOAD`），
 // 因此先找 `數字 X 代碼`，再找「有字母＋數字」的 token；都沒有就回空代碼（只保留原文）。

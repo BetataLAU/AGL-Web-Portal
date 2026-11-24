@@ -26,7 +26,8 @@ function near(a, b, tolerance = 1e-6) {
     lpVolFromCbm, lpCbmFromVol, lpCuftFromCbm, lpCbmFromCuft, lpConvertVolume,
     lpParsePkgs, lpPlanLabel, lpFlightDateLabel,
     lpContourParse, lpResolveContourCode, lpScaleCapacity,
-    lpTotals, lpKpi, lpNormalizeMawbKey, lpDisplayMawb, lpItemVolume
+    lpTotals, lpKpi, lpNormalizeMawbKey, lpDisplayMawb, lpItemVolume,
+    lpFormatCrd, lpCrdToIso, lpShiftIsoDate, lpCrdIssue, lpTodayIso, lpParseDate, lpIsoFromParts
   } = calc;
 
   // ===== 0. 常數 =====
@@ -174,6 +175,36 @@ function near(a, b, tolerance = 1e-6) {
   check('7.4 原格式保留', lpDisplayMawb(' 176-6985 5240 ') === '176-6985 5240');
   const volItem = lpItemVolume({ cbm: 6.82, volume_weight: null });
   check('7.5 VOL 空白 → 由 CBM 回算', near(volItem.vol, 1136.67) && volItem.volFromCbm === true);
+
+  // ===== 8. CRD（Cargo Ready Date）：DDMMM／±1 日（跨月跨年）／Flight Date 檢核 =====
+  console.log('--- 8. CRD ---');
+  check('8.1 ISO → DDMMM', lpFormatCrd('2026-11-14') === '14NOV', `(${lpFormatCrd('2026-11-14')})`);
+  check('8.2 DDMMM → DDMMM（大小寫不拘）', lpFormatCrd('4nov') === '04NOV' && lpFormatCrd('14 NOV') === '14NOV');
+  check('8.3 ISO 帶時間也能解析', lpFormatCrd('2026-11-14T22:35:00Z') === '14NOV');
+  check('8.4 DDMMM 依參考日期補年份', lpCrdToIso('24NOV', '2026-11-14') === '2026-11-24',
+    `(${lpCrdToIso('24NOV', '2026-11-14')})`);
+  check('8.5 跨年推最近年份（02JAN 對 30DEC）', lpCrdToIso('02JAN', '2026-12-30') === '2027-01-02',
+    `(${lpCrdToIso('02JAN', '2026-12-30')})`);
+  check('8.6 ↑ +1 日跨月（30NOV → 01DEC）', lpShiftIsoDate('2026-11-30', 1) === '2026-12-01',
+    `(${lpShiftIsoDate('2026-11-30', 1)})`);
+  check('8.7 ↓ −1 日跨月（01DEC → 30NOV）', lpShiftIsoDate('2026-12-01', -1) === '2026-11-30',
+    `(${lpShiftIsoDate('2026-12-01', -1)})`);
+  check('8.8 跨年（31DEC → 01JAN）', lpShiftIsoDate('2026-12-31', 1) === '2027-01-01',
+    `(${lpShiftIsoDate('2026-12-31', 1)})`);
+  check('8.9 由 DDMMM 起算 ±1 日', lpShiftIsoDate('30NOV', 1, '2026-11-14') === '2026-12-01',
+    `(${lpShiftIsoDate('30NOV', 1, '2026-11-14')})`);
+  check('8.10 同日＝不報錯（CRD ≤ Flight Date）', lpCrdIssue('14NOV', '2026-11-14') === '');
+  check('8.11 早於 Flight Date＝不報錯', lpCrdIssue('2026-11-10', '2026-11-14') === '');
+  check('8.12 比 Flight Date 遲 → 回報錯誤訊息',
+    /CRD 15NOV/.test(lpCrdIssue('15NOV', '2026-11-14')) && /Flight Date 14NOV/.test(lpCrdIssue('15NOV', '2026-11-14')),
+    `(${lpCrdIssue('15NOV', '2026-11-14')})`);
+  check('8.13 沒有 Flight Date（存貨）→ 不檢核', lpCrdIssue('24NOV', '') === '');
+  check('8.14 無效日期（31FEB）→ 解析失敗', lpCrdToIso('31FEB', '2026-11-14') === '' && lpFormatCrd('31FEB') === '31FEB');
+  check('8.15 無法解析（ABC）→ 空字串', lpCrdToIso('ABC', '2026-11-14') === '' && lpFormatCrd('ABC') === '');
+  check('8.16 lpParseDate 支援 DD/MM', lpCrdToIso('14/11', '2026-11-14') === '2026-11-14');
+  check('8.17 lpIsoFromParts 驗證真實日期', lpIsoFromParts(2026, 2, 29) === '' && lpIsoFromParts(2028, 2, 29) === '2028-02-29');
+  check('8.18 今天＝本機時區 ISO', lpTodayIso(new Date(2026, 10, 24, 23, 30)) === '2026-11-24',
+    `(${lpTodayIso(new Date(2026, 10, 24, 23, 30))})`);
 
   console.log(`\n===== 測試結束：${passCount} 通過 / ${failCount} 失敗 =====`);
   process.exitCode = failCount ? 1 : 0;

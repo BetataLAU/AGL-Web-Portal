@@ -1,6 +1,6 @@
 // ===== 執 PLAN：畫面渲染（存貨＋PLANS 雙欄工作台）=====
 import { LOADSIM_ULD_SPECS } from '../loadsim/uld-specs.js';
-import { lpResolveContourCode, lpCuftFromCbm } from './calc.js';
+import { lpResolveContourCode, lpCuftFromCbm, lpCrdIssue, lpFormatCrd } from './calc.js';
 import { state, planLabel, itemsOf, flightPlans, activePlan, isExpanded, fmt, fmtInt } from './state.js';
 import { esc, ownerColor } from './dom.js';
 
@@ -114,6 +114,7 @@ export function rowHead(view) {
       <span class="lp-c-gw num">G.W</span>
       <span class="lp-c-vol num">${view === 'cuft' ? 'cu.ft' : 'VOL'}</span>
       <span class="lp-c-cbm num">CBM</span>
+      <span class="lp-c-crd" title="CRD（Cargo Ready Date）：DDMMM｜游標在 DD，↑ +1 日、↓ −1 日｜不可遲於 Flight Date">CRD</span>
       <span class="lp-c-tag" title="自由文字（滑鼠移入可展開；雙擊編輯；DIM 格式 L x W x H / PCS）">REMARK</span>
     </div>
   `;
@@ -152,7 +153,13 @@ export function itemRow(item, plan, index, options = {}) {
   const selected = (options.selectedSet || state.selectedItems).has(item.id);
   const missingMawb = !String(item.mawb || '').trim();
   const dup = isDuplicateItem(item);
+  // CRD（Cargo Ready Date）：畫面 DDMMM，DB 存 ISO；比 Flight Date 遲 → 標紅＋hover 提示
+  const crdRaw = String(item.cargo_receipt || '').trim();
+  const crdText = lpFormatCrd(crdRaw) || crdRaw.slice(0, 10);
+  const crdIssue = lpCrdIssue(crdRaw, plan && plan.flight_date);
   const issues = itemIssues(item);
+  if (crdIssue) issues.push(crdIssue);
+  const crdTitle = `CRD：${crdText || '（空白；游標進入會先帶入今天）'}｜↑ +1 日、↓ −1 日、Enter 完成${crdIssue ? ` ｜ ⛔ ${crdIssue}` : ''}`;
   return `
     <div class="lp-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
          draggable="true" data-item-id="${item.id}" data-plan-id="${plan.id}"
@@ -168,6 +175,13 @@ export function itemRow(item, plan, index, options = {}) {
       <span class="lp-c-gw num" data-field="gross_weight">${fmt(item.gross_weight, 2)}</span>
       <span class="lp-c-vol num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${fmt(volValue, 2)}</span>
       <span class="lp-c-cbm num" data-field="cbm">${fmt(item.cbm, 3)}</span>
+      <span class="lp-c-crd">
+        <input type="text" class="lp-crd-input${crdIssue ? ' is-invalid' : ''}" data-crd-input
+               data-crd-item="${item.id}" data-crd-saved="${esc(crdRaw)}"
+               data-crd-flight="${esc((plan && plan.flight_date) || '')}"
+               value="${esc(crdText)}" maxlength="10" autocomplete="off" spellcheck="false"
+               title="${esc(crdTitle)}" aria-label="CRD（Cargo Ready Date，DDMMM）" />
+      </span>
       <span class="lp-c-tag" data-field="tag">${esc(item.tag || '')}${flagTags(item)}</span>
     </div>
   `;
@@ -192,6 +206,7 @@ export function planTotalRow(plan, view) {
       <span class="lp-c-gw num">${fmt(t.grossWeight, 2)}</span>
       <span class="lp-c-vol num">${fmt(volValue, 2)}</span>
       <span class="lp-c-cbm num">${fmt(t.cbm, 3)}</span>
+      <span class="lp-c-crd"></span>
       <span class="lp-c-tag"></span>
     </div>
   `;
@@ -207,6 +222,9 @@ export function stockRow(item, plan, index, options = {}) {
   const dup = isDuplicateItem(item);
   const issues = itemIssues(item);
   const client = String(item.client || '').trim();
+  // CRD（Cargo Ready Date）：與 PLAN 明細同一格式 DDMMM（空白顯示 —）
+  const crdRaw = String(item.cargo_receipt || '').trim();
+  const crdText = lpFormatCrd(crdRaw) || crdRaw.slice(0, 10);
   return `
     <div class="lp-row lp-stock-row${selected ? ' is-selected' : ''}${missingMawb ? ' is-warn' : ''}${dup ? ' is-dup' : ''}"
          draggable="true" data-item-id="${item.id}" data-plan-id="${plan ? plan.id : 0}"
@@ -223,6 +241,7 @@ export function stockRow(item, plan, index, options = {}) {
           <span data-field="pkgs_text">${pcsText(item)}</span>
           <span class="num" data-field="gross_weight">G.W ${fmt(item.gross_weight, 2)}</span>
           <span class="num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${view === 'cuft' ? 'cu.ft' : 'VOL'} ${fmt(volValue, 2)}</span>
+          <button type="button" class="lp-stock-crd" data-cargo-receipt title="CRD（Cargo Ready Date）">CRD ${esc(crdText || '—')}</button>
         </div>
       </div>
     </div>

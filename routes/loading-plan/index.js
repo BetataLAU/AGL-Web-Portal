@@ -515,7 +515,7 @@ router.patch('/items/:id', handle(async (req, res) => {
   const body = req.body || {};
   const sets = [];
   const params = [];
-  const textFields = ['mawb', 'client', 'dest', 'tag', 'cargo_receipt', 'remark'];
+  const textFields = ['mawb', 'client', 'dest', 'tag', 'remark'];
   textFields.forEach((field) => {
     if (body[field] === undefined) return;
     const maxLen = field === 'mawb' ? 40 : (field === 'tag' || field === 'remark') ? 500 : 80;
@@ -525,6 +525,29 @@ router.patch('/items/:id', handle(async (req, res) => {
       ? strMultiline(body[field], maxLen)
       : str(body[field], maxLen));
   });
+  // CRD（Cargo Ready Date）：畫面只顯示 DDMMM，DB 一律存 ISO（YYYY-MM-DD）。
+  // 邏輯決策：CRD 不可遲於 Flight Date（存貨 plan 沒有 Flight Date → 不檢核）。
+  // 不合格 → 422，前端保留原值並提示（不讓錯誤的日期寫進 DB）。
+  if (body.cargo_receipt !== undefined) {
+    const raw = str(body.cargo_receipt, 20);
+    if (!raw) {
+      sets.push('cargo_receipt = ?'); params.push('');
+    } else {
+      const flightDate = plan && plan.flight_date;
+      const iso = c.lpCrdToIso(raw, flightDate);
+      if (!iso) {
+        return res.status(422).json({
+          error: 'CRD 格式應為 DDMMM（例 24NOV）或 YYYY-MM-DD',
+          data: { code: 'crd_invalid' }
+        });
+      }
+      const issue = c.lpCrdIssue(iso, flightDate);
+      if (issue) {
+        return res.status(422).json({ error: issue, data: { code: 'crd_after_flight' } });
+      }
+      sets.push('cargo_receipt = ?'); params.push(iso);
+    }
+  }
   if (body.pkgs_text !== undefined) {
     const pkgs = pkgsOf(body, c);
     sets.push('pkgs_text = ?', 'cartons = ?', 'pallets = ?', 'pcs_total = ?');
@@ -810,6 +833,9 @@ function fieldsFromRow(row, c) {
   const volume = resolveVolume(row || {}, c);
   const pkgs = pkgsOf(row || {}, c);
   const unit = ['cbm', 'cuft', 'vol'].includes((row || {}).volume_input_unit) ? row.volume_input_unit : 'cbm';
+  // CRD：DDMMM／ISO 都接受；能解析就統一存 ISO（YYYY-MM-DD），無法解析才原樣保留
+  const crdRaw = str((row || {}).cargo_receipt, 20);
+  const cargoReceipt = crdRaw ? (c.lpCrdToIso(crdRaw, c.lpTodayIso()) || crdRaw) : '';
   return {
     mawb: c.lpDisplayMawb((row || {}).mawb),
     client: str((row || {}).client, 80),
@@ -825,7 +851,7 @@ function fieldsFromRow(row, c) {
     cbm: volume.cbm,
     cuft: volume.cuft,
     volume_input_unit: unit,
-    cargo_receipt: str((row || {}).cargo_receipt, 20),
+    cargo_receipt: cargoReceipt,
     // 備註是自由文字（Booking modal 的 DIM 一組一行）→ 保留換行
     remark: strMultiline((row || {}).remark, 500),
     section: Math.max(1, intOrNull((row || {}).section) || 1),

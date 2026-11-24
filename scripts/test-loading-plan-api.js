@@ -253,6 +253,30 @@ async function readSse(url, predicate, timeoutMs = 5000) {
       patchedTag.status === 200 && patchedTag.body.data.tag === dimText,
       JSON.stringify(patchedTag.body.data && patchedTag.body.data.tag));
 
+    // ---- CRD（Cargo Ready Date）：DDMMM → ISO；不可遲於 Flight Date ----
+    // 注意：item1 已被 Move 到 plan2（沒有 Flight Date）→ 用還在 plan1 的明細測檢核
+    const plan1Now = await req('GET', `/api/loading-plan/plans/${plan1.id}`);
+    const crdItem = plan1Now.body.items.find(i => i.id !== item1.id) || plan1Now.body.items[0];
+    check('plan1 還有明細可測 CRD', !!crdItem, JSON.stringify(plan1Now.body.items.map(i => i.id)));
+    const crdOk = await req('PATCH', `/api/loading-plan/items/${crdItem.id}`, { cargo_receipt: '14NOV' });
+    check('PATCH cargo_receipt=14NOV → 存成 ISO 2026-11-14',
+      crdOk.status === 200 && crdOk.body.data.cargo_receipt === '2026-11-14',
+      JSON.stringify(crdOk.body.data && crdOk.body.data.cargo_receipt));
+    const crdLate = await req('PATCH', `/api/loading-plan/items/${crdItem.id}`, { cargo_receipt: '2026-11-15' });
+    check('CRD 比 Flight Date 遲 → 422（crd_after_flight）',
+      crdLate.status === 422 && crdLate.body.data && crdLate.body.data.code === 'crd_after_flight',
+      `${crdLate.status} ${crdLate.body.error}`);
+    const crdBad = await req('PATCH', `/api/loading-plan/items/${crdItem.id}`, { cargo_receipt: 'ABC' });
+    check('CRD 格式錯誤 → 422（crd_invalid）',
+      crdBad.status === 422 && crdBad.body.data && crdBad.body.data.code === 'crd_invalid',
+      `${crdBad.status} ${crdBad.body.error}`);
+    const crdAfter = await req('GET', `/api/loading-plan/plans/${plan1.id}`);
+    check('422 不會寫入錯誤日期（仍是 2026-11-14）',
+      crdAfter.body.items.find(i => i.id === crdItem.id).cargo_receipt === '2026-11-14');
+    const crdClear = await req('PATCH', `/api/loading-plan/items/${crdItem.id}`, { cargo_receipt: '' });
+    check('CRD 可清除（空字串）', crdClear.status === 200 && crdClear.body.data.cargo_receipt === '',
+      JSON.stringify(crdClear.body.data && crdClear.body.data.cargo_receipt));
+
     // ---- 複製 ----
     const copySame = await req('POST', `/api/loading-plan/items/${movedItemId}/copy`, { plan_id: plan2.id });
     check('複製到同一張 plan → 409（請用搬移）', copySame.status === 409, String(copySame.status));
@@ -390,7 +414,8 @@ async function readSse(url, predicate, timeoutMs = 5000) {
     // ---- 新增 Booking（「找 Booking」modal 的「＋ 新增」分頁）----
     const newBooking = await req('POST', '/api/loading-plan/bookings', {
       mawb: '176-9999 8883', client: 'NEW CLIENT', dest: 'nrt',
-      hawb: 'h123', pkgs_text: '2C+1P', gross_weight: 345.5, cbm: 1.5, tag: '直單'
+      hawb: 'h123', pkgs_text: '2C+1P', gross_weight: 345.5, cbm: 1.5, tag: '直單',
+      cargo_receipt: '14NOV'
     });
     check('POST /bookings → 201', newBooking.status === 201, String(newBooking.status));
     const newRecordId = newBooking.body && newBooking.body.data && newBooking.body.data.id;
@@ -406,6 +431,11 @@ async function readSse(url, predicate, timeoutMs = 5000) {
     check('DEST 自動轉大寫 NRT', !!newStockItem && newStockItem.dest === 'NRT', newStockItem && newStockItem.dest);
     check('CBM 1.5 → VOL 250（自動換算）',
       !!newStockItem && near(newStockItem.volume.vol, 250), newStockItem && JSON.stringify(newStockItem.volume));
+    check('Booking 的 REMARK 存在 tag（PLAN 表顯示那一欄）',
+      !!newStockItem && newStockItem.tag === '直單', newStockItem && String(newStockItem.tag));
+    check('Booking 的 CRD（DDMMM）→ 存成 ISO',
+      !!newStockItem && /^\d{4}-11-14$/.test(String(newStockItem.cargo_receipt)),
+      newStockItem && String(newStockItem.cargo_receipt));
     const newRecordHawb = await queryDb("SELECT hawb FROM mawb_records WHERE mawb = '176-9999 8883'");
     check('Booking 主檔寫入 HAWB（大寫）', newRecordHawb === 'H123', String(newRecordHawb));
 

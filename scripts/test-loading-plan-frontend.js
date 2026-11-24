@@ -215,7 +215,7 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   check('5.18a 合計列有總 MAWB 數', totalRow.includes('lp-row-total') &&
     totalRow.includes('TOTAL <b>3</b> MAWB'), totalRow.slice(0, 120));
   check('5.18b 合計列沿用上方欄位 class（逐欄對齊）',
-    ['lp-c-sel', 'lp-c-idx', 'lp-c-mawb', 'lp-c-client', 'lp-c-dest', 'lp-c-pkgs', 'lp-c-gw', 'lp-c-vol', 'lp-c-cbm', 'lp-c-tag']
+    ['lp-c-sel', 'lp-c-idx', 'lp-c-mawb', 'lp-c-client', 'lp-c-dest', 'lp-c-pkgs', 'lp-c-gw', 'lp-c-vol', 'lp-c-cbm', 'lp-c-crd', 'lp-c-tag']
       .every(cls => totalRow.includes(`class="${cls}`) || totalRow.includes(` ${cls}`)));
   check('5.18c PKGS／G.W／VOL／CBM 數值正確（與上方同欄右對齊）',
     totalRow.includes('>31 <span class="lp-warn"') &&
@@ -286,6 +286,17 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     ['mawb', 'client', 'dest', 'pkgs_text', 'gross_weight', 'volume_weight']
       .every(field => srow.includes(`data-field="${field}"`)) &&
     srow.includes('G.W') && srow.includes('VOL'));
+  const srowCrd = render.stockRow(Object.assign({}, item, { cargo_receipt: '2026-11-14' }),
+    stockPlan, 0, { selectedSet: new Set() });
+  check('5.24 存貨列在 VOL 右邊顯示 CRD（DDMMM）', (() => {
+    const volIdx = srowCrd.indexOf('VOL ');
+    const crdIdx = srowCrd.indexOf('lp-stock-crd');
+    return volIdx > -1 && crdIdx > volIdx && srowCrd.includes('CRD 14NOV');
+  })(), srowCrd.slice(Math.max(0, srowCrd.indexOf('lp-stock-meta')), srowCrd.length - 8));
+  check('5.24b 存貨沒有 CRD → 顯示「CRD —」', srow.includes('CRD —'));
+  check('5.24c 存貨 CRD 以圓角按鈕顯示（button.lp-stock-crd）',
+    /<button type="button" class="lp-stock-crd"[^>]*>CRD 14NOV<\/button>/.test(srowCrd) &&
+    /\.lp-stock-crd \{[^}]*border-radius: 999px/.test(css));
 
   // ===== 6. state 純函式 =====
   console.log('--- 6. state ---');
@@ -402,10 +413,18 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
   console.log('--- 12. 找 Booking／新增 Booking ---');
   check('12.1 「找 Booking」modal 有兩個分頁', interactionsSrc.includes('data-find-tab="search"') && interactionsSrc.includes('data-find-tab="new"'));
   check('12.2 新增分頁有建立後加入存貨的按鈕', interactionsSrc.includes('lp-bk-create') && interactionsSrc.includes('建立並加入存貨'));
-  check('12.3 新增表單欄位齊全（MAWB／HAWB／CLIENT／DEST／PKGS／G.W／CBM／TAG／備註）',
+  check('12.3 新增表單欄位齊全（MAWB／HAWB／CLIENT／DEST／PKGS／G.W／CBM／CRD／REMARK）',
     ['lp-bk-mawb', 'lp-bk-hawb', 'lp-bk-client', 'lp-bk-dest', 'lp-bk-pkgs',
-      'lp-bk-gw', 'lp-bk-cbm', 'lp-bk-tag', 'lp-bk-remark']
+      'lp-bk-gw', 'lp-bk-cbm', 'lp-bk-crd', 'lp-bk-remark']
       .every(id => interactionsSrc.includes(`id="${id}"`)));
+  check('12.3b TAG 已刪除（與 REMARK 合併成同一欄；同時寫 tag 與 remark）',
+    !interactionsSrc.includes('id="lp-bk-tag"') &&
+    /tag: readField\('lp-bk-remark'\)/.test(interactionsSrc) &&
+    /remark: readField\('lp-bk-remark'\)/.test(interactionsSrc));
+  check('12.3c 新 Booking 的 CRD（DDMMM、↑↓ ±1 日、送出前轉 ISO）',
+    interactionsSrc.includes("document.getElementById('lp-bk-crd')") &&
+    interactionsSrc.includes('lpCrdStep(crdField.value') &&
+    /payload\.cargo_receipt = crdParsed\.iso/.test(interactionsSrc));
   check('12.4 MAWB 已存在（409）會自動切到「找現有」並帶入搜尋',
     interactionsSrc.includes('err.status === 409') && interactionsSrc.includes("switchTab('search')"));
   check('12.5 CSS 有分頁／兩欄表單／錯誤訊息樣式',
@@ -505,6 +524,63 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     /remark: strMultiline\(\(row \|\| \{\}\)\.remark, 500\)/.test(routesSrc));
   check('14.13 DIM 內的 Esc 不會關掉外層 modal（stopPropagation）',
     /e\.key === 'Escape'[\s\S]{0,160}e\.stopPropagation\(\)/.test(interactionsSrc));
+
+  // ===== 15. CRD（Cargo Ready Date）：CBM 與 REMARK 之間；DDMMM；↑↓ ±1 日；不可遲於 Flight Date =====
+  console.log('--- 15. CRD ---');
+  const crdSrc = fs.readFileSync(path.join(ROOT, 'public', 'js', 'loading-plan', 'crd.js'), 'utf8');
+  const crdMod = await import(url('public/js/loading-plan/crd.js'));
+  check('15.0 crd.js 可載入（lpCrdStep／lpCrdParseInput）',
+    typeof crdMod.lpCrdStep === 'function' && typeof crdMod.lpCrdParseInput === 'function');
+  const head = render.rowHead('vol');
+  const crdHeadIdx = head.indexOf('lp-c-crd');
+  check('15.1 表頭在 CBM 與 REMARK 之間多一欄 CRD',
+    crdHeadIdx > head.indexOf('lp-c-cbm') && crdHeadIdx < head.indexOf('lp-c-tag') &&
+    /class="lp-c-crd"[^>]*>CRD</.test(head), head.slice(0, 400));
+  const crdPlain = render.itemRow(item, plan, 0, { selectedSet: new Set() });
+  check('15.2 明細列有 CRD 輸入框（空白時顯示空白）',
+    crdPlain.includes('lp-crd-input') && crdPlain.includes('data-crd-input') &&
+    crdPlain.includes('data-crd-item="11"') && crdPlain.includes('value=""'));
+  const crdOk = render.itemRow(Object.assign({}, item, { cargo_receipt: '2026-11-14' }),
+    { id: 7, volume_view: 'vol', flight_date: '2026-11-14' }, 0, { selectedSet: new Set() });
+  check('15.3 CRD 以 DDMMM 顯示（ISO → 14NOV）且不標紅',
+    crdOk.includes('value="14NOV"') && !/lp-crd-input[^"]*is-invalid/.test(crdOk) &&
+    !crdOk.includes('不可遲於'));
+  const crdBad = render.itemRow(Object.assign({}, item, { cargo_receipt: '2026-11-16' }),
+    { id: 7, volume_view: 'vol', flight_date: '2026-11-14' }, 0, { selectedSet: new Set() });
+  check('15.4 CRD 比 Flight Date 遲 → 紅框＋hover 錯誤訊息（通知 USER）',
+    /class="lp-crd-input is-invalid"/.test(crdBad) &&
+    /data-hover-error="[^"]*CRD 16NOV 不可遲於 Flight Date 14NOV/.test(crdBad));
+  check('15.5 存貨／沒有 Flight Date 的列不做 CRD 檢核',
+    !/lp-crd-input[^"]*is-invalid/.test(render.itemRow(
+      Object.assign({}, item, { cargo_receipt: '2026-11-16' }), { id: 30, volume_view: 'vol' }, 0, { selectedSet: new Set() })));
+  check('15.6 合計列的 CRD 欄留空（逐欄對齊）', /class="lp-c-crd"><\/span>/.test(totalRow));
+  check('15.7 CSS 有 CRD 欄寬／輸入框／錯誤樣式',
+    /grid-template-columns: 24px 24px 104px 42px 116px 70px 76px 76px 70px 62px/.test(css) &&
+    css.includes('.lp-c-crd') && css.includes('.lp-crd-input') && css.includes('.lp-crd-input.is-invalid'));
+  check('15.7b CRD 表頭與下方日期一起靠右（右緣對齊）',
+    /\.lp-c-crd \{[^}]*justify-content: flex-end/.test(css) &&
+    /\.lp-crd-input \{[^}]*text-align: right/.test(css) &&
+    /\.lp-row-head \.lp-c-crd \{[^}]*padding-right: 3px/.test(css));
+  check('15.7c CRD 與 REMARK 之間加大欄距（不影響其他欄位）',
+    /\.lp-c-crd \{[^}]*margin-right: 10px/.test(css));
+  check('15.8 游標進入停在 DD 位（前 2 碼）＋空白先帶入今天',
+    interactionsSrc.includes('selectCrdDay') && interactionsSrc.includes('setSelectionRange(0') &&
+    interactionsSrc.includes('lpFormatCrd(lpTodayIso())'));
+  check('15.9 ↑ +1 日／↓ −1 日（跨月／跨年由 lpShiftIsoDate 處理）',
+    interactionsSrc.includes("e.key === 'ArrowUp'") && interactionsSrc.includes("e.key === 'ArrowDown'") &&
+    interactionsSrc.includes('lpCrdStep(input.value') && crdSrc.includes('lpShiftIsoDate(base'));
+  check('15.10 邏輯檢核：CRD 不可遲於 Flight Date（前端 toast／後端 422）',
+    interactionsSrc.includes('toastCrdError') && interactionsSrc.includes('toastCrdError(parsed.issue)') &&
+    interactionsSrc.includes('lpCrdParseInput(raw, flight, saved, lpTodayIso())') &&
+    routesSrc.includes("code: 'crd_after_flight'") && routesSrc.includes('c.lpCrdIssue(iso, flightDate)'));
+  check('15.11 只有真的改過才存；Enter 立即存、Esc 還原',
+    interactionsSrc.includes('commitCrd(input, { refocus: true })') &&
+    interactionsSrc.includes("input.dataset.crdDirty") && interactionsSrc.includes('resetCrdDisplay(input)'));
+  check('15.12 即時同步打字中不重畫（含 CRD 輸入框）',
+    realtimeSrc.includes("classList.contains('lp-crd-input')"));
+  check('15.13 CRD 走 PATCH /items（cargo_receipt，DB 存 ISO）',
+    /lpApi\.patchItem\(itemId, \{ cargo_receipt: iso \}\)/.test(interactionsSrc) &&
+    /cargo_receipt = \?/.test(routesSrc));
 
   console.log(`\n===== 測試結束：${pass} 通過 / ${fail} 失敗 =====`);
   process.exitCode = fail ? 1 : 0;

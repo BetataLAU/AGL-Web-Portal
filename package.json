@@ -10,7 +10,7 @@
     "test:loadsim-api": "node scripts/test-loadsim-api.js",
     "test:uldweight": "node scripts/test-uld-weight-calc.js && node scripts/test-uld-weight-rcl.js && node scripts/test-uld-weight-mawb.js && node scripts/test-uld-weight-frontend.js",
     "test:uldweight-api": "node scripts/test-uld-weight-api.js",
-    "test:loadingplan": "node scripts/test-loading-plan-calc.js && node scripts/test-loading-plan-paste.js && node scripts/test-loading-plan-suggest.js && node scripts/test-loading-plan-order.js && node scripts/test-loading-plan-dim.js && node scripts/test-loading-plan-demo-data.js && node scripts/test-loading-plan-frontend.js",
+    "test:loadingplan": "node scripts/test-loading-plan-calc.js && node scripts/test-loading-plan-crd.js && node scripts/test-loading-plan-paste.js && node scripts/test-loading-plan-suggest.js && node scripts/test-loading-plan-order.js && node scripts/test-loading-plan-dim.js && node scripts/test-loading-plan-demo-data.js && node scripts/test-loading-plan-frontend.js",
     "test:loadingplan-api": "node scripts/test-loading-plan-api.js",
     "preview:loadingplan": "node scripts/loading-plan-preview.js",
     "import:loadingplan": "node scripts/import-loading-plan-xlsx.js",

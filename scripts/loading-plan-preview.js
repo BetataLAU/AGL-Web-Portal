@@ -66,15 +66,16 @@ global.window = { addEventListener: noop, innerWidth: 1440, innerHeight: 900 };
     max_gross_weight: 9000, max_cbm: 65, status: 'draft', sort_order: 1
   };
   const itemsA = [
-    mkItem(101, '176-6985 5240', 'MAERSK', 'DWC', '17+7P', 1302, 6.82, 1135, '4 / D6', { dg_no_power: 1 }),
-    mkItem(102, '176-6840 0640', 'MAERSK', 'DWC', '3+4P', 220, 1.43, 238, '1 / D7'),
-    mkItem(103, '176-6840 0636', 'MAERSK', 'DWC', '4P', 298, 3.4, 566, '5 / D7', { h_xray: 1 }),
+    mkItem(101, '176-6985 5240', 'MAERSK', 'DWC', '17+7P', 1302, 6.82, 1135, '4 / D6', { dg_no_power: 1, cargo_receipt: '2026-11-14' }),
+    mkItem(102, '176-6840 0640', 'MAERSK', 'DWC', '3+4P', 220, 1.43, 238, '1 / D7', { cargo_receipt: '2026-11-12' }),
+    mkItem(103, '176-6840 0636', 'MAERSK', 'DWC', '4P', 298, 3.4, 566, '5 / D7', { h_xray: 1, cargo_receipt: '2026-11-14' }),
     mkItem(104, '', '', 'DXB', 'CTNS', 59, 0.36, 60.5, '', { pcs_total: null }),
-    mkItem(105, '176-6840 0721', 'Soaring', 'ABJ', '1P', 118, 0.95, 158, '直單', { split_of_item_id: 101 })
+    // 故意比 Flight Date（14NOV）遲 → 預覽可看到紅框＋hover 錯誤訊息
+    mkItem(105, '176-6840 0721', 'Soaring', 'ABJ', '1P', 118, 0.95, 158, '直單', { split_of_item_id: 101, cargo_receipt: '2026-11-16' })
   ];
   const itemsB = [
-    mkItem(201, '176-6839 7405', 'MAERSK', 'DWC', '8P', 1560, 9.23, 1538, '5 / CP / D2'),
-    mkItem(202, '176-6839 7416', 'MAERSK', 'DWC', '8P', 1560, 9.23, 1538, '6 / CP / D2')
+    mkItem(201, '176-6839 7405', 'MAERSK', 'DWC', '8P', 1560, 9.23, 1538, '5 / CP / D2', { cargo_receipt: '2026-11-15' }),
+    mkItem(202, '176-6839 7416', 'MAERSK', 'DWC', '8P', 1560, 9.23, 1538, '6 / CP / D2', { cargo_receipt: '2026-11-15' })
   ];
 
   planA.totals = calc.lpKpi(itemsA, { maxGrossWeight: 9000, maxCbm: 65 });
@@ -85,8 +86,8 @@ global.window = { addEventListener: noop, innerWidth: 1440, innerHeight: 900 };
     volume_view: 'vol', totals: calc.lpKpi(itemsB)
   };
   stateMod.state.stockItems = [
-    mkItem(301, '176-6558 7491', 'MAERSK', 'DXB', '60', 318, 2.04, 340, '2 / D1'),
-    mkItem(302, '176-6985 5074', 'MAERSK', 'DWC', '2P', 163, 0.92, 153, '1 / D2'),
+    mkItem(301, '176-6558 7491', 'MAERSK', 'DXB', '60', 318, 2.04, 340, '2 / D1', { cargo_receipt: '2026-11-10' }),
+    mkItem(302, '176-6985 5074', 'MAERSK', 'DWC', '2P', 163, 0.92, 153, '1 / D2', { cargo_receipt: '2026-11-12' }),
     mkItem(303, '176-6843 9976', 'RS', 'AMS', 'CTNS', 1000, 6, 1000, 'D3/11', { pcs_total: null })
   ];
   stateMod.state.plans = [planA, planB];

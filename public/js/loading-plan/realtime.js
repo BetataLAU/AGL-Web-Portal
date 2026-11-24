@@ -56,7 +56,8 @@ function scheduleReload() {
   clearTimeout(reloadTimer);
   reloadTimer = setTimeout(() => {
     const active = document.activeElement;
-    if (active && active.classList && active.classList.contains('lp-inline-input')) {
+    if (active && active.classList &&
+        (active.classList.contains('lp-inline-input') || active.classList.contains('lp-crd-input'))) {
       scheduleReload();
       return;
     }

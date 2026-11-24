@@ -1,6 +1,6 @@
 -- ==============================================
 -- AGL-Web-Portal 資料庫快照
--- 匯出時間: 2026-11-24T10:36:17.606Z
+-- 匯出時間: 2026-11-24T10:36:48.272Z
 -- 共 18 張資料表
 -- 還原方式: npm run db:import
 -- ==============================================
@@ -1097,7 +1097,7 @@ CREATE TABLE loading_plan_presence (
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
-INSERT INTO "loading_plan_presence" ("conn_id", "plan_id", "user_id", "display", "editing_item_id", "updated_at") VALUES ('a3089073-bca0-49b6-b293-f187532ff09f', 3, 'admin', '系統管理員', NULL, '2026-11-24 10:36:10');
+INSERT INTO "loading_plan_presence" ("conn_id", "plan_id", "user_id", "display", "editing_item_id", "updated_at") VALUES ('a3089073-bca0-49b6-b293-f187532ff09f', 3, 'admin', '系統管理員', NULL, '2026-11-24 10:36:40');
 
 
 -- ===== 資料表: loading_plans =====

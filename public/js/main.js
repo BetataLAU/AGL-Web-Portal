@@ -311,6 +311,10 @@ window.initProtectedSections = function (user) {
   if (typeof window.setupLoadingPlanSection === 'function') {
     window.setupLoadingPlanSection();
   }
+  // HKIA CDP API 測試平台：僅 admin / staff（會用到公司憑證與 API Key）
+  if ((role === 'admin' || role === 'staff') && typeof window.setupHkiaCdpSection === 'function') {
+    window.setupHkiaCdpSection();
+  }
 };
 
 // ===== 右下角「回到頁頂」按鈕 =====

@@ -56,6 +56,7 @@ const xlsBookingRouter = require('./routes/xls-booking');
 const uldWeightRouter = require('./routes/uld-weight');
 const loadsimRouter = require('./routes/loadsim');
 const loadingPlanRouter = require('./routes/loading-plan');
+const hkiaCdp = require('./routes/hkia-cdp');
 const { requireAuth, requireRole, requirePermission } = require('./routes/auth/middleware');
 
 const app = express();
@@ -123,6 +124,11 @@ app.use('/api/loadsim', requireRole('admin', 'staff'), loadsimRouter);
 app.use('/api/loading-plan', requireAuth, loadingPlanRouter);
 // Shipper Role Project（空運單據工具）：登入即可使用
 app.use('/api/xls-booking', requireAuth, xlsBookingRouter);
+// HKIA CDP Testing Site：Webhook 必須公開（HKIA 會直接 POST，不帶本平台 session）；
+// 其餘（設定／Token／Proxy／歷史／SSE）僅限 admin / staff（會用到公司憑證與 API Key）。
+// Webhook 一定得掛在受保護路由「之前」。
+app.use('/api/hkia-cdp/webhook', hkiaCdp.webhookRouter);
+app.use('/api/hkia-cdp', requireRole('admin', 'staff'), hkiaCdp.router);
 // 資料庫：需具備 db_view 權限（admin/staff 預設開啟）
 app.use('/api/db', requirePermission('db_view'), dbViewerRouter);
 

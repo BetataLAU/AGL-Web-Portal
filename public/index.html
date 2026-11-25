@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/loading-plan.css">
   <link rel="stylesheet" href="css/dbviewer.css">
   <link rel="stylesheet" href="css/xls-booking.css">
+  <link rel="stylesheet" href="css/hkia-cdp.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="has-topbar">
@@ -146,6 +147,10 @@
               <a href="#section-uld-weight" class="nav-item" id="nav-uld-weight">
                 <i class="fa-solid fa-scale-balanced"></i> <span>ULD 夾重系統</span>
                 <i class="fa-solid fa-lock nav-lock-icon" id="nav-uld-weight-lock" title="需要員工權限"></i>
+              </a>
+              <a href="#section-hkia-cdp" class="nav-item" id="nav-hkia-cdp">
+                <i class="fa-solid fa-satellite-dish"></i> <span>HKIA CDP</span>
+                <i class="fa-solid fa-lock nav-lock-icon" id="nav-hkia-cdp-lock" title="需要員工權限"></i>
               </a>
               <a href="#section-dbviewer" class="nav-item" id="nav-dbviewer">
                 <i class="fa-solid fa-database"></i> <span>資料庫</span>
@@ -535,6 +540,19 @@
         </div>
       </section>
 
+      <!-- HKIA CDP API 測試平台 -->
+      <section id="section-hkia-cdp" class="content-section">
+        <div class="card hkia-card">
+          <div class="card-header-flex">
+            <div>
+              <h2><i class="fa-solid fa-satellite-dish"></i> HKIA CDP <span class="hkia-badge hkia-badge--info">RA / RACSF / TP · API v1.27</span></h2>
+              <p class="card-desc">HKIA Cargo Data Platform 測試平台：Local Mock／SIT 一鍵切換、<code>#405 → #409 → #401</code> 引導式流程、CTO 欄位預檢、#409 SHA-256 + RSA 自動簽章、非同步 Callback 監控與互動教學。</p>
+            </div>
+          </div>
+          <div id="hkia-root"><p class="empty-state">載入 HKIA CDP 設定中…</p></div>
+        </div>
+      </section>
+
       <!-- 資料庫檢視器頁面 -->
       <section id="section-dbviewer" class="content-section">
         <div class="card dbviewer-card">
@@ -597,6 +615,9 @@
   <script type="module" src="./js/loadsim.js"></script>
   <script type="module" src="./js/uld-weight.js"></script>
   <script type="module" src="./js/loading-plan.js"></script>
+<script src="./js/hkia-cdp/cto-validator.js"></script>
+<script src="./js/hkia-cdp/error-codes.js"></script>
+<script type="module" src="./js/hkia-cdp.js"></script>
   <script src="./js/dbviewer.js"></script>
   <script src="./js/xls-booking-state.js"></script>
   <script src="./js/xls-booking-upload.js"></script>

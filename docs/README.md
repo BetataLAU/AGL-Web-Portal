@@ -31,6 +31,7 @@
 | `uld-weight-system.md` | **ULD 夾重系統**設計文件（2026-11；規則、算法驗算、資料模型、API、UI；Phase 1 已實作） |
 | `uld-weight-phase2-handoff.md` | **ULD 夾重系統 Phase 2 交接文件**（W1～W5 已完成；含陷阱 §4、驗證指令 §5、手動驗收、新對話提示詞） |
 | `uld-weight-remaining-work.md` | **ULD 夾重系統「未完成工作」交接文件**（2026-11-06；R1～R4＋V1／V2／V3 已完成、**V4 已量測結案（不做節流）**、待決 D3／D5／D6、新陷阱、既定規則、驗證指令、新對話提示詞）——**下一輪從這裡開始** |
+| `hkia-cdp-testing-site.md` | **HKIA CDP API 測試平台**實作紀錄（2026-11；BFF／Mock／#409 簽章／Webhook／SSE／CTO 預檢／檔案地圖／限制／驗證指令；對應根目錄 `hkia_cdp_testing_site_prd.md`） |
 
 ### archive/
 

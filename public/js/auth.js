@@ -459,6 +459,18 @@ async function setupAuthUI() {
       });
     }
 
+    // HKIA CDP 測試平台：僅 admin / staff（會用到公司憑證與 API Key）
+    const hkiaLock = document.getElementById('nav-hkia-cdp-lock');
+    const navHkia = document.getElementById('nav-hkia-cdp');
+    if (hkiaLock) hkiaLock.style.display = canInternal ? 'none' : '';
+    if (navHkia && !canInternal) {
+      navHkia.classList.add('nav-item-locked');
+      navHkia.addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('HKIA CDP 測試平台僅限內部員工使用');
+      });
+    }
+
     // 資料庫：僅具備 db_view 權限解鎖；否則顯示鎖頭並攔截
     const dbLock = document.getElementById('nav-dbviewer-lock');
     const navDb = document.getElementById('nav-dbviewer');
@@ -509,7 +521,7 @@ async function setupAuthUI() {
 
     // 訂單系統 / Shipper Role Project / 版面編輯器 / 資料庫 / ULD 夾重系統：
     // 顯示鎖頭，點擊導向登入頁（登入後跳回原本想看的區塊或頁面）
-    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-uld-weight'].forEach(id => {
+    ['nav-orders', 'nav-xls-booking', 'nav-sli-eli-layout', 'nav-dbviewer', 'nav-uld-weight', 'nav-hkia-cdp'].forEach(id => {
       const nav = document.getElementById(id);
       if (!nav) return;
       nav.classList.add('nav-item-locked');

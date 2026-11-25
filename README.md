@@ -9,6 +9,7 @@
 | 🔐 登入 / 權限 | `login.html`、`users.html` | Session 登入（Company Code + User ID + Password）；角色 `admin` / `staff` / `customer`，Sidebar 依權限顯示鎖頭 |
 | 📦 訂單系統 | Sidebar「訂單系統」 | 收貨/送貨落 ORDER、公司/地點資料庫、電力分類、趕機、電郵總結 |
 | ✈️ Shipper Role Project | Sidebar「Shipper Role Project」 | 上傳 XLS 配對表 → 產生 Report + SLI/ELI PDF + ZIP |
+| 🛰️ HKIA CDP | Sidebar「HKIA CDP」 | 香港機場貨運數據平台 API v1.27 測試平台（Local Mock / SIT、Full / Lite Flow、CTO 預檢、#409 簽章、Callback 監控、互動教學） |
 | 🗄️ 資料庫檢視器 | Sidebar「資料庫」 | 白名單保護的資料表瀏覽 / 編輯 / 刪除（需 `db_view` 權限） |
 | 其他 | HOME / AI Playground / Capabilities / Contour | 首頁、聊天示範、技能展示、ULD 斷面圖資 |
 
@@ -75,7 +76,7 @@ AGL-Web-Portal/
 | 角色 | 權限 |
 |------|------|
 | `admin` | 全部，含使用者管理（`users.html`）與資料庫 |
-| `staff` | 內部員工：訂單、Shipper Role、ULD 夾重、資料庫 |
+| `staff` | 內部員工：訂單、Shipper Role、ULD 夾重、HKIA CDP、資料庫 |
 | `customer` | 客戶：只能看自己公司（`customer_company_id`）的訂單 |
 
 - 相關腳本：`node scripts/test-auth.js`、`node scripts/test-login-lockout.js`、`node scripts/test-customer-isolation.js`、`node scripts/seed-admin.js`
@@ -240,6 +241,42 @@ POST   /api/uld-weight/sheets/:id/sync-bookings # 補建 Booking（預設 dry_ru
 GET    /api/uld-weight/sheets/:id/versions       # 歷史版本清單
 GET    /api/uld-weight/sheets/:id/versions/diff  # 版本差異（from 必填；to 省略＝對目前）
 ```
+
+## 🛰️ HKIA CDP 測試平台（`/api/hkia-cdp`，admin / staff）
+
+香港國際機場 **Cargo Data Platform — RA / RACSF / TP Integration Service API v1.27** 的測試工作台
+（Sidebar「HKIA CDP」）。因為瀏覽器不能做 mTLS、也收不到 server-to-server Webhook，本平台以 **BFF** 代為處理。
+
+- **環境**：`Local Mock`（免憑證，202 + 延遲 Callback）／`SIT`／`Production`（切換與每次送出都要二次確認）。
+- **流程**：Full Flow `#405 Create Export Order → #409 Screening Image → #401 Pre-Declaration`；
+  Lite Flow `#415 Lite Pre-Declaration`／`#416 Delete MAWB`。表單模式與 JSON 模式共用同一份 payload。
+- **CTO 預檢**：AAT／CPSL／HACTL 差異規則（小數位、ASI 長度與全大寫、車牌、Seal 格式、鋰電池 PI、LH/CX 條件…），
+  前端即時提示、後端 `/proxy` 也會回同一份 `lint`。
+- **#409 簽章**：後端用設定的 `.key` 做 `SHA-256 + RSA-SHA256` 自動填入 `imageHash` / `imageSignature`（亦可單獨 `POST /sign`）。
+- **Callback**：`POST /api/hkia-cdp/webhook`（公開，可選 Basic Auth）比對 `source_id`（＝`x-request-id`），
+  以 SSE 即時推到「Callback 監控」頁並高亮 `cto_errors`。
+- **憑證**：設定頁可填路徑或上傳 `.pem` / `.key`，存 `data/hkia-cdp/certs/`（`data/hkia-cdp/` 已列入 `.gitignore`）；
+  `clientSecret` / `apiKey` / `webhookPass` 回傳時一律遮罩。
+- **歷史**：`data/hkia-cdp/history.json`（上限 300 筆；不存大檔 base64 本體）。
+- **SIT（Air Global）已預填**：`data/hkia-cdp/config.json`（gitignored）已設 `env=sit`、`role=RA` 與 Client ID；
+  憑證 `data/hkia-cdp/certs/air_global_sit_2026.pem` 已放置（AAHK 簽發，有效至 2027-11-17），
+  **私鑰 `air_global_sit_2026.key` 仍需補上**（申請 CSR 時產生的那一把）。設定頁會顯示 mTLS 狀態與憑證資訊，
+  上傳時會檢查「CSR／憑證／私鑰」不可混用；若是「憑證＋私鑰」合併的 `.pem` 也可直接使用。
+
+```text
+GET/PUT /api/hkia-cdp/config              # 設定（遮罩 secret）
+POST    /api/hkia-cdp/certs               # 上傳 .pem / .key
+POST    /api/hkia-cdp/auth/test           # #001 Token（Mock / mTLS）
+POST    /api/hkia-cdp/lint                # CTO 預檢
+POST    /api/hkia-cdp/sign                # #409 簽章
+POST    /api/hkia-cdp/proxy               # #401–#416（Mock / SIT / Prod）
+GET     /api/hkia-cdp/refs | /history | /pending | /health
+GET     /api/hkia-cdp/events              # SSE（Callback / 歷史）
+POST    /api/hkia-cdp/webhook             # 公開：HKIA → 本平台 Callback
+```
+
+- 詳細實作與限制：`docs/design/hkia-cdp-testing-site.md`；PRD：`hkia_cdp_testing_site_prd.md`
+- 測試：`npm run test:hkia-cdp`、`npm run test:hkia-cdp-api`、`npm run test:hkia-cdp-ui`（需 Chrome/Edge，找不到會 SKIP）
 
 ## 🗄️ 資料庫檢視器（`/api/db`）
 

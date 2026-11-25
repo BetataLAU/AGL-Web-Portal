@@ -24,6 +24,9 @@ data/uploads/
 # 版面編輯器（P5）每次儲存／還原自動產生的 fieldmap 備份（可重建，不進 repo）
 data/templates/sli-eli-fieldmap.bak-*.json
 
+# HKIA CDP 測試平台：設定（含 clientSecret）、歷史、Mock 狀態、上傳的 .pem/.key
+data/hkia-cdp/
+
 # 執 PLAN 原始 Excel（含客戶 booking 資料；只留在本機，不進版控）
 Yat Loading Plan/
 

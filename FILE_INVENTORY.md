@@ -2,39 +2,56 @@
 
 > ⚠️ 本檔案由 `scripts/sync-project-state.js` 自動產生，**請勿手動編輯**。
 > 更新方式：執行 `npm run sync`。
-> 最後更新：2026/11/24 下午6:46:31
+> 最後更新：2026/11/25 下午2:56:44
 
 ## 🔄 Git 變更狀態
 
 ```
+M .gitignore
 M CLAUDE.md
 M FILE_INVENTORY.md
+M PROJECT_MAP.md
+M README.md
 M WORKSPACE_STATE.md
-M docs/design/xls-sli-eli-overlay-prd.md
-D  scripts/fill-sli-eli.py
-M scripts/test-a4-integration.js
-D  scripts/test-cnee-lookup.js
-D  scripts/test-pdf-a4.js
-D  scripts/test-sli-generate.py
-M scripts/test-uld-weight-api.js
+M docs/README.md
+M package.json
+M public/index.html
+M public/js/auth.js
+M public/js/main.js
+M scripts/fix-nav-order.js
+M scripts/sync-project-state.js
+M scripts/test-nav-order-frontend.js
+M server.js
+?? .dockerignore
+?? docs/design/hkia-cdp-testing-site.md
+?? hkia_cdp_testing_site_prd.md
+?? public/css/hkia-cdp.css
+?? public/js/hkia-cdp.js
+?? public/js/hkia-cdp/
+?? routes/hkia-cdp/
+?? scripts/test-hkia-cdp-api.js
+?? scripts/test-hkia-cdp-ui.js
+?? scripts/test-hkia-cdp.js
 ```
 
-## 📁 檔案清單（共 273 個檔案）
+## 📁 檔案清單（共 295 個檔案）
 
 ### (根目錄)
 
 - `.clineignore`（461 B）
+- `.dockerignore`（223 B）
 - `.gitattributes`（316 B）
-- `.gitignore`（1.1 KB）
-- `CLAUDE.md`（135.4 KB）
+- `.gitignore`（1.2 KB）
+- `CLAUDE.md`（141.1 KB）
 - `Dockerfile`（1.3 KB）
-- `PROJECT_MAP.md`（38.0 KB）
-- `README.md`（24.7 KB）
-- `WORKSPACE_STATE.md`（159.8 KB）
+- `PROJECT_MAP.md`（43.3 KB）
+- `README.md`（27.8 KB）
+- `WORKSPACE_STATE.md`（162.1 KB）
 - `database.db-shm`（32.0 KB）
 - `database.db-wal`（4031.5 KB）
-- `package.json`（2.2 KB）
-- `server.js`（7.1 KB）
+- `hkia_cdp_testing_site_prd.md`（17.6 KB）
+- `package.json`（2.4 KB）
+- `server.js`（7.5 KB）
 
 ### data/templates
 
@@ -114,10 +131,11 @@ M scripts/test-uld-weight-api.js
 
 ### docs
 
-- `docs/README.md`（2.8 KB）
+- `docs/README.md`（3.0 KB）
 
 ### docs/design
 
+- `docs/design/hkia-cdp-testing-site.md`（9.2 KB）
 - `docs/design/order-system-design.md`（9.6 KB）
 - `docs/design/uld-weight-phase2-handoff.md`（44.4 KB）
 - `docs/design/uld-weight-remaining-work.md`（46.9 KB）
@@ -127,7 +145,7 @@ M scripts/test-uld-weight-api.js
 
 ### public
 
-- `public/index.html`（36.2 KB）
+- `public/index.html`（37.5 KB）
 - `public/login.html`（8.5 KB）
 - `public/sli-eli-layout.html`（8.9 KB）
 - `public/users.html`（31.5 KB）
@@ -138,6 +156,7 @@ M scripts/test-uld-weight-api.js
 - `public/css/base.css`（3.8 KB）
 - `public/css/components.css`（10.3 KB）
 - `public/css/dbviewer.css`（15.6 KB）
+- `public/css/hkia-cdp.css`（16.1 KB）
 - `public/css/layout.css`（18.6 KB）
 - `public/css/loading-plan.css`（28.3 KB）
 - `public/css/loadsim.css`（26.4 KB）
@@ -157,13 +176,14 @@ M scripts/test-uld-weight-api.js
 ### public/js
 
 - `public/js/animations.js`（12.2 KB）
-- `public/js/auth.js`（25.6 KB）
+- `public/js/auth.js`（26.1 KB）
 - `public/js/chat.js`（1.7 KB）
 - `public/js/contours.js`（20.3 KB）
 - `public/js/dbviewer.js`（42.7 KB）
+- `public/js/hkia-cdp.js`（29.5 KB）
 - `public/js/loading-plan.js`（955 B）
 - `public/js/loadsim.js`（84.0 KB）
-- `public/js/main.js`（14.6 KB）
+- `public/js/main.js`（14.8 KB）
 - `public/js/orders.js`（418 B）
 - `public/js/skills.js`（1.0 KB）
 - `public/js/sli-eli-layout-editor.js`（16.9 KB）
@@ -179,6 +199,18 @@ M scripts/test-uld-weight-api.js
 - `public/js/xls-booking-state.js`（7.9 KB）
 - `public/js/xls-booking-upload.js`（2.6 KB）
 - `public/js/xls-booking-workflow.js`（13.9 KB）
+
+### public/js/hkia-cdp
+
+- `public/js/hkia-cdp/api.js`（2.4 KB）
+- `public/js/hkia-cdp/cto-validator.js`（16.7 KB）
+- `public/js/hkia-cdp/error-codes.js`（9.3 KB）
+- `public/js/hkia-cdp/flow.js`（29.8 KB）
+- `public/js/hkia-cdp/learn.js`（9.9 KB）
+- `public/js/hkia-cdp/presets.js`（9.5 KB）
+- `public/js/hkia-cdp/query.js`（10.1 KB）
+- `public/js/hkia-cdp/snippets.js`（3.3 KB）
+- `public/js/hkia-cdp/ui.js`（9.6 KB）
 
 ### public/js/loading-plan
 
@@ -275,6 +307,14 @@ M scripts/test-uld-weight-api.js
 - `routes/auth/middleware.js`（1.7 KB）
 - `routes/auth/users-router.js`（16.4 KB）
 
+### routes/hkia-cdp
+
+- `routes/hkia-cdp/http-client.js`（14.9 KB）
+- `routes/hkia-cdp/index.js`（25.1 KB）
+- `routes/hkia-cdp/mock.js`（13.7 KB）
+- `routes/hkia-cdp/signature.js`（2.4 KB）
+- `routes/hkia-cdp/store.js`（8.7 KB）
+
 ### routes/loading-plan
 
 - `routes/loading-plan/bus.js`（707 B）
@@ -310,10 +350,13 @@ M scripts/test-uld-weight-api.js
 - `scripts/sli-eli-font-optimize.py`（18.8 KB）
 - `scripts/sli-eli-generate.py`（15.2 KB）
 - `scripts/sli-eli-overlay.js`（41.5 KB）
-- `scripts/sync-project-state.js`（6.3 KB）
+- `scripts/sync-project-state.js`（6.4 KB）
 - `scripts/test-a4-integration.js`（4.5 KB）
 - `scripts/test-auth.js`（3.1 KB）
 - `scripts/test-customer-isolation.js`（7.0 KB）
+- `scripts/test-hkia-cdp-api.js`（23.6 KB）
+- `scripts/test-hkia-cdp-ui.js`（11.8 KB）
+- `scripts/test-hkia-cdp.js`（17.4 KB）
 - `scripts/test-loading-plan-api.js`（34.8 KB）
 - `scripts/test-loading-plan-calc.js`（13.7 KB）
 - `scripts/test-loading-plan-crd.js`（5.4 KB）

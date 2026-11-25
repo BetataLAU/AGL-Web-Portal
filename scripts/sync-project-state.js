@@ -36,6 +36,8 @@ const EXCLUDE_DIRS = new Set([
   // Shipper Role 本機產出（已列 .gitignore，不納入清單與快照比對）
   'data/work',
   'data/uploads',
+  // HKIA CDP 本機設定／歷史／憑證（含 clientSecret、.pem/.key；已列 .gitignore）
+  'data/hkia-cdp',
 ]);
 const EXCLUDE_FILES = new Set([
   'package-lock.json',

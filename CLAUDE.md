@@ -85,11 +85,13 @@
 | `server.js` | Express 入口，掛載全部 API 路由 |
 | `db/database.js` | SQLite 建表（含 orders 相容欄位自動補齊）、skills seed |
 | `routes/` | 後端 API 模組（見下方分節） |
+| `routes/hkia-cdp/` | **HKIA CDP 測試平台 BFF**：設定／`#001` Token／mTLS Proxy／Local Mock／`#409` 簽章／Webhook／SSE（見下方分節） |
 | `public/index.html` | 單一頁面 + 頂部工作列／目錄抽屜（含訂單 / Shipper Role / 模擬裝板 / ULD 夾重 / 資料庫區塊） |
 | `public/login.html`、`public/users.html` | 登入頁、使用者管理頁（admin） |
 | `public/css/` | base / layout / **topbar** / components / animations / orders / dbviewer / **loadsim** / **uld-weight** / **loading-plan** / xls-booking |
 | `public/css/utils/` | 通用元件樣式（modal / cbm-calculator / time-picker / autocomplete） |
-| `public/js/` | theme / animations / **topbar** / skills / contours / chat / orders / main / dbviewer / auth / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / **loading-plan（含 loading-plan/）** / xls-booking-* |
+| `public/js/` | theme / animations / **topbar** / skills / contours / chat / orders / main / dbviewer / auth / **loadsim（含 loadsim/）** / **uld-weight（含 uldweight/）** / **loading-plan（含 loading-plan/）** / xls-booking-* / **hkia-cdp.js** |
+| `public/js/hkia-cdp/` | **HKIA CDP 前端模組**：`cto-validator`／`error-codes`（前後端共用 UMD）、`presets`／`snippets`／`api`／`ui`／`flow`（Full/Lite Flow）／`query`／`learn` |
 | `public/js/utils/` | 通用工具（api / datetime / mawb / hawb / clipboard / modal / cbm / time-picker / autocomplete） |
 | `docs/README.md` | 文件索引與分類規則（根目錄只放現役導航文件） |
 | `docs/design/` | 現役設計文件：`order-system-design.md`、`xls-pdf-parallel-prd.md`、`uld-weight-system.md` |
@@ -110,6 +112,8 @@
 | `/api/orders` | `routes/orders/index.js` | 訂單系統（需登入，見下） |
 | `/api/uld-weight` | `routes/uld-weight.js` | ULD 夾重系統：bookings（Booking Record）/ sheets CRUD / duplicate / lock / apply（回寫 Booking）/ sync-bookings（補建 Booking，預設 dry_run）/ versions（歷史版本／異動比對）/ import-rcl（RCL 磅單）/ report.pdf（單張 A4 PDF）/ loading-sheet.pdf（單板 Loading Sheet，A4／MAWB·DEST·PCS·WT）/ batch-pdf（多張打包 ZIP，admin+staff，見下） |
 | `/api/xls-booking` | `routes/xls-booking.js` | Shipper Role 空運單據工具（需登入，見下） |
+| `/api/hkia-cdp` | `routes/hkia-cdp/index.js` | HKIA CDP 測試平台（**admin / staff**）：config／auth/test／lint／sign／proxy／history／refs／pending／mock/reset／health／events（SSE）／simulate-callback |
+| `/api/hkia-cdp/webhook` | `routes/hkia-cdp/index.js`（`webhookRouter`） | **公開**（可選 Basic Auth）：HKIA → 本平台的非同步 Callback（必須掛在受保護路由之前） |
 | `/api/loadsim` | `routes/loadsim.js` | 模擬裝板「雲端存檔」：plans CRUD（snapshot JSON ＋ 件數／重量／利用率彙總；admin+staff。模擬裝板本身免登入，存本機不需要這支 API） |
 | `/api/loading-plan` | `routes/loading-plan/index.js` | 執 PLAN：plans CRUD（＋PATCH 表頭）、**封存 `/plans/:id/archive`／RECALL `/plans/:id/recall`（`GET /plans?archived=1` 看封存清單）**、items 加入／搬移（Move 語意）／就地編輯／搬回存貨／複製／bulk（Excel 貼上）／reorder、`/stock`、`/bookings`＋placements、`/placements`、`/plans/:id/events`、**SSE `/events`**、`/events.json`（輪詢降級）、`/presence`（心跳／軟鎖）。**只需登入、不設角色**（實名登記） |
 | `/api/db` | `routes/dbviewer.js` | 資料庫檢視器（admin/staff only） |
@@ -315,6 +319,49 @@ Session-based 認證（express-session + bcryptjs），保護訂單系統與資�
 - 修正：`scripts/xls-exceljs-guard.js` 以 prototype patch 讓 `CellMatrix.addCellEx` 略過超過 `MAX_DEFINED_NAME_CELLS`（1,000,000 格）的範圍。
 - **凡讀取「使用者上傳檔案」的模組，最上方必須 `require` 本防護且早於 `require('exceljs')`**（目前：`routes/xls-booking.js`、`routes/xls-booking-helpers.js`、`scripts/xls-workflow.js`）。新增讀檔入口時請一併載入。
 - 實測同一檔案：4GB+（OOM）→ 約 22MB；工作表內容／欄列數不變。SLI/ELI 模板的 `Print_Area`（數百格）不受影響。
+
+## HKIA CDP 測試平台（routes/hkia-cdp/ + public/js/hkia-cdp/）
+
+香港機場貨運數據平台（CDP）RA / RACSF / TP Integration Service API v1.27 的測試工作台（PRD：根目錄
+`hkia_cdp_testing_site_prd.md`；實作紀錄：`docs/design/hkia-cdp-testing-site.md`）。側欄「HKIA CDP」 →
+`#section-hkia-cdp` + `#hkia-root`，**僅 admin / staff**（會用到公司憑證與 API Key；`main.js` 與 `auth.js` 都有限制）。
+
+- **BFF 是必要的**：瀏覽器不能做 mTLS、收不到 server-to-server Webhook。前端一律打 `/api/hkia-cdp/*`。
+- **後端**：`routes/hkia-cdp/{index,store,http-client,mock,signature}.js`
+  - `index.js`：config（遮罩 secret）／`/auth/test`（#001）／`/lint`／`/sign`（#409）／`/proxy`（#401–#416）／
+    history／refs／pending／mock-reset／health／events（SSE）／simulate-callback；另匯出 `webhookRouter`（公開）。
+  - `store.js`：`data/hkia-cdp/*.json`（config／history 上限 300／mock-state）＋ pending Map ＋ SSE clients；
+    **`HKIA_DATA_DIR`** 可完全隔離（測試用）；`clientSecret`／`webhookPass` 空字串＝維持原值、`null`＝清除。
+  - `http-client.js`：15 支 API 定義（#001、#401–#412、#415、#416）、`buildPath()` 自動選 `{ra_reference_id}` 或
+    `?cto_predeclaration_num=`／`?waybill_num=`、TLS 1.2 Agent、30 秒逾時、`#001` Token 快取（270 秒）、15 req/s 限流。
+  - `mock.js`：Local Mock（202 + 延遲 Callback；#411 用 pdf-lib 產真 PDF）；`scenario` 可模擬 `cto_reject` 等。
+  - `signature.js`：圖片 Base64 → SHA-256 → RSA-SHA256（`crypto.sign`）；> 4 MB 回 `IMAGE_TOO_LARGE`。
+- **前端**：`public/js/hkia-cdp.js`（入口 / 分頁 / 總覽 / 設定 / Callback 監控 / SSE）＋ `public/js/hkia-cdp/`
+  `cto-validator.js`、`error-codes.js`（**前後端共用 UMD**，後端 `require` 同一支）、`presets.js`、`snippets.js`、
+  `api.js`、`ui.js`、`flow.js`、`query.js`、`learn.js`。分頁：總覽 / Full Flow / Lite Flow / 查詢（#402／#406／#410／#411 PDF／#412
+  ＋ #403・#404・#407・#408 更新刪除）/ Callback 監控 / 設定 / 教學。
+- **#409 自動簽章**：`/proxy` 收到 `imageBase64` 且未帶 `imageSignature` → 用設定的 `.key` 簽章（SIT/Prod）；
+  Local Mock 沒 `.key` 時用**臨時金鑰**（僅為讓流程可跑）。也可單獨呼叫 `POST /sign`。
+- **Callback**：`POST /api/hkia-cdp/webhook`（公開，可選 Basic Auth）→ `invokeCallback()` 比對 `source_id`
+  ＝送出時的 `x-request-id`，寫歷史＋`broadcast('callback')` → 前端 SSE 即時顯示並高亮 `cto_errors`。
+  **路由順序**：`app.use('/api/hkia-cdp/webhook', …)` 必須在 `app.use('/api/hkia-cdp', requireAuth, …)` 之前。
+- **Production 保護**：`/proxy` 要 `confirmProd: true`；前端另有一次 `confirm`；環境切換到 prod 也會二次確認。
+- **歷史**：只存遮罩後的大檔（`imageBase64` / `encodedPdf` → `[omitted: n chars]`）；不污染主 SQLite。
+- **SIT（Air Global）已預填**：`data/hkia-cdp/config.json`（gitignored）＝ `env=sit`、`role=RA`、`clientId=hkiacargo-ra-ra020371`；
+  憑證 `data/hkia-cdp/certs/air_global_sit_2026.pem`（AAHK 簽發：`O=Air Global Limited`、`CN=61.238.133.218`，有效至 2027-11-17）；
+  **私鑰仍需放入 `air_global_sit_2026.key`**（申請 CSR 時產生的那一把）。`GET /config` 的 `mtls` 與 `GET /health` 的
+  `mTlsRequired / mTlsConfigured / mTlsIssues / mTlsCombinedPem` 會列出缺少的檔案；憑證資訊用 `crypto.X509Certificate` 解析。
+- **上傳防呆**：`POST /certs` 會檢查 PEM 內容（CSR ≠ 憑證、憑證 ≠ 私鑰）→ `CERT_FILE_INVALID` / `KEY_FILE_INVALID`；
+  合併式 `.pem`（CERTIFICATE ＋ PRIVATE KEY）可同時當 cert 與 key（未設 keyPath 時自動偵測）。
+  `.dockerignore` 已排除 `data/hkia-cdp`，避免把本機憑證／Secret 打進 Docker image。
+- **驗證**：`npm run test:hkia-cdp`（靜態＋validator／presets／錯誤碼／簽章／路徑／設定遮罩）、
+  `npm run test:hkia-cdp-api`（端對端：靜態資源、#001、#405、#401 202＋延遲 Callback、#409 簽章、#411 PDF、
+  Webhook Basic Auth、Prod 未確認 400、SIT 缺憑證 `CERT_REQUIRED`）、`npm run test:hkia-cdp-ui`（Chrome CDP 實際登入→
+  分頁→#405/#415→SSE Callback；找不到 Chrome/Edge 會 SKIP）；回歸 `test-nav-hierarchy`、`test-nav-order-frontend`、`test-topbar`。
+- **陷阱**：① 新增 `<script type="module">` 的頁面功能時，`setupXxxSection` 要在 `initProtectedSections` 之前完成註冊
+  （module 在 DOMContentLoaded 前執行，auth.js 的 fetch 是 async）；② 測試若設 `DATA_DIR` 會觸發 server.js 複製
+  `data/templates`（其中含檔名結尾空白的檔案，Windows 會 `EPERM`）→ 測試請用 `HKIA_DATA_DIR` 而不是 `DATA_DIR`；
+  ③ `EventSource` 不能處理 401 轉址，故 `/events` 維持受保護、SSE 失敗時 UI 顯示離線。
 
 ## 訂單系統（routes/orders/）
 

@@ -1,0 +1,271 @@
+/* ===== HKIA CDP Testing Site ===== */
+.hkia-card { max-width: none; }
+.hkia-shell { display: flex; flex-direction: column; gap: 14px; }
+
+/* 頂部狀態列 */
+.hkia-topbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+}
+.hkia-topbar-meta, .hkia-topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hkia-env {
+  font-weight: 700; font-size: 0.85rem; padding: 4px 10px; border-radius: 999px;
+  background: var(--primary-gradient); color: #fff;
+}
+.hkia-env--prod { background: linear-gradient(135deg, #dc2626, #f97316); }
+.hkia-env--sit { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.hkia-env--mock { background: linear-gradient(135deg, #475569, #94a3b8); }
+.hkia-token { font-size: 0.8rem; color: var(--text-muted); }
+.hkia-token.is-warn strong { color: #dc2626; }
+
+/* 分頁 */
+.hkia-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.hkia-tabs button {
+  border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main);
+  border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 0.86rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.hkia-tabs button:hover { transform: translateY(-1px); }
+.hkia-tabs button.active { background: var(--primary-gradient); color: #fff; border-color: transparent; }
+.hkia-panel { display: flex; flex-direction: column; gap: 14px; }
+
+/* 徽章 / 狀態 */
+.hkia-badge {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-color);
+  color: var(--text-muted); background: rgba(148, 163, 184, 0.12); white-space: nowrap;
+}
+.hkia-badge--ok { color: #15803d; border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.12); }
+.hkia-badge--error { color: #b91c1c; border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.12); }
+.hkia-badge--warn { color: #b45309; border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.14); }
+.hkia-badge--info { color: var(--primary); border-color: rgba(37, 99, 235, 0.4); background: rgba(37, 99, 235, 0.1); }
+.hkia-status { font-weight: 700; font-size: 0.78rem; padding: 2px 9px; border-radius: 999px; }
+.hkia-status--ok { color: #15803d; background: rgba(34, 197, 94, 0.14); }
+.hkia-status--error { color: #b91c1c; background: rgba(239, 68, 68, 0.14); }
+
+/* 卡片 */
+.hkia-cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.hkia-card {
+  display: flex; flex-direction: column; gap: 4px; padding: 14px;
+  border: 1px solid var(--border-color); border-radius: 14px; background: var(--card-bg);
+}
+.hkia-card small { color: var(--text-muted); font-size: 0.74rem; letter-spacing: 0.02em; }
+.hkia-card strong { font-size: 1.02rem; }
+.hkia-card .hkia-mini { align-self: flex-start; margin-top: 6px; }
+
+.hkia-mini {
+  border: 1px solid var(--border-color); background: transparent; color: var(--primary);
+  border-radius: 8px; padding: 3px 8px; font-size: 0.76rem; cursor: pointer;
+}
+.hkia-mini:hover { background: rgba(37, 99, 235, 0.1); }
+
+.hkia-h4 { margin: 6px 0 0; font-size: 0.98rem; }
+.hkia-muted { color: var(--text-muted); font-size: 0.84rem; }
+.hkia-mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 0.8rem; }
+.hkia-hidden { display: none; }
+
+/* 通用版面 */
+.hkia-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.hkia-flow-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.hkia-flow-head h3 { margin: 0; font-size: 1.05rem; }
+.hkia-inline { display: inline-flex; gap: 6px; align-items: center; font-size: 0.82rem; color: var(--text-muted); }
+.hkia-inline input, .hkia-inline select {
+  border: 1px solid var(--border-color); border-radius: 8px; padding: 5px 8px;
+  background: var(--input-bg); color: var(--text-main); font-size: 0.84rem;
+}
+.hkia-inline-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.hkia-note {
+  padding: 9px 12px; border-radius: 10px; font-size: 0.82rem;
+  background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.22); color: var(--text-main);
+}
+.hkia-note code, .hkia-kv code, .hkia-webhook-url code { word-break: break-all; }
+.hkia-note.is-ok {
+  background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.45); color: #14532d;
+}
+
+/* 表單 */
+.hkia-formgrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
+.hkia-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--text-muted); }
+.hkia-field.is-wide { grid-column: 1 / -1; }
+.hkia-field > span { display: flex; gap: 6px; align-items: baseline; }
+.hkia-field > span em { font-style: normal; font-size: 0.72rem; color: var(--text-muted); opacity: 0.85; }
+.hkia-field input, .hkia-field select, .hkia-field textarea, .hkia-search {
+  width: 100%; border: 1px solid var(--border-color); border-radius: 9px; padding: 7px 9px;
+  background: var(--input-bg); color: var(--text-main); font-size: 0.86rem; font-family: inherit;
+}
+.hkia-field input[type="checkbox"] { width: auto; }
+.hkia-field textarea { resize: vertical; }
+.hkia-field input:focus, .hkia-field select:focus, .hkia-field textarea:focus,
+.hkia-json-editor:focus, .hkia-search:focus { outline: 2px solid var(--surface-glow); border-color: var(--primary); }
+.hkia-json-editor {
+  width: 100%; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;
+  background: var(--input-bg); color: var(--text-main);
+  font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.8rem; line-height: 1.45;
+}
+.hkia-mode { display: inline-flex; border: 1px solid var(--border-color); border-radius: 999px; overflow: hidden; }
+.hkia-mode button { border: 0; background: transparent; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; color: var(--text-muted); }
+.hkia-mode button.active { background: var(--primary-gradient); color: #fff; }
+
+/* 步驟卡 */
+.hkia-stepcard {
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  border: 1px solid var(--border-color); border-radius: 14px; background: rgba(255, 255, 255, 0.35);
+}
+[data-theme="dark"] .hkia-stepcard { background: rgba(15, 23, 42, 0.35); }
+.hkia-stepcard > header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.92rem; }
+.hkia-step-no {
+  display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--primary-gradient); color: #fff; font-size: 0.85rem;
+}
+.hkia-upload { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.hkia-upload-preview {
+  width: 96px; height: 96px; border-radius: 10px; border: 1px dashed var(--border-color);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--input-bg);
+  font-size: 0.72rem; text-align: center; padding: 4px;
+}
+.hkia-upload-preview img { width: 100%; height: 100%; object-fit: cover; }
+.hkia-ref-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* 預檢 / 錯誤 */
+.hkia-lint {
+  border-radius: 10px; padding: 9px 12px; font-size: 0.82rem;
+  border: 1px solid var(--border-color); background: rgba(148, 163, 184, 0.08);
+}
+.hkia-lint.is-ok { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.1); color: #14532d; }
+.hkia-lint.is-error { border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.08); }
+.hkia-lint.is-warn { border-color: rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.1); }
+.hkia-lint strong { display: block; margin-bottom: 4px; }
+.hkia-lint ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.hkia-lint-item { list-style: none; margin-left: -18px; display: flex; gap: 6px; align-items: flex-start; }
+.hkia-lint-code {
+  font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.72rem; font-weight: 700;
+  padding: 1px 6px; border-radius: 6px; background: rgba(15, 23, 42, 0.12); white-space: nowrap;
+}
+.hkia-lint-msg em { display: block; font-style: normal; color: var(--text-muted); font-size: 0.76rem; }
+.hkia-lint code { background: rgba(15, 23, 42, 0.1); padding: 0 4px; border-radius: 4px; }
+.hkia-certinfo { margin: 6px 0 0; font-size: 0.74rem; line-height: 1.5; color: var(--text-muted); }
+
+/* 結果 */
+.hkia-result { border-radius: 12px; padding: 12px; border: 1px solid var(--border-color); background: var(--input-bg); }
+.hkia-result.is-ok { border-left: 4px solid #22c55e; }
+.hkia-result.is-error { border-left: 4px solid #ef4444; }
+.hkia-result-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 6px; }
+.hkia-result-title { font-weight: 600; font-size: 0.9rem; }
+.hkia-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 6px 0; font-size: 0.8rem; }
+.hkia-kv dt { color: var(--text-muted); }
+.hkia-kv dd { margin: 0; }
+.hkia-json { margin-top: 8px; font-size: 0.8rem; }
+.hkia-json summary { cursor: pointer; color: var(--text-muted); }
+.hkia-json pre, .hkia-code, .hkia-openssl pre {
+  margin: 6px 0 0; padding: 10px; border-radius: 8px; overflow: auto; max-height: 320px;
+  background: rgba(15, 23, 42, 0.06); font-size: 0.76rem; line-height: 1.45;
+  font-family: "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; word-break: break-word;
+}
+[data-theme="dark"] .hkia-json pre, [data-theme="dark"] .hkia-code, [data-theme="dark"] .hkia-openssl pre { background: rgba(2, 6, 23, 0.55); }
+.hkia-code-tabs { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.hkia-code-tab {
+  border: 1px solid var(--border-color); background: transparent; color: var(--text-muted);
+  border-radius: 8px; padding: 4px 10px; font-size: 0.76rem; cursor: pointer;
+}
+.hkia-code-tab.active { background: var(--primary-gradient); color: #fff; border-color: transparent; }
+.hkia-snippets summary { cursor: pointer; color: var(--primary); font-size: 0.82rem; }
+
+/* 表格 / API 清單 */
+.hkia-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.hkia-table th, .hkia-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+.hkia-table th { color: var(--text-muted); font-weight: 600; font-size: 0.76rem; }
+.hkia-table tr:hover td { background: rgba(148, 163, 184, 0.08); }
+.hkia-api-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.hkia-api-chip {
+  display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 10px;
+  border: 1px solid var(--border-color); background: var(--card-bg); font-size: 0.78rem;
+}
+.hkia-api-chip strong { font-size: 0.85rem; color: var(--primary); }
+.hkia-api-chip small { color: var(--text-muted); font-size: 0.7rem; }
+.hkia-api-chip.is-async { border-left: 3px solid #f59e0b; }
+
+/* Callback */
+.hkia-webhook-url {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 12px;
+  border-radius: 10px; border: 1px solid var(--border-color); background: rgba(148, 163, 184, 0.08);
+  font-size: 0.8rem;
+}
+.hkia-sim { border: 1px dashed var(--border-color); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.hkia-sim h4 { margin: 0; font-size: 0.9rem; }
+.hkia-cb {
+  border: 1px solid var(--border-color); border-radius: 12px; padding: 12px;
+  background: var(--card-bg); display: flex; flex-direction: column; gap: 6px;
+}
+.hkia-cb.is-error { border-left: 4px solid #ef4444; }
+.hkia-cb > header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* 教學 */
+.hkia-learn { display: flex; flex-direction: column; gap: 14px; }
+.hkia-learn-card { border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; background: var(--card-bg); }
+.hkia-learn-card h4 { margin: 0 0 8px; font-size: 0.98rem; }
+.hkia-learn-detail { margin-top: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(37, 99, 235, 0.08); font-size: 0.84rem; }
+.hkia-learn-detail p { margin: 4px 0 0; }
+.hkia-arch { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; }
+.hkia-arch-box {
+  flex: 1 1 150px; min-width: 140px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border-color); background: rgba(148, 163, 184, 0.1);
+  display: flex; flex-direction: column; gap: 2px; text-align: center;
+}
+.hkia-arch-box.is-primary { background: rgba(37, 99, 235, 0.12); border-color: rgba(37, 99, 235, 0.4); }
+.hkia-arch-box small { color: var(--text-muted); font-size: 0.72rem; line-height: 1.35; }
+.hkia-auth-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hkia-auth-order li { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; }
+.hkia-auth-order li > span {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: var(--primary-gradient);
+  color: #fff; font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center;
+}
+.hkia-auth-order p { margin: 2px 0 0; color: var(--text-muted); font-size: 0.8rem; }
+.hkia-flow-diagram { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.hkia-flow-node {
+  border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-main);
+  border-radius: 10px; padding: 7px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+  font-size: 0.78rem; text-align: left;
+}
+.hkia-flow-node:hover { border-color: var(--primary); box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12); }
+.hkia-flow-api { font-size: 0.7rem; font-weight: 700; color: var(--primary); }
+.hkia-flow-arrow { color: var(--text-muted); font-size: 0.9rem; }
+.hkia-three { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.hkia-three > div { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: rgba(148, 163, 184, 0.08); font-size: 0.82rem; }
+.hkia-three p { margin: 4px 0 0; color: var(--text-muted); font-size: 0.78rem; }
+.hkia-error-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 360px; overflow: auto; }
+.hkia-error-row { display: flex; gap: 10px; align-items: flex-start; padding: 7px 9px; border-radius: 8px; background: rgba(148, 163, 184, 0.08); font-size: 0.8rem; }
+.hkia-error-row code { font-weight: 700; color: var(--primary); white-space: nowrap; }
+.hkia-error-row p { margin: 2px 0 0; color: var(--text-muted); font-size: 0.76rem; }
+
+/* 設定 / OpenSSL */
+.hkia-openssl { display: flex; flex-direction: column; gap: 8px; }
+.hkia-openssl-row { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.hkia-openssl-row > div { flex: 1 1 auto; min-width: 0; }
+.hkia-openssl-row pre { margin-top: 4px; }
+
+/* PDF 預覽 */
+.hkia-pdf-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin: 10px 0 6px; }
+.hkia-pdf { width: 100%; height: 520px; border: 1px solid var(--border-color); border-radius: 10px; background: #fff; }
+
+/* Toast */
+.hkia-toast-host { position: fixed; right: 18px; bottom: 18px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+.hkia-toast {
+  padding: 9px 14px; border-radius: 10px; font-size: 0.84rem; color: #fff; background: #16a34a;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.25); transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.hkia-toast.is-error { background: #dc2626; }
+.hkia-toast.is-out { opacity: 0; transform: translateY(6px); }
+
+/* 更新 / 刪除（#403 #404 #407 #408） */
+.hkia-more { border: 1px dashed var(--border-color); border-radius: 12px; padding: 10px 12px; }
+.hkia-more summary { cursor: pointer; color: var(--primary); font-size: 0.84rem; font-weight: 600; }
+.hkia-more .hkia-formgrid { margin-top: 8px; }
+
+/* 響應式 */
+@media (max-width: 900px) {
+  .hkia-formgrid { grid-template-columns: 1fr; }
+  .hkia-kv { grid-template-columns: 1fr; }
+  .hkia-pdf { height: 420px; }
+  .hkia-flow-head { flex-direction: column; align-items: flex-start; }
+}

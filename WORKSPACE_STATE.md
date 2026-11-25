@@ -7,6 +7,15 @@
 
 - **最後 commit**：`a7e17b9` feat(topbar): 目錄與搜尋合併成同一圓角膠囊；Contour 搜尋欄焦點圓角＋② 預覽表頭分層 sticky
 - **目前分支**：main（github.com/BetataLAU/AGL-Web-Portal）
+- **2026-11-25：新增「HKIA CDP」模組（NAV item ＋ 測試平台）**：依 `hkia_cdp_testing_site_prd.md` 在 Portal 內實作（Vanilla JS，無 build step）。
+  - 側欄 `#nav-hkia-cdp`（**admin / staff**）→ `#section-hkia-cdp`；分頁：總覽／Full Flow（#405→#409→#401）／Lite Flow（#415／#416）／查詢（#402・#406・#410・#411 PDF・#412＋#403・#404・#407・#408）／Callback 監控／設定／教學。
+  - 後端 `routes/hkia-cdp/`：`#001` Token 快取（270 秒）＋mTLS（TLS 1.2／30 秒）＋15 req/s 限流、15 支 API 路徑組裝、Local Mock（202＋延遲 Callback、`scenario` 可模擬拒絕／逾時、#411 真 PDF）、`#409` SHA-256 + RSA-SHA256 自動簽章、公開 Webhook（可選 Basic Auth）＋SSE、歷史／單號（`data/hkia-cdp/*.json`，上限 300）。
+  - 共用：`public/js/hkia-cdp/cto-validator.js`（AAT／CPSL／HACTL＋Seal 規則）與 `error-codes.js`（CDP_／GLS_／HACTL／HTTP）**前後端同一支**。
+  - 安全：`clientSecret`／`apiKey`／`webhookPass` 一律遮罩；空字串＝不變更、`null`＝清除；Production 需 `confirmProd`；SIT 缺憑證直接 `CERT_REQUIRED`。
+  - 導覽：`scripts/fix-nav-order.js` 的 `DEFAULT_ORDER` 加 `#section-hkia-cdp`（並補上原本漏掉的 `#section-loading-plan`）；`scripts/test-nav-order-frontend.js` stub 與 A2 期望同步更新。
+  - 驗證：`npm run test:hkia-cdp`（72 項）、`npm run test:hkia-cdp-api`（64 項）、`npm run test:hkia-cdp-ui`（Chrome CDP 26 項）全通過；回歸 `test-nav-hierarchy`／`test-nav-order-frontend`／`test-topbar`。
+  - **SIT（Air Global）設定已預填（2026-11-25）**：`data/hkia-cdp/config.json`（gitignored）＝ `env=sit`／`role=RA`／`clientId=hkiacargo-ra-ra020371`；憑證 `air_global_sit_2026.pem`（`O=Air Global Limited`、`CN=61.238.133.218`，有效至 2027-11-17）已放置，**尚缺私鑰 `air_global_sit_2026.key`**（申請 CSR 時產生）。新增 `mtlsStatus()`（合併式 `.pem` 自動偵測、`crypto.X509Certificate` 顯示 subject／有效期限）＋ `/certs` PEM 內容防呆（CSR≠憑證、憑證≠私鑰）；`GET /config`／`GET /health` 會回報缺少哪個檔案。
+  - 文件：`docs/design/hkia-cdp-testing-site.md`（實作紀錄）、`CLAUDE.md`／`PROJECT_MAP.md`／`docs/README.md`；`.gitignore` 加 `data/hkia-cdp/`。
 - **2026-11-21：打板計劃模組已整個移除**（`routes/pallet.js`、`public/js/pallet/*`、`public/css/pallet.css`、`#section-palletization`、`/api/pallet`，以及 `pallet_plans`／`pallet_plan_items`／`spl_codes`／`remark_templates` 的建表與 seed）。`mawb_records` 保留為共用的 Booking Record（由「執 PLAN」與「ULD 夾重」維護）；以下歷史紀錄提到的打板計劃屬當時狀態。
 - **2026-11-24：測試程式碼清理（方案 A，低風險）**：刪除 `scripts/test-cnee-lookup.js`（fixture `data/uploads/b2719b93a5db.xlsx` 不存在、不可重現）、`scripts/test-pdf-a4.js`（需 `data/test-sli-job`，已由 `scripts/test-a4-integration.js` 覆蓋）、`scripts/test-sli-generate.py`（需 Windows＋Excel COM，已由 `test-a4-integration.js` 覆蓋）、`scripts/fill-sli-eli.py`（無呼叫者的死碼）。
   - **修正** `scripts/test-uld-weight-api.js` 的 MAWB fixture：`160-00000777`／`160-00008888`／`160-00000005`／`160-00000006`／`160-00000071`～`73` 不符 mod 7 檢查碼（commit `668175a` 對 `POST /api/loading-plan/bookings` 加嚴格驗證後 18 項 FAIL）→ 改為 `160-0000 0770`／`160-0000 8886`／`160-0000 0011`／`160-0000 0022`／`160-0000 0070`／`160-0000 0081`／`160-0000 0092`（canonical `160-XXXX XXXX` 格式），現 **全部通過**。

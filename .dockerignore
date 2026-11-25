@@ -1,0 +1,3 @@
+# HKIA CDP 本機設定／歷史／憑證（含 clientSecret、.pem/.key）→ 不進 Docker image
+# （正式環境請在 Volume 內用 UI 或環境設定重新填入；data/hkia-cdp/ 已列 .gitignore）
+data/hkia-cdp

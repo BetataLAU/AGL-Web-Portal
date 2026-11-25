@@ -24,8 +24,10 @@ const DEFAULT_ORDER = [
   '#section-orders',
   '#section-xls-booking',
   'sli-eli-layout.html',
+  '#section-loading-plan',
   '#section-loadsim',
   '#section-uld-weight',
+  '#section-hkia-cdp',
   '#section-dbviewer',
   'users.html'
 ];

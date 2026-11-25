@@ -20,6 +20,7 @@
 | `docs/design/uld-weight-system.md` | **ULD 夾重系統**設計文件（規則／演算法驗算／資料模型／API／UI／限制） |
 | `docs/design/uld-weight-phase2-handoff.md` | **ULD 夾重系統 Phase 2 交接**：W1～W5／R1～R4 已完成紀錄、待決 D1～D6、陷阱、驗證指令、新對話提示詞 |
 | `docs/design/uld-weight-remaining-work.md` | **ULD 夾重系統「未完成工作」交接**（Phase 3）：R1～R4＋V1／V2／V3 已完成清單、V4 選用項、D3／D5／D6、新陷阱、驗證指令 |
+| `docs/design/hkia-cdp-testing-site.md` | **HKIA CDP API 測試平台**實作紀錄（2026-11；BFF／Mock／#409 簽章／Webhook／SSE／CTO 預檢／檔案地圖／限制／驗證指令） |
 | `scripts/uld-weight-report-pdf.js` | **夾重表 PDF（R1）**：`buildUldWeightReportPdf()`（A4 直式／CJK 子集／每板不跨頁）；`--selftest` 免伺服器自檢 |
 | `scripts/test-uld-weight-calc.js` | 夾重計算邏輯測試（CASE 1–4／多票比例／取整／檢核／拆分／Booking 彙總／比例上下限，101 項） |
 | `scripts/test-uld-weight-rcl.js` | RCL 磅單解析測試（表頭偵測／欄位對應／略過規則，28 項） |
@@ -69,6 +70,11 @@
 | `xls-booking.js` | **Shipper Role 空運單據 API**：upload / preview / cnee-preview / process（非同步 job）/ status / cancel / download / report-template / cleanup；掛載 `/layout`（版面編輯器） |
 | `xls-booking-helpers.js` | xls-booking 共用：DATA_DIR 路徑、Multer、upload session / job Map、讀檔工具 |
 | `xls-booking-layout.js` | **SLI/ELI 版面編輯器 API（P5）**：`GET /layout`（fieldmap／預設／樣本／備份／canEdit）、`PUT /layout`（admin/staff，驗證＋自動備份＋寫檔）、`POST /layout/reset`、`POST /layout/preview`（草稿排版＋可選測試 PDF）、`GET /layout/backups`、`GET /layout/background/:page` |
+| `hkia-cdp/index.js` | **HKIA CDP 測試平台**：config／`#001`／lint／sign／proxy（#401–#416）／history／refs／pending／mock-reset／health／events（SSE）／simulate-callback；另匯出公開的 `webhookRouter` |
+| `hkia-cdp/store.js` | 設定／歷史／Mock 狀態 JSON（`data/hkia-cdp/`，`HKIA_DATA_DIR` 可隔離）、機密遮罩、pending、SSE clients |
+| `hkia-cdp/http-client.js` | 15 支 API 定義／`buildPath()`／mTLS（TLS 1.2；合併式 `.pem` 自動偵測）／30 秒逾時／Token 快取／15 req/s 限流／`mtlsStatus()`（憑證 subject・有效期限用 `crypto.X509Certificate` 解析） |
+| `hkia-cdp/mock.js` | Local Mock（202＋延遲 Callback；#411 真 PDF；`scenario` 可模擬拒絕／逾時） |
+| `hkia-cdp/signature.js` | #409 SHA-256 + RSA-SHA256 簽章（> 4 MB 擋下） |
 | `dbviewer.js` | 資料庫檢視器：`isAllowedTable` 白名單保護；單筆/批次編輯與刪除 |
 
 ### 前端 `public/`
@@ -107,6 +113,17 @@
 | `js/sli-eli-layout-editor.js` | SLI/ELI 版面編輯器：畫布渲染、拖曳縮放、鍵盤、屬性面板、Undo/Redo |
 | `js/sli-eli-layout-main.js` | SLI/ELI 版面編輯器：入口、工具列、儲存／還原／測試 PDF、PDF modal |
 | `sli-eli-layout.html` | SLI/ELI 版面編輯器獨立頁（Shipper Role Project 的**子功能**，側欄縮排＋「子功能」標籤；底圖拖曳編輯） |
+| `js/hkia-cdp.js` | **HKIA CDP 測試平台**入口（分頁／總覽／設定／Callback 監控／SSE／Token 倒數） |
+| `js/hkia-cdp/cto-validator.js` | **CTO 預檢（前後端共用 UMD）**：AAT／CPSL／HACTL 規則＋Seal 格式 |
+| `js/hkia-cdp/error-codes.js` | **錯誤碼字典（前後端共用 UMD）**：CDP_／GLS_／HACTL 數字碼／HTTP 狀態 |
+| `js/hkia-cdp/presets.js` | 測試情境範本（8 個）、UUID／RFC 3339、ULD 文字解析 |
+| `js/hkia-cdp/snippets.js` | cURL／JavaScript／Python 片段 |
+| `js/hkia-cdp/api.js` | 前端 API 層＋檔案轉 Base64 |
+| `js/hkia-cdp/ui.js` | 共用 UI（lint／result／snippets／toast／field） |
+| `js/hkia-cdp/flow.js` | Full Flow（#405→#409→#401）＋ Lite Flow（#415／#416）精靈 |
+| `js/hkia-cdp/query.js` | 查詢（#402／#406／#410／#411 PDF 預覽／#412）＋單號下拉 |
+| `js/hkia-cdp/learn.js` | 互動教學（架構／認證／Flow／Async／JSON 沙盒／錯誤碼搜尋） |
+| `css/hkia-cdp.css` | HKIA CDP 樣式 |
 | `css/xls-booking.css` | XLS Booking 樣式 |
 | `css/sli-eli-layout.css` | SLI/ELI 版面編輯器樣式 |
 | `login.html` | 登入頁（原生 fetch 呼叫 /api/auth） |
@@ -300,6 +317,46 @@ created_at, updated_at
 ---
 
 
+
+## 3.8 HKIA CDP 測試平台（routes/hkia-cdp/ + public/js/hkia-cdp/）
+
+香港機場貨運數據平台 Integration Service API v1.27 的測試工作台（側欄「HKIA CDP」，**僅 admin / staff**）。
+詳細：`docs/design/hkia-cdp-testing-site.md`；PRD：根目錄 `hkia_cdp_testing_site_prd.md`。
+
+- 架構：瀏覽器 → BFF（本專案，處理 mTLS／Token／簽章／Webhook）→ HKIA Gateway → CTO（AAT／CPSL／HACTL）；
+  Local Mock 由後端在 process 內模擬，不需要憑證。
+- 狀態儲存：`data/hkia-cdp/config.json`、`history.json`（上限 300）、`mock-state.json`、`certs/`（整包 gitignored）；
+  `HKIA_DATA_DIR` 可完全隔離（測試用）。
+- 前端分頁：總覽 / Full Flow（#405→#409→#401）/ Lite Flow（#415／#416）/ 查詢（#402／#406／#410／#411 PDF／#412
+  ＋ #403・#404・#407・#408）/ Callback 監控 / 設定 / 教學。
+
+| Method | Path | 說明 |
+|---|---|---|
+| GET / PUT | `/api/hkia-cdp/config` | 讀取（機密遮罩＋`mtls` 憑證狀態）／儲存（空字串＝不變更、`null`＝清除） |
+| POST | `/api/hkia-cdp/certs` | 上傳 `.pem`／`.key`（`kind=cert` 或 `key`）→ 檢查 PEM 內容後存 `data/hkia-cdp/certs/` |
+| POST | `/api/hkia-cdp/auth/test` | `#001`（Mock 回假 JWT；SIT/Prod 走 mTLS） |
+| POST | `/api/hkia-cdp/lint` | CTO 預檢（與前端同一支 validator） |
+| POST | `/api/hkia-cdp/sign` | `#409` SHA-256 + RSA-SHA256 |
+| POST | `/api/hkia-cdp/proxy` | `{ api, params, body, env?, scenario?, autoSign?, confirmProd? }`；統一回 `{ok,status,response,lint,callback,errors}` |
+| GET / DELETE | `/api/hkia-cdp/history` | 歷史（`?type=` 可選 api／callback／auth；DELETE 清空） |
+| GET | `/api/hkia-cdp/refs` | 已建立單號（Export Order／Pre-Declaration／MAWB） |
+| GET | `/api/hkia-cdp/pending` | 等待 Callback 的請求 |
+| POST | `/api/hkia-cdp/mock/reset` | 清空 Mock 單號／影像 |
+| GET | `/api/hkia-cdp/health` | 環境／`mTls*` 狀態／憑證問題／Token／pending／SSE／限流 |
+| GET | `/api/hkia-cdp/events` | SSE（`history`／`callback`／`token`／`mock-reset`） |
+| POST | `/api/hkia-cdp/simulate-callback` | 手動模擬 Callback（admin/staff） |
+| POST | `/api/hkia-cdp/webhook` | **公開**（可選 Basic Auth）；HKIA → 本平台 |
+
+- **路由順序**：`/api/hkia-cdp/webhook` 必須掛在 `/api/hkia-cdp`（`requireRole('admin','staff')`）之前（`server.js` 已處理）。
+- **SIT 已預填（Air Global）**：設定在 `data/hkia-cdp/config.json`（gitignored）；`GET /config` 回 `mtls`
+  （`ok / issues / certInfo`）、`GET /health` 回 `mTlsRequired / mTlsConfigured / mTlsIssues / mTlsCombinedPem`。
+  憑證 `air_global_sit_2026.pem` 已放置，私鑰 `air_global_sit_2026.key` 仍需補上；`POST /certs` 會檢查 PEM 內容
+  （CSR／憑證／私鑰不可混用），支援「憑證＋私鑰」合併的 `.pem`。
+- **Production**：`/proxy` 需 `confirmProd: true`（前端另有 confirm）；環境切換也會二次確認。
+- **測試**：`npm run test:hkia-cdp`、`npm run test:hkia-cdp-api`、`npm run test:hkia-cdp-ui`（需 Chrome/Edge，找不到會 SKIP）；
+  回歸 `node scripts/test-nav-hierarchy.js`、`node scripts/test-nav-order-frontend.js`、`npm run test:topbar`。
+
+---
 
 ## 4. 前端重點
 

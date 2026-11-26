@@ -235,6 +235,29 @@ function payload(overrides) {
   const stAfter = hk.mtlsStatus({ certPath: certOnly, keyPath: lateKey });
   check('H7 補上 key 檔後立即偵測到（快取依 mtime/size 失效）', stBefore.ok === false && stAfter.ok === true);
 
+  // ---- I. API 下拉顯示功能名稱（#402 Retrieve Pre-Declaration…）----
+  const uiMod = await import(pathToFileURL(path.join(ROOT, 'public', 'js', 'hkia-cdp', 'ui.js')).href);
+  const queryMod = await import(pathToFileURL(path.join(ROOT, 'public', 'js', 'hkia-cdp', 'query.js')).href);
+  const emptyRefs = { exportOrders: [], preDeclarations: [], mawbs: [] };
+  const queryHtml = queryMod.renderQuery(queryMod.createQueryState(), emptyRefs);
+  check('I1 查詢頁 API 下拉 option 顯示「#402 Retrieve Pre-Declaration」',
+    /<option value="#402"[^>]*>#402 Retrieve Pre-Declaration<\/option>/.test(queryHtml));
+  check('I2 五個查詢 API 的 option 都帶功能名稱',
+    queryMod.QUERY_APIS.every((q) => queryHtml.indexOf(`>${q.label}</option>`) !== -1));
+  check('I3 更新 / 刪除下拉（#403 / #404 / #407 / #408）也帶功能名稱',
+    queryMod.MAINT_APIS.every((m) => new RegExp(`<option value="${m.api}"[^>]*>${m.label}</option>`).test(queryHtml)));
+  const pickedMaint = Object.assign(queryMod.createQueryState(), { maintApi: '#407' });
+  check('I4 送出按鈕顯示目前 API 的功能名稱',
+    queryMod.renderQuery(pickedMaint, emptyRefs).indexOf('送出 #407 Update Export Order') !== -1);
+  const objField = uiMod.field('API', 'demo', '/api/x', { type: 'select', options: [{ value: '/api/x', label: 'GET /api/x 說明' }] });
+  check('I5 field() select 支援 { value, label }（顯示文字與 value 分離）',
+    objField.indexOf('<option value="/api/x" selected>GET /api/x 說明</option>') !== -1, objField);
+  check('I6 field() select 仍接受字串選項（向下相容）',
+    uiMod.field('X', 'y', 'a', { type: 'select', options: ['a', 'b'] }).indexOf('<option value="a" selected>a</option>') !== -1);
+  const flowSrc = fs.readFileSync(path.join(ROOT, 'public', 'js', 'hkia-cdp', 'flow.js'), 'utf8');
+  check('I7 程式碼片段 API 下拉（#405 / #409 / #401 / #415 / #416）帶功能名稱',
+    (flowSrc.match(/esc\(apiTitle\(api\)\)/g) || []).length === 2 && /'#415': 'Create Lite Pre-Declaration'/.test(flowSrc));
+
   console.log(`\n===== ${failed === 0 ? '全部通過' : `${failed} 項失敗`} =====`);
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (err) { /* ignore */ }
   process.exit(failed === 0 ? 0 : 1);

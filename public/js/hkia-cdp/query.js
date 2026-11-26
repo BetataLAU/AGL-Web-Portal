@@ -9,6 +9,20 @@ export const QUERY_APIS = [
   { api: '#412', label: '#412 Retrieve Flight Departure', params: ['ra_reference_id', 'cto_predeclaration_num', 'waybill_num'] }
 ];
 
+// 更新／刪除面板：下拉同樣顯示「#403 Update Pre-Declaration」這樣的功能名稱
+export const MAINT_APIS = [
+  { api: '#403', label: '#403 Update Pre-Declaration' },
+  { api: '#404', label: '#404 Delete Pre-Declaration' },
+  { api: '#407', label: '#407 Update Export Order' },
+  { api: '#408', label: '#408 Delete Export Order' }
+];
+
+// 「#402 Retrieve Pre-Declaration」：下拉、提示與按鈕都帶上 API 功能名稱
+const apiTitle = (api) => {
+  const hit = QUERY_APIS.find((q) => q.api === api) || MAINT_APIS.find((m) => m.api === api);
+  return hit ? hit.label : api;
+};
+
 const PARAM_LABEL = {
   ra_reference_id: 'ra_reference_id',
   cto_predeclaration_num: 'cto_predeclaration_num',
@@ -46,7 +60,7 @@ export function renderQuery(state, refs) {
       ${badge(`已建立 ${(refs.exportOrders || []).length} 張 Export Order / ${(refs.preDeclarations || []).length} 張 Pre-Declaration`, 'info')}
     </div>
     <div class="hkia-query-bar">
-      ${field('API', 'queryApi', state.api, { type: 'select', options: QUERY_APIS.map((q) => q.api) })}
+      ${field('API', 'queryApi', state.api, { type: 'select', options: QUERY_APIS.map((q) => ({ value: q.api, label: q.label })) })}
       <label class="hkia-field is-wide"><span>快速帶入單號</span>
         <select data-ref-picker>${refOptions(state, refs)}</select>
       </label>
@@ -54,7 +68,7 @@ export function renderQuery(state, refs) {
     <div class="hkia-formgrid">
       ${def.params.map((key) => field(PARAM_LABEL[key] || key, `q.${key}`, state.values[key] || '', { placeholder: key === 'waybill_num' ? '160-1234 5678' : '' })).join('')}
     </div>
-    <p class="hkia-muted">提示：${esc(def.api)} 只需要其中一組參數即可；本平台會自動選擇符合的 Endpoint 形式。</p>
+    <p class="hkia-muted">提示：${esc(apiTitle(def.api))} 只需要其中一組參數即可；本平台會自動選擇符合的 Endpoint 形式。</p>
     <div class="hkia-actions">
       <button type="button" class="pill btn-primary" data-action="query-send">送出查詢</button>
       <button type="button" class="pill" data-action="query-clear">清除</button>
@@ -63,16 +77,16 @@ export function renderQuery(state, refs) {
     <div data-pdf-viewer></div>
 
     <details class="hkia-more">
-      <summary>更新 / 刪除（#403 · #404 · #407 · #408）</summary>
-      <p class="hkia-muted">#403 / #404 用 ra_reference_id；#407 / #408 用 export_order_reference_num。DELETE 可留空 body。</p>
+      <summary>更新 / 刪除（#403 · #404 · #407 · #408）：Update / Delete Pre-Declaration &amp; Export Order</summary>
+      <p class="hkia-muted">#403 Update Pre-Declaration／#404 Delete Pre-Declaration 用 ra_reference_id；#407 Update Export Order／#408 Delete Export Order 用 export_order_reference_num。DELETE 可留空 body。</p>
       <div class="hkia-formgrid">
         <label class="hkia-field"><span>API</span><select data-maint-api>
-          ${['#403', '#404', '#407', '#408'].map((api) => `<option value="${api}" ${state.maintApi === api ? 'selected' : ''}>${api}</option>`).join('')}
+          ${MAINT_APIS.map((item) => `<option value="${esc(item.api)}" ${state.maintApi === item.api ? 'selected' : ''}>${esc(item.label)}</option>`).join('')}
         </select></label>
         <label class="hkia-field is-wide"><span>參考單號</span><input type="text" data-maint-ref value="${esc(state.maintRef)}" placeholder="ra_reference_id 或 export_order_reference_num"></label>
         <label class="hkia-field is-wide"><span>Request body（JSON）</span><textarea rows="4" data-maint-body>${esc(state.maintBody)}</textarea></label>
       </div>
-      <div class="hkia-actions"><button type="button" class="pill" data-action="maint-send">送出 ${esc(state.maintApi)}</button></div>
+      <div class="hkia-actions"><button type="button" class="pill" data-action="maint-send">送出 ${esc(apiTitle(state.maintApi))}</button></div>
       <div data-result="maint">${resultHtml(state.maintResult)}</div>
     </details>
   </div>`;
@@ -125,7 +139,7 @@ export function mountQuery(root, ctx) {
     if (target.matches('[data-maint-api]')) {
       state.maintApi = target.value;
       const button = scope.querySelector('[data-action="maint-send"]');
-      if (button) button.textContent = `送出 ${state.maintApi}`;
+      if (button) button.textContent = `送出 ${apiTitle(state.maintApi)}`;
       return;
     }
     if (target.hasAttribute && target.hasAttribute('data-field')) {

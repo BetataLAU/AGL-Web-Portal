@@ -174,6 +174,8 @@ if (!CHROME) {
 
     await evaluate('document.querySelector(\'[data-tab="query"]\').click()');
     check('切到查詢頁且有單號下拉', await waitFor('!!document.querySelector(\'[data-scope="query"] [data-ref-picker]\')'));
+    check('查詢頁 API 下拉顯示功能名稱（#402 Retrieve Pre-Declaration）',
+      await evaluate('(() => { const s = document.querySelector(\'[data-field="queryApi"]\'); if (!s) return false; return Array.from(s.options).some((o) => o.value === "#402" && /#402 Retrieve Pre-Declaration/.test(o.textContent)); })()'));
     await evaluate(`(() => { const s = document.querySelector('[data-field="queryApi"]'); s.value = '#406'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
     await waitFor('document.querySelector(\'[data-field="queryApi"]\').value === "#406"');
     check('查詢頁（#406）下拉已帶入剛才的 Export Order',

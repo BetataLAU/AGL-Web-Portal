@@ -184,10 +184,21 @@ export function setPath(obj, path, value) {
   return obj;
 }
 
+// select 的選項可傳字串，或 { value, label }（label 用來多顯示 API 名稱／功能說明）
+export function optionParts(opt) {
+  if (opt && typeof opt === 'object') {
+    return { value: opt.value, label: opt.label === undefined || opt.label === null ? opt.value : opt.label };
+  }
+  return { value: opt, label: opt };
+}
+
 export const field = (label, name, value, options = {}) => `<label class="hkia-field ${options.wide ? 'is-wide' : ''}">
   <span>${esc(label)}${options.hint ? `<em>${esc(options.hint)}</em>` : ''}</span>
   ${options.type === 'select'
-    ? `<select data-field="${esc(name)}">${(options.options || []).map((opt) => `<option value="${esc(opt)}" ${String(value === undefined ? '' : value) === String(opt) ? 'selected' : ''}>${esc(opt)}</option>`).join('')}</select>`
+    ? `<select data-field="${esc(name)}">${(options.options || []).map((raw) => {
+      const opt = optionParts(raw);
+      return `<option value="${esc(opt.value)}" ${String(value === undefined ? '' : value) === String(opt.value) ? 'selected' : ''}>${esc(opt.label)}</option>`;
+    }).join('')}</select>`
     : options.type === 'textarea'
       ? `<textarea rows="${options.rows || 3}" data-field="${esc(name)}" placeholder="${esc(options.placeholder || '')}">${esc(value)}</textarea>`
       : options.type === 'checkbox'

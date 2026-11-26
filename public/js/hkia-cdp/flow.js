@@ -6,6 +6,17 @@ import { buildAll } from './snippets.js';
 import { fileToBase64 } from './api.js';
 
 const Val = () => window.HkiaCtoValidator;
+
+// 「程式碼片段 API」下拉除了 #xxx 也顯示功能名稱（與查詢頁一致）
+const API_TITLE = {
+  '#401': 'Create Pre-Declaration',
+  '#405': 'Create Export Order',
+  '#409': 'Upload Screening Image',
+  '#415': 'Create Lite Pre-Declaration',
+  '#416': 'Delete MAWB'
+};
+const apiTitle = (api) => (API_TITLE[api] ? `${api} ${API_TITLE[api]}` : api);
+
 const numOrBlank = (value) => {
   const s = String(value === undefined || value === null ? '' : value).trim();
   if (!s) return '';
@@ -153,7 +164,7 @@ export function renderFull(state) {
     <div class="hkia-snippets-wrap">
       <label class="hkia-inline">程式碼片段 API
         <select data-snippet-api>
-          ${['#405', '#409', '#401'].map((api) => `<option value="${api}" ${state.snippetApi === api ? 'selected' : ''}>${api}</option>`).join('')}
+          ${['#405', '#409', '#401'].map((api) => `<option value="${api}" ${state.snippetApi === api ? 'selected' : ''}>${esc(apiTitle(api))}</option>`).join('')}
         </select>
       </label>
       ${snippetsHtml({ curl: '', javascript: '', python: '' })}
@@ -505,7 +516,7 @@ export function renderLite(state) {
     <div class="hkia-snippets-wrap">
       <label class="hkia-inline">程式碼片段 API
         <select data-snippet-api>
-          ${['#415', '#416'].map((api) => `<option value="${api}" ${state.snippetApi === api ? 'selected' : ''}>${api}</option>`).join('')}
+          ${['#415', '#416'].map((api) => `<option value="${api}" ${state.snippetApi === api ? 'selected' : ''}>${esc(apiTitle(api))}</option>`).join('')}
         </select>
       </label>
       ${snippetsHtml({ curl: '', javascript: '', python: '' })}

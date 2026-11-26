@@ -39,9 +39,9 @@ PRD 假設獨立新專案（React + Vite + Node/Python BFF）。**本專案是 V
 | `presets.js` | 8 個測試情境（Bulk→AAT/CPSL/HACTL、Prepack、Mix-prepack、Lite×3）、UUID / RFC 3339、ULD 文字解析 |
 | `snippets.js` | cURL / JavaScript / Python 片段（含 `--cert` / `--key` / `tlsv1.2`） |
 | `api.js` | 前端 API 層（`window.apiFetch`）＋檔案轉 Base64 |
-| `ui.js` | 共用 UI（esc／lint／result／snippets／toast／field） |
+| `ui.js` | 共用 UI（esc／lint／result／snippets／toast／field；`field()` 的 select 選項支援 `{ value, label }`，值與顯示文字可分離） |
 | `flow.js` | Full Flow（#405 → #409 → #401）與 Lite Flow（#415 / #416）精靈；表單／JSON 雙模式、即時預檢 |
-| `query.js` | #402 / #406 / #410 / #411 / #412 查詢、單號下拉、RCL Base64 PDF 預覽＋下載；另附 #403／#404／#407／#408 更新／刪除面板 |
+| `query.js` | #402 / #406 / #410 / #411 / #412 查詢（API 下拉同時顯示 `#xxx` 與功能名稱）、單號下拉、RCL Base64 PDF 預覽＋下載；另附 #403／#404／#407／#408 更新／刪除面板 |
 | `learn.js` | 互動教學：架構圖、認證順序、Flow 對照、Async 說明、JSON 沙盒（即時預檢）、錯誤碼搜尋 |
 
 ### 其他

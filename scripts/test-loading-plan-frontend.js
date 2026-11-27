@@ -288,11 +288,19 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     srow.includes('G.W') && srow.includes('VOL'));
   const srowCrd = render.stockRow(Object.assign({}, item, { cargo_receipt: '2026-11-14' }),
     stockPlan, 0, { selectedSet: new Set() });
-  check('5.24 存貨列在 VOL 右邊顯示 CRD（DDMMM）', (() => {
-    const volIdx = srowCrd.indexOf('VOL ');
+  check('5.24 存貨列的 CRD 固定在每筆右下角（.lp-stock-meta-row 尾端、統計之後）', (() => {
+    const rowIdx = srowCrd.indexOf('lp-stock-meta-row');
+    const metaIdx = srowCrd.indexOf('class="lp-stock-meta"');
+    const metaClose = srowCrd.indexOf('</div>', srowCrd.indexOf('data-field="volume_weight"'));
     const crdIdx = srowCrd.indexOf('lp-stock-crd');
-    return volIdx > -1 && crdIdx > volIdx && srowCrd.includes('CRD 14NOV');
-  })(), srowCrd.slice(Math.max(0, srowCrd.indexOf('lp-stock-meta')), srowCrd.length - 8));
+    return rowIdx > -1 && metaIdx > rowIdx && metaClose > metaIdx && crdIdx > metaClose &&
+      srowCrd.includes('CRD 14NOV') &&
+      /\.lp-stock-meta-row \{[^}]*display: flex/.test(css) &&
+      /\.lp-stock-crd \{[^}]*margin-left: auto/.test(css) &&
+      /\.lp-stock-crd \{[^}]*align-self: flex-end/.test(css) &&
+      // 不可撞到左欄合計列的 .lp-stock-foot
+      !/\.lp-stock-meta-row \{[^}]*border-top/.test(css);
+  })(), srowCrd.slice(Math.max(0, srowCrd.indexOf('lp-stock-meta-row')), srowCrd.length - 8));
   check('5.24b 存貨沒有 CRD → 顯示「CRD —」', srow.includes('CRD —'));
   check('5.24c 存貨 CRD 以圓角按鈕顯示（button.lp-stock-crd）',
     /<button type="button" class="lp-stock-crd"[^>]*>CRD 14NOV<\/button>/.test(srowCrd) &&
@@ -620,6 +628,14 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
       layout.includes('id="lp-archived-count"') &&
       /\.lp-archive-toggle\.is-on \{/.test(css);
   })());
+  check('16.8a PLAN 搜尋框放在「🧱 PLANS」標題右邊（不再在頂部工具列）', (() => {
+    const layout = render.layoutHtml();
+    return /🧱 PLANS<\/span>\s*<span class="lp-col-head-search">\s*<input type="search" id="lp-plan-search"/.test(layout) &&
+      /<span class="lp-col-head-search">[\s\S]{0,300}id="lp-plan-count"/.test(layout) &&
+      !layout.includes('lp-toolbar-left') &&
+      /\.lp-col-head-search \{/.test(css) &&
+      /@media print \{[\s\S]*?#lp-plan-search/.test(css);
+  })());
   check('16.9 state 有 archivedPlans／showArchived＋archivedFlightPlans／archivedPlanById', (() => {
     stateMod.state.archivedPlans = [{ id: 41, type: 'flight' }, { id: 30, type: 'stock' }];
     const onlyFlight = stateMod.archivedFlightPlans();
@@ -662,6 +678,22 @@ global.localStorage = { getItem: () => null, setItem: noop, removeItem: noop };
     /p\.archived_at/.test(routesSrc));
   check('16.21 CSS 有位置清單封存樣式',
     css.includes('.lp-archived-place-tag') && css.includes('.lp-place-row.is-archived-place'));
+
+  // ===== 17. PLAN 標題列：雙擊展開／收合 =====
+  console.log('--- 17. PLAN 標題列雙擊 ---');
+  check('17.1 雙擊標題列＝展開／收合明細（與右上角箭頭同一段邏輯）',
+    interactionsSrc.includes('isHeadDoubleClick') &&
+    interactionsSrc.includes('HEAD_DBLCLICK_MS') &&
+    /case 'activate-plan'[\s\S]{0,400}isHeadDoubleClick\(planId\)[\s\S]{0,120}togglePlanDetail\(planId\)/.test(interactionsSrc));
+  check('17.2 雙擊以「同一張 PLAN＋時間差」判斷（第一次點擊重建 DOM，原生 dblclick 不會發）',
+    /lastHeadClick\.planId === planId/.test(interactionsSrc) &&
+    /now - lastHeadClick\.at <= HEAD_DBLCLICK_MS/.test(interactionsSrc) &&
+    /lastHeadClick = hit \?/.test(interactionsSrc));
+  check('17.3 箭頭按鈕與雙擊共用 togglePlanDetail（展開時載入明細）',
+    /async function togglePlanDetail\(planId\) \{[\s\S]{0,320}await loadDetail\(planId\)/.test(interactionsSrc) &&
+    /case 'toggle-plan':[\s\S]{0,160}togglePlanDetail\(/.test(interactionsSrc));
+  check('17.4 標題列不可選取文字（雙擊時不會反白）',
+    /\.lp-plan-head \{[^}]*user-select: none/.test(css));
 
   console.log(`\n===== 測試結束：${pass} 通過 / ${fail} 失敗 =====`);
   process.exitCode = fail ? 1 : 0;

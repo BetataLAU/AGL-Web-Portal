@@ -16,10 +16,6 @@ const HANDLING_FIELDS = [
 export function layoutHtml() {
   return `
     <div class="lp-toolbar">
-      <div class="lp-toolbar-left">
-        <input type="search" id="lp-plan-search" class="lp-input" placeholder="搜尋 Plan（Flight / Date / Owner）" autocomplete="off" />
-        <span class="lp-count" id="lp-plan-count"></span>
-      </div>
       <div class="lp-toolbar-right">
         <span class="lp-online" id="lp-online" title="線上使用者"></span>
         <span class="lp-conn" id="lp-conn" title="即時同步狀態">● 未連線</span>
@@ -58,6 +54,10 @@ export function layoutHtml() {
       <section class="lp-col lp-col-plans">
         <header class="lp-col-head">
           <span>🧱 PLANS</span>
+          <span class="lp-col-head-search">
+            <input type="search" id="lp-plan-search" class="lp-input" placeholder="搜尋 Plan（Flight / Date / Owner）" autocomplete="off" />
+            <span class="lp-count" id="lp-plan-count"></span>
+          </span>
           <span class="lp-col-head-tools">
             <span class="lp-count" id="lp-plans-total"></span>
             <button type="button" class="lp-btn lp-btn-sm lp-archive-toggle" id="lp-archive-toggle"
@@ -241,11 +241,13 @@ export function stockRow(item, plan, index, options = {}) {
           <span class="lp-stock-mawb" data-field="mawb" title="雙擊編輯">${item.mawb ? esc(item.mawb) : '<span class="lp-warn">缺 MAWB</span>'}${dup ? `<span class="lp-dup" title="${esc(duplicateMessage(item))}">⧉</span>` : ''}</span>
           <span class="lp-stock-client${client ? '' : ' lp-muted'}" data-field="client" title="雙擊編輯">${client ? esc(client) : '—'}</span>
         </div>
-        <div class="lp-stock-meta">
-          <span data-field="dest"><b>${esc(item.dest || '—')}</b></span>
-          <span data-field="pkgs_text">${pcsText(item)}</span>
-          <span class="num" data-field="gross_weight">G.W ${fmt(item.gross_weight, 2)}</span>
-          <span class="num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${view === 'cuft' ? 'cu.ft' : 'VOL'} ${fmt(volValue, 2)}</span>
+        <div class="lp-stock-meta-row">
+          <div class="lp-stock-meta">
+            <span data-field="dest"><b>${esc(item.dest || '—')}</b></span>
+            <span data-field="pkgs_text">${pcsText(item)}</span>
+            <span class="num" data-field="gross_weight">G.W ${fmt(item.gross_weight, 2)}</span>
+            <span class="num" data-field="${view === 'cuft' ? 'cuft' : 'volume_weight'}">${view === 'cuft' ? 'cu.ft' : 'VOL'} ${fmt(volValue, 2)}</span>
+          </div>
           <button type="button" class="lp-stock-crd" data-cargo-receipt title="CRD（Cargo Ready Date）">CRD ${esc(crdText || '—')}</button>
         </div>
       </div>

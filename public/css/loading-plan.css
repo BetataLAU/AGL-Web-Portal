@@ -6,8 +6,11 @@
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   justify-content: space-between; margin-bottom: 10px;
 }
-.lp-toolbar-left, .lp-toolbar-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.lp-toolbar-right { justify-content: flex-end; }
+/* 工具列只剩右側按鈕群（搜尋框已移到 PLANS 欄表頭）→ 自動靠右 */
+.lp-toolbar-right {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  justify-content: flex-end; margin-left: auto;
+}
 /* 體積顯示切換：兩個選項緊貼在一起（內側直角、只有最外側小圓角）；
    選中的字級放大、未選中的縮小，一眼看出目前是哪一個 */
 .lp-view-toggle {
@@ -47,7 +50,8 @@
   padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-color);
   background: var(--input-bg); color: var(--text-main); font-size: 0.82rem; min-width: 0;
 }
-#lp-plan-search { min-width: 260px; }
+/* PLAN 搜尋框住在「🧱 PLANS」表頭內：高度配合表頭縮小一級，欄位變窄時可縮 */
+#lp-plan-search { flex: 0 1 280px; min-width: 200px; max-width: 340px; padding: 4px 9px; font-size: .78rem; }
 .lp-count { font-size: 0.74rem; color: var(--text-muted); }
 .lp-online { font-size: 0.74rem; color: var(--text-muted); }
 .lp-online:empty { display: none; }
@@ -91,9 +95,12 @@
 }
 .lp-col-head {
   display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; flex-wrap: wrap;
   padding: 8px 12px; border-bottom: 1px solid var(--border-color);
   font-size: .8rem; font-weight: 700; color: var(--text-main);
 }
+/* PLAN 欄表頭：標題右邊緊貼搜尋框（搜尋中才顯示「符合 / 總數」筆數） */
+.lp-col-head-search { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
 /* PLAN 欄表頭右側：張數＋「🗄 封存」切換（封存的 PLAN 可 RECALL 取回） */
 .lp-col-head-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .lp-archive-toggle { font-size: .72rem; padding: 3px 9px; }
@@ -178,7 +185,8 @@
   border-top: 1px dashed var(--border-color); padding: 6px 10px;
   font-size: .72rem; color: var(--text-muted);
 }
-.lp-plan-head { padding: 8px 10px; cursor: pointer; }
+/* 點一下＝作用中、雙擊＝展開／收合 → 關閉文字選取，避免雙擊時標題被反白 */
+.lp-plan-head { padding: 8px 10px; cursor: pointer; user-select: none; }
 .lp-plan-title-row { display: flex; align-items: center; gap: 6px; }
 .lp-plan-title { font-weight: 800; font-size: .84rem; color: var(--text-main); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .lp-plan-badges { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
@@ -350,15 +358,21 @@
 .lp-stock-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
 .lp-stock-mawb { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lp-stock-client { color: var(--text-main); overflow-wrap: anywhere; }
+/* 存貨列的統計行＋CRD 同一列：CRD 固定貼齊每筆右下角 */
+.lp-stock-meta-row {
+  display: flex; align-items: flex-end; gap: 8px; min-width: 0;
+}
 .lp-stock-meta {
+  flex: 1 1 auto; min-width: 0;
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
   font-size: .68rem; color: var(--text-muted);
 }
 .lp-stock-meta > span { white-space: nowrap; }
 .lp-stock-meta .num { text-align: left; }
 .lp-stock-meta b { color: var(--text-main); font-weight: 700; }
-/* 存貨列的 CRD：圓角按鈕（chip，唯讀；VOL 的右邊） */
+/* 存貨列的 CRD：圓角 chip（唯讀）→ 每一筆的右下角 */
 .lp-stock-crd {
+  flex: none; margin-left: auto; align-self: flex-end;
   display: inline-flex; align-items: center;
   padding: 0 8px;
   border: 1px solid rgba(37, 99, 235, .35);
@@ -527,6 +541,8 @@
 @media print {
   .lp-toolbar, .lp-col-stock, .lp-context-menu, .lp-toast, .lp-online,
   .lp-archive-toggle, .lp-remark-pop, .lp-dim-editor { display: none !important; }
+  /* 搜尋框已移到 PLANS 表頭內 → 列印時和工具列一樣隱藏（含搜尋中的筆數） */
+  #lp-plan-search, #lp-plan-count { display: none !important; }
   .lp-layout { display: block; }
   .lp-col-plans { border: none; max-height: none; }
   .lp-plan-list { overflow: visible; padding: 0; }

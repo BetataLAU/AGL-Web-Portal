@@ -1614,6 +1614,28 @@ async function printPlans() {
   setTimeout(() => window.print(), 200);
 }
 
+// ===== PLAN 標題列：點一下＝設為作用中；雙擊＝展開／收合明細（與右上角 ▸／▾ 同效果）=====
+// 為什麼不用原生 dblclick：第一次點擊就會 renderAll() 重建 PLAN 清單，原節點被移除後
+// 瀏覽器不會再補發 dblclick，所以用「同一張 PLAN ＋ 時間差」自己判斷雙擊。
+const HEAD_DBLCLICK_MS = 400;
+let lastHeadClick = { planId: null, at: 0 };
+
+function isHeadDoubleClick(planId) {
+  const now = Date.now();
+  const hit = lastHeadClick.planId === planId && now - lastHeadClick.at <= HEAD_DBLCLICK_MS;
+  // 判斷成功就歸零：連點三下不會又展開／收合一次
+  lastHeadClick = hit ? { planId: null, at: 0 } : { planId, at: now };
+  return hit;
+}
+
+async function togglePlanDetail(planId) {
+  const opened = toggleExpanded(planId);
+  setActivePlan(planId);
+  notifyPlanChange();
+  if (opened) { try { await loadDetail(planId); } catch (err) { toast(err.message, 'error'); } }
+  renderAll();
+}
+
 // ===== 事件綁定 =====
 async function onClick(e) {
   hideRemark();
@@ -1681,17 +1703,17 @@ async function onClick(e) {
       }
       case 'toggle-plan': {
         const card = actionEl.closest('.lp-plan');
-        const id = Number(card.dataset.planId);
-        const opened = toggleExpanded(id);
-        setActivePlan(id);
-        notifyPlanChange();
-        if (opened) { try { await loadDetail(id); } catch (err) { toast(err.message, 'error'); } }
-        renderAll();
+        if (!card) return;
+        await togglePlanDetail(Number(card.dataset.planId));
         return;
       }
       case 'activate-plan': {
         const card = actionEl.closest('.lp-plan');
-        setActivePlan(Number(card.dataset.planId));
+        if (!card) return;
+        const planId = Number(card.dataset.planId);
+        // 雙擊整條標題列＝展開／收合明細（跟右上角 ▸／▾ 一樣）
+        if (isHeadDoubleClick(planId)) { await togglePlanDetail(planId); return; }
+        setActivePlan(planId);
         notifyPlanChange();
         renderAll();
         return;

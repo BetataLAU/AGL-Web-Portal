@@ -110,7 +110,8 @@ db.serialize(() => {
 
       const finish = () => {
         // 匯出 AUTOINCREMENT 計數器（sqlite_sequence），確保 id 不重疊
-        db.all('SELECT name, seq FROM sqlite_sequence', (seqErr, seqRows) => {
+        // sqlite_sequence 沒有 primary key：只取每張表最大的 seq，避免重複列在快照裡不斷累積
+        db.all('SELECT name, MAX(seq) AS seq FROM sqlite_sequence GROUP BY name ORDER BY name', (seqErr, seqRows) => {
           if (!seqErr && seqRows && seqRows.length) {
             lines.push('-- ===== sqlite_sequence (AUTOINCREMENT 計數器) =====');
             for (const r of seqRows) {

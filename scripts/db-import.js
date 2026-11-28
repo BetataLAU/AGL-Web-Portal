@@ -25,6 +25,38 @@ function splitSqlStatements(sql) {
     .map((s) => s + ';');
 }
 
+// sqlite_sequence 沒有 primary key → 快照內的 sequence 列會被原樣插入，
+// 而「建表＋顯式 id 插入」又會自動產生一份 → 每輪 import/export 來回就不斷複製列。
+// 這裡只保留每個資料表最大的 seq（＝最大 id），語句順序維持「其他語句 → sequence」。
+function dedupeSqlSequenceStatements(statements) {
+  const seqStmtRe = /^INSERT INTO "sqlite_sequence"/i;
+  const valueRe = /VALUES\s*\(\s*'((?:[^']|'')*)'\s*,\s*(\d+)\s*\)/i;
+  const others = [];
+  const best = new Map();
+  for (const stmt of statements) {
+    if (!seqStmtRe.test(stmt)) {
+      others.push(stmt);
+      continue;
+    }
+    const m = stmt.match(valueRe);
+    if (!m) {
+      continue; // 格式不符就略過（sequence 只是計數器，不影響主要資料）
+    }
+    const name = m[1].replace(/''/g, "'");
+    const seq = parseInt(m[2], 10);
+    const prev = best.get(name);
+    if (!prev || seq > prev.seq) {
+      best.set(name, { seq, stmt });
+    }
+  }
+  const deduped = [...others, ...[...best.values()].map((v) => v.stmt)];
+  const removed = statements.length - others.length - best.size;
+  if (removed > 0) {
+    console.log(`   ☑ sqlite_sequence 去重：移除 ${removed} 筆重複列（保留各表最大 seq）`);
+  }
+  return deduped;
+}
+
 if (!fs.existsSync(DUMP_PATH)) {
   console.error(`❌ 找不到快照檔: ${DUMP_PATH}`);
   console.error('   請先執行 npm run db:export 產生快照，或確認已從 git pull 取得 db/db-dump.sql。');
@@ -33,7 +65,7 @@ if (!fs.existsSync(DUMP_PATH)) {
 
 console.log(`📦 讀取快照: ${DUMP_PATH}`);
 const dumpSql = fs.readFileSync(DUMP_PATH, 'utf8');
-const statements = splitSqlStatements(dumpSql);
+const statements = dedupeSqlSequenceStatements(splitSqlStatements(dumpSql));
 
 if (!statements.length) {
   console.error('❌ 快照內容為空，無法匯入。');

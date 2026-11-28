@@ -99,12 +99,28 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 
 // 依序執行每個語句（先建表插資料，再處理 sqlite_sequence）
 let idx = 0;
+// 收尾：把 sqlite_sequence 壓成「每張表一列（最大 seq）」。
+// 「建表＋顯式 id 插入」會自動產生一份 sequence 列，與快照插入的列重複（sqlite_sequence 無 primary key）。
+const normalizeSequences = (done) => {
+  db.run(
+    'CREATE TEMP TABLE seq_fix AS SELECT name, MAX(seq) AS seq FROM sqlite_sequence GROUP BY name',
+    () => {
+      db.run('DELETE FROM sqlite_sequence', () => {
+        db.run('INSERT INTO sqlite_sequence (name, seq) SELECT name, seq FROM seq_fix', () => {
+          db.run('DROP TABLE seq_fix', () => done());
+        });
+      });
+    }
+  );
+};
 const runNext = () => {
   if (idx >= statements.length) {
-    db.close(() => {
-      console.log('\n✅ 匯入完成！資料庫已從快照重建。');
-      console.log('   下一步：重新啟動開發伺服器（npm start）。');
-      process.exit(0);
+    normalizeSequences(() => {
+      db.close(() => {
+        console.log('\n✅ 匯入完成！資料庫已從快照重建。');
+        console.log('   下一步：重新啟動開發伺服器（npm start）。');
+        process.exit(0);
+      });
     });
     return;
   }

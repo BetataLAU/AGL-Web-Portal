@@ -1,5 +1,5 @@
 // ===== 模擬裝板系統：入口模組 =====
-// 版面：① 新增貨物（左）｜② 俯視圖 ＋ 前視圖（右）｜底部摘要（重量 / 利用率 / 警示）
+// 版面：① 新增/修改貨物＋選項＋② 待裝（畫布左側窄欄，寬度自動貼合尺寸列）｜畫布在右（摘要／明細列在畫布下方）。
 // 純前端：無後端 API、無資料表；板型規格內建，使用中的狀態存 localStorage。
 // 掛載方式與 public/js/loading-plan.js 一致（type="module" ＋ window.setupLoadsimSection）。
 import {
@@ -63,7 +63,8 @@ function invalidateStageSize() {
 
 // ===== 畫布高度：吃掉視窗剩下的空間 =====
 // CSS 的 clamp() 只是後備值；這裡把「工具列實際佔用高度」算進去（工具列換行時會多一列），
-// 目標＝一進入頁面就看到最大畫布、摘要列剛好貼在視窗底部（明細列與 ①／② 表單在下方）。
+// 目標＝一進入頁面就看到最大畫布、摘要列剛好貼在視窗底部（左欄＝① 表單＋選項＋② 待裝、
+// 明細列在畫布下方）。
 const STAGE_MIN_HEIGHT = 360;
 const STAGE_MAX_HEIGHT = 1600;
 const STAGE_BOTTOM_GAP = 18;
@@ -206,7 +207,12 @@ export function setupLoadsimSection() {
     canvas: els.canvas,
     render: scheduleRender,
     notify: showToast,
-    getSpec: currentSpec
+    getSpec: currentSpec,
+    // 點一下畫布上的貨物（沒有拖動）→ 該件在畫布上閃爍（與點明細列一致）＋載入 ① 表單修改
+    onItemClick: id => {
+      highlightItem(id);
+      loadCargoGroupIntoForm(id);
+    }
   });
 
   loadsimOnChange(() => {
@@ -624,7 +630,8 @@ function dimRowEls() {
   return [{ node: null, len: els.len, wid: els.wid, hgt: els.hgt, weight: els.weight, qty: els.qty }];
 }
 
-function addDimRow() {
+function addDimRow(options) {
+  const focusFirst = !options || options.focus !== false;
   const container = els.dimRows;
   if (!container || typeof container.appendChild !== 'function') return null;
   const rows = dimRowEls();
@@ -655,7 +662,7 @@ function addDimRow() {
   container.appendChild(row);
   applyUnitLabels();
   const firstField = row.querySelector ? row.querySelector('.loadsim-dim-l') : null;
-  if (firstField && typeof firstField.focus === 'function') firstField.focus();
+  if (focusFirst && firstField && typeof firstField.focus === 'function') firstField.focus();
   return row;
 }
 
@@ -684,7 +691,8 @@ function readFormRows() {
   });
 }
 
-function resetFormRows() {
+function resetFormRows(options) {
+  const focusFirst = !options || options.focus !== false;
   const container = els.dimRows;
   if (container && typeof container.querySelectorAll === 'function') {
     const rows = Array.from(container.querySelectorAll('.loadsim-dim-row'));
@@ -693,7 +701,7 @@ function resetFormRows() {
   if (els.qty) els.qty.value = '1';
   if (els.name) els.name.value = '';
   if (els.mawb) els.mawb.value = '';
-  if (els.len && typeof els.len.focus === 'function') els.len.focus();
+  if (focusFirst && els.len && typeof els.len.focus === 'function') els.len.focus();
 }
 
 // ===== 明細列點選 → 把該筆（或整個 MAWB）載入表單修改 =====
@@ -714,7 +722,7 @@ function syncOptionInputs() {
   if (els.toggleItemMax) els.toggleItemMax.checked = loadsimState.itemMaxEnabled !== false;
 }
 
-function exitEditMode(resetForm) {
+function exitEditMode(resetForm, options) {
   const wasEditing = editing.ids.length > 0;
   editing = { ids: [] };
   if (els.addBtn) els.addBtn.textContent = '＋ 產生貨物';
@@ -723,7 +731,7 @@ function exitEditMode(resetForm) {
     els.editHint.hidden = true;
     els.editHint.textContent = '';
   }
-  if (resetForm && wasEditing) resetFormRows();
+  if (resetForm && wasEditing) resetFormRows(options);
 }
 
 function syncEditingState() {
@@ -737,12 +745,12 @@ function loadCargoIntoForm(ids) {
   if (!items.length) return;
   const unit = loadsimState.unit;
 
-  resetFormRows();
+  resetFormRows({ focus: false });
   const container = els.dimRows;
   if (container && typeof container.querySelectorAll === 'function') {
     let rows = dimRowEls();
     while (rows.length < items.length) {
-      addDimRow();
+      addDimRow({ focus: false });
       const next = dimRowEls();
       if (next.length === rows.length) break; // 無法新增（DOM stub）→ 避免無限迴圈
       rows = next;
@@ -834,7 +842,7 @@ function wireForm() {
         name: nameValue,
         mawb: mawbValue
       });
-      exitEditMode(true);
+      exitEditMode(true, { focus: false });
       const moved = loadsimSettleBoard({
         requireSupport: loadsimState.requireSupport,
         supportMinPct: loadsimState.supportMinPct,
@@ -865,7 +873,8 @@ function wireForm() {
 
     const mawbText = mawbValue ? `（MAWB ${esc(mawbValue)}）` : '';
     showToast(`已產生 ${created.length} 件貨物${mawbText} → 拖到板內，或點一下自動放置`, 'ok');
-    resetFormRows();
+    // 送出後不把游標放回表單（使用者要再輸入時會自己點輸入框）
+    resetFormRows({ focus: false });
   });
 }
 
@@ -1060,6 +1069,8 @@ function hideTooltip() {
 // ===== 畫布下方的「貨物明細」列（點一下 → 對應貨物閃爍）=====
 // 表頭的小圖示＝排序；每列右端＝刪除單筆尺寸／刪除整個 MAWB。
 // 同一個 MAWB 有多種尺寸時：第一列是 parent（顯示 MAWB），其餘是 child（縮排）。
+// 畫布上的閃爍時間（毫秒）：點明細列或畫布貨物 → 琥珀色外框閃爍 5 秒
+const HIGHLIGHT_MS = 5000;
 let highlight = { id: null, start: 0, end: 0, raf: 0 };
 let lineSort = { key: 'id', dir: 'asc' };
 
@@ -1150,7 +1161,7 @@ function deleteMawbWithSettle(mawb) {
   settleAfterRemoval(ids.length);
 }
 
-// 讓某件貨物在畫布上「弱弱地閃爍」一段時間（1.8 秒）
+// 讓某件貨物在畫布上「弱弱地閃爍」一段時間（5 秒）
 function highlightItem(id) {
   const item = loadsimGetItem(id);
   if (!item) return;
@@ -1167,21 +1178,26 @@ function highlightItem(id) {
   }
   loadsimSelect(id);
   const t = nowMs();
-  highlight = { id, start: t, end: t + 1800, raf: highlight.raf, frames: 0 };
-  if (!highlight.raf) pulseTick();
+  // 重新開始閃爍：先取消上一個尚未執行的 frame，避免兩個 pulse 迴圈同時跑
+  if (highlight.raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(highlight.raf);
+  highlight = { id, start: t, end: t + HIGHLIGHT_MS, raf: 0, frames: 0 };
+  pulseTick();
 }
 
 function pulseTick() {
   const t = nowMs();
   highlight.frames = (highlight.frames || 0) + 1;
   // frames 上限是保險：背景分頁／測試環境的 rAF 可能不推進時間
-  if (!highlight.id || t >= highlight.end || highlight.frames > 150) {
+  // （5 秒 × 250fps＝1250 frames；正常 60–240Hz 會先被時間條件停掉）
+  if (!highlight.id || t >= highlight.end || highlight.frames > HIGHLIGHT_MS / 4) {
     highlight = { id: null, start: 0, end: 0, raf: 0, frames: 0 };
     scheduleRender();
     return;
   }
-  highlight.raf = requestAnimationFrame(pulseTick);
+  // 先畫這一幀（此時 highlight.id 還在），再排下一個 frame；
+  // 反過來寫的話，同步 rAF（測試環境）會等迴圈跑完才 render → 看不到閃爍。
   scheduleRender();
+  highlight.raf = requestAnimationFrame(pulseTick);
 }
 
 function highlightPhase() {

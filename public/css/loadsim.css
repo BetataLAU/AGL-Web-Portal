@@ -37,6 +37,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  /* 靠右：.card-header-flex 是 space-between＋wrap，工具列換行後仍貼齊右緣 */
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 /* ===== 標題列：說明文字縮小並接在標題後面（同一行）===== */
@@ -196,7 +199,7 @@
   color: #ffffff;
 }
 
-/* ===== 主體：左輸入 / 右畫布 ===== */
+/* ===== 主體：上方「左 ① 表單｜右 畫布」，下方 ② 待裝 ===== */
 .loadsim-body {
   display: flex;
   flex-direction: column;
@@ -205,7 +208,15 @@
   margin-top: 14px;
 }
 
-/* 畫布 + 明細列（畫布放到最大） */
+/* 左：① 新增/修改貨物（窄欄）｜右：畫布＋摘要＋明細列 */
+.loadsim-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 畫布 + 明細列（吃掉 ① 表單以外的所有寬度） */
 .loadsim-view {
   flex: 1 1 auto;
   min-width: 0;
@@ -214,13 +225,7 @@
   gap: 8px;
 }
 
-/* ① 新增貨物 / ② 待裝：在畫布下方並排 */
-.loadsim-bottom {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
+/* 左欄容器（① 表單＋選項＋② 待裝） */
 .loadsim-side {
   flex: 1 1 0;
   min-width: 0;
@@ -229,7 +234,47 @@
   gap: 10px;
 }
 
-.loadsim-side-pending .loadsim-pending {
+/* ① 新增/修改貨物：畫布左邊的窄欄（寬度＝尺寸列實際內容寬度，右端不留空白） */
+.loadsim-side-form {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+  gap: 8px;
+}
+
+/* 數字輸入框：不顯示上下箭頭（改用打字／鍵盤方向鍵），輸入框可以更窄 */
+.loadsim-form input[type="number"]::-webkit-outer-spin-button,
+.loadsim-form input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.loadsim-form input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 窄欄裡的選項（嚴格模式／支撐／上限…）：字級縮一級，數值＋單位綁在一起換行 */
+.loadsim-side-form .loadsim-options {
+  font-size: 0.72rem;
+}
+
+.loadsim-check-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loadsim-side-form .loadsim-check-inline input[type="number"] {
+  width: 62px;
+}
+
+/* ② 待裝：接在 ① 選項下方（同一個左欄；`#loadsim-pending` 沒有貨物時顯示 `.loadsim-empty`） */
+.loadsim-step-pending {
+  margin-top: 2px;
+}
+
+.loadsim-side-form .loadsim-pending {
   max-height: 168px;
 }
 
@@ -308,6 +353,61 @@
   font-style: normal;
   font-size: 0.68rem;
   color: var(--text-muted);
+}
+
+/* ===== 窄欄（畫布左側 ① 表單）的覆寫：必須放在上面基礎 .loadsim-form 規則之後 ===== */
+/* 表單內距／間距縮小，輸入框才排得下 */
+.loadsim-side-form .loadsim-form {
+  padding: 7px 8px;
+  gap: 5px;
+}
+
+.loadsim-side-form .loadsim-form input {
+  box-sizing: border-box;
+  padding: 3px 4px;
+  font-size: 0.78rem;
+}
+
+/* 尺寸列固定一行：長 寬 高 重量 件數 ＋ 新增（✕） */
+.loadsim-side-form .loadsim-dim-row {
+  flex-wrap: nowrap;
+  gap: 3px;
+}
+
+/* 拿掉上下箭頭後：長/寬/高 38px 剛好放 3 位數、重量 46px、件數 38px */
+.loadsim-side-form .loadsim-dim-l,
+.loadsim-side-form .loadsim-dim-w,
+.loadsim-side-form .loadsim-dim-h {
+  width: 38px;
+}
+
+.loadsim-side-form .loadsim-dim-kg {
+  width: 46px;
+}
+
+.loadsim-side-form .loadsim-dim-qty {
+  width: 38px;
+}
+
+.loadsim-side-form .loadsim-form label {
+  gap: 2px;
+  font-size: 0.68rem;
+}
+
+.loadsim-side-form .loadsim-form label em {
+  font-size: 0.62rem;
+}
+
+/* 窄欄裡的名稱／MAWB 輸入框填滿整行（原本 320px 上限會在右邊留下空白） */
+.loadsim-side-form .loadsim-form-name input,
+.loadsim-side-form .loadsim-form-mawb input {
+  max-width: none;
+}
+
+.loadsim-side-form .loadsim-dim-add,
+.loadsim-side-form .loadsim-dim-del {
+  padding: 2px 5px;
+  font-size: 0.66rem;
 }
 
 /* 尺寸列尾端：再加一列 / 移除這一列 */
@@ -1207,15 +1307,18 @@
 
 /* ===== 響應式 ===== */
 @media (max-width: 1100px) {
-  .loadsim-bottom {
+  /* 窄螢幕：左欄（① 表單＋② 待裝）改回畫布上方、全寬 */
+  .loadsim-main {
     flex-direction: column;
   }
 
-  .loadsim-side {
+  .loadsim-side-form {
     flex: 1 1 auto;
     width: 100%;
+    max-width: none;
   }
 
+  /* ② 待裝的卡片改成橫向排列（全寬時比較好讀） */
   .loadsim-pending {
     flex-direction: row;
     flex-wrap: wrap;
@@ -1233,6 +1336,10 @@
 }
 
 @media (max-width: 640px) {
+  /* 手機：尺寸列一行放不下 → 允許換行（桌機固定一行） */
+  .loadsim-side-form .loadsim-dim-row {
+    flex-wrap: wrap;
+  }
   .loadsim-dim-row input {
     width: 52px;
   }

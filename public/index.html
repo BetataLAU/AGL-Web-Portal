@@ -438,24 +438,8 @@
           </div>
 
           <div class="loadsim-body">
-            <div class="loadsim-view">
-              <div class="loadsim-stage">
-                <canvas id="loadsim-canvas" aria-label="裝板模擬 3D 圖（可切換 2D 剖面）"></canvas>
-                <p class="loadsim-hint" id="loadsim-hint" data-mode="3d">
-                  <span class="loadsim-hint-3d">拖曳＝移動（會自動疊在下方貨物上）｜選取後 ↑↓←→＝往畫面上／下／左／右移動 1 單位（3D 依目前視角）｜拖到板後「暫存區①」、板前「暫存區②」或角落「暫存區③」＝暫時移出板外｜雙擊／R＝旋轉｜空白處或右鍵拖曳＝轉視角｜滾輪＝縮放</span>
-                  <span class="loadsim-hint-2d">俯視圖：拖曳＝前後左右（可拖到暫存區①／②／③）｜前視圖：上下拖曳＝調高度｜雙擊／R＝旋轉</span>
-                </p>
-                <div id="loadsim-tooltip" class="loadsim-tooltip" hidden></div>
-                <div id="loadsim-toast" class="loadsim-toast" aria-live="polite"></div>
-              </div>
-              <!-- 摘要（已裝／待裝件數、重量、超重與出界警示）：夾在畫布與明細列之間 -->
-              <div id="loadsim-summary-top" class="loadsim-summary loadsim-summary-top"></div>
-              <!-- 每件貨物一行明細（點一下 → 畫布上閃爍標示） -->
-              <div id="loadsim-item-lines" class="loadsim-item-lines" aria-label="貨物明細"></div>
-            </div>
-
-            <!-- ① 新增/修改貨物 / ② 待裝：移到畫布下方，讓畫布可以放到最大 -->
-            <div class="loadsim-bottom">
+            <div class="loadsim-main">
+              <!-- ① 新增/修改貨物：放在畫布左邊的窄欄，表單收窄讓畫布佔最大面積 -->
               <aside class="loadsim-side loadsim-side-form">
                 <h3 class="loadsim-step">① 新增/修改貨物</h3>
                 <form id="loadsim-item-form" class="loadsim-form">
@@ -487,19 +471,34 @@
                   <label class="loadsim-check"><input type="checkbox" id="loadsim-require-support" checked /> 不可懸空（下方要有支撐）</label>
                   <label class="loadsim-check loadsim-check-inline">
                     <input type="checkbox" id="loadsim-support-area-enabled" checked /> 上貨需壓在下方貨物
-                    <input type="number" id="loadsim-support-min" min="0" max="100" step="5" value="50" /> % 面積
+                    <span class="loadsim-check-value"><input type="number" id="loadsim-support-min" min="0" max="100" step="5" value="50" /> % 面積</span>
                   </label>
                   <label class="loadsim-check loadsim-check-inline">
                     <input type="checkbox" id="loadsim-item-max-enabled" checked /> 單件重量上限
-                    <input type="number" id="loadsim-item-max" min="0" step="1" value="1000" /> kg
+                    <span class="loadsim-check-value"><input type="number" id="loadsim-item-max" min="0" step="1" value="1000" /> kg</span>
                   </label>
                 </div>
-              </aside>
 
-              <aside class="loadsim-side loadsim-side-pending">
-                <h3 class="loadsim-step">② 拖進板內 <small>（或點一下自動放）</small></h3>
+                <!-- ② 待裝：接在選項下方（沒有待裝貨物時，JS 會在 #loadsim-pending 內顯示 .loadsim-empty） -->
+                <h3 class="loadsim-step loadsim-step-pending">② 拖進板內 <small>（或點一下自動放）</small></h3>
                 <div id="loadsim-pending" class="loadsim-pending"></div>
               </aside>
+
+              <div class="loadsim-view">
+                <div class="loadsim-stage">
+                  <canvas id="loadsim-canvas" aria-label="裝板模擬 3D 圖（可切換 2D 剖面）"></canvas>
+                  <p class="loadsim-hint" id="loadsim-hint" data-mode="3d">
+                    <span class="loadsim-hint-3d">拖曳＝移動（會自動疊在下方貨物上）｜點一下＝把這件貨載入 ① 表單修改｜選取後 ↑↓←→＝往畫面上／下／左／右移動 1 單位（3D 依目前視角）｜拖到板後「暫存區①」、板前「暫存區②」或角落「暫存區③」＝暫時移出板外｜雙擊／R＝旋轉｜空白處或右鍵拖曳＝轉視角｜滾輪＝縮放</span>
+                    <span class="loadsim-hint-2d">俯視圖：拖曳＝前後左右（可拖到暫存區①／②／③）｜前視圖：上下拖曳＝調高度｜點一下＝把這件貨載入 ① 表單修改｜雙擊／R＝旋轉</span>
+                  </p>
+                  <div id="loadsim-tooltip" class="loadsim-tooltip" hidden></div>
+                  <div id="loadsim-toast" class="loadsim-toast" aria-live="polite"></div>
+                </div>
+                <!-- 摘要（已裝／待裝件數、重量、超重與出界警示）：夾在畫布與明細列之間 -->
+                <div id="loadsim-summary-top" class="loadsim-summary loadsim-summary-top"></div>
+                <!-- 每件貨物一行明細（點一下 → 畫布上閃爍標示） -->
+                <div id="loadsim-item-lines" class="loadsim-item-lines" aria-label="貨物明細"></div>
+              </div>
             </div>
           </div>
 

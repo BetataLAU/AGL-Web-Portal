@@ -63,6 +63,7 @@ class FakeEl {
     this.listeners = new Map();
     this.children = [];
     this.classSet = new Set();
+    this.focused = false;
     this.classList = {
       add: cls => this.classSet.add(cls),
       remove: cls => this.classSet.delete(cls),
@@ -95,7 +96,8 @@ class FakeEl {
   appendChild(child) { this.children.push(child); return child; }
   setPointerCapture() {}
   releasePointerCapture() {}
-  focus() {}
+  focus() { this.focused = true; }
+  blur() { this.focused = false; }
   closest() { return null; }
   getBoundingClientRect() { return { left: 0, top: 0, width: 900, height: 600, right: 900, bottom: 600 }; }
   getContext() { return makeCtx(); }
@@ -836,6 +838,11 @@ function submitItemForm() {
     indexHtml.includes('class="pill btn-primary loadsim-form-add"') &&
     !indexHtml.includes('loadsim-form-wide'));
 
+  // 25.4 工具列靠右（.card-header-flex 是 space-between＋wrap，換行後仍要貼右）
+  const loadsimCssSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'loadsim.css'), 'utf8');
+  check('25.4 工具列（.loadsim-toolbar）靠右：margin-left:auto',
+    /\.loadsim-toolbar\s*\{[^}]*margin-left:\s*auto/.test(loadsimCssSrc));
+
   // ===== 26. 出界貨物：紅色區塊「弱弱地閃爍」＋標示出界多少 =====
   const overSpec = specModule.loadsimGetSpec('Q7-00', null);
   const overItem = {
@@ -1251,6 +1258,94 @@ function submitItemForm() {
   check('28.6b 修改完成 → 回到新增模式（按鈕文字復原、取消修改隱藏）',
     String(getEl('loadsim-btn-add').textContent).includes('產生貨物') &&
     getEl('loadsim-btn-cancel-edit').hidden === true);
+
+  // 28.7 點畫布上的貨物（沒有拖動）→ 把該件載入 ① 表單修改
+  const canvasPickItem = {
+    id: 73, mawb: 'M3', name: 'CanvasPick', dims: { l: 66, w: 46, h: 36 },
+    weight: 14, color: '#0ea5e9', orient: 0, placed: true, staged: false, x: 120, y: 0, z: -40
+  };
+  stateModule.loadsimState.items = [canvasPickItem];
+  stateModule.loadsimState.selectedId = null;
+  renderModule.loadsimSetViewMode('3d');
+  renderModule.loadsimResetView();
+  renderModule.loadsimDraw({ ...drawOptions, spec: pmcSpec, items: stateModule.loadsimState.items });
+  const cpExt = geomModule.loadsimExtents(canvasPickItem);
+  const cpPos = renderModule.loadsimProjectPoint({
+    x: (cpExt.x0 + cpExt.x1) / 2,
+    y: (cpExt.y0 + cpExt.y1) / 2,
+    z: (cpExt.z0 + cpExt.z1) / 2
+  });
+  const cpHit = cpPos ? renderModule.loadsimHitTest(cpPos.x, cpPos.y) : null;
+  if (cpHit && cpPos) {
+    // 先把所有欄位的 focus 狀態歸零，確認「載入表單」不會自動搶焦點
+    ['loadsim-len', 'loadsim-wid', 'loadsim-hgt', 'loadsim-weight', 'loadsim-qty',
+      'loadsim-item-name', 'loadsim-item-mawb'].forEach(fieldId => {
+      getEl(fieldId).focused = false;
+    });
+    // 模擬「點 canvas 前游標還在長度輸入框」→ pointerdown 要主動 blur
+    const focusedBefore = getEl('loadsim-len');
+    focusedBefore.tagName = 'INPUT'; // fake DOM 預設是 div；實瀏覽器是 <input>
+    focusedBefore.focused = true;
+    globalThis.document.activeElement = focusedBefore;
+    const ctxFrom = ctxSets.length;
+    getEl('loadsim-canvas').fire('pointerdown', {
+      button: 0, pointerType: 'mouse', clientX: cpPos.x, clientY: cpPos.y,
+      pointerId: 40, preventDefault() {}
+    });
+    getEl('loadsim-canvas').fire('pointerup', { pointerId: 40 });
+    check('28.7 點畫布上的貨物 → 載入尺寸／重量／名稱／MAWB 到 ① 表單',
+      getEl('loadsim-len').value === '66' && getEl('loadsim-wid').value === '46' &&
+      getEl('loadsim-hgt').value === '36' && getEl('loadsim-weight').value === '14' &&
+      getEl('loadsim-item-name').value === 'CanvasPick' && getEl('loadsim-item-mawb').value === 'M3',
+      `${getEl('loadsim-len').value}x${getEl('loadsim-wid').value}x${getEl('loadsim-hgt').value} / ${getEl('loadsim-item-mawb').value}`);
+    const flashSets = ctxSets.slice(ctxFrom);
+    check('28.7a 點 canvas 貨物 → 該件在畫布上閃爍（琥珀色外框 rgba(250, 204, 21)）',
+      stateModule.loadsimState.selectedId === 73 &&
+      flashSets.some(set => set.prop === 'strokeStyle' &&
+        String(set.value).startsWith('rgba(250, 204, 21')),
+      `strokeSets=${flashSets.filter(set => set.prop === 'strokeStyle').length}`);
+    const loadsimJsSrc = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'loadsim.js'), 'utf8');
+    check('28.7f 閃爍時間 = 5 秒（HIGHLIGHT_MS = 5000）',
+      /const HIGHLIGHT_MS = 5000;/.test(loadsimJsSrc) &&
+      /end: t \+ HIGHLIGHT_MS/.test(loadsimJsSrc));
+    check('28.7b 點一下不會移動貨物、表單進入修改模式（提示 #73）',
+      stateModule.loadsimState.items[0].x === 120 && stateModule.loadsimState.items[0].z === -40 &&
+      String(getEl('loadsim-btn-add').textContent).includes('儲存修改') &&
+      getEl('loadsim-btn-cancel-edit').hidden === false &&
+      String(getEl('loadsim-edit-hint').textContent).includes('#73'),
+      String(getEl('loadsim-edit-hint').textContent));
+    check('28.7d 點 canvas 會把原本的輸入焦點移開、也不會自動 focus 任何輸入框（由使用者自己點）',
+      ['loadsim-len', 'loadsim-wid', 'loadsim-hgt', 'loadsim-weight', 'loadsim-qty',
+        'loadsim-item-name', 'loadsim-item-mawb'].every(fieldId => getEl(fieldId).focused === false),
+      ['loadsim-len', 'loadsim-wid', 'loadsim-hgt', 'loadsim-weight', 'loadsim-qty',
+        'loadsim-item-name', 'loadsim-item-mawb'].filter(fieldId => getEl(fieldId).focused).join(','));
+    globalThis.document.activeElement = null;
+
+    getEl('loadsim-len').value = '77';
+    getEl('loadsim-weight').value = '16';
+    submitItemForm();
+    const savedByCanvas = stateModule.loadsimState.items;
+    check('28.7c 點畫布載入後按「儲存修改」→ 更新同一件（不新增）',
+      savedByCanvas.length === 1 && savedByCanvas[0].id === 73 &&
+      savedByCanvas[0].dims.l === 77 && savedByCanvas[0].weight === 16,
+      savedByCanvas.map(item => `${item.id}:${item.dims.l}/${item.weight}`).join(' '));
+    check('28.7e 按「儲存修改」後表單不取得游標焦點（不自動 focus 長度欄）',
+      getEl('loadsim-len').focused === false);
+
+    // 28.8 按「＋ 產生貨物」（新增模式）後也不把游標放回表單
+    const idsBeforeAdd = stateModule.loadsimState.items.map(item => item.id);
+    getEl('loadsim-len').focused = false;
+    submitItemForm();
+    check('28.8 按「＋ 產生貨物」後表單不取得游標焦點',
+      getEl('loadsim-len').focused === false && getEl('loadsim-item-name').focused === false,
+      `len=${getEl('loadsim-len').focused} name=${getEl('loadsim-item-name').focused}`);
+    // 還原剛剛新增的貨物，避免影響後續測試
+    stateModule.loadsimState.items = stateModule.loadsimState.items
+      .filter(item => idsBeforeAdd.includes(item.id));
+    stateModule.loadsimEmit();
+  } else {
+    check('28.7 點畫布上的貨物 → 載入 ① 表單', false, '取不到命中點');
+  }
 
   // ===== 29. 出界「界線」／hover 邊長／tooltip CTN#／明細列 CBM =====
   // 29.1 geometry：出界的「界的那一條邊」＝貨物剖面與超出平面的交集線段

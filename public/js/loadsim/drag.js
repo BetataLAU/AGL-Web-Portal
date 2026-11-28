@@ -25,7 +25,9 @@ let deps = {
   canvas: null,
   render: () => {},
   notify: () => {},
-  getSpec: () => null
+  getSpec: () => null,
+  // 點一下（沒有拖動）畫布上的貨物 → 由 loadsim.js 載入 ① 表單修改
+  onItemClick: () => {}
 };
 let session = null;
 let hoverId = null;
@@ -111,8 +113,22 @@ function pointerPos(ev, rect) {
   return { x: ev.clientX - box.left, y: ev.clientY - box.top };
 }
 
+// 畫布互動時把焦點從輸入框移開：pointerdown 會 preventDefault（不讓畫布被拖曳選取），
+// 瀏覽器因此不會自動 blur；使用者要修改輸入時會自己點輸入框，點畫布不應留游標在表單。
+function blurActiveInput() {
+  if (typeof document === 'undefined') return;
+  const active = document.activeElement;
+  if (!active) return;
+  const tag = String(active.tagName || '').toUpperCase();
+  if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') &&
+    typeof active.blur === 'function') {
+    active.blur();
+  }
+}
+
 // ===== 畫布內拖曳 =====
 function handlePointerDown(ev) {
+  blurActiveInput();
   const rect = canvasRectOf();
   const pos = pointerPos(ev, rect);
   if (!pos) return;
@@ -289,6 +305,8 @@ function handlePointerUp(ev) {
 
   if (!finished.moved) {
     // 只是「點一下選取」：不要移動貨物、也不要寫入復原紀錄
+    // 另外把這件貨的資料載入 ① 表單（方便直接修改／儲存）
+    if (typeof deps.onItemClick === 'function') deps.onItemClick(finished.itemId);
     deps.render();
     return;
   }
